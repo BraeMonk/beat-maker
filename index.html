@@ -930,6 +930,40 @@ const fxConfig = {
 // ========================================
 
 function initAudio() {
+  // Create effects chain first
+  effects.reverb = new Tone.Reverb(2);
+  effects.delay = new Tone.FeedbackDelay('8n', 0.4);
+  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.5).start();
+  effects.distortion = new Tone.Distortion(0.5);
+  effects.filter = new Tone.Filter(1000, 'lowpass');
+  effects.phaser = new Tone.Phaser({
+    frequency: 0.5,
+    octaves: 3,
+    baseFrequency: 350
+  });
+  
+  // Set all effects to dry initially
+  Object.values(effects).forEach(fx => {
+    if (fx.wet) fx.wet.value = 0;
+  });
+  
+  // Create master channel for effects
+  const effectsChannel = new Tone.Gain(1);
+  
+  // Chain effects
+  effectsChannel.chain(
+    effects.filter,
+    effects.distortion,
+    effects.chorus,
+    effects.phaser,
+    effects.delay,
+    effects.reverb,
+    Tone.Destination
+  );
+  
+  // Master compressor
+  const compressor = new Tone.Compressor(-18, 3).toDestination();
+  
   // Create samplers for each instrument
   Object.keys(instruments).forEach(inst => {
     const instData = instruments[inst];
@@ -942,12 +976,12 @@ function initAudio() {
           octaves: 8,
           oscillator: { type: 'sine' },
           envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
-        }).toDestination();
+        });
       } else if (inst === 'snare' || inst === 'clap') {
         synths[inst] = new Tone.NoiseSynth({
           noise: { type: 'white' },
           envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
-        }).toDestination();
+        });
       } else if (inst === 'hihat') {
         synths[inst] = new Tone.MetalSynth({
           frequency: 200,
@@ -956,14 +990,14 @@ function initAudio() {
           modulationIndex: 32,
           resonance: 4000,
           octaves: 1.5
-        }).toDestination();
+        });
       } else {
         synths[inst] = new Tone.MembraneSynth({
           pitchDecay: 0.05,
           octaves: 6,
           oscillator: { type: 'sine' },
           envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
-        }).toDestination();
+        });
       }
     } else if (instData.type === 'melodic') {
       // Melodic synthesis
@@ -989,7 +1023,7 @@ function initAudio() {
             baseFrequency: 100,
             octaves: 2.5
           }
-        }).toDestination();
+        });
         synths[inst].volume.value = instData.volume;
       } else if (inst === 'keys') {
         synths[inst] = new Tone.PolySynth(Tone.Synth, {
@@ -1000,7 +1034,7 @@ function initAudio() {
             sustain: 0.4,
             release: 1.2
           }
-        }).toDestination();
+        });
         synths[inst].volume.value = instData.volume;
       } else if (inst === 'lead') {
         synths[inst] = new Tone.Synth({
@@ -1024,26 +1058,14 @@ function initAudio() {
             baseFrequency: 300,
             octaves: 4
           }
-        }).toDestination();
+        });
         synths[inst].volume.value = instData.volume;
       }
     }
+    
+    // Connect all instruments through effects channel
+    synths[inst].connect(effectsChannel);
   });
-  
-  // Create effects
-  effects.reverb = new Tone.Reverb(2).toDestination();
-  effects.delay = new Tone.FeedbackDelay('8n', 0.4).toDestination();
-  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.5).toDestination().start();
-  effects.distortion = new Tone.Distortion(0.5).toDestination();
-  effects.filter = new Tone.Filter(1000, 'lowpass').toDestination();
-  effects.phaser = new Tone.Phaser({
-    frequency: 0.5,
-    octaves: 3,
-    baseFrequency: 350
-  }).toDestination();
-  
-  // Master compressor
-  const compressor = new Tone.Compressor(-18, 3).toDestination();
   
   // Setup sequencer
   Tone.Transport.bpm.value = state.bpm;
@@ -1769,6 +1791,7 @@ function renderMixer() {
   });
   
   // Event listeners
+  // Event listeners
   grid.addEventListener('click', e => {
     if (e.target.classList.contains('channel-btn')) {
       const inst = e.target.dataset.inst;
@@ -1789,19 +1812,32 @@ function renderMixer() {
     if (e.target.type === 'range') {
       const inst = e.target.dataset.inst;
       const param = e.target.dataset.param;
-      const value = parseInt(e.target.value);
+      const value = parseFloat(e.target.value);
       
       instruments[inst][param] = value;
       
       if (param === 'volume' && synths[inst]) {
         synths[inst].volume.value = value;
       } else if (param === 'pan' && synths[inst]) {
-        const panner = new Tone.Panner(value / 100).toDestination();
-        synths[inst].disconnect();
-        synths[inst].connect(panner);
+        // Pan needs to be between -1 and 1
+        const panValue = value / 100;
+        if (!instruments[inst].panner) {
+          instruments[inst].panner = new Tone.Panner(panValue).toDestination();
+          synths[inst].disconnect();
+          synths[inst].connect(instruments[inst].panner);
+        } else {
+          instruments[inst].panner.pan.value = panValue;
+        }
       }
       
-      renderMixer();
+      // Update display
+      const parentControl = e.target.closest('.param-control');
+      const valueDisplay = parentControl.querySelector('.param-value');
+      if (param === 'volume') {
+        valueDisplay.textContent = value + 'dB';
+      } else if (param === 'pan') {
+        valueDisplay.textContent = (value > 0 ? 'R' : value < 0 ? 'L' : 'C') + Math.abs(value);
+      }
     }
   });
 }
@@ -1851,13 +1887,14 @@ function renderFX() {
   });
   
   // Event listeners
+  // Event listeners
   grid.addEventListener('click', e => {
     if (e.target.classList.contains('fx-toggle')) {
       const fx = e.target.dataset.fx;
       fxConfig[fx].active = !fxConfig[fx].active;
       
-      if (effects[fx]) {
-        effects[fx].wet.value = fxConfig[fx].active ? 1 : 0;
+      if (effects[fx] && effects[fx].wet) {
+        effects[fx].wet.value = fxConfig[fx].active ? 0.5 : 0;
       }
       
       renderFX();
@@ -1868,19 +1905,56 @@ function renderFX() {
     if (e.target.type === 'range') {
       const fx = e.target.dataset.fx;
       const param = e.target.dataset.param;
-      const value = parseInt(e.target.value) / 50;
+      const rawValue = parseInt(e.target.value);
+      
+      let value;
+      // Map slider values appropriately for each parameter
+      if (param === 'decay') {
+        value = rawValue / 25; // 0-4
+      } else if (param === 'wet') {
+        value = rawValue / 100; // 0-1
+      } else if (param === 'time') {
+        value = ['16n', '8n', '4n', '2n'][Math.floor(rawValue / 25)];
+      } else if (param === 'feedback') {
+        value = rawValue / 100; // 0-1
+      } else if (param === 'frequency') {
+        value = rawValue / 10; // 0-10
+      } else if (param === 'depth' || param === 'amount') {
+        value = rawValue / 100; // 0-1
+      } else if (param === 'octaves') {
+        value = Math.floor(rawValue / 20) + 1; // 1-6
+      } else {
+        value = rawValue / 50;
+      }
       
       fxConfig[fx][param] = value;
       
-      if (effects[fx] && effects[fx][param]) {
-        effects[fx][param].value = value;
+      // Update actual effect parameter
+      if (effects[fx]) {
+        if (param === 'decay' && effects[fx].decay) {
+          effects[fx].decay = value;
+        } else if (param === 'wet' && effects[fx].wet) {
+          effects[fx].wet.value = value;
+        } else if (param === 'time' && effects[fx].delayTime) {
+          effects[fx].delayTime.value = value;
+        } else if (param === 'feedback' && effects[fx].feedback) {
+          effects[fx].feedback.value = value;
+        } else if (param === 'frequency' && effects[fx].frequency) {
+          effects[fx].frequency.value = value;
+        } else if (param === 'depth' && effects[fx].depth) {
+          effects[fx].depth.value = value;
+        } else if (param === 'amount' && effects[fx].distortion) {
+          effects[fx].distortion = value;
+        } else if (param === 'octaves' && effects[fx].octaves) {
+          effects[fx].octaves = value;
+        }
       }
       
       renderFX();
     }
   });
 }
-
+  
 // ========================================
 // Harmony
 // ========================================
@@ -2236,49 +2310,227 @@ function updateAllDisplays() {
 // ========================================
 
 async function exportAudio() {
-  alert('🎵 Export started! Recording will begin...\n\nThis will record your beat for ' + state.duration + ' minutes.\n\nClick OK to start recording.');
+  // Check if there's any active pattern
+  let hasActiveNotes = false;
+  Object.keys(patterns).forEach(inst => {
+    if (patterns[inst].some(step => step.active)) {
+      hasActiveNotes = true;
+    }
+  });
+  
+  if (!hasActiveNotes) {
+    alert('❌ No active notes! Please create a pattern first.');
+    return;
+  }
+  
+  const exportDuration = state.duration * 60; // Convert to seconds
+  
+  alert('🎵 Rendering audio...\n\nThis will take a few moments.');
   
   try {
-    // Start recording
-    const recorder = new Tone.Recorder();
-    Tone.Destination.connect(recorder);
-    
-    await recorder.start();
-    
-    // Play the beat
-    await Tone.start();
-    Tone.Transport.start();
-    state.isPlaying = true;
-    
-    // Record for duration
-    const recordTime = state.duration * 60 * 1000;
-    
-    setTimeout(async () => {
-      const recording = await recorder.stop();
+    // Use Tone.Offline to render the audio
+    const buffer = await Tone.Offline(async ({ transport }) => {
+      // Set up the same audio chain
+      const exportEffects = {
+        reverb: new Tone.Reverb(fxConfig.reverb.decay),
+        delay: new Tone.FeedbackDelay(fxConfig.delay.time, fxConfig.delay.feedback),
+        chorus: new Tone.Chorus(fxConfig.chorus.frequency, 2.5, fxConfig.chorus.depth).start(),
+        distortion: new Tone.Distortion(fxConfig.distortion.amount),
+        filter: new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type),
+        phaser: new Tone.Phaser({
+          frequency: fxConfig.phaser.frequency,
+          octaves: fxConfig.phaser.octaves,
+          baseFrequency: 350
+        })
+      };
       
-      // Download
-      const url = URL.createObjectURL(recording);
-      const a = document.createElement('a');
-      a.href = url;
-      const projectName = document.getElementById('projectName').value || 'beat';
-      a.download = `${projectName.replace(/\s+/g, '_')}_${Date.now()}.webm`;
-      a.click();
+      // Set wet values based on active state
+      Object.keys(exportEffects).forEach(fx => {
+        if (exportEffects[fx].wet) {
+          exportEffects[fx].wet.value = fxConfig[fx].active ? 0.5 : 0;
+        }
+      });
       
-      URL.revokeObjectURL(url);
+      const exportChannel = new Tone.Gain(1);
+      exportChannel.chain(
+        exportEffects.filter,
+        exportEffects.distortion,
+        exportEffects.chorus,
+        exportEffects.phaser,
+        exportEffects.delay,
+        exportEffects.reverb,
+        Tone.Destination
+      );
       
-      stop();
+      // Create synths
+      const exportSynths = {};
+      Object.keys(instruments).forEach(inst => {
+        const instData = instruments[inst];
+        
+        if (instData.type === 'drum') {
+          if (inst === 'kick') {
+            exportSynths[inst] = new Tone.MembraneSynth({
+              pitchDecay: 0.08, octaves: 8, oscillator: { type: 'sine' },
+              envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+            });
+          } else if (inst === 'snare' || inst === 'clap') {
+            exportSynths[inst] = new Tone.NoiseSynth({
+              noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
+            });
+          } else if (inst === 'hihat') {
+            exportSynths[inst] = new Tone.MetalSynth({
+              frequency: 200, envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+              harmonicity: 5.1, modulationIndex: 32, resonance: 4000, octaves: 1.5
+            });
+          } else {
+            exportSynths[inst] = new Tone.MembraneSynth({
+              pitchDecay: 0.05, octaves: 6, oscillator: { type: 'sine' },
+              envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+            });
+          }
+        } else if (instData.type === 'melodic') {
+          if (inst === 'bass') {
+            exportSynths[inst] = new Tone.MonoSynth({
+              oscillator: { type: 'sawtooth' },
+              filter: { Q: 2, type: 'lowpass', rolloff: -24 },
+              envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
+              filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5, baseFrequency: 100, octaves: 2.5 }
+            });
+          } else if (inst === 'keys') {
+            exportSynths[inst] = new Tone.PolySynth(Tone.Synth, {
+              oscillator: { type: 'triangle' },
+              envelope: { attack: 0.005, decay: 0.3, sustain: 0.4, release: 1.2 }
+            });
+          } else if (inst === 'lead') {
+            exportSynths[inst] = new Tone.Synth({
+              oscillator: { type: 'square' },
+              envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.8 }
+            });
+          }
+          exportSynths[inst].volume.value = instData.volume;
+        }
+        
+        exportSynths[inst].connect(exportChannel);
+      });
       
-      alert('✅ Export complete! Your beat has been downloaded.');
-    }, recordTime);
+      // Set up sequence
+      transport.bpm.value = state.bpm;
+      
+      new Tone.Sequence((time, step) => {
+        Object.keys(instruments).forEach(inst => {
+          const stepData = patterns[inst][step];
+          if (!stepData.active) return;
+          
+          const instData = instruments[inst];
+          if (instData.mute) return;
+          
+          const anySolo = Object.values(instruments).some(i => i.solo);
+          if (anySolo && !instData.solo) return;
+          
+          if (Math.random() * 100 > stepData.probability) return;
+          
+          const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
+          
+          if (instData.type === 'drum') {
+            if (inst === 'kick') {
+              exportSynths[inst].triggerAttackRelease('C1', '8n', time + humanize, stepData.velocity);
+            } else if (inst === 'snare' || inst === 'clap') {
+              exportSynths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity);
+            } else if (inst === 'hihat') {
+              exportSynths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity * 0.5);
+            } else {
+              exportSynths[inst].triggerAttackRelease('C2', '16n', time + humanize, stepData.velocity);
+            }
+          } else if (instData.type === 'melodic') {
+            const note = stepData.note || instData.note || 'C4';
+            const duration = stepData.duration || '8n';
+            
+            if (inst === 'keys') {
+              exportSynths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
+            } else {
+              exportSynths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
+            }
+          }
+        });
+      }, Array.from({length: state.sequenceLength}, (_, i) => i), state.resolution).start(0);
+      
+      transport.start();
+    }, exportDuration);
     
-    alert('⏺️ Recording in progress...\n\nWait ' + state.duration + ' minute(s) for the export to complete.');
+    // Convert to WAV
+    const wav = await bufferToWav(buffer);
+    
+    // Download
+    const blob = new Blob([wav], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const projectName = document.getElementById('projectName').value || 'beat';
+    a.download = `${projectName.replace(/\s+/g, '_')}_${Date.now()}.wav`;
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    
+    alert('✅ Export complete! Your WAV file has been downloaded.');
     
   } catch (err) {
+    console.error(err);
     alert('❌ Export error: ' + err.message);
-    stop();
   }
 }
 
+// Convert AudioBuffer to WAV
+function bufferToWav(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  
+  const data = [];
+  for (let i = 0; i < buffer.numberOfChannels; i++) {
+    data.push(buffer.getChannelData(i));
+  }
+  
+  const dataLength = data[0].length * numChannels * bytesPerSample;
+  const arrayBuffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(arrayBuffer);
+  
+  // WAV header
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, true);
+  writeString(view, 8, 'WAVE');
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeString(view, 36, 'data');
+  view.setUint32(40, dataLength, true);
+  
+  // Write audio data
+  let offset = 44;
+  for (let i = 0; i < data[0].length; i++) {
+    for (let channel = 0; channel < numChannels; channel++) {
+      const sample = Math.max(-1, Math.min(1, data[channel][i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+  
+  return arrayBuffer;
+}
+
+function writeString(view, offset, string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}
 // ========================================
 // PWA Installation
 // ========================================
