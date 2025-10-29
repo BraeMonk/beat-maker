@@ -1191,6 +1191,7 @@ function initAudio() {
 function init() {
   initAudioContext();
   initAudio();
+  ensurePatternLength(state.sequenceLength);
   setupEventListeners();
   renderSequencer();
   renderMixer();
@@ -1242,12 +1243,6 @@ function setupEventListeners() {
   document.getElementById('exportBtn').addEventListener('click', exportAudio);
 
   // BPM
-  document.getElementById('bpmSlider').addEventListener('input', e => {
-    state.bpm = Math.min(MAX_BPM, parseInt(e.target.value, 10));
-    Tone.Transport.bpm.value = state.bpm;
-    document.getElementById('bpmValue').textContent = state.bpm;
-  });
-
   let bpmDebounce;
   document.getElementById('bpmSlider').addEventListener('input', e => {
     const next = Math.min(MAX_BPM, parseInt(e.target.value, 10));
@@ -1302,10 +1297,12 @@ function setupEventListeners() {
   // Sequencer length & resolution
   document.getElementById('lenDecBtn').addEventListener('click', () => {
     state.sequenceLength = Math.max(4, state.sequenceLength - 4);
+    ensurePatternLength(state.sequenceLength);
     renderSequencer();
   });
   document.getElementById('lenIncBtn').addEventListener('click', () => {
     state.sequenceLength = Math.min(32, state.sequenceLength + 4);
+    ensurePatternLength(state.sequenceLength);
     renderSequencer();
   });
   document.getElementById('resSelect').addEventListener('change', e => {
@@ -1437,6 +1434,18 @@ function setupEventListeners() {
     // reflect label
     const label = e.target.closest('.param-control').querySelector('.param-value');
     label.textContent = formatFxDisplay(param, val);
+  });
+}
+
+function ensurePatternLength(len) {
+  Object.keys(patterns).forEach(inst => {
+    const arr = patterns[inst];
+    // extend
+    while (arr.length < len) {
+      arr.push({ active:false, velocity:0.8, probability:100, note: instruments[inst].note, duration:'8n' });
+    }
+    // trim (optional, if you want to shrink)
+    if (arr.length > len) arr.length = len;
   });
 }
 
