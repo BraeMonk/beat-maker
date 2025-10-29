@@ -1083,6 +1083,11 @@ function initAudio() {
   // Connect to destination separately
   master.limiter.toDestination();
 
+  // --- Visualizer tap ---
+  master.analyser = new Tone.Analyser('waveform', 64); // or 'waveform', 64
+  master.limiter.connect(master.analyser);        // tap the output
+
+
   // --- Recording tap ---
   const raw = Tone.getContext().rawContext;
   master.mediaDest = raw.createMediaStreamDestination();
@@ -2105,21 +2110,53 @@ function initVisualizerOnce(){
   }
 }
 let vizRAF = 0, lastViz = 0;
+
 function updateVisualizer() {
-  if (vizRAF) return; // ensure at most one RAF loop
+  if (vizRAF) return; // one RAF loop only
   const viz = document.getElementById('visualizer');
   const bars = viz ? viz.querySelectorAll('.viz-bar') : [];
+  const N = bars.length || 0;
+
   const loop = (t) => {
     vizRAF = requestAnimationFrame(loop);
     if (!lastViz || (t - lastViz) > 33) { // ~30 fps
       lastViz = t;
-      // precompute randoms, batch writes
-      const heights = Array.from({ length: bars.length }, () => (Math.random() * 60 + 10) + '%');
-      bars.forEach((bar, i) => { bar.style.transform = `translateY(${100 - parseFloat(heights[i])}%)`; bar.style.height = ''; });
+
+      let heights;
+      if (master.analyser) {
+        const vals = master.analyser.getValue(); // Float32Array
+        heights = new Array(N).fill(0).map((_, i) => {
+          // pick a bin for this bar
+          const idx = Math.floor((i / N) * vals.length);
+          const v = vals[Math.max(0, Math.min(vals.length - 1, idx))];
+          // map analyser range to 5%..95% height
+          if (master.analyser.type === 'fft') {
+            // FFT ≈ -100..0 dB
+            const db = Math.max(-100, Math.min(0, v));
+            const norm = (db + 100) / 100; // 0..1
+            return (5 + norm * 90).toFixed(1) + '%';
+          } else {
+            // waveform ≈ -1..1
+            const norm = (v + 1) / 2; // 0..1
+            return (5 + norm * 90).toFixed(1) + '%';
+          }
+        });
+      } else {
+        // fallback random (shouldn’t hit once analyser is set)
+        heights = Array.from({ length: N }, () => (Math.random() * 60 + 10).toFixed(1) + '%');
+      }
+
+      // Apply: set height ONLY (don’t translate)
+      bars.forEach((bar, i) => {
+        bar.style.height = heights[i];
+        bar.style.transform = ''; // ensure no leftover transforms
+      });
     }
   };
+
   vizRAF = requestAnimationFrame(loop);
 }
+
 
 function stopVisualizer() {
   cancelAnimationFrame(vizRAF);
