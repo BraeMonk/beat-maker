@@ -1035,36 +1035,33 @@ function initAudio() {
   // MASTER chain
   master.fxIn = new Tone.Gain(1);
 
-  // Create effects FIRST
   effects.filter = new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type);
   effects.distortion = new Tone.Distortion(fxConfig.distortion.amount);
-  effects.chorus = new Tone.Chorus(fxConfig.chorus.frequency, fxConfig.chorus.depth, 2.5);
-  effects.phaser = new Tone.Phaser({
-    frequency: fxConfig.phaser.frequency,
-    octaves: fxConfig.phaser.octaves,
-    baseFrequency: 350
-  });
+  effects.chorus = new Tone.Chorus(1.5, 2.5, fxConfig.chorus.depth).start();
+  effects.phaser = new Tone.Phaser({ frequency: fxConfig.phaser.frequency, octaves: fxConfig.phaser.octaves, baseFrequency: 350 });
   effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, fxConfig.delay.feedback);
   effects.reverb = new Tone.Reverb(fxConfig.reverb.decay);
 
   master.comp = new Tone.Compressor(-18, 3);
   master.limiter = new Tone.Limiter(-1);
 
-  // NOW connect the chain
-  master.fxIn.connect(effects.filter);
-  effects.filter.connect(effects.distortion);
-  effects.distortion.connect(effects.chorus);
-  effects.chorus.connect(effects.phaser);
-  effects.phaser.connect(effects.delay);
-  effects.delay.connect(effects.reverb);
-  effects.reverb.connect(master.comp);
-  master.comp.connect(master.limiter);
+  // Connect chain - use .chain() but make sure everything is created first
+  master.fxIn
+    .chain(
+      effects.filter,
+      effects.distortion,
+      effects.chorus,
+      effects.phaser,
+      effects.delay,
+      effects.reverb,
+      master.comp,
+      master.limiter
+    );
+  
+  // Connect to destination separately
   master.limiter.toDestination();
 
-  // Start time-based effects
-  effects.chorus.start();
-
-  // Recording tap
+  // --- Recording tap ---
   const raw = Tone.getContext().rawContext;
   master.mediaDest = raw.createMediaStreamDestination();
   master.limiter.connect(master.mediaDest);
