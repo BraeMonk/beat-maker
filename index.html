@@ -1084,7 +1084,7 @@ function initAudio() {
   master.limiter.toDestination();
 
   // --- Visualizer tap ---
-  master.analyser = new Tone.Analyser('waveform', 64); // or 'waveform', 64
+  master.analyser = new Tone.Analyser('fft', 64); // or 'waveform', 64
   master.limiter.connect(master.analyser);        // tap the output
 
 
