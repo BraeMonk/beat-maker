@@ -2590,6 +2590,7 @@
           
           <div class="flex">
             <button class="btn btn-primary" id="generateBtn">🎲 Generate Beat</button>
+            <button class="btn btn-primary" id="generateRhythmBtn">🥁 Generate Rhythm</button>
             <button class="btn btn-secondary" id="randomVelBtn">🎯 Random Velocity</button>
             <button class="btn btn-secondary" id="randomProbBtn">🎲 Random Prob</button>
             <button class="btn btn-ghost" id="clearBtn">🧹 Clear</button>
@@ -3434,6 +3435,7 @@ function setupMasterControls() {
 
 function setupGeneratorButtons() {
   document.getElementById('generateBtn').addEventListener('click', generateBeat);
+  document.getElementById('generateRhythmBtn').addEventListener('click', generateMelodicPatterns);
   document.getElementById('randomVelBtn').addEventListener('click', randomizeVelocity);
   document.getElementById('randomProbBtn').addEventListener('click', randomizeProbability);
   document.getElementById('clearBtn').addEventListener('click', clearPattern);
