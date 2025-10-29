@@ -713,10 +713,16 @@
 
 <script>
 // ========================================
-// ProStudio Beat Lab - Complete JavaScript
+// 8-Beat / ProStudio - Updated JavaScript
+// - Fixes toggle bugs (single delegated listeners)
+// - Stable audio graph (per-channel -> master FX)
+// - Reduced crackle (no reconnects, lighter viz)
+// - Real save dialog on export (with fallback)
+// - Warmer synths (AMSynth/FMSynth) for instruments
+// - Swing actually affects timing
 // ========================================
 
-// Global State
+// -------------------- Global State --------------------
 let state = {
   currentGenre: 'lofi',
   currentTab: 'generate',
@@ -755,226 +761,123 @@ const instruments = {
   keys: { name: 'Keys', icon: '🎹', mute: false, solo: false, volume: -6, pan: 0, type: 'melodic', note: 'C4' },
   lead: { name: 'Lead', icon: '🎺', mute: false, solo: false, volume: -8, pan: 0, type: 'melodic', note: 'C5' }
 };
-
 const patterns = {};
 const synths = {};
 const effects = {};
+const master = {};
 
 // Initialize patterns
 Object.keys(instruments).forEach(inst => {
-  patterns[inst] = Array(16).fill(null).map(() => ({ 
-    active: false, 
-    velocity: 0.8, 
-    probability: 100 
+  patterns[inst] = Array(16).fill(null).map(() => ({
+    active: false,
+    velocity: 0.8,
+    probability: 100
   }));
 });
 
-// Genre Configurations
+// -------------------- Presets (unchanged content trimmed for brevity) --------------------
 const genrePresets = {
-  lofi: {
-    name: 'Lo-Fi Hip-Hop',
-    icon: '😌',
-    bpm: 85,
-    patterns: {
-      kick: [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
-      bass: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
-    },
-    notes: {
-      bass: ['C2', 'C2', 'C2', 'C2', 'D#2', 'D#2', 'D#2', 'D#2', 'F2', 'F2', 'F2', 'F2', 'G2', 'G2', 'G2', 'G2'],
-      keys: ['C4', 'E4', 'G4', 'C4', 'D#4', 'G4', 'A#4', 'D#4', 'F4', 'A4', 'C5', 'F4', 'G4', 'B4', 'D5', 'G4'],
-      lead: ['C5', 'D5', 'E5', 'G5', 'A5', 'G5', 'E5', 'D5']
-    }
+  lofi: { name: 'Lo-Fi Hip-Hop', icon: '😌', bpm: 85,
+    patterns:{kick:[1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hihat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],bass:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],keys:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]},
+    notes:{bass:['C2','C2','C2','C2','D#2','D#2','D#2','D#2','F2','F2','F2','F2','G2','G2','G2','G2'],
+           keys:['C4','E4','G4','C4','D#4','G4','A#4','D#4','F4','A4','C5','F4','G4','B4','D5','G4'],
+           lead:['C5','D5','E5','G5','A5','G5','E5','D5']}
   },
-  hiphop: {
-    name: 'Hip-Hop',
-    icon: '🎤',
-    bpm: 95,
-    patterns: {
-      kick: [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
-      bass: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],
-      keys: [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]
-    },
-    notes: {
-      bass: ['A1', 'A1', 'A1', 'C2', 'C2', 'C2', 'D2', 'D2', 'D2', 'F2', 'F2', 'F2', 'G2', 'G2', 'G2', 'G2'],
-      keys: ['A3', 'C4', 'E4', 'A4', 'C4', 'E4', 'D4', 'F4', 'A4', 'D4', 'F4', 'G3', 'B3', 'D4', 'G4', 'B4'],
-      lead: ['A4', 'C5', 'E5', 'A5', 'G5', 'E5', 'D5', 'C5']
-    }
+  hiphop:{name:'Hip-Hop',icon:'🎤',bpm:95,
+    patterns:{kick:[1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hihat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],bass:[1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],keys:[1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]},
+    notes:{bass:['A1','A1','A1','C2','C2','C2','D2','D2','D2','F2','F2','F2','G2','G2','G2','G2'],
+           keys:['A3','C4','E4','A4','C4','E4','D4','F4','A4','D4','F4','G3','B3','D4','G4','B4'],
+           lead:['A4','C5','E5','A5','G5','E5','D5','C5']}
   },
-  trap: {
-    name: 'Trap',
-    icon: '💎',
-    bpm: 140,
-    patterns: {
-      kick: [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
-      hihat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      bass: [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],
-      lead: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
-    },
-    notes: {
-      bass: ['C1', 'C1', 'C1', 'C1', 'C1', 'C1', 'D#1', 'D#1', 'D#1', 'D#1', 'F1', 'F1', 'F1', 'F1', 'G1', 'G1'],
-      keys: ['C4', 'D#4', 'G4', 'C5', 'D#4', 'G4', 'A#4', 'D#4'],
-      lead: ['C5', 'D#5', 'G5', 'C6', 'A#5', 'G5', 'D#5', 'C5']
-    }
+  trap:{name:'Trap',icon:'💎',bpm:140,
+    patterns:{kick:[1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],hihat:[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],bass:[1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],lead:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]},
+    notes:{bass:['C1','C1','C1','C1','C1','C1','D#1','D#1','D#1','D#1','F1','F1','F1','F1','G1','G1'],
+           keys:['C4','D#4','G4','C5','D#4','G4','A#4','D#4'],
+           lead:['C5','D#5','G5','C6','A#5','G5','D#5','C5']}
   },
-  house: {
-    name: 'House',
-    icon: '🏠',
-    bpm: 125,
-    patterns: {
-      kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],
-      bass: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      keys: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0]
-    },
-    notes: {
-      bass: ['F2', 'F2', 'F2', 'F2', 'G2', 'G2', 'G2', 'G2', 'A2', 'A2', 'A2', 'A2', 'C3', 'C3', 'C3', 'C3'],
-      keys: ['F4', 'A4', 'C5', 'F5', 'G4', 'B4', 'D5', 'G5', 'A4', 'C5', 'E5', 'A5', 'C5', 'E5', 'G5', 'C6'],
-      lead: ['F5', 'G5', 'A5', 'C6', 'D6', 'C6', 'A5', 'G5']
-    }
+  house:{name:'House',icon:'🏠',bpm:125,
+    patterns:{kick:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hihat:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],bass:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],keys:[1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0]},
+    notes:{bass:['F2','F2','F2','F2','G2','G2','G2','G2','A2','A2','A2','A2','C3','C3','C3','C3'],
+           keys:['F4','A4','C5','F5','G4','B4','D5','G5','A4','C5','E5','A5','C5','E5','G5','C6'],
+           lead:['F5','G5','A5','C6','D6','C6','A5','G5']}
   },
-  techno: {
-    name: 'Techno',
-    icon: '⚡',
-    bpm: 130,
-    patterns: {
-      kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
-      bass: [1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,0],
-      lead: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0]
-    },
-    notes: {
-      bass: ['A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'C2', 'C2', 'C2', 'C2', 'D2', 'D2', 'D2', 'D2', 'F2', 'F2'],
-      keys: ['A3', 'C4', 'E4', 'A4', 'C4', 'E4', 'D4', 'F4'],
-      lead: ['A5', 'C6', 'E6', 'A6', 'C6', 'E6', 'D6', 'F6']
-    }
+  techno:{name:'Techno',icon:'⚡',bpm:130,
+    patterns:{kick:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hihat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],bass:[1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,0],lead:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0]},
+    notes:{bass:['A1','A1','A1','A1','A1','A1','C2','C2','C2','C2','D2','D2','D2','D2','F2','F2'],
+           keys:['A3','C4','E4','A4','C4','E4','D4','F4'],
+           lead:['A5','C6','E6','A6','C6','E6','D6','F6']}
   },
-  dnb: {
-    name: 'Drum & Bass',
-    icon: '🔊',
-    bpm: 174,
-    patterns: {
-      kick: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      bass: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
-      lead: [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0]
-    },
-    notes: {
-      bass: ['D2', 'D2', 'D3', 'D2', 'D2', 'D3', 'F2', 'F2', 'F3', 'F2', 'G2', 'G2', 'G3', 'G2', 'A2', 'A2'],
-      keys: ['D4', 'F4', 'A4', 'D5', 'F4', 'A4', 'G4', 'B4'],
-      lead: ['D5', 'F5', 'A5', 'D6', 'F6', 'A6', 'D6', 'A5']
-    }
+  dnb:{name:'Drum & Bass',icon:'🔊',bpm:174,
+    patterns:{kick:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hihat:[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],bass:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],lead:[0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0]},
+    notes:{bass:['D2','D2','D3','D2','D2','D3','F2','F2','F3','F2','G2','G2','G3','G2','A2','A2'],
+           keys:['D4','F4','A4','D5','F4','A4','G4','B4'],
+           lead:['D5','F5','A5','D6','F6','A6','D6','A5']}
   },
-  ambient: {
-    name: 'Ambient',
-    icon: '🌌',
-    bpm: 60,
-    patterns: {
-      kick: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-      snare: [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0],
-      bass: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-      keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      lead: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
-    },
-    notes: {
-      bass: ['C2', 'C2', 'C2', 'C2', 'C2', 'C2', 'C2', 'C2', 'G1', 'G1', 'G1', 'G1', 'G1', 'G1', 'G1', 'G1'],
-      keys: ['C3', 'E3', 'G3', 'C4', 'E4', 'G4', 'G3', 'B3', 'D4', 'G4', 'B4', 'D5'],
-      lead: ['C5', 'E5', 'G5', 'C6', 'B5', 'G5', 'E5', 'D5']
-    }
+  ambient:{name:'Ambient',icon:'🌌',bpm:60,
+    patterns:{kick:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],snare:[0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],hihat:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0],bass:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],keys:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],lead:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]},
+    notes:{bass:['C2','C2','C2','C2','C2','C2','C2','C2','G1','G1','G1','G1','G1','G1','G1','G1'],
+           keys:['C3','E3','G3','C4','E4','G4','G3','B3','D4','G4','B4','D5'],
+           lead:['C5','E5','G5','C6','B5','G5','E5','D5']}
   }
 };
 
 // Music Theory
-const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const keysArr = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const scales = {
-  major: [0, 2, 4, 5, 7, 9, 11],
-  minor: [0, 2, 3, 5, 7, 8, 10],
-  dorian: [0, 2, 3, 5, 7, 9, 10],
-  phrygian: [0, 1, 3, 5, 7, 8, 10],
-  lydian: [0, 2, 4, 6, 7, 9, 11],
-  mixolydian: [0, 2, 4, 5, 7, 9, 10],
-  pentatonic: [0, 2, 4, 7, 9]
+  major:[0,2,4,5,7,9,11], minor:[0,2,3,5,7,8,10], dorian:[0,2,3,5,7,9,10],
+  phrygian:[0,1,3,5,7,8,10], lydian:[0,2,4,6,7,9,11],
+  mixolydian:[0,2,4,5,7,9,10], pentatonic:[0,2,4,7,9]
 };
 
-const chordTypes = {
-  major: [0, 4, 7],
-  minor: [0, 3, 7],
-  maj7: [0, 4, 7, 11],
-  min7: [0, 3, 7, 10],
-  dom7: [0, 4, 7, 10],
-  dim: [0, 3, 6],
-  aug: [0, 4, 8]
-};
-
-// Effects Configuration
+// Effects Configuration (UI state)
 const fxConfig = {
-  reverb: { name: 'Reverb', active: false, decay: 2, wet: 0.3 },
-  delay: { name: 'Delay', active: false, time: '8n', feedback: 0.4 },
-  chorus: { name: 'Chorus', active: false, frequency: 1.5, depth: 0.7 },
-  distortion: { name: 'Distortion', active: false, amount: 0.5 },
-  filter: { name: 'Filter', active: false, frequency: 1000, type: 'lowpass' },
-  phaser: { name: 'Phaser', active: false, frequency: 0.5, octaves: 3 }
+  reverb: { name:'Reverb', active:false, decay:2, wet:0.3 },
+  delay: { name:'Delay', active:false, time:'8n', feedback:0.4 },
+  chorus:{ name:'Chorus', active:false, frequency:1.5, depth:0.7 },
+  distortion:{ name:'Distortion', active:false, amount:0.5 },
+  filter:{ name:'Filter', active:false, frequency:1000, type:'lowpass' },
+  phaser:{ name:'Phaser', active:false, frequency:0.5, octaves:3 }
 };
 
-// ========================================
-// Tone.js Setup
-// ========================================
-
+// -------------------- Tone.js Setup --------------------
 function initAudio() {
-  // Create effects chain first
-  effects.reverb = new Tone.Reverb(2);
-  effects.delay = new Tone.FeedbackDelay('8n', 0.4);
-  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.5).start();
-  effects.distortion = new Tone.Distortion(0.5);
-  effects.filter = new Tone.Filter(1000, 'lowpass');
-  effects.phaser = new Tone.Phaser({
-    frequency: 0.5,
-    octaves: 3,
-    baseFrequency: 350
-  });
-  
-  // Set all effects to dry initially
-  Object.values(effects).forEach(fx => {
-    if (fx.wet) fx.wet.value = 0;
-  });
-  
-  // Create master channel for effects
-  const effectsChannel = new Tone.Gain(1);
-  
-  // Chain effects
-  effectsChannel.chain(
-    effects.filter,
-    effects.distortion,
-    effects.chorus,
-    effects.phaser,
-    effects.delay,
-    effects.reverb,
-    Tone.Destination
-  );
-  
-  // Master compressor
-  const compressor = new Tone.Compressor(-18, 3).toDestination();
-  
-  // Create samplers for each instrument
+  // MASTER chain
+  master.fxIn = new Tone.Gain(1);
+
+  effects.filter = new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type);
+  effects.distortion = new Tone.Distortion(fxConfig.distortion.amount);
+  effects.chorus = new Tone.Chorus(1.5, 2.5, fxConfig.chorus.depth).start();
+  effects.phaser = new Tone.Phaser({ frequency: fxConfig.phaser.frequency, octaves: fxConfig.phaser.octaves, baseFrequency: 350 });
+  effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, fxConfig.delay.feedback);
+  effects.reverb = new Tone.Reverb(fxConfig.reverb.decay);
+
+  master.comp = new Tone.Compressor(-18, 3);
+  master.limiter = new Tone.Limiter(-1);
+
+  master.fxIn
+    .chain(
+      effects.filter,
+      effects.distortion,
+      effects.chorus,
+      effects.phaser,
+      effects.delay,
+      effects.reverb,
+      master.comp,
+      master.limiter,
+      Tone.Destination
+    );
+
+  // Start with all FX dry
+  Object.values(effects).forEach(fx => { if (fx.wet) fx.wet.value = 0; });
+
+  // Create synths and channel strips
   Object.keys(instruments).forEach(inst => {
     const instData = instruments[inst];
-    
+
     if (instData.type === 'drum') {
-      // Drum synthesis
       if (inst === 'kick') {
         synths[inst] = new Tone.MembraneSynth({
-          pitchDecay: 0.08,
-          octaves: 8,
-          oscillator: { type: 'sine' },
+          pitchDecay: 0.08, octaves: 8, oscillator: { type: 'sine' },
           envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
         });
       } else if (inst === 'snare' || inst === 'clap') {
@@ -986,112 +889,78 @@ function initAudio() {
         synths[inst] = new Tone.MetalSynth({
           frequency: 200,
           envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
-          harmonicity: 5.1,
-          modulationIndex: 32,
-          resonance: 4000,
-          octaves: 1.5
+          harmonicity: 5.1, modulationIndex: 32, resonance: 4000, octaves: 1.5
         });
       } else {
         synths[inst] = new Tone.MembraneSynth({
-          pitchDecay: 0.05,
-          octaves: 6,
-          oscillator: { type: 'sine' },
+          pitchDecay: 0.05, octaves: 6, oscillator: { type: 'sine' },
           envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
         });
       }
     } else if (instData.type === 'melodic') {
-      // Melodic synthesis
       if (inst === 'bass') {
         synths[inst] = new Tone.MonoSynth({
           oscillator: { type: 'sawtooth' },
-          filter: {
-            Q: 2,
-            type: 'lowpass',
-            rolloff: -24
-          },
-          envelope: {
-            attack: 0.01,
-            decay: 0.3,
-            sustain: 0.4,
-            release: 0.8
-          },
-          filterEnvelope: {
-            attack: 0.01,
-            decay: 0.2,
-            sustain: 0.3,
-            release: 0.5,
-            baseFrequency: 100,
-            octaves: 2.5
-          }
+          filter: { Q: 2, type: 'lowpass', rolloff: -24 },
+          envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
+          filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5, baseFrequency: 100, octaves: 2.5 }
         });
-        synths[inst].volume.value = instData.volume;
       } else if (inst === 'keys') {
-        synths[inst] = new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'triangle' },
-          envelope: {
-            attack: 0.005,
-            decay: 0.3,
-            sustain: 0.4,
-            release: 1.2
-          }
+        // Warmer keys
+        synths[inst] = new Tone.PolySynth(Tone.AMSynth, {
+          harmonicity: 1.01,
+          envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.5 },
+          modulationEnvelope: { attack: 0.2, decay: 0.3, sustain: 0.2, release: 0.8 }
         });
-        synths[inst].volume.value = instData.volume;
       } else if (inst === 'lead') {
-        synths[inst] = new Tone.Synth({
-          oscillator: { type: 'square' },
-          envelope: {
-            attack: 0.01,
-            decay: 0.2,
-            sustain: 0.6,
-            release: 0.8
-          },
-          filter: {
-            Q: 6,
-            type: 'lowpass',
-            rolloff: -24
-          },
-          filterEnvelope: {
-            attack: 0.02,
-            decay: 0.3,
-            sustain: 0.5,
-            release: 1,
-            baseFrequency: 300,
-            octaves: 4
-          }
+        // Mellow lead
+        synths[inst] = new Tone.FMSynth({
+          modulationIndex: 6,
+          oscillator: { type: 'sine' },
+          envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.8 },
+          modulation: { type: 'triangle' },
+          modulationEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.7 }
         });
-        synths[inst].volume.value = instData.volume;
       }
+      synths[inst].volume.value = instData.volume;
     }
-    
-    // Connect all instruments through effects channel
-    synths[inst].connect(effectsChannel);
+
+    // One channel per instrument (no reconnecting later)
+    const ch = new Tone.Channel({
+      pan: 0,
+      volume: instData.volume
+    }).connect(master.fxIn);
+    instruments[inst].channel = ch;
+    synths[inst].connect(ch);
   });
-  
-  // Setup sequencer
+
+  // Transport
   Tone.Transport.bpm.value = state.bpm;
-  
+  Tone.Transport.swing = state.swing / 100;
+  Tone.Transport.swingSubdivision = '8n';
+
+  // Sequencer loop
   const loop = new Tone.Sequence((time, step) => {
     state.currentStep = step;
     updateStepVisuals(step);
-    
+
     Object.keys(instruments).forEach(inst => {
       const stepData = patterns[inst][step];
       if (!stepData.active) return;
-      
+
       const instData = instruments[inst];
       if (instData.mute) return;
-      
-      // Check if any instrument is soloed
+
+      // Solo logic
       const anySolo = Object.values(instruments).some(i => i.solo);
       if (anySolo && !instData.solo) return;
-      
-      // Probability check
+
+      // Probability
       if (Math.random() * 100 > stepData.probability) return;
-      
-      // Humanize timing
+
+      // Humanize
       const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
-      
-      // Trigger sound
+
       if (instData.type === 'drum') {
         if (inst === 'kick') {
           synths[inst].triggerAttackRelease('C1', '8n', time + humanize, stepData.velocity);
@@ -1102,35 +971,20 @@ function initAudio() {
         } else {
           synths[inst].triggerAttackRelease('C2', '16n', time + humanize, stepData.velocity);
         }
-      } else if (instData.type === 'melodic') {
-        // Get note for this step
-        const note = stepData.note || instData.note || 'C4';
+      } else {
+        const note = stepData.note || instruments[inst].note || 'C4';
         const duration = stepData.duration || '8n';
-        
-        if (inst === 'keys') {
-          // Keys can play chords
-          if (Array.isArray(note)) {
-            synths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
-          } else {
-            synths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
-          }
-        } else {
-          // Bass and lead play single notes
-          synths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
-        }
+        synths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
       }
     });
-    
+
     updateVisualizer();
-  }, Array.from({length: state.sequenceLength}, (_, i) => i), state.resolution);
-  
+  }, Array.from({ length: state.sequenceLength }, (_, i) => i), state.resolution);
+
   loop.start(0);
 }
 
-// ========================================
-// UI Initialization
-// ========================================
-
+// -------------------- UI Init & Delegated Listeners --------------------
 function init() {
   initAudio();
   setupEventListeners();
@@ -1140,197 +994,267 @@ function init() {
   renderHarmony();
   renderPresets();
   updateAllDisplays();
+  initVisualizerOnce();
 }
 
 function setupEventListeners() {
   // Genre selector
   document.getElementById('genreSelector').addEventListener('click', e => {
-    if (e.target.classList.contains('genre-btn')) {
-      document.querySelectorAll('.genre-btn').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      state.currentGenre = e.target.dataset.genre;
-      updateGenrePresets();
-    }
+    const btn = e.target.closest('.genre-btn');
+    if (!btn) return;
+    document.querySelectorAll('.genre-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.currentGenre = btn.dataset.genre;
+    updateGenrePresets();
   });
-  
+
   // Tabs
   document.getElementById('tabs').addEventListener('click', e => {
-    if (e.target.classList.contains('tab')) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      e.target.classList.add('active');
-      
-      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-      const tabId = 'tab-' + e.target.dataset.tab;
-      document.getElementById(tabId).classList.add('active');
-      
-      state.currentTab = e.target.dataset.tab;
-    }
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    const tabId = 'tab-' + tab.dataset.tab;
+    document.getElementById(tabId).classList.add('active');
+    state.currentTab = tab.dataset.tab;
   });
-  
+
   // Transport
   document.getElementById('playBtn').addEventListener('click', togglePlay);
   document.getElementById('stopBtn').addEventListener('click', stop);
   document.getElementById('exportBtn').addEventListener('click', exportAudio);
-  
+
   // BPM
   document.getElementById('bpmSlider').addEventListener('input', e => {
-    state.bpm = parseInt(e.target.value);
+    state.bpm = parseInt(e.target.value, 10);
     Tone.Transport.bpm.value = state.bpm;
     document.getElementById('bpmValue').textContent = state.bpm;
   });
-  
-  // Swing
+
+  // Swing (now actually applied)
   document.getElementById('swingSlider').addEventListener('input', e => {
-    state.swing = parseInt(e.target.value);
+    state.swing = parseInt(e.target.value, 10);
     document.getElementById('swingValue').textContent = state.swing + '%';
+    Tone.Transport.swing = state.swing / 100;
+    Tone.Transport.swingSubdivision = '8n';
   });
-  
-  // Duration
+
+  // Duration/Complexity/Humanize
   document.getElementById('durSlider').addEventListener('input', e => {
-    state.duration = parseInt(e.target.value);
+    state.duration = parseInt(e.target.value, 10);
     document.getElementById('durValue').textContent = state.duration + ' min';
-    document.getElementById('durationDisplay').textContent = 
+    document.getElementById('durationDisplay').textContent =
       '/ ' + String(state.duration).padStart(2, '0') + ':00';
   });
-  
-  // Complexity
   document.getElementById('complexSlider').addEventListener('input', e => {
-    state.complexity = parseInt(e.target.value);
+    state.complexity = parseInt(e.target.value, 10);
     const labels = ['Simple', 'Medium', 'Complex'];
     document.getElementById('complexValue').textContent = labels[state.complexity - 1];
   });
-  
-  // Humanize
   document.getElementById('humanSlider').addEventListener('input', e => {
-    state.humanize = parseInt(e.target.value);
+    state.humanize = parseInt(e.target.value, 10);
     document.getElementById('humanValue').textContent = state.humanize + 'ms';
   });
-  
-  // Generate buttons
+
+  // Generate
   document.getElementById('generateBtn').addEventListener('click', generateBeat);
   document.getElementById('randomVelBtn').addEventListener('click', randomizeVelocity);
   document.getElementById('randomProbBtn').addEventListener('click', randomizeProbability);
   document.getElementById('clearBtn').addEventListener('click', clearPattern);
-  
-  // Add melodic pattern generator
+
+  // Add melodic generator button next to Generate
   const melodicGenBtn = document.createElement('button');
   melodicGenBtn.className = 'btn btn-primary';
   melodicGenBtn.innerHTML = '🎼 Generate Melody';
   melodicGenBtn.addEventListener('click', generateMelodicPatterns);
   document.getElementById('generateBtn').parentElement.appendChild(melodicGenBtn);
-  
-  // Sequencer controls
+
+  // Sequencer length & resolution
   document.getElementById('lenDecBtn').addEventListener('click', () => {
     state.sequenceLength = Math.max(4, state.sequenceLength - 4);
     renderSequencer();
   });
-  
   document.getElementById('lenIncBtn').addEventListener('click', () => {
     state.sequenceLength = Math.min(32, state.sequenceLength + 4);
     renderSequencer();
   });
-  
   document.getElementById('resSelect').addEventListener('change', e => {
     state.resolution = e.target.value;
   });
-  
   document.getElementById('euclidBtn').addEventListener('click', applyEuclidean);
   document.getElementById('ghostBtn').addEventListener('click', addGhostNotes);
-  
+
   // Master controls
   document.getElementById('masterVolSlider').addEventListener('input', e => {
-    state.masterVolume = parseInt(e.target.value);
+    state.masterVolume = parseInt(e.target.value, 10);
     document.getElementById('masterVolValue').textContent = state.masterVolume + 'dB';
     Tone.Destination.volume.value = state.masterVolume;
   });
-  
   document.getElementById('tapeSlider').addEventListener('input', e => {
-    state.tapeSaturation = parseInt(e.target.value);
+    state.tapeSaturation = parseInt(e.target.value, 10);
     document.getElementById('tapeValue').textContent = state.tapeSaturation + '%';
   });
-  
   document.getElementById('vinylSlider').addEventListener('input', e => {
-    state.vinylNoise = parseInt(e.target.value);
+    state.vinylNoise = parseInt(e.target.value, 10);
     document.getElementById('vinylValue').textContent = state.vinylNoise + '%';
   });
-  
   document.getElementById('lowCutSlider').addEventListener('input', e => {
-    state.lowCut = parseInt(e.target.value);
+    state.lowCut = parseInt(e.target.value, 10);
     document.getElementById('lowCutValue').textContent = state.lowCut + 'Hz';
   });
-  
   document.getElementById('highCutSlider').addEventListener('input', e => {
-    state.highCut = parseInt(e.target.value);
+    state.highCut = parseInt(e.target.value, 10);
     document.getElementById('highCutValue').textContent = (state.highCut / 1000).toFixed(1) + 'kHz';
   });
-  
   document.getElementById('compSlider').addEventListener('input', e => {
-    state.compressor = parseInt(e.target.value);
+    state.compressor = parseInt(e.target.value, 10);
     document.getElementById('compValue').textContent = state.compressor + 'dB';
   });
-  
+
   // Harmony
-  document.getElementById('keySelect').addEventListener('change', e => {
-    state.key = e.target.value;
-    updateChords();
-  });
-  
-  document.getElementById('scaleSelect').addEventListener('change', e => {
-    state.scale = e.target.value;
-    updateChords();
-  });
-  
-  document.getElementById('octaveSelect').addEventListener('change', e => {
-    state.octave = parseInt(e.target.value);
-  });
-  
+  document.getElementById('keySelect').addEventListener('change', e => { state.key = e.target.value; updateChords(); });
+  document.getElementById('scaleSelect').addEventListener('change', e => { state.scale = e.target.value; updateChords(); });
+  document.getElementById('octaveSelect').addEventListener('change', e => { state.octave = parseInt(e.target.value, 10); });
   document.getElementById('genProgBtn').addEventListener('click', generateProgression);
-  document.getElementById('clearProgBtn').addEventListener('click', () => {
-    state.progression = [];
-    renderProgression();
-  });
-  
-  // Progression templates
-  document.querySelectorAll('[data-prog]').forEach(btn => {
-    btn.addEventListener('click', e => {
-      const prog = e.currentTarget.dataset.prog;
-      loadProgressionTemplate(prog);
-    });
-  });
-  
+  document.getElementById('clearProgBtn').addEventListener('click', () => { state.progression = []; renderProgression(); });
+  document.querySelectorAll('[data-prog]').forEach(btn => btn.addEventListener('click', e => loadProgressionTemplate(e.currentTarget.dataset.prog)));
+
   // Project management
   document.getElementById('saveBtn').addEventListener('click', saveProject);
   document.getElementById('loadBtn').addEventListener('click', loadProject);
-  
+
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {
-    if (e.code === 'Space') {
-      e.preventDefault();
-      togglePlay();
-    } else if (e.code === 'KeyS') {
-      e.preventDefault();
-      stop();
-    } else if (e.code === 'KeyE') {
-      e.preventDefault();
-      exportAudio();
+    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+    else if (e.code === 'KeyS') { e.preventDefault(); stop(); }
+    else if (e.code === 'KeyE') { e.preventDefault(); exportAudio(); }
+  });
+
+  // ---- Delegated handlers (fix "only first toggle works") ----
+  // Sequencer
+  const seqGrid = document.getElementById('seqGrid');
+  seqGrid.addEventListener('click', (e) => {
+    const stepEl = e.target.closest('.step');
+    if (stepEl) {
+      const inst = stepEl.dataset.inst;
+      const i = parseInt(stepEl.dataset.step, 10);
+      toggleStep(inst, i, e);
+      return;
     }
+    const icon = e.target.closest('.seq-icon');
+    if (icon) {
+      const inst = icon.dataset.inst;
+      const action = icon.dataset.action;
+      if (action === 'mute') instruments[inst].mute = !instruments[inst].mute;
+      else if (action === 'solo') instruments[inst].solo = !instruments[inst].solo;
+      else if (action === 'note') openNoteEditor(inst);
+      renderSequencer();
+    }
+  });
+
+  // Mixer
+  const mixerGrid = document.getElementById('mixerGrid');
+  mixerGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.channel-btn');
+    if (!btn) return;
+    const inst = btn.dataset.inst;
+    const action = btn.dataset.action;
+    if (action === 'mute') instruments[inst].mute = !instruments[inst].mute;
+    if (action === 'solo') instruments[inst].solo = !instruments[inst].solo;
+    renderMixer();
+    renderSequencer();
+  });
+  mixerGrid.addEventListener('input', (e) => {
+    const slider = e.target;
+    if (slider.type !== 'range') return;
+    const inst = slider.dataset.inst;
+    const param = slider.dataset.param;
+    const value = parseFloat(slider.value);
+    instruments[inst][param] = value;
+
+    if (param === 'volume' && instruments[inst].channel) {
+      instruments[inst].channel.volume.value = value;
+    } else if (param === 'pan' && instruments[inst].channel) {
+      instruments[inst].channel.pan.value = value / 100;
+    }
+
+    const parent = slider.closest('.param-control');
+    const valEl = parent.querySelector('.param-value');
+    if (param === 'volume') valEl.textContent = value + 'dB';
+    if (param === 'pan') valEl.textContent = (value>0?'R':value<0?'L':'C') + Math.abs(value);
+  });
+
+  // FX
+  const fxGrid = document.getElementById('fxGrid');
+  fxGrid.addEventListener('click', (e) => {
+    const t = e.target.closest('.fx-toggle');
+    if (!t) return;
+    const fx = t.dataset.fx;
+    fxConfig[fx].active = !fxConfig[fx].active;
+    if (effects[fx] && effects[fx].wet) {
+      effects[fx].wet.value = fxConfig[fx].active ? 0.5 : 0;
+    }
+    renderFX();
+  });
+  fxGrid.addEventListener('input', (e) => {
+    if (e.target.type !== 'range') return;
+    const fx = e.target.dataset.fx;
+    const param = e.target.dataset.param;
+    const raw = parseInt(e.target.value, 10);
+    const val = mapFxParam(param, raw);
+    fxConfig[fx][param] = val;
+    applyFxParam(fx, param, val);
+    // reflect label
+    const label = e.target.closest('.param-control').querySelector('.param-value');
+    label.textContent = formatFxDisplay(param, val);
   });
 }
 
-// ========================================
-// Sequencer
-// ========================================
+// -------------------- Helpers for FX sliders --------------------
+function mapFxParam(param, raw) {
+  // raw 0..100
+  if (param === 'decay') return raw / 20;                 // 0..5 s
+  if (param === 'wet') return raw / 100;                  // 0..1
+  if (param === 'time') return ['16n','8n','4n','2n'][Math.min(3, Math.floor(raw/25))];
+  if (param === 'feedback') return raw / 100;             // 0..1
+  if (param === 'frequency') return 100 + raw * 79;       // 100..8000 Hz (linear)
+  if (param === 'depth' || param === 'amount') return raw / 100; // 0..1
+  if (param === 'octaves') return Math.floor(raw/20) + 1; // 1..6
+  return raw / 50;
+}
+function applyFxParam(fx, param, val) {
+  const node = effects[fx];
+  if (!node) return;
+  if (param === 'decay' && node.decay !== undefined) node.decay = val;
+  if (param === 'wet' && node.wet) node.wet.value = val;
+  if (param === 'time' && node.delayTime) node.delayTime.value = Tone.Time(val);
+  if (param === 'feedback' && node.feedback) node.feedback.value = val;
+  if (param === 'frequency' && node.frequency) node.frequency.value = val;
+  if (param === 'depth' && node.depth !== undefined) node.depth = val;
+  if (param === 'amount' && node.distortion !== undefined) node.distortion = val;
+  if (param === 'octaves' && node.octaves !== undefined) node.octaves = val;
+}
+function formatFxDisplay(param, val) {
+  if (param === 'wet' || param === 'feedback' || param === 'depth' || param === 'amount')
+    return Math.round(val*100) + '%';
+  if (param === 'decay') return val.toFixed(2) + 's';
+  if (param === 'time') return String(val);
+  if (param === 'frequency') return Math.round(val) + 'Hz';
+  if (param === 'octaves') return val + ' oct';
+  return String(val);
+}
 
+// -------------------- Sequencer Rendering (no inline listeners) --------------------
 function renderSequencer() {
   const grid = document.getElementById('seqGrid');
   grid.innerHTML = '';
-  
+
   Object.keys(instruments).forEach(inst => {
     const instData = instruments[inst];
     const row = document.createElement('div');
     row.className = 'seq-row';
-    
-    // Label
+
     const label = document.createElement('div');
     label.className = 'seq-label';
     label.innerHTML = `
@@ -1342,84 +1266,45 @@ function renderSequencer() {
       </div>
     `;
     row.appendChild(label);
-    
-    // Steps
+
     for (let i = 0; i < state.sequenceLength; i++) {
-      const step = document.createElement('div');
-      step.className = 'step';
-      step.dataset.inst = inst;
-      step.dataset.step = i;
-      
-      if (patterns[inst][i].active) {
-        step.classList.add('active');
-        
-        // Show note name for melodic instruments
-        if (instData.type === 'melodic' && patterns[inst][i].note) {
-          const noteDisplay = document.createElement('div');
-          noteDisplay.className = 'step-prob';
-          noteDisplay.textContent = patterns[inst][i].note;
-          noteDisplay.style.fontSize = '0.6rem';
-          step.appendChild(noteDisplay);
+      const cell = document.createElement('div');
+      cell.className = 'step';
+      cell.dataset.inst = inst;
+      cell.dataset.step = i;
+
+      const pat = patterns[inst][i];
+      if (pat.active) {
+        cell.classList.add('active');
+
+        const top = document.createElement('div');
+        top.className = 'step-prob';
+        if (instData.type === 'melodic' && pat.note) {
+          top.textContent = pat.note;
+          top.style.fontSize = '0.6rem';
         } else {
-          const prob = document.createElement('div');
-          prob.className = 'step-prob';
-          prob.textContent = patterns[inst][i].probability + '%';
-          step.appendChild(prob);
+          top.textContent = pat.probability + '%';
         }
-        
+        cell.appendChild(top);
+
         const vel = document.createElement('div');
         vel.className = 'step-vel';
-        vel.innerHTML = `<div class="step-vel-fill" style="width: ${patterns[inst][i].velocity * 100}%"></div>`;
-        step.appendChild(vel);
+        vel.innerHTML = `<div class="step-vel-fill" style="width:${Math.round((pat.velocity||0)*100)}%"></div>`;
+        cell.appendChild(vel);
       }
-      
-      step.addEventListener('click', e => toggleStep(inst, i, e));
-      row.appendChild(step);
+      row.appendChild(cell);
     }
-    
     grid.appendChild(row);
-  });
-  
-  // Icon event listeners
-  grid.addEventListener('click', e => {
-    if (e.target.classList.contains('seq-icon')) {
-      const inst = e.target.dataset.inst;
-      const action = e.target.dataset.action;
-      
-      if (action === 'mute') {
-        instruments[inst].mute = !instruments[inst].mute;
-      } else if (action === 'solo') {
-        instruments[inst].solo = !instruments[inst].solo;
-      } else if (action === 'note') {
-        openNoteEditor(inst);
-      }
-      
-      renderSequencer();
-    }
   });
 }
 
 function openNoteEditor(inst) {
-  const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  const octaves = [1, 2, 3, 4, 5, 6];
-  
-  const noteOptions = [];
-  octaves.forEach(oct => {
-    notes.forEach(note => {
-      noteOptions.push(note + oct);
-    });
-  });
-  
   const currentNote = instruments[inst].note || 'C4';
   const newNote = prompt(`Enter note for ${instruments[inst].name} (e.g., C4, D#3, F5):\n\nCurrent: ${currentNote}`, currentNote);
-  
   if (newNote && /^[A-G]#?[1-6]$/.test(newNote)) {
     instruments[inst].note = newNote;
-    // Update all active steps to use this note
     patterns[inst].forEach(step => {
-      if (step.active && !step.note) {
-        step.note = newNote;
-      }
+      if (step.active && !step.note) step.note = newNote;
     });
     renderSequencer();
   }
@@ -1428,18 +1313,15 @@ function openNoteEditor(inst) {
 function toggleStep(inst, step, e) {
   const pattern = patterns[inst][step];
   const instData = instruments[inst];
-  
+
   if (e.altKey) {
-    // Alt: adjust velocity
     if (pattern.active) {
-      pattern.velocity = Math.min(1, pattern.velocity + 0.2);
+      pattern.velocity = Math.min(1, (pattern.velocity || 0.8) + 0.2);
       if (pattern.velocity > 1) pattern.velocity = 0.4;
     }
   } else if (e.shiftKey) {
-    // Shift: adjust probability or cycle notes
     if (pattern.active) {
       if (instData.type === 'melodic') {
-        // Cycle through notes in scale
         cycleNote(inst, step);
       } else {
         pattern.probability = Math.min(100, pattern.probability + 25);
@@ -1447,85 +1329,60 @@ function toggleStep(inst, step, e) {
       }
     }
   } else if (e.ctrlKey || e.metaKey) {
-    // Ctrl/Cmd: change note for melodic instruments
     if (instData.type === 'melodic' && pattern.active) {
       const newNote = prompt(`Enter note (e.g., C4, D#3):`, pattern.note || instData.note);
-      if (newNote && /^[A-G]#?[1-6]$/.test(newNote)) {
-        pattern.note = newNote;
-      }
+      if (newNote && /^[A-G]#?[1-6]$/.test(newNote)) pattern.note = newNote;
     }
   } else {
-    // Regular click: toggle
     pattern.active = !pattern.active;
     if (pattern.active) {
       pattern.velocity = 0.8;
       pattern.probability = 100;
-      
-      // Set default note for melodic instruments
       if (instData.type === 'melodic') {
         pattern.note = instData.note;
         pattern.duration = '8n';
       }
     }
   }
-  
   renderSequencer();
 }
 
 function cycleNote(inst, stepIndex) {
   const pattern = patterns[inst][stepIndex];
   const scaleIntervals = scales[state.scale];
-  const keyIndex = keys.indexOf(state.key);
-  
-  // Get current note
+  const keyIndex = keysArr.indexOf(state.key);
+
   const currentNote = pattern.note || instruments[inst].note;
-  const noteMatch = currentNote.match(/^([A-G]#?)(\d+)$/);
-  if (!noteMatch) return;
-  
-  const [, noteName, octave] = noteMatch;
-  const currentNoteIndex = keys.indexOf(noteName);
-  
-  // Find next note in scale
-  const scaleNotes = scaleIntervals.map(interval => 
-    keys[(keyIndex + interval) % 12]
-  );
-  
-  const currentScaleIndex = scaleNotes.indexOf(noteName);
-  const nextScaleIndex = (currentScaleIndex + 1) % scaleNotes.length;
-  const nextNote = scaleNotes[nextScaleIndex] + octave;
-  
-  pattern.note = nextNote;
+  const m = currentNote.match(/^([A-G]#?)(\d+)$/);
+  if (!m) return;
+  const [, noteName, octave] = m;
+
+  const scaleNotes = scaleIntervals.map(iv => keysArr[(keyIndex + iv) % 12]);
+  const idx = scaleNotes.indexOf(noteName);
+  const next = scaleNotes[(idx + 1 + scaleNotes.length) % scaleNotes.length] + octave;
+  pattern.note = next;
 }
 
 function updateStepVisuals(step) {
   document.querySelectorAll('.step').forEach((el, idx) => {
-    el.classList.remove('playing');
-    if (idx % state.sequenceLength === step) {
-      el.classList.add('playing');
-    }
+    el.classList.toggle('playing', (idx % state.sequenceLength) === step);
   });
 }
 
-// ========================================
-// Pattern Generation
-// ========================================
-
+// -------------------- Pattern Generators --------------------
 function generateBeat() {
   const preset = genrePresets[state.currentGenre];
   if (!preset) return;
-  
+
   Object.keys(instruments).forEach(inst => {
-    const pattern = preset.patterns[inst];
+    const pat = preset.patterns[inst];
     const notes = preset.notes ? preset.notes[inst] : null;
-    
-    if (pattern) {
-      pattern.forEach((val, i) => {
+    if (pat) {
+      pat.forEach((val, i) => {
         if (i < state.sequenceLength) {
           patterns[inst][i].active = val === 1;
           patterns[inst][i].velocity = 0.7 + Math.random() * 0.3;
           patterns[inst][i].probability = 100;
-          
-          // Set notes for melodic instruments
           if (instruments[inst].type === 'melodic' && notes && notes[i]) {
             patterns[inst][i].note = notes[i];
             patterns[inst][i].duration = '8n';
@@ -1534,20 +1391,15 @@ function generateBeat() {
       });
     }
   });
-  
-  // Apply complexity
-  if (state.complexity >= 2) {
-    addVariations();
-  }
-  if (state.complexity >= 3) {
-    addGhostNotes();
-  }
-  
+
+  if (state.complexity >= 2) addVariations();
+  if (state.complexity >= 3) addGhostNotes();
+
   state.bpm = preset.bpm;
   document.getElementById('bpmSlider').value = preset.bpm;
   Tone.Transport.bpm.value = preset.bpm;
   document.getElementById('bpmValue').textContent = preset.bpm;
-  
+
   renderSequencer();
 }
 
@@ -1578,22 +1430,14 @@ function addGhostNotes() {
 
 function randomizeVelocity() {
   Object.keys(instruments).forEach(inst => {
-    patterns[inst].forEach(step => {
-      if (step.active) {
-        step.velocity = 0.5 + Math.random() * 0.5;
-      }
-    });
+    patterns[inst].forEach(step => { if (step.active) step.velocity = 0.5 + Math.random() * 0.5; });
   });
   renderSequencer();
 }
 
 function randomizeProbability() {
   Object.keys(instruments).forEach(inst => {
-    patterns[inst].forEach(step => {
-      if (step.active) {
-        step.probability = 50 + Math.floor(Math.random() * 51);
-      }
-    });
+    patterns[inst].forEach(step => { if (step.active) step.probability = 50 + Math.floor(Math.random() * 51); });
   });
   renderSequencer();
 }
@@ -1601,46 +1445,35 @@ function randomizeProbability() {
 function clearPattern() {
   Object.keys(instruments).forEach(inst => {
     patterns[inst].forEach(step => {
-      step.active = false;
-      step.velocity = 0.8;
-      step.probability = 100;
-      step.note = instruments[inst].note;
-      step.duration = '8n';
+      step.active = false; step.velocity = 0.8; step.probability = 100;
+      step.note = instruments[inst].note; step.duration = '8n';
     });
   });
   renderSequencer();
 }
 
 function generateMelodicPatterns() {
-  // Generate bass line
   generateBassLine();
-  
-  // Generate keys/chords
   generateKeyPattern();
-  
-  // Generate lead melody
   generateLeadMelody();
-  
   renderSequencer();
 }
 
 function generateBassLine() {
   const scaleIntervals = scales[state.scale];
-  const keyIndex = keys.indexOf(state.key);
-  const rootNote = state.key;
+  const keyIndex = keysArr.indexOf(state.key);
+  const root = state.key;
   const octave = 2;
-  
-  // Common bass patterns: root, fifth, octave
+
   const bassNotes = [
-    rootNote + octave, // Root
-    keys[(keyIndex + scaleIntervals[4]) % 12] + octave, // Fifth
-    rootNote + (octave + 1), // Octave
-    keys[(keyIndex + scaleIntervals[3]) % 12] + octave  // Fourth
+    root + octave,
+    keysArr[(keyIndex + scaleIntervals[4]) % 12] + octave,
+    root + (octave + 1),
+    keysArr[(keyIndex + scaleIntervals[3]) % 12] + octave
   ];
-  
-  // Create pattern based on complexity
+
   const density = state.complexity === 1 ? 4 : state.complexity === 2 ? 6 : 8;
-  
+
   for (let i = 0; i < state.sequenceLength; i++) {
     if (i % (16 / density) === 0 || (state.complexity >= 3 && Math.random() < 0.3)) {
       patterns.bass[i].active = true;
@@ -1654,30 +1487,23 @@ function generateBassLine() {
 
 function generateKeyPattern() {
   const scaleIntervals = scales[state.scale];
-  const keyIndex = keys.indexOf(state.key);
+  const keyIndex = keysArr.indexOf(state.key);
   const octave = 4;
-  
-  // Generate chord progression notes
+
   const chords = [];
   for (let i = 0; i < 4; i++) {
-    const degree = [0, 3, 4, 0][i]; // I - IV - V - I
-    const root = keys[(keyIndex + scaleIntervals[degree]) % 12];
-    const third = keys[(keyIndex + scaleIntervals[(degree + 2) % scaleIntervals.length]) % 12];
-    const fifth = keys[(keyIndex + scaleIntervals[(degree + 4) % scaleIntervals.length]) % 12];
-    
-    chords.push([
-      root + octave,
-      third + octave,
-      fifth + octave
-    ]);
+    const degree = [0,3,4,0][i]; // I - IV - V - I
+    const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
+    const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % scaleIntervals.length]) % 12];
+    const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % scaleIntervals.length]) % 12];
+    chords.push([root + octave, third + octave, fifth + octave]);
   }
-  
-  // Place chords on strong beats
+
   for (let i = 0; i < state.sequenceLength; i++) {
     if (i % 4 === 0) {
-      const chordIndex = Math.floor(i / 4) % chords.length;
+      const idx = Math.floor(i / 4) % chords.length;
       patterns.keys[i].active = true;
-      patterns.keys[i].note = chords[chordIndex]; // Array for chord
+      patterns.keys[i].note = chords[idx];
       patterns.keys[i].velocity = 0.6 + Math.random() * 0.2;
       patterns.keys[i].duration = '2n';
       patterns.keys[i].probability = 100;
@@ -1687,31 +1513,21 @@ function generateKeyPattern() {
 
 function generateLeadMelody() {
   const scaleIntervals = scales[state.scale];
-  const keyIndex = keys.indexOf(state.key);
+  const keyIndex = keysArr.indexOf(state.key);
   const octave = 5;
-  
-  // Build scale notes
-  const scaleNotes = scaleIntervals.map(interval => 
-    keys[(keyIndex + interval) % 12] + octave
-  );
-  
-  // Add octave above for variety
-  const extendedScale = [...scaleNotes, ...scaleIntervals.map(interval => 
-    keys[(keyIndex + interval) % 12] + (octave + 1)
-  )];
-  
-  // Generate melodic pattern
-  let lastNoteIndex = 0;
+
+  const scaleNotes = scaleIntervals.map(iv => keysArr[(keyIndex + iv) % 12] + octave);
+  const extended = [...scaleNotes, ...scaleIntervals.map(iv => keysArr[(keyIndex + iv) % 12] + (octave + 1))];
+
+  let lastIdx = 0;
   const density = state.complexity === 1 ? 4 : state.complexity === 2 ? 6 : 10;
-  
+
   for (let i = 0; i < state.sequenceLength; i++) {
     if (Math.random() < (density / 16)) {
-      // Melodic movement: prefer steps over jumps
-      const jump = Math.random() < 0.7 ? (Math.random() < 0.5 ? 1 : -1) : Math.floor(Math.random() * 5) - 2;
-      lastNoteIndex = Math.max(0, Math.min(extendedScale.length - 1, lastNoteIndex + jump));
-      
+      const jump = Math.random() < 0.7 ? (Math.random() < 0.5 ? 1 : -1) : (Math.floor(Math.random() * 5) - 2);
+      lastIdx = Math.max(0, Math.min(extended.length - 1, lastIdx + jump));
       patterns.lead[i].active = true;
-      patterns.lead[i].note = extendedScale[lastNoteIndex];
+      patterns.lead[i].note = extended[lastIdx];
       patterns.lead[i].velocity = 0.6 + Math.random() * 0.4;
       patterns.lead[i].duration = Math.random() < 0.7 ? '8n' : '16n';
       patterns.lead[i].probability = Math.random() < 0.8 ? 100 : 75;
@@ -1720,51 +1536,38 @@ function generateLeadMelody() {
 }
 
 function applyEuclidean() {
-  const inst = Object.keys(instruments)[Math.floor(Math.random() * Object.keys(instruments).length)];
+  const insts = Object.keys(instruments);
+  const inst = insts[Math.floor(Math.random() * insts.length)];
   const hits = Math.floor(Math.random() * 8) + 3;
   const steps = state.sequenceLength;
-  
-  const euclidean = generateEuclidean(hits, steps);
-  euclidean.forEach((val, i) => {
-    patterns[inst][i].active = val === 1;
-    if (val === 1) {
+
+  const pat = generateEuclidean(hits, steps);
+  pat.forEach((v, i) => {
+    patterns[inst][i].active = v === 1;
+    if (v === 1) {
       patterns[inst][i].velocity = 0.7 + Math.random() * 0.3;
       patterns[inst][i].probability = 100;
     }
   });
-  
   renderSequencer();
 }
-
 function generateEuclidean(hits, steps) {
-  const pattern = Array(steps).fill(0);
+  const res = Array(steps).fill(0);
   const bucket = [];
-  
-  for (let i = 0; i < steps; i++) {
-    bucket.push(Math.floor((i * hits) / steps));
-  }
-  
-  for (let i = 0; i < steps; i++) {
-    if (i === 0 || bucket[i] !== bucket[i - 1]) {
-      pattern[i] = 1;
-    }
-  }
-  
-  return pattern;
+  for (let i = 0; i < steps; i++) bucket.push(Math.floor((i * hits) / steps));
+  for (let i = 0; i < steps; i++) if (i === 0 || bucket[i] !== bucket[i - 1]) res[i] = 1;
+  return res;
 }
 
-// ========================================
-// Mixer
-// ========================================
-
+// -------------------- Mixer Rendering (no inline listeners) --------------------
 function renderMixer() {
   const grid = document.getElementById('mixerGrid');
   grid.innerHTML = '';
-  
+
   Object.keys(instruments).forEach(inst => {
-    const channel = document.createElement('div');
-    channel.className = 'mixer-channel';
-    channel.innerHTML = `
+    const ch = document.createElement('div');
+    ch.className = 'mixer-channel';
+    ch.innerHTML = `
       <div class="channel-header">
         <div class="channel-name">${instruments[inst].icon} ${instruments[inst].name}</div>
         <div class="channel-btns">
@@ -1787,94 +1590,44 @@ function renderMixer() {
         <input type="range" min="-100" max="100" value="${instruments[inst].pan}" data-inst="${inst}" data-param="pan">
       </div>
     `;
-    grid.appendChild(channel);
-  });
-  
-  // Event listeners
-  // Event listeners
-  grid.addEventListener('click', e => {
-    if (e.target.classList.contains('channel-btn')) {
-      const inst = e.target.dataset.inst;
-      const action = e.target.dataset.action;
-      
-      if (action === 'mute') {
-        instruments[inst].mute = !instruments[inst].mute;
-      } else if (action === 'solo') {
-        instruments[inst].solo = !instruments[inst].solo;
-      }
-      
-      renderMixer();
-      renderSequencer();
-    }
-  });
-  
-  grid.addEventListener('input', e => {
-    if (e.target.type === 'range') {
-      const inst = e.target.dataset.inst;
-      const param = e.target.dataset.param;
-      const value = parseFloat(e.target.value);
-      
-      instruments[inst][param] = value;
-      
-      if (param === 'volume' && synths[inst]) {
-        synths[inst].volume.value = value;
-      } else if (param === 'pan' && synths[inst]) {
-        // Pan needs to be between -1 and 1
-        const panValue = value / 100;
-        if (!instruments[inst].panner) {
-          instruments[inst].panner = new Tone.Panner(panValue).toDestination();
-          synths[inst].disconnect();
-          synths[inst].connect(instruments[inst].panner);
-        } else {
-          instruments[inst].panner.pan.value = panValue;
-        }
-      }
-      
-      // Update display
-      const parentControl = e.target.closest('.param-control');
-      const valueDisplay = parentControl.querySelector('.param-value');
-      if (param === 'volume') {
-        valueDisplay.textContent = value + 'dB';
-      } else if (param === 'pan') {
-        valueDisplay.textContent = (value > 0 ? 'R' : value < 0 ? 'L' : 'C') + Math.abs(value);
-      }
-    }
+    grid.appendChild(ch);
   });
 }
 
-// ========================================
-// Effects
-// ========================================
-
+// -------------------- FX Rack Rendering (no inline listeners) --------------------
 function renderFX() {
   const grid = document.getElementById('fxGrid');
   grid.innerHTML = '';
-  
+
   Object.keys(fxConfig).forEach(fx => {
     const unit = document.createElement('div');
     unit.className = 'fx-unit';
-    
     const config = fxConfig[fx];
     const params = Object.keys(config).filter(k => k !== 'name' && k !== 'active');
-    
+
     let paramsHTML = '';
     params.forEach(param => {
-      const value = config[param];
-      const displayValue = typeof value === 'number' ? 
-        (value < 1 ? (value * 100).toFixed(0) + '%' : value.toFixed(2)) : value;
-      
+      const val = config[param];
+      const display = formatFxDisplay(param, val);
+      // Slider positions derived inversely from mapFxParam, approximate
+      let sliderVal = 50;
+      if (param === 'decay') sliderVal = Math.max(0, Math.min(100, Math.round(val * 20)));
+      else if (param === 'wet' || param === 'feedback' || param === 'depth' || param === 'amount') sliderVal = Math.round(val * 100);
+      else if (param === 'time') sliderVal = { '16n': 0, '8n': 33, '4n': 66, '2n': 100 }[val] ?? 50;
+      else if (param === 'frequency') sliderVal = Math.round((val - 100) / 79); // inverse of 100..8000
+      else if (param === 'octaves') sliderVal = (val - 1) * 20;
+
       paramsHTML += `
         <div class="param-control">
           <div class="param-label">
             <span>${param}</span>
-            <span class="param-value">${displayValue}</span>
+            <span class="param-value">${display}</span>
           </div>
-          <input type="range" min="0" max="100" value="${typeof value === 'number' ? value * 50 : 50}" 
-            data-fx="${fx}" data-param="${param}">
+          <input type="range" min="0" max="100" value="${sliderVal}" data-fx="${fx}" data-param="${param}">
         </div>
       `;
     });
-    
+
     unit.innerHTML = `
       <div class="fx-header">
         <div class="fx-name">${config.name}</div>
@@ -1882,263 +1635,118 @@ function renderFX() {
       </div>
       ${paramsHTML}
     `;
-    
     grid.appendChild(unit);
   });
-  
-  // Event listeners
-  // Event listeners
-  grid.addEventListener('click', e => {
-    if (e.target.classList.contains('fx-toggle')) {
-      const fx = e.target.dataset.fx;
-      fxConfig[fx].active = !fxConfig[fx].active;
-      
-      if (effects[fx] && effects[fx].wet) {
-        effects[fx].wet.value = fxConfig[fx].active ? 0.5 : 0;
-      }
-      
-      renderFX();
-    }
-  });
-  
-  grid.addEventListener('input', e => {
-    if (e.target.type === 'range') {
-      const fx = e.target.dataset.fx;
-      const param = e.target.dataset.param;
-      const rawValue = parseInt(e.target.value);
-      
-      let value;
-      // Map slider values appropriately for each parameter
-      if (param === 'decay') {
-        value = rawValue / 25; // 0-4
-      } else if (param === 'wet') {
-        value = rawValue / 100; // 0-1
-      } else if (param === 'time') {
-        value = ['16n', '8n', '4n', '2n'][Math.floor(rawValue / 25)];
-      } else if (param === 'feedback') {
-        value = rawValue / 100; // 0-1
-      } else if (param === 'frequency') {
-        value = rawValue / 10; // 0-10
-      } else if (param === 'depth' || param === 'amount') {
-        value = rawValue / 100; // 0-1
-      } else if (param === 'octaves') {
-        value = Math.floor(rawValue / 20) + 1; // 1-6
-      } else {
-        value = rawValue / 50;
-      }
-      
-      fxConfig[fx][param] = value;
-      
-      // Update actual effect parameter
-      if (effects[fx]) {
-        if (param === 'decay' && effects[fx].decay) {
-          effects[fx].decay = value;
-        } else if (param === 'wet' && effects[fx].wet) {
-          effects[fx].wet.value = value;
-        } else if (param === 'time' && effects[fx].delayTime) {
-          effects[fx].delayTime.value = value;
-        } else if (param === 'feedback' && effects[fx].feedback) {
-          effects[fx].feedback.value = value;
-        } else if (param === 'frequency' && effects[fx].frequency) {
-          effects[fx].frequency.value = value;
-        } else if (param === 'depth' && effects[fx].depth) {
-          effects[fx].depth.value = value;
-        } else if (param === 'amount' && effects[fx].distortion) {
-          effects[fx].distortion = value;
-        } else if (param === 'octaves' && effects[fx].octaves) {
-          effects[fx].octaves = value;
-        }
-      }
-      
-      renderFX();
-    }
-  });
 }
-  
-// ========================================
-// Harmony
-// ========================================
 
+// -------------------- Harmony --------------------
 function renderHarmony() {
-  // Key select
   const keySelect = document.getElementById('keySelect');
-  keySelect.innerHTML = keys.map(k => 
-    `<option value="${k}" ${k === state.key ? 'selected' : ''}>${k}</option>`
-  ).join('');
-  
-  // Scale select
+  keySelect.innerHTML = keysArr.map(k => `<option value="${k}" ${k===state.key?'selected':''}>${k}</option>`).join('');
+
   const scaleSelect = document.getElementById('scaleSelect');
-  scaleSelect.innerHTML = Object.keys(scales).map(s => 
-    `<option value="${s}" ${s === state.scale ? 'selected' : ''}>${s}</option>`
-  ).join('');
-  
-  // Octave select
+  scaleSelect.innerHTML = Object.keys(scales).map(s => `<option value="${s}" ${s===state.scale?'selected':''}>${s}</option>`).join('');
+
   const octaveSelect = document.getElementById('octaveSelect');
-  octaveSelect.innerHTML = [2, 3, 4, 5, 6].map(o => 
-    `<option value="${o}" ${o === state.octave ? 'selected' : ''}>${o}</option>`
-  ).join('');
-  
+  octaveSelect.innerHTML = [2,3,4,5,6].map(o => `<option value="${o}" ${o===state.octave?'selected':''}>${o}</option>`).join('');
+
   updateChords();
 }
 
 function updateChords() {
   const chordChips = document.getElementById('chordChips');
   chordChips.innerHTML = '';
-  
-  const keyIndex = keys.indexOf(state.key);
+
+  const keyIndex = keysArr.indexOf(state.key);
   const scaleIntervals = scales[state.scale];
-  
-  // Generate chords from scale
+
   const chords = [];
   scaleIntervals.forEach((interval, i) => {
-    const root = keys[(keyIndex + interval) % 12];
+    const root = keysArr[(keyIndex + interval) % 12];
     const third = scaleIntervals[(i + 2) % scaleIntervals.length];
-    const fifth = scaleIntervals[(i + 4) % scaleIntervals.length];
-    
     const thirdInterval = (third - interval + 12) % 12;
     const type = thirdInterval === 3 ? 'minor' : thirdInterval === 4 ? 'major' : 'dim';
-    
-    chords.push({ root, type, roman: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][i] });
+    chords.push({ root, type, roman: ['I','II','III','IV','V','VI','VII'][i] });
   });
-  
+
   chords.forEach(chord => {
     const chip = document.createElement('div');
     chip.className = 'chip';
-    chip.textContent = `${chord.roman} - ${chord.root}${chord.type === 'minor' ? 'm' : chord.type === 'dim' ? '°' : ''}`;
-    chip.dataset.chord = JSON.stringify(chord);
-    
-    chip.addEventListener('click', () => {
-      state.progression.push(chord);
-      renderProgression();
-    });
-    
+    chip.textContent = `${chord.roman} - ${chord.root}${chord.type==='minor'?'m':chord.type==='dim'?'°':''}`;
+    chip.addEventListener('click', () => { state.progression.push(chord); renderProgression(); });
     chordChips.appendChild(chip);
   });
 }
 
 function renderProgression() {
-  const progressionChips = document.getElementById('progressionChips');
-  progressionChips.innerHTML = '';
-  
-  if (state.progression.length === 0) {
-    progressionChips.innerHTML = '<div style="color: var(--text-muted); font-size: 0.9rem;">Click chords above to build progression</div>';
+  const wrap = document.getElementById('progressionChips');
+  wrap.innerHTML = '';
+  if (!state.progression.length) {
+    wrap.innerHTML = '<div style="color: var(--text-muted); font-size: 0.9rem;">Click chords above to build progression</div>';
     return;
   }
-  
   state.progression.forEach((chord, idx) => {
     const chip = document.createElement('div');
     chip.className = 'chip active';
-    chip.textContent = `${chord.roman} - ${chord.root}${chord.type === 'minor' ? 'm' : chord.type === 'dim' ? '°' : ''}`;
-    
-    chip.addEventListener('click', () => {
-      state.progression.splice(idx, 1);
-      renderProgression();
-    });
-    
-    progressionChips.appendChild(chip);
+    chip.textContent = `${chord.roman} - ${chord.root}${chord.type==='minor'?'m':chord.type==='dim'?'°':''}`;
+    chip.addEventListener('click', () => { state.progression.splice(idx, 1); renderProgression(); });
+    wrap.appendChild(chip);
   });
 }
 
 function generateProgression() {
-  const keyIndex = keys.indexOf(state.key);
+  const keyIndex = keysArr.indexOf(state.key);
   const scaleIntervals = scales[state.scale];
-  
-  // Common progressions
-  const progressionTemplates = [
-    [0, 3, 4, 0], // I-IV-V-I
-    [0, 5, 3, 4], // I-VI-IV-V
-    [1, 4, 0],    // II-V-I
-    [0, 4, 5, 3]  // I-V-VI-IV
+  const templates = [
+    [0,3,4,0], [0,5,3,4], [1,4,0], [0,4,5,3]
   ];
-  
-  const template = progressionTemplates[Math.floor(Math.random() * progressionTemplates.length)];
+  const tpl = templates[Math.floor(Math.random()*templates.length)];
   state.progression = [];
-  
-  template.forEach(degree => {
+
+  tpl.forEach(degree => {
     const interval = scaleIntervals[degree];
-    const root = keys[(keyIndex + interval) % 12];
+    const root = keysArr[(keyIndex + interval) % 12];
     const third = scaleIntervals[(degree + 2) % scaleIntervals.length];
     const thirdInterval = (third - interval + 12) % 12;
     const type = thirdInterval === 3 ? 'minor' : thirdInterval === 4 ? 'major' : 'dim';
-    
-    state.progression.push({ 
-      root, 
-      type, 
-      roman: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][degree] 
-    });
+    state.progression.push({ root, type, roman: ['I','II','III','IV','V','VI','VII'][degree] });
   });
-  
+
   renderProgression();
 }
 
-function loadProgressionTemplate(templateName) {
-  const templates = {
-    'ii-v-i': [
-      { root: 'D', type: 'minor', roman: 'II' },
-      { root: 'G', type: 'major', roman: 'V' },
-      { root: 'C', type: 'major', roman: 'I' }
-    ],
-    'lofi': [
-      { root: 'C', type: 'major', roman: 'I' },
-      { root: 'A', type: 'minor', roman: 'VI' },
-      { root: 'F', type: 'major', roman: 'IV' },
-      { root: 'G', type: 'major', roman: 'V' }
-    ],
-    'neosoul': [
-      { root: 'D', type: 'minor', roman: 'II' },
-      { root: 'E', type: 'minor', roman: 'III' },
-      { root: 'A', type: 'minor', roman: 'VI' },
-      { root: 'D', type: 'minor', roman: 'II' }
-    ],
-    'modal': [
-      { root: 'D', type: 'minor', roman: 'I' },
-      { root: 'E', type: 'minor', roman: 'II' },
-      { root: 'F', type: 'major', roman: 'III' },
-      { root: 'G', type: 'major', roman: 'IV' }
-    ]
+function loadProgressionTemplate(name) {
+  const t = {
+    'ii-v-i': [{root:'D',type:'minor',roman:'II'},{root:'G',type:'major',roman:'V'},{root:'C',type:'major',roman:'I'}],
+    'lofi':   [{root:'C',type:'major',roman:'I'},{root:'A',type:'minor',roman:'VI'},{root:'F',type:'major',roman:'IV'},{root:'G',type:'major',roman:'V'}],
+    'neosoul':[ {root:'D',type:'minor',roman:'II'},{root:'E',type:'minor',roman:'III'},{root:'A',type:'minor',roman:'VI'},{root:'D',type:'minor',roman:'II'}],
+    'modal':  [{root:'D',type:'minor',roman:'I'},{root:'E',type:'minor',roman:'II'},{root:'F',type:'major',roman:'III'},{root:'G',type:'major',roman:'IV'}]
   };
-  
-  state.progression = templates[templateName] || [];
+  state.progression = t[name] || [];
   renderProgression();
 }
 
-// ========================================
-// Presets
-// ========================================
-
+// -------------------- Presets Grid --------------------
 function renderPresets() {
   const grid = document.getElementById('presetGrid');
   grid.innerHTML = '';
-  
   Object.keys(genrePresets).forEach(genre => {
     const preset = genrePresets[genre];
     const div = document.createElement('div');
     div.className = 'preset';
-    div.innerHTML = `
-      <div class="preset-icon">${preset.icon}</div>
-      <div class="preset-name">${preset.name}</div>
-    `;
+    div.innerHTML = `<div class="preset-icon">${preset.icon}</div><div class="preset-name">${preset.name}</div>`;
     div.addEventListener('click', () => loadPreset(genre));
     grid.appendChild(div);
   });
 }
-
 function loadPreset(genre) {
   state.currentGenre = genre;
-  document.querySelectorAll('.genre-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.genre === genre);
-  });
+  document.querySelectorAll('.genre-btn').forEach(b => b.classList.toggle('active', b.dataset.genre === genre));
   generateBeat();
 }
+function updateGenrePresets(){ renderPresets(); }
 
-function updateGenrePresets() {
-  renderPresets();
-}
-
-// ========================================
-// Transport
-// ========================================
-
+// -------------------- Transport --------------------
 async function togglePlay() {
   if (state.isPlaying) {
     Tone.Transport.pause();
@@ -2150,9 +1758,9 @@ async function togglePlay() {
     state.isPlaying = true;
     document.getElementById('playBtn').innerHTML = '⏸️ Pause';
     startTimer();
+    document.getElementById('vizOverlay').style.display = 'none';
   }
 }
-
 function stop() {
   Tone.Transport.stop();
   state.isPlaying = false;
@@ -2164,114 +1772,77 @@ function stop() {
   stopTimer();
 }
 
+// Timer
 let timerInterval;
-
 function startTimer() {
   stopTimer();
   timerInterval = setInterval(() => {
     const seconds = Tone.Transport.seconds;
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    document.getElementById('timeDisplay').textContent = 
-      String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
-    
-    const totalSeconds = state.duration * 60;
-    const progress = (seconds / totalSeconds) * 100;
+    document.getElementById('timeDisplay').textContent =
+      String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
+    const total = state.duration * 60;
+    const progress = (seconds / total) * 100;
     document.getElementById('progressFill').style.width = Math.min(100, progress) + '%';
   }, 100);
 }
+function stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
 
-function stopTimer() {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-}
-
-// ========================================
-// Visualizer
-// ========================================
-
-function updateVisualizer() {
+// -------------------- Visualizer (lighter DOM work) --------------------
+function initVisualizerOnce(){
   const viz = document.getElementById('visualizer');
-  const overlay = document.getElementById('vizOverlay');
-  
-  if (state.isPlaying) {
-    overlay.style.display = 'none';
-  }
-  
-  // Clear old bars
-  viz.querySelectorAll('.viz-bar').forEach(bar => bar.remove());
-  
-  // Create new bars
+  if (viz.dataset.ready) return;
+  viz.dataset.ready = '1';
   for (let i = 0; i < 32; i++) {
     const bar = document.createElement('div');
     bar.className = 'viz-bar';
     bar.style.left = (i * 100 / 32) + '%';
-    bar.style.height = (Math.random() * 80 + 20) + '%';
+    bar.style.height = '10%';
     viz.appendChild(bar);
-    
-    // Animate
-    setTimeout(() => {
-      bar.style.height = (Math.random() * 60 + 10) + '%';
-    }, 50);
   }
 }
+function updateVisualizer() {
+  const viz = document.getElementById('visualizer');
+  const bars = viz.querySelectorAll('.viz-bar');
+  bars.forEach(bar => {
+    bar.style.height = (Math.random() * 60 + 10) + '%';
+  });
+}
 
-// ========================================
-// Project Management
-// ========================================
-
+// -------------------- Project Save/Load --------------------
 function saveProject() {
   const projectName = document.getElementById('projectName').value || 'Untitled';
-  
   const project = {
-    name: projectName,
-    state: state,
-    patterns: patterns,
-    instruments: instruments,
-    timestamp: Date.now()
+    name: projectName, state, patterns, instruments, timestamp: Date.now()
   };
-  
   const json = JSON.stringify(project, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
+  const blob = new Blob([json], { type:'application/json' });
   const url = URL.createObjectURL(blob);
-  
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `${projectName.replace(/\s+/g, '_')}.prostudio.json`;
+  a.href = url; a.download = `${projectName.replace(/\s+/g,'_')}.prostudio.json`;
   a.click();
-  
   URL.revokeObjectURL(url);
-  
   alert('✅ Project saved!');
 }
 
 function loadProject() {
   const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json,.prostudio.json';
-  
+  input.type = 'file'; input.accept = '.json,.prostudio.json';
   input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = event => {
+    reader.onload = ev => {
       try {
-        const project = JSON.parse(event.target.result);
-        
-        // Restore state
+        const project = JSON.parse(ev.target.result);
         Object.assign(state, project.state);
+        Object.keys(patterns).forEach(k => delete patterns[k]);
         Object.assign(patterns, project.patterns);
         Object.assign(instruments, project.instruments);
-        
-        // Update UI
         document.getElementById('projectName').value = project.name;
         updateAllDisplays();
         renderSequencer();
         renderMixer();
-        
         alert('✅ Project loaded!');
       } catch (err) {
         alert('❌ Error loading project: ' + err.message);
@@ -2279,232 +1850,179 @@ function loadProject() {
     };
     reader.readAsText(file);
   };
-  
   input.click();
 }
 
 function updateAllDisplays() {
   document.getElementById('bpmSlider').value = state.bpm;
   document.getElementById('bpmValue').textContent = state.bpm;
-  
   document.getElementById('swingSlider').value = state.swing;
   document.getElementById('swingValue').textContent = state.swing + '%';
-  
   document.getElementById('durSlider').value = state.duration;
   document.getElementById('durValue').textContent = state.duration + ' min';
-  document.getElementById('durationDisplay').textContent = 
-    '/ ' + String(state.duration).padStart(2, '0') + ':00';
-  
+  document.getElementById('durationDisplay').textContent = '/ ' + String(state.duration).padStart(2,'0') + ':00';
   document.getElementById('complexSlider').value = state.complexity;
-  const labels = ['Simple', 'Medium', 'Complex'];
-  document.getElementById('complexValue').textContent = labels[state.complexity - 1];
-  
+  document.getElementById('complexValue').textContent = ['Simple','Medium','Complex'][state.complexity-1];
   document.getElementById('humanSlider').value = state.humanize;
   document.getElementById('humanValue').textContent = state.humanize + 'ms';
-  
   Tone.Transport.bpm.value = state.bpm;
+  Tone.Transport.swing = state.swing / 100;
+  Tone.Transport.swingSubdivision = '8n';
 }
 
-// ========================================
-// Export
-// ========================================
-
+// -------------------- Export (Offline render + save dialog) --------------------
 async function exportAudio() {
-  // Check if there's any active pattern
-  let hasActiveNotes = false;
+  let hasActive = false;
   Object.keys(patterns).forEach(inst => {
-    if (patterns[inst].some(step => step.active)) {
-      hasActiveNotes = true;
-    }
+    if (patterns[inst].some(s => s.active)) hasActive = true;
   });
-  
-  if (!hasActiveNotes) {
-    alert('❌ No active notes! Please create a pattern first.');
-    return;
-  }
-  
-  const exportDuration = state.duration * 60; // Convert to seconds
-  
-  alert('🎵 Rendering audio...\n\nThis will take a few moments.');
-  
+  if (!hasActive) { alert('❌ No active notes! Please create a pattern first.'); return; }
+
+  const exportDuration = state.duration * 60;
+  alert('🎵 Rendering audio...');
+
   try {
-    // Use Tone.Offline to render the audio
     const buffer = await Tone.Offline(async ({ transport }) => {
-      // Set up the same audio chain
-      const exportEffects = {
-        reverb: new Tone.Reverb(fxConfig.reverb.decay),
-        delay: new Tone.FeedbackDelay(fxConfig.delay.time, fxConfig.delay.feedback),
-        chorus: new Tone.Chorus(fxConfig.chorus.frequency, 2.5, fxConfig.chorus.depth).start(),
-        distortion: new Tone.Distortion(fxConfig.distortion.amount),
+      // Recreate chain in Offline context
+      const fx = {
         filter: new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type),
-        phaser: new Tone.Phaser({
-          frequency: fxConfig.phaser.frequency,
-          octaves: fxConfig.phaser.octaves,
-          baseFrequency: 350
-        })
+        distortion: new Tone.Distortion(fxConfig.distortion.amount),
+        chorus: new Tone.Chorus(1.5, 2.5, fxConfig.chorus.depth).start(),
+        phaser: new Tone.Phaser({ frequency: fxConfig.phaser.frequency, octaves: fxConfig.phaser.octaves, baseFrequency: 350 }),
+        delay: new Tone.FeedbackDelay(fxConfig.delay.time, fxConfig.delay.feedback),
+        reverb: new Tone.Reverb(fxConfig.reverb.decay)
       };
-      
-      // Set wet values based on active state
-      Object.keys(exportEffects).forEach(fx => {
-        if (exportEffects[fx].wet) {
-          exportEffects[fx].wet.value = fxConfig[fx].active ? 0.5 : 0;
-        }
-      });
-      
-      const exportChannel = new Tone.Gain(1);
-      exportChannel.chain(
-        exportEffects.filter,
-        exportEffects.distortion,
-        exportEffects.chorus,
-        exportEffects.phaser,
-        exportEffects.delay,
-        exportEffects.reverb,
-        Tone.Destination
-      );
-      
-      // Create synths
-      const exportSynths = {};
+      Object.keys(fx).forEach(k => { if (fx[k].wet) fx[k].wet.value = fxConfig[k]?.active ? 0.5 : 0; });
+
+      const offlineMaster = new Tone.Gain(1);
+      const comp = new Tone.Compressor(-18, 3);
+      const lim = new Tone.Limiter(-1);
+
+      offlineMaster.chain(fx.filter, fx.distortion, fx.chorus, fx.phaser, fx.delay, fx.reverb, comp, lim, Tone.Destination);
+
+      const exSynths = {};
+      const exChannels = {};
       Object.keys(instruments).forEach(inst => {
-        const instData = instruments[inst];
-        
-        if (instData.type === 'drum') {
+        const data = instruments[inst];
+        // synths
+        if (data.type === 'drum') {
           if (inst === 'kick') {
-            exportSynths[inst] = new Tone.MembraneSynth({
-              pitchDecay: 0.08, octaves: 8, oscillator: { type: 'sine' },
-              envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
-            });
+            exSynths[inst] = new Tone.MembraneSynth({ pitchDecay:0.08, octaves:8, oscillator:{type:'sine'}, envelope:{attack:0.001,decay:0.4,sustain:0.01,release:1.4}});
           } else if (inst === 'snare' || inst === 'clap') {
-            exportSynths[inst] = new Tone.NoiseSynth({
-              noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
-            });
+            exSynths[inst] = new Tone.NoiseSynth({ noise:{type:'white'}, envelope:{attack:0.001,decay:0.2,sustain:0}});
           } else if (inst === 'hihat') {
-            exportSynths[inst] = new Tone.MetalSynth({
-              frequency: 200, envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
-              harmonicity: 5.1, modulationIndex: 32, resonance: 4000, octaves: 1.5
-            });
+            exSynths[inst] = new Tone.MetalSynth({ frequency:200, envelope:{attack:0.001,decay:0.1,release:0.01}, harmonicity:5.1, modulationIndex:32, resonance:4000, octaves:1.5 });
           } else {
-            exportSynths[inst] = new Tone.MembraneSynth({
-              pitchDecay: 0.05, octaves: 6, oscillator: { type: 'sine' },
-              envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
-            });
+            exSynths[inst] = new Tone.MembraneSynth({ pitchDecay:0.05, octaves:6, oscillator:{type:'sine'}, envelope:{attack:0.001,decay:0.4,sustain:0.01,release:1.4}});
           }
-        } else if (instData.type === 'melodic') {
+        } else {
           if (inst === 'bass') {
-            exportSynths[inst] = new Tone.MonoSynth({
-              oscillator: { type: 'sawtooth' },
-              filter: { Q: 2, type: 'lowpass', rolloff: -24 },
-              envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
-              filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5, baseFrequency: 100, octaves: 2.5 }
-            });
+            exSynths[inst] = new Tone.MonoSynth({ oscillator:{type:'sawtooth'}, filter:{Q:2, type:'lowpass', rolloff:-24},
+              envelope:{attack:0.01,decay:0.3,sustain:0.4,release:0.8},
+              filterEnvelope:{attack:0.01,decay:0.2,sustain:0.3,release:0.5,baseFrequency:100,octaves:2.5} });
           } else if (inst === 'keys') {
-            exportSynths[inst] = new Tone.PolySynth(Tone.Synth, {
-              oscillator: { type: 'triangle' },
-              envelope: { attack: 0.005, decay: 0.3, sustain: 0.4, release: 1.2 }
+            exSynths[inst] = new Tone.PolySynth(Tone.AMSynth, {
+              harmonicity: 1.01,
+              envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.5 },
+              modulationEnvelope: { attack: 0.2, decay: 0.3, sustain: 0.2, release: 0.8 }
             });
           } else if (inst === 'lead') {
-            exportSynths[inst] = new Tone.Synth({
-              oscillator: { type: 'square' },
-              envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.8 }
+            exSynths[inst] = new Tone.FMSynth({
+              modulationIndex: 6, oscillator:{type:'sine'},
+              envelope:{attack:0.01,decay:0.25,sustain:0.5,release:0.8},
+              modulation:{type:'triangle'}, modulationEnvelope:{attack:0.01,decay:0.2,sustain:0.3,release:0.7}
             });
           }
-          exportSynths[inst].volume.value = instData.volume;
+          exSynths[inst].volume.value = data.volume;
         }
-        
-        exportSynths[inst].connect(exportChannel);
+
+        exChannels[inst] = new Tone.Channel({ pan: 0, volume: data.volume }).connect(offlineMaster);
+        exSynths[inst].connect(exChannels[inst]);
       });
-      
-      // Set up sequence
+
       transport.bpm.value = state.bpm;
-      
+      transport.swing = state.swing / 100;
+      transport.swingSubdivision = '8n';
+
       new Tone.Sequence((time, step) => {
         Object.keys(instruments).forEach(inst => {
-          const stepData = patterns[inst][step];
-          if (!stepData.active) return;
-          
-          const instData = instruments[inst];
-          if (instData.mute) return;
-          
+          const s = patterns[inst][step];
+          if (!s.active) return;
+          const d = instruments[inst];
+          if (d.mute) return;
           const anySolo = Object.values(instruments).some(i => i.solo);
-          if (anySolo && !instData.solo) return;
-          
-          if (Math.random() * 100 > stepData.probability) return;
-          
+          if (anySolo && !d.solo) return;
+          if (Math.random() * 100 > s.probability) return;
+
           const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
-          
-          if (instData.type === 'drum') {
-            if (inst === 'kick') {
-              exportSynths[inst].triggerAttackRelease('C1', '8n', time + humanize, stepData.velocity);
-            } else if (inst === 'snare' || inst === 'clap') {
-              exportSynths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity);
-            } else if (inst === 'hihat') {
-              exportSynths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity * 0.5);
-            } else {
-              exportSynths[inst].triggerAttackRelease('C2', '16n', time + humanize, stepData.velocity);
-            }
-          } else if (instData.type === 'melodic') {
-            const note = stepData.note || instData.note || 'C4';
-            const duration = stepData.duration || '8n';
-            
-            if (inst === 'keys') {
-              exportSynths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
-            } else {
-              exportSynths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
-            }
+          if (d.type === 'drum') {
+            if (inst === 'kick') exSynths[inst].triggerAttackRelease('C1','8n',time+humanize,s.velocity);
+            else if (inst === 'snare' || inst === 'clap') exSynths[inst].triggerAttackRelease('16n',time+humanize,s.velocity);
+            else if (inst === 'hihat') exSynths[inst].triggerAttackRelease('16n',time+humanize,s.velocity*0.5);
+            else exSynths[inst].triggerAttackRelease('C2','16n',time+humanize,s.velocity);
+          } else {
+            const note = s.note || d.note || 'C4';
+            const dur = s.duration || '8n';
+            exSynths[inst].triggerAttackRelease(note, dur, time+humanize, s.velocity);
           }
         });
       }, Array.from({length: state.sequenceLength}, (_, i) => i), state.resolution).start(0);
-      
+
       transport.start();
     }, exportDuration);
-    
+
     // Convert to WAV
     const wav = await bufferToWav(buffer);
-    
-    // Download
     const blob = new Blob([wav], { type: 'audio/wav' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const projectName = document.getElementById('projectName').value || 'beat';
-    a.download = `${projectName.replace(/\s+/g, '_')}_${Date.now()}.wav`;
-    a.click();
-    
-    URL.revokeObjectURL(url);
-    
-    alert('✅ Export complete! Your WAV file has been downloaded.');
-    
+
+    const projectName = (document.getElementById('projectName').value || 'beat').replace(/\s+/g,'_');
+    const fileName = `${projectName}_${Date.now()}.wav`;
+
+    if (window.showSaveFilePicker) {
+      const handle = await showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{ description: 'WAV file', accept: { 'audio/wav': ['.wav'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    alert('✅ Export complete! Your WAV file has been saved.');
   } catch (err) {
     console.error(err);
     alert('❌ Export error: ' + err.message);
   }
 }
 
-// Convert AudioBuffer to WAV
+// Convert AudioBuffer to WAV (16-bit PCM)
 function bufferToWav(buffer) {
   const numChannels = buffer.numberOfChannels;
   const sampleRate = buffer.sampleRate;
-  const format = 1; // PCM
   const bitDepth = 16;
-  
+
   const bytesPerSample = bitDepth / 8;
   const blockAlign = numChannels * bytesPerSample;
-  
+
   const data = [];
-  for (let i = 0; i < buffer.numberOfChannels; i++) {
-    data.push(buffer.getChannelData(i));
-  }
-  
+  for (let i = 0; i < numChannels; i++) data.push(buffer.getChannelData(i));
+
   const dataLength = data[0].length * numChannels * bytesPerSample;
   const arrayBuffer = new ArrayBuffer(44 + dataLength);
   const view = new DataView(arrayBuffer);
-  
-  // WAV header
+
   writeString(view, 0, 'RIFF');
   view.setUint32(4, 36 + dataLength, true);
   writeString(view, 8, 'WAVE');
   writeString(view, 12, 'fmt ');
   view.setUint32(16, 16, true);
-  view.setUint16(20, format, true);
+  view.setUint16(20, 1, true); // PCM
   view.setUint16(22, numChannels, true);
   view.setUint32(24, sampleRate, true);
   view.setUint32(28, sampleRate * blockAlign, true);
@@ -2512,55 +2030,39 @@ function bufferToWav(buffer) {
   view.setUint16(34, bitDepth, true);
   writeString(view, 36, 'data');
   view.setUint32(40, dataLength, true);
-  
-  // Write audio data
+
   let offset = 44;
   for (let i = 0; i < data[0].length; i++) {
-    for (let channel = 0; channel < numChannels; channel++) {
-      const sample = Math.max(-1, Math.min(1, data[channel][i]));
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, data[ch][i]));
       view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
       offset += 2;
     }
   }
-  
   return arrayBuffer;
 }
-
-function writeString(view, offset, string) {
-  for (let i = 0; i < string.length; i++) {
-    view.setUint8(offset + i, string.charCodeAt(i));
-  }
+function writeString(view, offset, str) {
+  for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
 }
-// ========================================
-// PWA Installation
-// ========================================
 
+// -------------------- PWA Install (unchanged) --------------------
 let deferredPrompt;
-
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
   document.getElementById('installBtn').hidden = false;
 });
-
 document.getElementById('installBtn').addEventListener('click', async () => {
   if (!deferredPrompt) return;
-  
   deferredPrompt.prompt();
   const { outcome } = await deferredPrompt.userChoice;
-  
-  if (outcome === 'accepted') {
-    document.getElementById('installBtn').hidden = true;
-  }
-  
+  if (outcome === 'accepted') document.getElementById('installBtn').hidden = true;
   deferredPrompt = null;
 });
 
-// ========================================
-// Initialize
-// ========================================
-
+// -------------------- Initialize --------------------
 document.addEventListener('DOMContentLoaded', init);
 </script>
+
 </body>
 </html>
