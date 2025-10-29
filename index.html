@@ -7,7 +7,7 @@ Single-file HTML (drop‑in ready)
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1 maximum-scale=1 user-scalable=no" />
   <title>Lo‑Fi Studio — Pro Edition</title>
   <!-- Tone.js core -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
@@ -357,7 +357,9 @@ function initAudio(){
   bus.comp = new Tone.Compressor({ threshold:-18, ratio:3, attack:0.01, release:0.25 }).connect(bus.eq);
   bus.hicut = new Tone.Filter(14000, 'lowpass').connect(bus.comp);
   bus.locut = new Tone.Filter(30, 'highpass').connect(bus.hicut);
-  bus.tape = new Tone.Saturator(0.2).connect(bus.locut);
+  bus.tape = new Tone.Distortion(0.2).connect(bus.locut);
+  bus.tape.oversample = '4x';
+
 
   // sends
   bus.sendA = new Tone.Gain(0.2).toDestination();
@@ -519,8 +521,31 @@ function stopTransport(){ Tone.Transport.stop(); isPlaying=false; $('#play').tex
 function updateProgress(){ const elapsed=Tone.now()-startTime; const pct=Math.min((elapsed/totalDuration)*100,100); $('#fill').style.width=pct+'%'; const m=Math.floor(elapsed/60), s=Math.floor(elapsed%60); $('#clock').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; if(elapsed>=totalDuration) stopTransport(); }
 function disposeAudio(){ Object.values(synth).forEach(ch=>{ if(ch.src&&ch.src.dispose) ch.src.dispose()}); synth={}; fx={}; bus={}; }
 
-function startRecording(){chunks=[]; const dest=Tone.context.createMediaStreamDestination(); Tone.Destination.connect(dest); recorder=new MediaRecorder(dest.stream,{mimeType:'audio/webm;codecs=opus'}); recorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data)}; recorder.start(); isRecording=true }
-function stopRecording(){return new Promise(r=>{if(!recorder){r();return} recorder.onstop=()=>{isRecording=false;r()}; recorder.stop()})}
+function startRecording(){
+  try{
+    chunks = [];
+    const dest = Tone.context.createMediaStreamDestination();
+    Tone.Destination.connect(dest);
+    recorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus' });
+    recorder.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
+    recorder.start();
+    isRecording = true;
+  }catch(err){
+    console.warn('Recording disabled:', err);
+    recorder = null; isRecording = false;
+  }
+}
+
+function stopRecording(){
+  return new Promise(res=>{
+    if(!recorder) return res();
+    try{
+      recorder.onstop = ()=>{ isRecording=false; res(); };
+      recorder.stop();
+    }catch(_){ res(); }
+  });
+}
+
 async function downloadWav(){ if(chunks.length===0){alert('Generate and play something first.'); return} const webmBlob=new Blob(chunks,{type:'audio/webm'}); const ac=new (window.AudioContext||window.webkitAudioContext)(); try{ const buf=await webmBlob.arrayBuffer(); const audio=await ac.decodeAudioData(buf); const wav=await bufferToWav(audio); const url=URL.createObjectURL(wav); const a=document.createElement('a'); a.href=url; a.download=`lofi-${Date.now()}.wav`; a.click(); URL.revokeObjectURL(url) }catch(e){console.error(e)} }
 function bufferToWav(buffer){ const numCh=buffer.numberOfChannels; const len=buffer.length*numCh*2; const ab=new ArrayBuffer(44+len); const view=new DataView(ab); let pos=0; function u16(v){view.setUint16(pos,v,true);pos+=2} function u32(v){view.setUint32(pos,v,true);pos+=4}
   u32(0x46464952); u32(36+len); u32(0x45564157); u32(0x20746d66); u32(16); u16(1); u16(numCh); u32(buffer.sampleRate); u32(buffer.sampleRate*2*numCh); u16(numCh*2); u16(16); u32(0x61746164); u32(len);
@@ -555,10 +580,18 @@ function schedule(){
 function trigger(id,time,vel){ const ch=synth[id]; if(!ch||!ch.src) return; if(id==='kick'){ ch.src.triggerAttackRelease('C1','8n',time,vel); // duck others
   // create a momentary duck on bus.env
   bus.env.triggerAttackRelease(0.2, time);
- } else if(id==='snare'){ ch.src.triggerAttackRelease('8n',time,vel) }
- else if(id==='hat'){ ch.src.triggerAttackRelease('32n',time,vel) }
- else if(id==='clap'){ ch.src.triggerAttackRelease('8n',time,vel) }
- else if(id==='rim'){ ch.src.triggerAttackRelease('32n',time,vel) }
+   } else if(id==='snare'){
+    // NoiseSynth: triggerAttackRelease(duration, time, velocity)
+    ch.src.triggerAttackRelease('8n', time, vel);
+  } else if(id==='hat'){
+    // MetalSynth needs a pitch; use bright tick
+    ch.src.triggerAttackRelease('C6', '32n', time, vel);
+  } else if(id==='clap'){
+    ch.src.triggerAttackRelease('8n', time, vel);
+  } else if(id==='rim'){
+    // Metallic rim click
+    ch.src.triggerAttackRelease('G5', '32n', time, vel);
+  }
 }
 
 function scaleNotes(){
