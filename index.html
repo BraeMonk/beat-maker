@@ -2228,43 +2228,56 @@ function updateAllDisplays() {
 
 // -------------------- Export (Offline render + save dialog) --------------------
 async function exportAudio() {
-  stopVisualizer(); // 👈 optional, but smart
+  stopVisualizer();
   stopTimer();
-  
-  // ensure we actually have content
-  const hasActive = Object.keys(patterns).some(inst => patterns[inst].some(s => s.active));
-  if (!hasActive) { alert('❌ No active notes! Please create a pattern first.'); return; }
 
-  // snapshot current state you need
+  const hasActive = Object.keys(patterns).some(inst => patterns[inst].some(s => s.active));
+  if (!hasActive) {
+    alert('❌ No active notes! Please create a pattern first.');
+    return;
+  }
+
   const seconds = Math.max(1, state.duration * 60);
   const bpm = state.bpm;
   const seqLen = state.sequenceLength;
   const res = state.resolution;
 
-  const rendered = await Tone.Offline(async () => {
-    // Mirror your graph but DO NOT touch DOM or attach event listeners here.
-    // Recreate master
+  console.log('⚙️ Rendering offline audio…');
+
+  // --- Run Offline render ---
+  const rendered = await Tone.Offline(({ transport }) => {
+    // === Mirror the graph ===
     const fxIn = new Tone.Gain(1);
     const comp = new Tone.Compressor(-18, 3);
     const limit = new Tone.Limiter(-1);
     fxIn.chain(comp, limit, Tone.Destination);
 
-    // Recreate instruments (copy shapes from initAudio)
     const localSynths = {};
     Object.keys(instruments).forEach(inst => {
       const d = instruments[inst];
       let s;
       if (d.type === 'drum') {
-        if (inst === 'kick')      s = new Tone.MembraneSynth({ pitchDecay:0.08, octaves:8, oscillator:{type:'sine'}, envelope:{attack:0.001, decay:0.4, sustain:0.01, release:1.4} });
-        else if (inst==='snare' || inst==='clap') s = new Tone.NoiseSynth({ noise:{type:'white'}, envelope:{attack:0.001, decay:0.2, sustain:0} });
-        else if (inst==='hihat')  s = new Tone.MetalSynth({ frequency:200, envelope:{attack:0.001,decay:0.1,release:0.01}, harmonicity:5.1, modulationIndex:32, resonance:4000, octaves:1.5 });
-        else                      s = new Tone.MembraneSynth({ pitchDecay:0.05, octaves:6, oscillator:{type:'sine'}, envelope:{attack:0.001, decay:0.4, sustain:0.01, release:1.4} });
+        if (inst === 'kick')
+          s = new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 8, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 } });
+        else if (inst === 'snare' || inst === 'clap')
+          s = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } });
+        else if (inst === 'hihat')
+          s = new Tone.MetalSynth({ frequency: 200, envelope: { attack: 0.001, decay: 0.1, release: 0.01 }, harmonicity: 5.1, modulationIndex: 32, resonance: 4000, octaves: 1.5 });
+        else
+          s = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 6, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 } });
       } else {
-        if (inst==='bass') s = new Tone.MonoSynth({ oscillator:{type:'sawtooth'}, filter:{Q:2,type:'lowpass',rolloff:-24}, envelope:{attack:0.01,decay:0.3,sustain:0.4,release:0.8}, filterEnvelope:{attack:0.01,decay:0.2,sustain:0.3,release:0.5,baseFrequency:100,octaves:2.5} });
-        if (inst==='keys') s = new Tone.PolySynth(Tone.AMSynth, { harmonicity:1.01, envelope:{attack:0.02,decay:0.4,sustain:0.6,release:1.5}, modulationEnvelope:{attack:0.2,decay:0.3,sustain:0.2,release:0.8} });
-        if (inst==='lead') s = new Tone.FMSynth({ modulationIndex:6, oscillator:{type:'sine'}, envelope:{attack:0.01,decay:0.25,sustain:0.5,release:0.8}, modulation:{type:'triangle'}, modulationEnvelope:{attack:0.01,decay:0.2,sustain:0.3,release:0.7} });
-        s.volume.value = instruments[inst].volume || 0;
+        if (inst === 'bass')
+          s = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, filter: { Q: 2, type: 'lowpass', rolloff: -24 },
+            envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
+            filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5, baseFrequency: 100, octaves: 2.5 } });
+        if (inst === 'keys')
+          s = new Tone.PolySynth(Tone.AMSynth, { harmonicity: 1.01, envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.5 } });
+        if (inst === 'lead')
+          s = new Tone.FMSynth({ modulationIndex: 6, oscillator: { type: 'sine' },
+            envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.8 },
+            modulation: { type: 'triangle' }, modulationEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.7 } });
       }
+      s.volume.value = instruments[inst].volume || 0;
       const ch = new Tone.Channel({ pan: 0, volume: instruments[inst].volume || 0 }).connect(fxIn);
       s.connect(ch);
       localSynths[inst] = s;
@@ -2274,92 +2287,62 @@ async function exportAudio() {
     Tone.Transport.swing = state.swing / 100;
     Tone.Transport.swingSubdivision = '8n';
 
-    // schedule from current patterns
+    // === Schedule ===
     new Tone.Sequence((time, step) => {
       Object.keys(instruments).forEach(inst => {
         const p = patterns[inst][step];
         if (!p.active) return;
-        if (Math.random()*100 > (p.probability ?? 100)) return;
-        const human = (Math.random()-0.5) * (state.humanize/1000);
+        if (Math.random() * 100 > (p.probability ?? 100)) return;
+        const human = (Math.random() - 0.5) * (state.humanize / 1000);
         const s = localSynths[inst];
         if (!s) return;
         if (instruments[inst].type === 'drum') {
-          if (inst === 'kick')                    s.triggerAttackRelease('C1','8n', time+human, p.velocity);
-          else if (inst==='snare' || inst==='clap') s.triggerAttackRelease('16n', time+human, p.velocity);
-          else if (inst==='hihat')                s.triggerAttackRelease('C6', '16n', time+human, p.velocity * 0.5);
-          else                                    s.triggerAttackRelease('C2','16n', time+human, p.velocity);
+          if (inst === 'kick') s.triggerAttackRelease('C1', '8n', time + human, p.velocity);
+          else if (inst === 'snare' || inst === 'clap') s.triggerAttackRelease('16n', time + human, p.velocity);
+          else if (inst === 'hihat') s.triggerAttackRelease('C6', '16n', time + human, p.velocity * 0.5);
+          else s.triggerAttackRelease('C2', '16n', time + human, p.velocity);
         } else {
           const note = p.note || instruments[inst].note || 'C4';
           const dur = p.duration || '8n';
-          s.triggerAttackRelease(note, dur, time+human, p.velocity);
+          s.triggerAttackRelease(note, dur, time + human, p.velocity);
         }
       });
-    }, Array.from({length: seqLen}, (_,i)=>i), res).start(0);
+    }, Array.from({ length: seqLen }, (_, i) => i), res).start(0);
 
-    Tone.Transport.start();
-  }, seconds, 48000); // render at 48k
+    transport.start();
+  }, seconds, 2); // 2 = render channels → stereo buffer
 
-  // write WAV
+  if (!rendered) {
+    alert('❌ Render failed or empty result.');
+    return;
+  }
+
+  // --- Convert to WAV ---
   const wav = bufferToWav(rendered);
   const blob = new Blob([wav], { type: 'audio/wav' });
-  const name = (document.getElementById('projectName').value || 'beat').replace(/\s+/g,'_') + `_${Date.now()}.wav`;
+  const name = (document.getElementById('projectName')?.value || 'beat').replace(/\s+/g, '_') + `_${Date.now()}.wav`;
 
-  if (window.showSaveFilePicker) {
-    const handle = await showSaveFilePicker({
-      suggestedName: name,
-      types: [{ description: 'WAV', accept: {'audio/wav':['.wav']} }]
-    });
-    const w = await handle.createWritable(); await w.write(blob); await w.close();
-  } else {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-    URL.revokeObjectURL(url);
-  }
-  alert('✅ Export complete!');
-}
-
-// Convert AudioBuffer to WAV (16-bit PCM)
-function bufferToWav(buffer) {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-  const bitDepth = 16;
-
-  const bytesPerSample = bitDepth / 8;
-  const blockAlign = numChannels * bytesPerSample;
-
-  const data = [];
-  for (let i = 0; i < numChannels; i++) data.push(buffer.getChannelData(i));
-
-  const dataLength = data[0].length * numChannels * bytesPerSample;
-  const arrayBuffer = new ArrayBuffer(44 + dataLength);
-  const view = new DataView(arrayBuffer);
-
-  writeString(view, 0, 'RIFF');
-  view.setUint32(4, 36 + dataLength, true);
-  writeString(view, 8, 'WAVE');
-  writeString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * blockAlign, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bitDepth, true);
-  writeString(view, 36, 'data');
-  view.setUint32(40, dataLength, true);
-
-  let offset = 44;
-  for (let i = 0; i < data[0].length; i++) {
-    for (let ch = 0; ch < numChannels; ch++) {
-      const sample = Math.max(-1, Math.min(1, data[ch][i]));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-      offset += 2;
+  // --- Save or download ---
+  try {
+    if (window.showSaveFilePicker) {
+      const handle = await showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
+    alert('✅ Export complete!');
+  } catch (err) {
+    console.error(err);
+    alert('❌ Export failed.');
   }
-  return arrayBuffer;
-}
-function writeString(view, offset, str) {
-  for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
 }
 
 // -------------------- PWA Install (unchanged) --------------------
