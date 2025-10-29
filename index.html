@@ -2061,7 +2061,7 @@ async function togglePlay() {
   document.getElementById('playBtn').innerHTML = '⏸️ Pause';
   startTimer();
   document.getElementById('vizOverlay').style.display = 'none';
-  if (!window.vizRAF) updateVisualizer();
+  if (!vizRAF) updateVisualizer();
 }
 
   
@@ -2164,11 +2164,44 @@ function stopVisualizer() {
 }
   
 // -------------------- Project Save/Load --------------------
+function getSerializableInstruments() {
+  // keep only simple fields we actually need to restore
+  const keep = ['name','icon','mute','solo','volume','pan','type','note'];
+  const cleaned = {};
+  Object.keys(instruments).forEach(k => {
+    cleaned[k] = {};
+    keep.forEach(f => { cleaned[k][f] = instruments[k][f]; });
+  });
+  return cleaned;
+}
+
 function saveProject() {
   const projectName = document.getElementById('projectName').value || 'Untitled';
+
+  // Deep-ish plain clone of patterns (avoid keeping references)
+  const plainPatterns = {};
+  Object.keys(patterns).forEach(inst => {
+    plainPatterns[inst] = patterns[inst].map(s => ({
+      active: !!s.active,
+      velocity: s.velocity ?? 0.8,
+      probability: s.probability ?? 100,
+      note: s.note ?? instruments[inst].note ?? null,
+      duration: s.duration ?? '8n'
+    }));
+  });
+
   const project = {
-    name: projectName, state, patterns, instruments, timestamp: Date.now()
+    name: projectName,
+    state: {
+      ...state,
+      // just in case state gets non-serializable stuff in future:
+      isPlaying: false
+    },
+    patterns: plainPatterns,
+    instruments: getSerializableInstruments(),
+    timestamp: Date.now()
   };
+
   const json = JSON.stringify(project, null, 2);
   const blob = new Blob([json], { type:'application/json' });
   const url = URL.createObjectURL(blob);
@@ -2177,6 +2210,25 @@ function saveProject() {
   a.click();
   URL.revokeObjectURL(url);
   alert('✅ Project saved!');
+}
+
+function applyLoadedInstruments(loaded) {
+  // merge safe fields back and update live Tone channels
+  Object.keys(loaded).forEach(inst => {
+    const src = loaded[inst];
+    if (!instruments[inst]) return;
+    instruments[inst].mute = !!src.mute;
+    instruments[inst].solo = !!src.solo;
+    instruments[inst].volume = src.volume ?? instruments[inst].volume;
+    instruments[inst].pan = src.pan ?? instruments[inst].pan;
+    instruments[inst].note = src.note ?? instruments[inst].note;
+
+    // reflect on current channels if they exist
+    if (instruments[inst].channel) {
+      instruments[inst].channel.volume.value = instruments[inst].volume;
+      instruments[inst].channel.pan.value = (instruments[inst].pan || 0) / 100;
+    }
+  });
 }
 
 function loadProject() {
@@ -2188,14 +2240,34 @@ function loadProject() {
     reader.onload = ev => {
       try {
         const project = JSON.parse(ev.target.result);
-        Object.assign(state, project.state);
+
+        // apply state (safe fields only)
+        const {
+          bpm, swing, duration, complexity, humanize,
+          sequenceLength, resolution, key, scale, octave, progression
+        } = project.state || {};
+        Object.assign(state, {
+          ...state,
+          bpm, swing, duration, complexity, humanize,
+          sequenceLength, resolution, key, scale, octave, progression
+        });
+
+        // replace patterns
         Object.keys(patterns).forEach(k => delete patterns[k]);
-        Object.assign(patterns, project.patterns);
-        Object.assign(instruments, project.instruments);
-        document.getElementById('projectName').value = project.name;
+        Object.assign(patterns, project.patterns || {});
+
+        // merge instrument settings and update live channels
+        if (project.instruments) applyLoadedInstruments(project.instruments);
+
+        // refresh UI + transport
         updateAllDisplays();
+        ensurePatternLength(state.sequenceLength);
         renderSequencer();
         renderMixer();
+        renderFX();
+        renderHarmony();
+
+        document.getElementById('projectName').value = project.name || 'Untitled';
         alert('✅ Project loaded!');
       } catch (err) {
         alert('❌ Error loading project: ' + err.message);
@@ -2227,15 +2299,66 @@ function updateAllDisplays() {
 }
 
 // -------------------- Export (Offline render + save dialog) --------------------
+// ===== Helper: AudioBuffer -> WAV (16-bit PCM, interleaved) =====
+function bufferToWav(audioBuffer) {
+  const numCh = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const numFrames = audioBuffer.length;
+
+  // 44-byte WAV header + 2 bytes per sample * channels * frames
+  const bytesPerSample = 2;
+  const dataSize = numFrames * numCh * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  // Write WAV header
+  let offset = 0;
+  function writeString(s) { for (let i = 0; i < s.length; i++) view.setUint8(offset++, s.charCodeAt(i)); }
+  function writeUint32(v) { view.setUint32(offset, v, true); offset += 4; }
+  function writeUint16(v) { view.setUint16(offset, v, true); offset += 2; }
+
+  writeString('RIFF');
+  writeUint32(36 + dataSize);
+  writeString('WAVE');
+
+  // fmt  chunk
+  writeString('fmt ');
+  writeUint32(16);         // PCM
+  writeUint16(1);          // format = 1 (PCM)
+  writeUint16(numCh);
+  writeUint32(sampleRate);
+  writeUint32(sampleRate * numCh * bytesPerSample);
+  writeUint16(numCh * bytesPerSample);
+  writeUint16(16);         // bits per sample
+
+  // data chunk
+  writeString('data');
+  writeUint32(dataSize);
+
+  // Interleave & write samples
+  const channels = [];
+  for (let c = 0; c < numCh; c++) channels.push(audioBuffer.getChannelData(c));
+
+  for (let i = 0; i < numFrames; i++) {
+    for (let c = 0; c < numCh; c++) {
+      // clamp [-1,1], convert to 16-bit
+      let sample = Math.max(-1, Math.min(1, channels[c][i]));
+      sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+      view.setInt16(offset, sample, true);
+      offset += 2;
+    }
+  }
+
+  return new Uint8Array(buffer);
+}
+
 async function exportAudio() {
   stopVisualizer();
   stopTimer();
 
+  // 1) make sure there is anything to render
   const hasActive = Object.keys(patterns).some(inst => patterns[inst].some(s => s.active));
-  if (!hasActive) {
-    alert('❌ No active notes! Please create a pattern first.');
-    return;
-  }
+  if (!hasActive) { alert('❌ No active notes! Please create a pattern first.'); return; }
 
   const seconds = Math.max(1, state.duration * 60);
   const bpm = state.bpm;
@@ -2244,104 +2367,112 @@ async function exportAudio() {
 
   console.log('⚙️ Rendering offline audio…');
 
-  // --- Run Offline render ---
-  const rendered = await Tone.Offline(({ transport }) => {
-    // === Mirror the graph ===
-    const fxIn = new Tone.Gain(1);
-    const comp = new Tone.Compressor(-18, 3);
-    const limit = new Tone.Limiter(-1);
-    fxIn.chain(comp, limit, Tone.Destination);
+  let rendered;
+  try {
+    rendered = await Tone.Offline(() => {
+      // === Build an offline graph (NO DOM here) ===
+      const fxIn = new Tone.Gain(1);
+      const comp = new Tone.Compressor(-18, 3);
+      const limit = new Tone.Limiter(-1);
+      fxIn.chain(comp, limit, Tone.Destination);
 
-    const localSynths = {};
-    Object.keys(instruments).forEach(inst => {
-      const d = instruments[inst];
-      let s;
-      if (d.type === 'drum') {
-        if (inst === 'kick')
-          s = new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 8, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 } });
-        else if (inst === 'snare' || inst === 'clap')
-          s = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } });
-        else if (inst === 'hihat')
-          s = new Tone.MetalSynth({ frequency: 200, envelope: { attack: 0.001, decay: 0.1, release: 0.01 }, harmonicity: 5.1, modulationIndex: 32, resonance: 4000, octaves: 1.5 });
-        else
-          s = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 6, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 } });
-      } else {
-        if (inst === 'bass')
-          s = new Tone.MonoSynth({ oscillator: { type: 'sawtooth' }, filter: { Q: 2, type: 'lowpass', rolloff: -24 },
-            envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
-            filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5, baseFrequency: 100, octaves: 2.5 } });
-        if (inst === 'keys')
-          s = new Tone.PolySynth(Tone.AMSynth, { harmonicity: 1.01, envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.5 } });
-        if (inst === 'lead')
-          s = new Tone.FMSynth({ modulationIndex: 6, oscillator: { type: 'sine' },
-            envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.8 },
-            modulation: { type: 'triangle' }, modulationEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.7 } });
-      }
-      s.volume.value = instruments[inst].volume || 0;
-      const ch = new Tone.Channel({ pan: 0, volume: instruments[inst].volume || 0 }).connect(fxIn);
-      s.connect(ch);
-      localSynths[inst] = s;
-    });
-
-    Tone.Transport.bpm.value = bpm;
-    Tone.Transport.swing = state.swing / 100;
-    Tone.Transport.swingSubdivision = '8n';
-
-    // === Schedule ===
-    new Tone.Sequence((time, step) => {
+      // instruments
+      const localSynths = {};
       Object.keys(instruments).forEach(inst => {
-        const p = patterns[inst][step];
-        if (!p.active) return;
-        if (Math.random() * 100 > (p.probability ?? 100)) return;
-        const human = (Math.random() - 0.5) * (state.humanize / 1000);
-        const s = localSynths[inst];
-        if (!s) return;
-        if (instruments[inst].type === 'drum') {
-          if (inst === 'kick') s.triggerAttackRelease('C1', '8n', time + human, p.velocity);
-          else if (inst === 'snare' || inst === 'clap') s.triggerAttackRelease('16n', time + human, p.velocity);
-          else if (inst === 'hihat') s.triggerAttackRelease('C6', '16n', time + human, p.velocity * 0.5);
-          else s.triggerAttackRelease('C2', '16n', time + human, p.velocity);
+        const d = instruments[inst];
+        let s;
+        if (d.type === 'drum') {
+          if (inst === 'kick')
+            s = new Tone.MembraneSynth({ pitchDecay:0.08, octaves:8, envelope:{attack:0.001,decay:0.4,sustain:0.01,release:1.4} });
+          else if (inst==='snare' || inst==='clap')
+            s = new Tone.NoiseSynth({ noise:{type:'white'}, envelope:{attack:0.001,decay:0.2,sustain:0} });
+          else if (inst==='hihat')
+            s = new Tone.MetalSynth({ frequency:200, envelope:{attack:0.001,decay:0.1,release:0.01}, harmonicity:5.1, modulationIndex:32, resonance:4000, octaves:1.5 });
+          else
+            s = new Tone.MembraneSynth({ pitchDecay:0.05, octaves:6, envelope:{attack:0.001,decay:0.4,sustain:0.01,release:1.4} });
         } else {
-          const note = p.note || instruments[inst].note || 'C4';
-          const dur = p.duration || '8n';
-          s.triggerAttackRelease(note, dur, time + human, p.velocity);
+          if (inst==='bass')
+            s = new Tone.MonoSynth({ oscillator:{type:'sawtooth'}, filter:{Q:2,type:'lowpass',rolloff:-24},
+              envelope:{attack:0.01,decay:0.3,sustain:0.4,release:0.8},
+              filterEnvelope:{attack:0.01,decay:0.2,sustain:0.3,release:0.5,baseFrequency:100,octaves:2.5} });
+          if (inst==='keys')
+            s = new Tone.PolySynth(Tone.AMSynth, { harmonicity:1.01, envelope:{attack:0.02,decay:0.4,sustain:0.6,release:1.5} });
+          if (inst==='lead')
+            s = new Tone.FMSynth({ modulationIndex:6, oscillator:{type:'sine'},
+              envelope:{attack:0.01,decay:0.25,sustain:0.5,release:0.8},
+              modulation:{type:'triangle'}, modulationEnvelope:{attack:0.01,decay:0.2,sustain:0.3,release:0.7} });
+          s.volume.value = instruments[inst].volume || 0;
         }
+        const ch = new Tone.Channel({ pan:0, volume: instruments[inst].volume || 0 }).connect(fxIn);
+        s.connect(ch);
+        localSynths[inst] = s;
       });
-    }, Array.from({ length: seqLen }, (_, i) => i), res).start(0);
 
-    transport.start();
-  }, seconds, 2); // 2 = render channels → stereo buffer
+      // transport settings INSIDE the offline context
+      Tone.Transport.bpm.value = bpm;
+      Tone.Transport.swing = state.swing / 100;
+      Tone.Transport.swingSubdivision = '8n';
 
-  if (!rendered) {
-    alert('❌ Render failed or empty result.');
+      // sequence
+      new Tone.Sequence((time, step) => {
+        Object.keys(instruments).forEach(inst => {
+          const p = patterns[inst][step];
+          if (!p?.active) return;
+          if (Math.random()*100 > (p.probability ?? 100)) return;
+          const human = (Math.random()-0.5) * (state.humanize/1000);
+          const s = localSynths[inst];
+          if (!s) return;
+
+          if (instruments[inst].type === 'drum') {
+            if (inst === 'kick') s.triggerAttackRelease('C1','8n', time+human, p.velocity);
+            else if (inst==='snare' || inst==='clap') s.triggerAttackRelease('16n', time+human, p.velocity);
+            else if (inst==='hihat') s.triggerAttackRelease('C6','16n', time+human, p.velocity*0.5);
+            else s.triggerAttackRelease('C2','16n', time+human, p.velocity);
+          } else {
+            const note = p.note || instruments[inst].note || 'C4';
+            const dur = p.duration || '8n';
+            s.triggerAttackRelease(note, dur, time+human, p.velocity);
+          }
+        });
+      }, Array.from({length: seqLen}, (_,i)=>i), res).start(0);
+
+      // ✅ start the offline transport here
+      Tone.Transport.start(0);
+    }, seconds, 2); // 2 = stereo channels
+
+  } catch (err) {
+    console.error('Offline render failed:', err);
+    alert('❌ Export failed during rendering: ' + (err?.message || err));
     return;
   }
 
-  // --- Convert to WAV ---
-  const wav = bufferToWav(rendered);
-  const blob = new Blob([wav], { type: 'audio/wav' });
-  const name = (document.getElementById('projectName')?.value || 'beat').replace(/\s+/g, '_') + `_${Date.now()}.wav`;
+  if (!rendered || !rendered.length || !rendered.getChannelData) {
+    alert('❌ Render produced no audio.');
+    return;
+  }
 
-  // --- Save or download ---
+  // 2) Convert to WAV and save
   try {
+    const wav = bufferToWav(rendered); // your existing helper
+    const blob = new Blob([wav], { type: 'audio/wav' });
+    const name = (document.getElementById('projectName')?.value || 'beat').replace(/\s+/g,'_') + `_${Date.now()}.wav`;
+
     if (window.showSaveFilePicker) {
       const handle = await showSaveFilePicker({
         suggestedName: name,
-        types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }],
+        types: [{ description: 'WAV Audio', accept: {'audio/wav':['.wav']} }]
       });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
+      const w = await handle.createWritable();
+      await w.write(blob); await w.close();
     } else {
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = name; a.click();
+      const a = document.createElement('a'); a.href = url; a.download = name; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
     alert('✅ Export complete!');
   } catch (err) {
-    console.error(err);
-    alert('❌ Export failed.');
+    console.error('Save step failed:', err);
+    alert('❌ Export failed while saving: ' + (err?.message || err));
   }
 }
 
