@@ -86,9 +86,11 @@ Single-file HTML (drop‑in ready)
     .chip.active{background:linear-gradient(135deg,var(--brand1),var(--brand2));}
 
     .mutebar{display:flex;gap:6px}
-    .mini{padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.08);border:0;color:#e5e7eb;font-weight:900;cursor:pointer}
-    .mini.m{background:#e74c3c}
-    .mini.s{background:#f39c12}
+    .mini{padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.08);border:0;color:#e5e7eb;font-weight:900;cursor:pointer;transition:.15s}
+    .mini.m, .mini.s{background:rgba(255,255,255,.08)}          /* neutral base */
+    .mini.m.active{background:#e74c3c}                          /* red when active */
+    .mini.s.active{background:#f39c12}                          /* amber when active */
+
 
     .kbd{font-variant-numeric:tabular-nums;background:rgba(255,255,255,.08);border-radius:6px;padding:2px 6px}
 
@@ -382,8 +384,8 @@ function initAudio(){
 
     // route: synth -> chain -> pan -> vol -> duck -> tape
     ch.chainNode.connect(ch.pan).connect(ch.vol).connect(bus.duck);
-    ch.chainNode.connect(ch.send);
-    ch.send.connect(fx.busIn);
+    ch.vol.connect(ch.send);                       // tap AFTER volume/pan
+    if (fx?.busIn) ch.send.connect(fx.busIn);
 
     // instruments
     if(tr.id==='kick'){
@@ -759,13 +761,37 @@ $('#mixer').addEventListener('click', e=>{
 
 $('#fxRack').addEventListener('input', e=>{
   const m = e.target.id.match(/(\w+)-(\w+)/); if(!m) return;
-  const unit = m[1], param = m[2]; const v = parseFloat(e.target.value);
-  if(!fx[unit]) return;
-  if(param==='bits') fx[unit].bits = v;
-  else if(param==='wet' || param==='feedback' || param==='depth') fx[unit][param] = v;
-  else fx[unit][param] = v;
-  $(`#${unit}-${param}-v`).textContent = (param==='wet'||param==='feedback'||param==='depth') ? (Math.round(v*100)+'%') : v;
+  const unit = m[1], param = m[2];
+  const v = parseFloat(e.target.value);
+  const node = fx[unit];
+  if(!node) return;
+
+  // helper: set direct vs Param/Signal .value
+  const setP = (obj, key, val) => {
+    const p = obj[key];
+    if (p && typeof p === 'object' && 'value' in p) p.value = val; else obj[key] = val;
+  };
+
+  if (unit === 'delay' && param === 'delayTime') {
+    // FeedbackDelay delayTime is a Param
+    setP(node, 'delayTime', v);               // seconds
+  } else if ((unit === 'chorus' || unit === 'phaser' || unit === 'auto') && param === 'frequency') {
+    setP(node, 'frequency', v);               // Hz
+  } else if (param === 'wet' || param === 'feedback' || param === 'depth' || param === 'octaves') {
+    setP(node, param, v);
+  } else if (unit === 'rev' && param === 'decay') {
+    node.decay = v;                           // Tone.Reverb needs regenerate after decay change
+    if (typeof node.generate === 'function') node.generate();
+  } else if (param === 'bits' && node.bits != null) {
+    node.bits = Math.round(v);
+  } else {
+    setP(node, param, v);
+  }
+
+  $(`#${unit}-${param}-v`).textContent =
+    (param==='wet'||param==='feedback'||param==='depth') ? (Math.round(v*100)+'%') : v;
 });
+
 
 // ======= PRESETS =======
 const PRESETS={
