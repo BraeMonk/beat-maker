@@ -365,12 +365,6 @@ function initAudio(){
   bus.tape = new Tone.Distortion(0.2).connect(bus.locut);
   bus.tape.oversample = '4x';
 
-
-  // sends
-  bus.sendA = new Tone.Gain(0.2).toDestination();
-  fx.rev = new Tone.Reverb({ decay:2.5, wet:0.2 }).connect(bus.comp);
-  fx.delay = new Tone.FeedbackDelay('8n', 0.25).connect(bus.comp);
-
   // ducking for musical sidechain (kick -> others)
   bus.duck = new Tone.Gain(1).connect(bus.tape);
   bus.env = new Tone.Envelope({attack:0.001, decay:0.12, sustain:0.2, release:0.2});
@@ -422,6 +416,14 @@ function initAudio(){
       ch.src = new Tone.Synth({ oscillator:{type:'sine'}, envelope:{attack:0.03, decay:0.2, sustain:0.3, release:0.8} }).connect(ch.rev).connect(ch.delay).connect(ch.chainNode);
       ch.src.volume.value = -14;
     }
+  });
+
+  // after you finish creating each channel in tracks.forEach(...)
+  tracks.forEach(t=>{
+    const ch = synth[t.id];
+    if (!ch) return;
+    if (soloId) ch.vol.mute = (t.id !== soloId);
+    else ch.vol.mute = userMutes.has(t.id);
   });
 
   // vinyl noise
@@ -527,7 +529,39 @@ async function togglePlay(){
 }
 function stopTransport(){ Tone.Transport.stop(); isPlaying=false; $('#play').textContent='▶ Play'; clearInterval(progTimer); $('#clock').textContent='00:00'; $('#fill').style.width='0%'; stopRecording(); disposeAudio(); }
 function updateProgress(){ const elapsed=Tone.now()-startTime; const pct=Math.min((elapsed/totalDuration)*100,100); $('#fill').style.width=pct+'%'; const m=Math.floor(elapsed/60), s=Math.floor(elapsed%60); $('#clock').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; if(elapsed>=totalDuration) stopTransport(); }
-function disposeAudio(){ Object.values(synth).forEach(ch=>{ if(ch.src&&ch.src.dispose) ch.src.dispose()}); synth={}; fx={}; bus={}; }
+function disposeAudio(){
+  // dispose per-channel nodes
+  Object.values(synth).forEach(ch=>{
+    try{
+      ch.src?.dispose?.();
+      ch.filt?.dispose?.();
+      ch.rev?.dispose?.();
+      ch.delay?.dispose?.();
+      ch.pan?.dispose?.();
+      ch.vol?.dispose?.();
+      ch.send?.dispose?.();
+      ch.chainNode?.dispose?.();
+    }catch(_){}
+  });
+
+  // dispose master chain (not the rack)
+  try{
+    bus.duck?.dispose?.();
+    bus.env?.dispose?.();
+    bus.tape?.dispose?.();
+    bus.locut?.dispose?.();
+    bus.hicut?.dispose?.();
+    bus.comp?.dispose?.();
+    bus.eq?.dispose?.();
+    bus.limiter?.dispose?.();
+    bus.master?.dispose?.();
+  }catch(_){}
+
+  synth = {};
+  bus = {};
+  // ⚠️ do NOT reset fx — the rack persists across plays
+}
+
 
 function startRecording(){
   try{
