@@ -349,6 +349,10 @@ function ghostNotes(){for(let i=0;i<seqLen;i++){['snare','rim'].forEach(id=>{con
 // Viz anim
 function tickViz(){if(!isPlaying)return; $$('#visual .vbar').forEach(b=>{b.style.height=(6+Math.random()*100)+'px'}); requestAnimationFrame(tickViz)}
 
+// === FX BUS (shared aux input for all effects) ===
+const userMutes = new Set();   // for mixer logic
+let soloId = null;             // which channel (if any) is soloed
+
 // ======= AUDIO GRAPH =======
 function initAudio(){
   // master
@@ -385,8 +389,7 @@ function initAudio(){
     // route: synth -> chain -> pan -> vol -> duck -> tape
     ch.chainNode.connect(ch.pan).connect(ch.vol).connect(bus.duck);
     ch.chainNode.connect(ch.send);
-    ch.send.connect(fx.rev);
-    ch.send.connect(fx.delay);
+    ch.send.connect(fx.busIn);
 
     // instruments
     if(tr.id==='kick'){
@@ -429,6 +432,10 @@ function initAudio(){
 
   // Connect master chain order
   bus.duck.connect(bus.tape);
+
+  if (fx?.sum && bus?.comp) {
+    fx.sum.connect(bus.comp);
+  }
 }
 
 // ======= THEORY =======
@@ -622,40 +629,109 @@ $('#comp').addEventListener('input',e=>{if(bus?.comp){bus.comp.threshold.value=+
 // Per channel controls
 $('#mixer').addEventListener('input',e=>{
   const id=e.target.id||''; const m=id.match(/(.*)-(vol|pan|send)/); if(!m) return; const ch=synth[m[1]]; if(!ch) return; if(m[2]==='vol'){ ch.vol.volume.value=+e.target.value; $(`#${m[1]}-vv`).textContent=e.target.value+' dB' } else if(m[2]==='pan'){ const v=+e.target.value/100; ch.pan.pan.value=v; $(`#${m[1]}-pv`).textContent= v===0? 'C' : (v<0?`L${Math.round(Math.abs(v)*100)}`:`R${Math.round(v*100)}`) } else { ch.send.gain.value=+e.target.value/100; $(`#${m[1]}-sv`).textContent=e.target.value+'%' }});
-$('#mixer').addEventListener('click',e=>{ const b=e.target.closest('button.mini'); if(!b) return; const id=b.dataset.ch; const act=b.dataset.act; const ch=synth[id]; if(!ch) return; if(act==='mute'){ const muted = b.classList.toggle('active'); ch.vol.mute=muted } else { // solo
-  const on=b.classList.toggle('active'); $$('#mixer .mini.s').forEach(x=>{ if(x!==b) x.classList.remove('active')}); tracks.forEach(t=>{ if(t.id!==id){ synth[t.id].vol.mute=on } else { synth[t.id].vol.mute=false } }) }});
+$('#mixer').addEventListener('click', e=>{
+  const b = e.target.closest('button.mini'); if(!b) return;
+  const id = b.dataset.ch;
+  const act = b.dataset.act;
+  const ch = synth[id]; if(!ch) return;
 
-// ======= FX RACK (interactive cards) =======
-(function buildFx(){ const rack=$('#fxRack'); const defs=[
-  {id:'rev', name:'Reverb', params:[['decay',0.5,10,2.5],['wet',0,1,.2]]},
-  {id:'delay', name:'Delay', params:[['delayTime',0.05,0.6,0.25],['feedback',0,0.9,0.3],['wet',0,1,.2]]},
-  {id:'chorus', name:'Chorus', params:[['frequency',0.1,5,1.5],['depth',0,1,0.4],['wet',0,1,0.25]]},
-  {id:'phaser', name:'Phaser', params:[['frequency',0.05,2,.5],['octaves',0,5,2],['wet',0,1,.15]]},
-  {id:'crusher', name:'BitCrusher', params:[['bits',2,16,8],['wet',0,1,.1]]},
-  {id:'auto', name:'AutoFilter', params:[['frequency',0.05,8,0.5],['octaves',0,6,2],['wet',0,1,.15]]}
-];
-  defs.forEach(d=>{const card=document.createElement('div');card.className='panel';card.innerHTML=`<div class="panel-h">${d.name}</div>`;const g=document.createElement('div');g.className='row grid-3';d.params.forEach(p=>{const [id,min,max,def]=p; const wrap=document.createElement('div');wrap.className='setting';wrap.innerHTML=`<div class="head"><span>${id}</span><span class="kbd" id="${d.id}-${id}-v">${def}</span></div><input type="range" id="${d.id}-${id}" min="${min}" max="${max}" step="${(max-min)/100}" value="${def}">`;g.appendChild(wrap)});card.appendChild(g);rack.appendChild(card)});
-  // instantiate Tone FX where applicable
-  fx.chorus=new Tone.Chorus(1.5,0.4).start();
-  fx.phaser=new Tone.Phaser({frequency:.5, octaves:2, baseFrequency:350});
-  fx.crusher=new Tone.BitCrusher({bits:8});
-  fx.auto=new Tone.AutoFilter({frequency:.5, octaves:2}).start();
-  // place after ducking into master comp
-  // (we'll patch into bus.comp when audio initialized)
-})();
+  if(act==='mute'){
+    const nowMuted = !b.classList.contains('active');
+    b.classList.toggle('active', nowMuted);
+    if(nowMuted) userMutes.add(id); else userMutes.delete(id);
 
-// Hook up rack sliders after audio init
-$('#fxRack').addEventListener('input',e=>{
-  const id=e.target.id; const m=id.match(/(\w+)-(\w+)/); if(!m) return; const unit=m[1], param=m[2]; const v=parseFloat(e.target.value);
-  if(!fx[unit]) return; if(param==='bits') fx[unit].bits=v; else fx[unit][param]=v; $(`#${m[1]}-${m[2]}-v`).textContent=(param==='wet'||param==='feedback'||param==='depth')? (Math.round(v*100)+'%'): v
+    // Apply mute respecting solo
+    if(soloId && id !== soloId){
+      // remain muted because something else is soloed
+      ch.vol.mute = true;
+    } else {
+      ch.vol.mute = nowMuted;
+    }
+  }
+
+  if(act==='solo'){
+    const activate = !b.classList.contains('active');
+
+    // toggle UI
+    $$('#mixer .mini.s').forEach(x=>x.classList.remove('active'));
+    if(activate) b.classList.add('active');
+
+    soloId = activate ? id : null;
+
+    tracks.forEach(t=>{
+      const tch = synth[t.id];
+      if(!tch) return;
+      if(soloId){
+        // only soloed channel plays; others muted regardless of their mute button
+        tch.vol.mute = (t.id !== soloId);
+      } else {
+        // no solo: restore to user mute state
+        tch.vol.mute = userMutes.has(t.id);
+      }
+    });
+  }
 });
 
-// Patch FX chain into master once available
-const waitFx = setInterval(()=>{ if(bus?.comp){ try{
-  // sendFx already routed; insert time-based fx pre-comp if not connected
-  fx.chorus?.connect?.(bus.comp); fx.phaser?.connect?.(bus.comp); fx.crusher?.connect?.(bus.comp); fx.auto?.connect?.(bus.comp);
-  clearInterval(waitFx);
- }catch(_){} } }, 200);
+// ======= FX RACK (interactive cards) =======
+(function buildFx(){
+  const rack = $('#fxRack');
+  const defs = [
+    {id:'rev',    name:'Reverb',      params:[['decay',0.5,10,2.5],['wet',0,1,.2]]},
+    {id:'delay',  name:'Delay',       params:[['delayTime',0.05,0.6,0.25],['feedback',0,0.9,0.3],['wet',0,1,.2]]},
+    {id:'chorus', name:'Chorus',      params:[['frequency',0.1,5,1.5],['depth',0,1,0.4],['wet',0,1,0.25]]},
+    {id:'phaser', name:'Phaser',      params:[['frequency',0.05,2,.5],['octaves',0,5,2],['wet',0,1,.15]]},
+    {id:'crusher',name:'BitCrusher',  params:[['bits',2,16,8],['wet',0,1,.1]]},
+    {id:'auto',   name:'AutoFilter',  params:[['frequency',0.05,8,0.5],['octaves',0,6,2],['wet',0,1,.15]]}
+  ];
+
+  defs.forEach(d=>{
+    const card=document.createElement('div'); card.className='panel';
+    card.innerHTML = `<div class="panel-h">${d.name}</div>`;
+    const g=document.createElement('div'); g.className='row grid-3';
+    d.params.forEach(p=>{
+      const [id,min,max,def]=p;
+      const wrap=document.createElement('div'); wrap.className='setting';
+      wrap.innerHTML = `
+        <div class="head"><span>${id}</span><span class="kbd" id="${d.id}-${id}-v">${def}</span></div>
+        <input type="range" id="${d.id}-${id}" min="${min}" max="${max}" step="${(max-min)/100}" value="${def}">
+      `;
+      g.appendChild(wrap);
+    });
+    card.appendChild(g); rack.appendChild(card);
+  });
+
+  // Create the shared FX input and output sum
+  fx.busIn = new Tone.Gain(1);     // all channel sends feed this
+  fx.sum   = new Tone.Gain(1);     // all FX outputs sum here
+
+  // Instantiate FX and wire: fx.busIn -> each FX -> fx.sum
+  fx.rev    = new Tone.Reverb({ decay:2.5, wet:.2 });
+  fx.delay  = new Tone.FeedbackDelay('8n', .3); fx.delay.wet.value = .2;
+  fx.chorus = new Tone.Chorus(1.5, .4).start(); fx.chorus.wet.value = .25;
+  fx.phaser = new Tone.Phaser({frequency:.5, octaves:2, baseFrequency:350}); fx.phaser.wet.value=.15;
+  fx.crusher= new Tone.BitCrusher({bits:8}); fx.crusher.wet.value=.1;
+  fx.auto   = new Tone.AutoFilter({frequency:.5, octaves:2}).start(); fx.auto.wet.value=.15;
+
+  // hook inputs
+  fx.busIn.fan(fx.rev, fx.delay, fx.chorus, fx.phaser, fx.crusher, fx.auto);
+  // hook outputs
+  fx.rev.connect(fx.sum);
+  fx.delay.connect(fx.sum);
+  fx.chorus.connect(fx.sum);
+  fx.phaser.connect(fx.sum);
+  fx.crusher.connect(fx.sum);
+  fx.auto.connect(fx.sum);
+})();
+
+$('#fxRack').addEventListener('input', e=>{
+  const m = e.target.id.match(/(\w+)-(\w+)/); if(!m) return;
+  const unit = m[1], param = m[2]; const v = parseFloat(e.target.value);
+  if(!fx[unit]) return;
+  if(param==='bits') fx[unit].bits = v;
+  else if(param==='wet' || param==='feedback' || param==='depth') fx[unit][param] = v;
+  else fx[unit][param] = v;
+  $(`#${unit}-${param}-v`).textContent = (param==='wet'||param==='feedback'||param==='depth') ? (Math.round(v*100)+'%') : v;
+});
 
 // ======= PRESETS =======
 const PRESETS={
@@ -675,18 +751,6 @@ function loadPreset(p){
   updateChordText();
   generateBeat();
 }
-
-// ======= AUDIO: AFTER-INIT PATCHES =======
-const __initAudio = initAudio;
-initAudio = function(){
-  __initAudio();
-  fx.rev?.connect?.(bus.comp);
-  fx.delay?.connect?.(bus.comp);
-  fx.chorus?.connect?.(bus.comp);
-  fx.phaser?.connect?.(bus.comp);
-  fx.crusher?.connect?.(bus.comp);
-  fx.auto?.connect?.(bus.comp);
-};
 
 // ======= OPTIONAL: Full Chord Picker (compact)
 (function chordPicker(){
