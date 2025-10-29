@@ -268,6 +268,8 @@ body{
   grid-template-columns: 1fr;
   grid-template-areas:
     "header"
+    "tabs"
+    "transport"
     "main"
     "footer";
 }
@@ -306,14 +308,16 @@ body{
   grid-template-columns: var(--sidebar-width) 1fr;
   grid-template-areas:
     "header header"
+    "tabs tabs"
+    "transport transport"
     "sidebar main"
     "footer footer";
   gap: var(--space-6);
 }
 
 header{ grid-area: header; }
-.tabs{ grid-area: header; }
-.transport{ grid-area: header; }
+.tabs{ grid-area: tabs; }
+.transport{ grid-area: transport; }
 section.section{ grid-area: main; }
 footer.footer{ grid-area: footer; }
 
@@ -807,7 +811,7 @@ h1{
 @media (max-width: 1060px){
   .app{
     grid-template-columns: 1fr;
-    grid-template-areas: "header" "main" "footer";
+    grid-template-areas: "header" "tabs" "transport" "main" "footer";
   }
   .sidebar:not(.pinned){ display: none; }
 }
