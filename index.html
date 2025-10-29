@@ -616,7 +616,7 @@
             <span>BPM</span>
             <span class="param-value" id="bpmValue">120</span>
           </div>
-          <input type="range" id="bpmSlider" min="60" max="180" value="120">
+          <input type="range" id="bpmSlider" min="60" max="100" value="120">
         </div>
         <div class="param-control">
           <div class="param-label">
@@ -854,7 +854,7 @@
     </section>
     
     <footer class="footer">
-      <strong>ProStudio Beat Lab</strong> • Professional Multi-Genre Production • 
+      <strong>8-Beat Studio</strong> • Fun With Noise • 
       Shortcuts: <kbd>Space</kbd> Play/Pause • <kbd>S</kbd> Stop • <kbd>E</kbd> Export • 
       Sequencer: <kbd>Alt</kbd> Accent Velocity • <kbd>Shift</kbd> Increase Probability
     </footer>
@@ -912,6 +912,8 @@ function nextVibe(){
   const i = VIBES.indexOf(cur);
   return VIBES[(i+1) % VIBES.length];
 }
+
+const MAX_BPM = 100;
 
 // Instruments and Patterns
 const instruments = {
@@ -1032,6 +1034,18 @@ function initAudio() {
       master.limiter,
       Tone.Destination
     );
+
+  // --- Recording tap (add in initAudio(), after master.limiter is created) ---
+  const raw = Tone.getContext().rawContext;
+  master.mediaDest = raw.createMediaStreamDestination();
+  // feed both speakers and recorder
+  master.limiter.connect(master.mediaDest);
+  
+  // Recorder state
+  master.mediaRecorder = null;
+  master.recordedChunks = [];
+
+
 
   // Start with all FX dry
   Object.values(effects).forEach(fx => { if (fx.wet) fx.wet.value = 0; });
@@ -1205,10 +1219,11 @@ function setupEventListeners() {
 
   // BPM
   document.getElementById('bpmSlider').addEventListener('input', e => {
-    state.bpm = parseInt(e.target.value, 10);
+    state.bpm = Math.min(MAX_BPM, parseInt(e.target.value, 10));
     Tone.Transport.bpm.value = state.bpm;
     document.getElementById('bpmValue').textContent = state.bpm;
   });
+
 
   // Swing (now actually applied)
   document.getElementById('swingSlider').addEventListener('input', e => {
@@ -1573,10 +1588,11 @@ function generateBeat() {
   if (state.complexity >= 2) addVariations();
   if (state.complexity >= 3) addGhostNotes();
 
-  state.bpm = preset.bpm;
-  document.getElementById('bpmSlider').value = preset.bpm;
-  Tone.Transport.bpm.value = preset.bpm;
-  document.getElementById('bpmValue').textContent = preset.bpm;
+  state.bpm = Math.min(MAX_BPM, preset.bpm);
+  document.getElementById('bpmSlider').value = state.bpm;
+  Tone.Transport.bpm.value = state.bpm;
+  document.getElementById('bpmValue').textContent = state.bpm;
+
 
   renderSequencer();
 }
@@ -2032,6 +2048,9 @@ function loadProject() {
 }
 
 function updateAllDisplays() {
+
+  state.bpm = Math.min(MAX_BPM, state.bpm);
+
   document.getElementById('bpmSlider').value = state.bpm;
   document.getElementById('bpmValue').textContent = state.bpm;
   document.getElementById('swingSlider').value = state.swing;
@@ -2050,132 +2069,116 @@ function updateAllDisplays() {
 
 // -------------------- Export (Offline render + save dialog) --------------------
 async function exportAudio() {
+  // Check we have something to record
   let hasActive = false;
   Object.keys(patterns).forEach(inst => {
     if (patterns[inst].some(s => s.active)) hasActive = true;
   });
   if (!hasActive) { alert('❌ No active notes! Please create a pattern first.'); return; }
 
-  const exportDuration = state.duration * 60;
-  alert('🎵 Rendering audio...');
+  const exportSeconds = Math.max(1, state.duration * 60);
+
+  // Use MediaRecorder on the WebAudio stream
+  const stream = master.mediaDest?.stream;
+  if (!stream) { alert('❌ Recorder not initialized.'); return; }
+
+  // Pick a supported mime type
+  const type = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+    ? 'audio/webm;codecs=opus' 
+    : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
 
   try {
-    const buffer = await Tone.Offline(async ({ transport }) => {
-      // Recreate chain in Offline context
-      const fx = {
-        filter: new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type),
-        distortion: new Tone.Distortion(fxConfig.distortion.amount),
-        chorus: new Tone.Chorus(1.5, 2.5, fxConfig.chorus.depth).start(),
-        phaser: new Tone.Phaser({ frequency: fxConfig.phaser.frequency, octaves: fxConfig.phaser.octaves, baseFrequency: 350 }),
-        delay: new Tone.FeedbackDelay(fxConfig.delay.time, fxConfig.delay.feedback),
-        reverb: new Tone.Reverb(fxConfig.reverb.decay)
-      };
-      Object.keys(fx).forEach(k => { if (fx[k].wet) fx[k].wet.value = fxConfig[k]?.active ? 0.5 : 0; });
+    await Tone.start();
 
-      const offlineMaster = new Tone.Gain(1);
-      const comp = new Tone.Compressor(-18, 3);
-      const lim = new Tone.Limiter(-1);
+    // ✅ use properties on master (set in initAudio)
+    master.recordedChunks = [];
+    master.mediaRecorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
 
-      offlineMaster.chain(fx.filter, fx.distortion, fx.chorus, fx.phaser, fx.delay, fx.reverb, comp, lim, Tone.Destination);
+    master.mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size) master.recordedChunks.push(e.data);
+    };
 
-      const exSynths = {};
-      const exChannels = {};
-      Object.keys(instruments).forEach(inst => {
-        const data = instruments[inst];
-        // synths
-        if (data.type === 'drum') {
-          if (inst === 'kick') {
-            exSynths[inst] = new Tone.MembraneSynth({ pitchDecay:0.08, octaves:8, oscillator:{type:'sine'}, envelope:{attack:0.001,decay:0.4,sustain:0.01,release:1.4}});
-          } else if (inst === 'snare' || inst === 'clap') {
-            exSynths[inst] = new Tone.NoiseSynth({ noise:{type:'white'}, envelope:{attack:0.001,decay:0.2,sustain:0}});
-          } else if (inst === 'hihat') {
-            exSynths[inst] = new Tone.MetalSynth({ frequency:200, envelope:{attack:0.001,decay:0.1,release:0.01}, harmonicity:5.1, modulationIndex:32, resonance:4000, octaves:1.5 });
-          } else {
-            exSynths[inst] = new Tone.MembraneSynth({ pitchDecay:0.05, octaves:6, oscillator:{type:'sine'}, envelope:{attack:0.001,decay:0.4,sustain:0.01,release:1.4}});
-          }
-        } else {
-          if (inst === 'bass') {
-            exSynths[inst] = new Tone.MonoSynth({ oscillator:{type:'sawtooth'}, filter:{Q:2, type:'lowpass', rolloff:-24},
-              envelope:{attack:0.01,decay:0.3,sustain:0.4,release:0.8},
-              filterEnvelope:{attack:0.01,decay:0.2,sustain:0.3,release:0.5,baseFrequency:100,octaves:2.5} });
-          } else if (inst === 'keys') {
-            exSynths[inst] = new Tone.PolySynth(Tone.AMSynth, {
-              harmonicity: 1.01,
-              envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.5 },
-              modulationEnvelope: { attack: 0.2, decay: 0.3, sustain: 0.2, release: 0.8 }
-            });
-          } else if (inst === 'lead') {
-            exSynths[inst] = new Tone.FMSynth({
-              modulationIndex: 6, oscillator:{type:'sine'},
-              envelope:{attack:0.01,decay:0.25,sustain:0.5,release:0.8},
-              modulation:{type:'triangle'}, modulationEnvelope:{attack:0.01,decay:0.2,sustain:0.3,release:0.7}
-            });
-          }
-          exSynths[inst].volume.value = data.volume;
+    master.mediaRecorder.onstop = async () => {
+      try {
+        const webmBlob = new Blob(master.recordedChunks, { type: master.mediaRecorder.mimeType || 'audio/webm' });
+        const arrayBuf = await webmBlob.arrayBuffer();
+
+        // Decode to AudioBuffer via Web Audio, then write WAV
+        const audioCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, 44100, 44100);
+        let decoded;
+        try {
+          decoded = await audioCtx.decodeAudioData(arrayBuf.slice(0));
+        } catch {
+          const online = new (window.AudioContext || window.webkitAudioContext)();
+          decoded = await online.decodeAudioData(arrayBuf.slice(0));
+          online.close();
         }
 
-        exChannels[inst] = new Tone.Channel({ pan: 0, volume: data.volume }).connect(offlineMaster);
-        exSynths[inst].connect(exChannels[inst]);
-      });
+        const wavArrayBuffer = bufferToWav(decoded);
+        const blob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
 
-      transport.bpm.value = state.bpm;
-      transport.swing = state.swing / 100;
-      transport.swingSubdivision = '8n';
+        const projectName = (document.getElementById('projectName').value || 'beat').replace(/\s+/g,'_');
+        const fileName = `${projectName}_${Date.now()}.wav`;
 
-      new Tone.Sequence((time, step) => {
-        Object.keys(instruments).forEach(inst => {
-          const s = patterns[inst][step];
-          if (!s.active) return;
-          const d = instruments[inst];
-          if (d.mute) return;
-          const anySolo = Object.values(instruments).some(i => i.solo);
-          if (anySolo && !d.solo) return;
-          if (Math.random() * 100 > s.probability) return;
+        if (window.showSaveFilePicker) {
+          const handle = await showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{ description: 'WAV file', accept: { 'audio/wav': ['.wav'] } }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = fileName;
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+        }
 
-          const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
-          if (d.type === 'drum') {
-            if (inst === 'kick') exSynths[inst].triggerAttackRelease('C1','8n',time+humanize,s.velocity);
-            else if (inst === 'snare' || inst === 'clap') exSynths[inst].triggerAttackRelease('16n',time+humanize,s.velocity);
-            else if (inst === 'hihat') exSynths[inst].triggerAttackRelease('16n',time+humanize,s.velocity*0.5);
-            else exSynths[inst].triggerAttackRelease('C2','16n',time+humanize,s.velocity);
-          } else {
-            const note = s.note || d.note || 'C4';
-            const dur = s.duration || '8n';
-            exSynths[inst].triggerAttackRelease(note, dur, time+humanize, s.velocity);
-          }
-        });
-      }, Array.from({length: state.sequenceLength}, (_, i) => i), state.resolution).start(0);
+        alert('✅ Export complete! Your WAV file has been saved.');
+      } catch (err) {
+        console.error(err);
+        alert('❌ Export error: ' + err.message);
+      } finally {
+        master.mediaRecorder = null;
+        master.recordedChunks = [];
+      }
+    };
 
-      transport.start();
-    }, exportDuration);
+    // Start recording
+    master.mediaRecorder.start(250); // small timeslice to gather chunks
 
-    // Convert to WAV
-    const wav = await bufferToWav(buffer);
-    const blob = new Blob([wav], { type: 'audio/wav' });
-
-    const projectName = (document.getElementById('projectName').value || 'beat').replace(/\s+/g,'_');
-    const fileName = `${projectName}_${Date.now()}.wav`;
-
-    if (window.showSaveFilePicker) {
-      const handle = await showSaveFilePicker({
-        suggestedName: fileName,
-        types: [{ description: 'WAV file', accept: { 'audio/wav': ['.wav'] } }]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-    } else {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fileName;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+    // If not playing, start transport for the export duration
+    const wasPlaying = state.isPlaying;
+    if (!wasPlaying) {
+      Tone.Transport.seconds = 0;
+      Tone.Transport.start();
+      state.isPlaying = true;
+      document.getElementById('playBtn').innerHTML = '⏸️ Pause';
+      startTimer();
+      const viz = document.getElementById('vizOverlay');
+      if (viz) viz.style.display = 'none';
     }
 
-    alert('✅ Export complete! Your WAV file has been saved.');
+    alert('🎙️ Recording… it will stop automatically.');
+
+    // Auto-stop after duration
+    setTimeout(() => {
+      if (!wasPlaying) {
+        Tone.Transport.stop();
+        state.isPlaying = false;
+        document.getElementById('playBtn').innerHTML = '▶️ Play';
+        stopTimer();
+      }
+      if (master.mediaRecorder && master.mediaRecorder.state !== 'inactive') {
+        master.mediaRecorder.stop();
+      }
+    }, exportSeconds * 1000);
+
   } catch (err) {
     console.error(err);
-    alert('❌ Export error: ' + err.message);
+    alert('❌ Recorder error: ' + err.message);
   }
 }
 
