@@ -2000,22 +2000,22 @@ function updateGenrePresets(){ renderPresets(); }
 // -------------------- Transport --------------------
 async function togglePlay() {
   if (state.isPlaying) {
-    // --- PAUSE ---
     Tone.Transport.pause();
     state.isPlaying = false;
     document.getElementById('playBtn').innerHTML = '▶️ Play';
-    stopTimer(); // stop progress timer
+    stopTimer();
     stopVisualizer();
   } else {
-    // --- PLAY ---
-    await Tone.start(); // ensures audio context is resumed
+    // Make sure context is running
+    if (Tone.context.state !== 'running') {
+      await Tone.start();
+    }
     Tone.Transport.start();
     state.isPlaying = true;
     document.getElementById('playBtn').innerHTML = '⏸️ Pause';
-    startTimer(); // begin progress bar / time counter
+    startTimer();
     document.getElementById('vizOverlay').style.display = 'none';
 
-    // 🔥 Start visualizer loop ONCE when playback begins
     if (!window.vizRAF) updateVisualizer();
   }
 }
