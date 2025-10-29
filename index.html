@@ -712,7 +712,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 
 <script>
-  // ========================================
+// ========================================
 // ProStudio Beat Lab - Complete JavaScript
 // ========================================
 
@@ -743,14 +743,17 @@ let state = {
 
 // Instruments and Patterns
 const instruments = {
-  kick: { name: 'Kick', icon: '🥁', mute: false, solo: false, volume: 0, pan: 0 },
-  snare: { name: 'Snare', icon: '🎤', mute: false, solo: false, volume: 0, pan: 0 },
-  hihat: { name: 'Hi-Hat', icon: '🎩', mute: false, solo: false, volume: 0, pan: 0 },
-  clap: { name: 'Clap', icon: '👏', mute: false, solo: false, volume: 0, pan: 0 },
-  rimshot: { name: 'Rimshot', icon: '🔊', mute: false, solo: false, volume: 0, pan: 0 },
-  tom: { name: 'Tom', icon: '🪘', mute: false, solo: false, volume: 0, pan: 0 },
-  crash: { name: 'Crash', icon: '💥', mute: false, solo: false, volume: 0, pan: 0 },
-  ride: { name: 'Ride', icon: '🌊', mute: false, solo: false, volume: 0, pan: 0 }
+  kick: { name: 'Kick', icon: '🥁', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  snare: { name: 'Snare', icon: '🎤', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  hihat: { name: 'Hi-Hat', icon: '🎩', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  clap: { name: 'Clap', icon: '👏', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  rimshot: { name: 'Rimshot', icon: '🔊', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  tom: { name: 'Tom', icon: '🪘', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  crash: { name: 'Crash', icon: '💥', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  ride: { name: 'Ride', icon: '🌊', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  bass: { name: 'Bass', icon: '🎸', mute: false, solo: false, volume: -3, pan: 0, type: 'melodic', note: 'C2' },
+  keys: { name: 'Keys', icon: '🎹', mute: false, solo: false, volume: -6, pan: 0, type: 'melodic', note: 'C4' },
+  lead: { name: 'Lead', icon: '🎺', mute: false, solo: false, volume: -8, pan: 0, type: 'melodic', note: 'C5' }
 };
 
 const patterns = {};
@@ -775,7 +778,14 @@ const genrePresets = {
     patterns: {
       kick: [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]
+      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+      bass: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
+    },
+    notes: {
+      bass: ['C2', 'C2', 'C2', 'C2', 'D#2', 'D#2', 'D#2', 'D#2', 'F2', 'F2', 'F2', 'F2', 'G2', 'G2', 'G2', 'G2'],
+      keys: ['C4', 'E4', 'G4', 'C4', 'D#4', 'G4', 'A#4', 'D#4', 'F4', 'A4', 'C5', 'F4', 'G4', 'B4', 'D5', 'G4'],
+      lead: ['C5', 'D5', 'E5', 'G5', 'A5', 'G5', 'E5', 'D5']
     }
   },
   hiphop: {
@@ -785,7 +795,14 @@ const genrePresets = {
     patterns: {
       kick: [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]
+      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+      bass: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],
+      keys: [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]
+    },
+    notes: {
+      bass: ['A1', 'A1', 'A1', 'C2', 'C2', 'C2', 'D2', 'D2', 'D2', 'F2', 'F2', 'F2', 'G2', 'G2', 'G2', 'G2'],
+      keys: ['A3', 'C4', 'E4', 'A4', 'C4', 'E4', 'D4', 'F4', 'A4', 'D4', 'F4', 'G3', 'B3', 'D4', 'G4', 'B4'],
+      lead: ['A4', 'C5', 'E5', 'A5', 'G5', 'E5', 'D5', 'C5']
     }
   },
   trap: {
@@ -795,7 +812,14 @@ const genrePresets = {
     patterns: {
       kick: [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
-      hihat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+      hihat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      bass: [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],
+      lead: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
+    },
+    notes: {
+      bass: ['C1', 'C1', 'C1', 'C1', 'C1', 'C1', 'D#1', 'D#1', 'D#1', 'D#1', 'F1', 'F1', 'F1', 'F1', 'G1', 'G1'],
+      keys: ['C4', 'D#4', 'G4', 'C5', 'D#4', 'G4', 'A#4', 'D#4'],
+      lead: ['C5', 'D#5', 'G5', 'C6', 'A#5', 'G5', 'D#5', 'C5']
     }
   },
   house: {
@@ -805,7 +829,14 @@ const genrePresets = {
     patterns: {
       kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0]
+      hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],
+      bass: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      keys: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0]
+    },
+    notes: {
+      bass: ['F2', 'F2', 'F2', 'F2', 'G2', 'G2', 'G2', 'G2', 'A2', 'A2', 'A2', 'A2', 'C3', 'C3', 'C3', 'C3'],
+      keys: ['F4', 'A4', 'C5', 'F5', 'G4', 'B4', 'D5', 'G5', 'A4', 'C5', 'E5', 'A5', 'C5', 'E5', 'G5', 'C6'],
+      lead: ['F5', 'G5', 'A5', 'C6', 'D6', 'C6', 'A5', 'G5']
     }
   },
   techno: {
@@ -815,7 +846,14 @@ const genrePresets = {
     patterns: {
       kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]
+      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+      bass: [1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,0],
+      lead: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0]
+    },
+    notes: {
+      bass: ['A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'C2', 'C2', 'C2', 'C2', 'D2', 'D2', 'D2', 'D2', 'F2', 'F2'],
+      keys: ['A3', 'C4', 'E4', 'A4', 'C4', 'E4', 'D4', 'F4'],
+      lead: ['A5', 'C6', 'E6', 'A6', 'C6', 'E6', 'D6', 'F6']
     }
   },
   dnb: {
@@ -825,7 +863,14 @@ const genrePresets = {
     patterns: {
       kick: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+      hihat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      bass: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+      lead: [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0]
+    },
+    notes: {
+      bass: ['D2', 'D2', 'D3', 'D2', 'D2', 'D3', 'F2', 'F2', 'F3', 'F2', 'G2', 'G2', 'G3', 'G2', 'A2', 'A2'],
+      keys: ['D4', 'F4', 'A4', 'D5', 'F4', 'A4', 'G4', 'B4'],
+      lead: ['D5', 'F5', 'A5', 'D6', 'F6', 'A6', 'D6', 'A5']
     }
   },
   ambient: {
@@ -835,7 +880,15 @@ const genrePresets = {
     patterns: {
       kick: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
       snare: [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0]
+      hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0],
+      bass: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+      keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      lead: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
+    },
+    notes: {
+      bass: ['C2', 'C2', 'C2', 'C2', 'C2', 'C2', 'C2', 'C2', 'G1', 'G1', 'G1', 'G1', 'G1', 'G1', 'G1', 'G1'],
+      keys: ['C3', 'E3', 'G3', 'C4', 'E4', 'G4', 'G3', 'B3', 'D4', 'G4', 'B4', 'D5'],
+      lead: ['C5', 'E5', 'G5', 'C6', 'B5', 'G5', 'E5', 'D5']
     }
   }
 };
@@ -879,30 +932,101 @@ const fxConfig = {
 function initAudio() {
   // Create samplers for each instrument
   Object.keys(instruments).forEach(inst => {
-    synths[inst] = new Tone.MembraneSynth({
-      pitchDecay: 0.05,
-      octaves: 6,
-      oscillator: { type: 'sine' },
-      envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
-    }).toDestination();
+    const instData = instruments[inst];
     
-    // Customize per instrument
-    if (inst === 'kick') {
-      synths[inst].set({ pitchDecay: 0.08, octaves: 8 });
-    } else if (inst === 'snare' || inst === 'clap') {
-      synths[inst] = new Tone.NoiseSynth({
-        noise: { type: 'white' },
-        envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
-      }).toDestination();
-    } else if (inst === 'hihat') {
-      synths[inst] = new Tone.MetalSynth({
-        frequency: 200,
-        envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
-        harmonicity: 5.1,
-        modulationIndex: 32,
-        resonance: 4000,
-        octaves: 1.5
-      }).toDestination();
+    if (instData.type === 'drum') {
+      // Drum synthesis
+      if (inst === 'kick') {
+        synths[inst] = new Tone.MembraneSynth({
+          pitchDecay: 0.08,
+          octaves: 8,
+          oscillator: { type: 'sine' },
+          envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+        }).toDestination();
+      } else if (inst === 'snare' || inst === 'clap') {
+        synths[inst] = new Tone.NoiseSynth({
+          noise: { type: 'white' },
+          envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
+        }).toDestination();
+      } else if (inst === 'hihat') {
+        synths[inst] = new Tone.MetalSynth({
+          frequency: 200,
+          envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+          harmonicity: 5.1,
+          modulationIndex: 32,
+          resonance: 4000,
+          octaves: 1.5
+        }).toDestination();
+      } else {
+        synths[inst] = new Tone.MembraneSynth({
+          pitchDecay: 0.05,
+          octaves: 6,
+          oscillator: { type: 'sine' },
+          envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+        }).toDestination();
+      }
+    } else if (instData.type === 'melodic') {
+      // Melodic synthesis
+      if (inst === 'bass') {
+        synths[inst] = new Tone.MonoSynth({
+          oscillator: { type: 'sawtooth' },
+          filter: {
+            Q: 2,
+            type: 'lowpass',
+            rolloff: -24
+          },
+          envelope: {
+            attack: 0.01,
+            decay: 0.3,
+            sustain: 0.4,
+            release: 0.8
+          },
+          filterEnvelope: {
+            attack: 0.01,
+            decay: 0.2,
+            sustain: 0.3,
+            release: 0.5,
+            baseFrequency: 100,
+            octaves: 2.5
+          }
+        }).toDestination();
+        synths[inst].volume.value = instData.volume;
+      } else if (inst === 'keys') {
+        synths[inst] = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'triangle' },
+          envelope: {
+            attack: 0.005,
+            decay: 0.3,
+            sustain: 0.4,
+            release: 1.2
+          }
+        }).toDestination();
+        synths[inst].volume.value = instData.volume;
+      } else if (inst === 'lead') {
+        synths[inst] = new Tone.Synth({
+          oscillator: { type: 'square' },
+          envelope: {
+            attack: 0.01,
+            decay: 0.2,
+            sustain: 0.6,
+            release: 0.8
+          },
+          filter: {
+            Q: 6,
+            type: 'lowpass',
+            rolloff: -24
+          },
+          filterEnvelope: {
+            attack: 0.02,
+            decay: 0.3,
+            sustain: 0.5,
+            release: 1,
+            baseFrequency: 300,
+            octaves: 4
+          }
+        }).toDestination();
+        synths[inst].volume.value = instData.volume;
+      }
     }
   });
   
@@ -946,14 +1070,32 @@ function initAudio() {
       const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
       
       // Trigger sound
-      if (inst === 'kick') {
-        synths[inst].triggerAttackRelease('C1', '8n', time + humanize, stepData.velocity);
-      } else if (inst === 'snare' || inst === 'clap') {
-        synths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity);
-      } else if (inst === 'hihat') {
-        synths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity * 0.5);
-      } else {
-        synths[inst].triggerAttackRelease('C2', '16n', time + humanize, stepData.velocity);
+      if (instData.type === 'drum') {
+        if (inst === 'kick') {
+          synths[inst].triggerAttackRelease('C1', '8n', time + humanize, stepData.velocity);
+        } else if (inst === 'snare' || inst === 'clap') {
+          synths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity);
+        } else if (inst === 'hihat') {
+          synths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity * 0.5);
+        } else {
+          synths[inst].triggerAttackRelease('C2', '16n', time + humanize, stepData.velocity);
+        }
+      } else if (instData.type === 'melodic') {
+        // Get note for this step
+        const note = stepData.note || instData.note || 'C4';
+        const duration = stepData.duration || '8n';
+        
+        if (inst === 'keys') {
+          // Keys can play chords
+          if (Array.isArray(note)) {
+            synths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
+          } else {
+            synths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
+          }
+        } else {
+          // Bass and lead play single notes
+          synths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
+        }
       }
     });
     
@@ -1047,6 +1189,13 @@ function setupEventListeners() {
   document.getElementById('randomVelBtn').addEventListener('click', randomizeVelocity);
   document.getElementById('randomProbBtn').addEventListener('click', randomizeProbability);
   document.getElementById('clearBtn').addEventListener('click', clearPattern);
+  
+  // Add melodic pattern generator
+  const melodicGenBtn = document.createElement('button');
+  melodicGenBtn.className = 'btn btn-primary';
+  melodicGenBtn.innerHTML = '🎼 Generate Melody';
+  melodicGenBtn.addEventListener('click', generateMelodicPatterns);
+  document.getElementById('generateBtn').parentElement.appendChild(melodicGenBtn);
   
   // Sequencer controls
   document.getElementById('lenDecBtn').addEventListener('click', () => {
@@ -1155,6 +1304,7 @@ function renderSequencer() {
   grid.innerHTML = '';
   
   Object.keys(instruments).forEach(inst => {
+    const instData = instruments[inst];
     const row = document.createElement('div');
     row.className = 'seq-row';
     
@@ -1162,10 +1312,11 @@ function renderSequencer() {
     const label = document.createElement('div');
     label.className = 'seq-label';
     label.innerHTML = `
-      <span>${instruments[inst].icon} ${instruments[inst].name}</span>
+      <span>${instData.icon} ${instData.name}</span>
       <div class="seq-icons">
-        <button class="seq-icon ${instruments[inst].mute ? 'active' : ''}" data-inst="${inst}" data-action="mute">M</button>
-        <button class="seq-icon ${instruments[inst].solo ? 'active' : ''}" data-inst="${inst}" data-action="solo">S</button>
+        <button class="seq-icon ${instData.mute ? 'active' : ''}" data-inst="${inst}" data-action="mute">M</button>
+        <button class="seq-icon ${instData.solo ? 'active' : ''}" data-inst="${inst}" data-action="solo">S</button>
+        ${instData.type === 'melodic' ? `<button class="seq-icon" data-inst="${inst}" data-action="note">🎵</button>` : ''}
       </div>
     `;
     row.appendChild(label);
@@ -1180,10 +1331,19 @@ function renderSequencer() {
       if (patterns[inst][i].active) {
         step.classList.add('active');
         
-        const prob = document.createElement('div');
-        prob.className = 'step-prob';
-        prob.textContent = patterns[inst][i].probability + '%';
-        step.appendChild(prob);
+        // Show note name for melodic instruments
+        if (instData.type === 'melodic' && patterns[inst][i].note) {
+          const noteDisplay = document.createElement('div');
+          noteDisplay.className = 'step-prob';
+          noteDisplay.textContent = patterns[inst][i].note;
+          noteDisplay.style.fontSize = '0.6rem';
+          step.appendChild(noteDisplay);
+        } else {
+          const prob = document.createElement('div');
+          prob.className = 'step-prob';
+          prob.textContent = patterns[inst][i].probability + '%';
+          step.appendChild(prob);
+        }
         
         const vel = document.createElement('div');
         vel.className = 'step-vel';
@@ -1208,6 +1368,8 @@ function renderSequencer() {
         instruments[inst].mute = !instruments[inst].mute;
       } else if (action === 'solo') {
         instruments[inst].solo = !instruments[inst].solo;
+      } else if (action === 'note') {
+        openNoteEditor(inst);
       }
       
       renderSequencer();
@@ -1215,8 +1377,35 @@ function renderSequencer() {
   });
 }
 
+function openNoteEditor(inst) {
+  const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const octaves = [1, 2, 3, 4, 5, 6];
+  
+  const noteOptions = [];
+  octaves.forEach(oct => {
+    notes.forEach(note => {
+      noteOptions.push(note + oct);
+    });
+  });
+  
+  const currentNote = instruments[inst].note || 'C4';
+  const newNote = prompt(`Enter note for ${instruments[inst].name} (e.g., C4, D#3, F5):\n\nCurrent: ${currentNote}`, currentNote);
+  
+  if (newNote && /^[A-G]#?[1-6]$/.test(newNote)) {
+    instruments[inst].note = newNote;
+    // Update all active steps to use this note
+    patterns[inst].forEach(step => {
+      if (step.active && !step.note) {
+        step.note = newNote;
+      }
+    });
+    renderSequencer();
+  }
+}
+
 function toggleStep(inst, step, e) {
   const pattern = patterns[inst][step];
+  const instData = instruments[inst];
   
   if (e.altKey) {
     // Alt: adjust velocity
@@ -1225,21 +1414,65 @@ function toggleStep(inst, step, e) {
       if (pattern.velocity > 1) pattern.velocity = 0.4;
     }
   } else if (e.shiftKey) {
-    // Shift: adjust probability
+    // Shift: adjust probability or cycle notes
     if (pattern.active) {
-      pattern.probability = Math.min(100, pattern.probability + 25);
-      if (pattern.probability > 100) pattern.probability = 50;
+      if (instData.type === 'melodic') {
+        // Cycle through notes in scale
+        cycleNote(inst, step);
+      } else {
+        pattern.probability = Math.min(100, pattern.probability + 25);
+        if (pattern.probability > 100) pattern.probability = 50;
+      }
+    }
+  } else if (e.ctrlKey || e.metaKey) {
+    // Ctrl/Cmd: change note for melodic instruments
+    if (instData.type === 'melodic' && pattern.active) {
+      const newNote = prompt(`Enter note (e.g., C4, D#3):`, pattern.note || instData.note);
+      if (newNote && /^[A-G]#?[1-6]$/.test(newNote)) {
+        pattern.note = newNote;
+      }
     }
   } else {
     // Regular click: toggle
     pattern.active = !pattern.active;
-    if (pattern.active && !pattern.velocity) {
+    if (pattern.active) {
       pattern.velocity = 0.8;
       pattern.probability = 100;
+      
+      // Set default note for melodic instruments
+      if (instData.type === 'melodic') {
+        pattern.note = instData.note;
+        pattern.duration = '8n';
+      }
     }
   }
   
   renderSequencer();
+}
+
+function cycleNote(inst, stepIndex) {
+  const pattern = patterns[inst][stepIndex];
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keys.indexOf(state.key);
+  
+  // Get current note
+  const currentNote = pattern.note || instruments[inst].note;
+  const noteMatch = currentNote.match(/^([A-G]#?)(\d+)$/);
+  if (!noteMatch) return;
+  
+  const [, noteName, octave] = noteMatch;
+  const currentNoteIndex = keys.indexOf(noteName);
+  
+  // Find next note in scale
+  const scaleNotes = scaleIntervals.map(interval => 
+    keys[(keyIndex + interval) % 12]
+  );
+  
+  const currentScaleIndex = scaleNotes.indexOf(noteName);
+  const nextScaleIndex = (currentScaleIndex + 1) % scaleNotes.length;
+  const nextNote = scaleNotes[nextScaleIndex] + octave;
+  
+  pattern.note = nextNote;
 }
 
 function updateStepVisuals(step) {
@@ -1261,12 +1494,20 @@ function generateBeat() {
   
   Object.keys(instruments).forEach(inst => {
     const pattern = preset.patterns[inst];
+    const notes = preset.notes ? preset.notes[inst] : null;
+    
     if (pattern) {
       pattern.forEach((val, i) => {
         if (i < state.sequenceLength) {
           patterns[inst][i].active = val === 1;
           patterns[inst][i].velocity = 0.7 + Math.random() * 0.3;
           patterns[inst][i].probability = 100;
+          
+          // Set notes for melodic instruments
+          if (instruments[inst].type === 'melodic' && notes && notes[i]) {
+            patterns[inst][i].note = notes[i];
+            patterns[inst][i].duration = '8n';
+          }
         }
       });
     }
@@ -1341,9 +1582,119 @@ function clearPattern() {
       step.active = false;
       step.velocity = 0.8;
       step.probability = 100;
+      step.note = instruments[inst].note;
+      step.duration = '8n';
     });
   });
   renderSequencer();
+}
+
+function generateMelodicPatterns() {
+  // Generate bass line
+  generateBassLine();
+  
+  // Generate keys/chords
+  generateKeyPattern();
+  
+  // Generate lead melody
+  generateLeadMelody();
+  
+  renderSequencer();
+}
+
+function generateBassLine() {
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keys.indexOf(state.key);
+  const rootNote = state.key;
+  const octave = 2;
+  
+  // Common bass patterns: root, fifth, octave
+  const bassNotes = [
+    rootNote + octave, // Root
+    keys[(keyIndex + scaleIntervals[4]) % 12] + octave, // Fifth
+    rootNote + (octave + 1), // Octave
+    keys[(keyIndex + scaleIntervals[3]) % 12] + octave  // Fourth
+  ];
+  
+  // Create pattern based on complexity
+  const density = state.complexity === 1 ? 4 : state.complexity === 2 ? 6 : 8;
+  
+  for (let i = 0; i < state.sequenceLength; i++) {
+    if (i % (16 / density) === 0 || (state.complexity >= 3 && Math.random() < 0.3)) {
+      patterns.bass[i].active = true;
+      patterns.bass[i].note = bassNotes[Math.floor(i / 4) % bassNotes.length];
+      patterns.bass[i].velocity = 0.7 + Math.random() * 0.3;
+      patterns.bass[i].duration = '8n';
+      patterns.bass[i].probability = 100;
+    }
+  }
+}
+
+function generateKeyPattern() {
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keys.indexOf(state.key);
+  const octave = 4;
+  
+  // Generate chord progression notes
+  const chords = [];
+  for (let i = 0; i < 4; i++) {
+    const degree = [0, 3, 4, 0][i]; // I - IV - V - I
+    const root = keys[(keyIndex + scaleIntervals[degree]) % 12];
+    const third = keys[(keyIndex + scaleIntervals[(degree + 2) % scaleIntervals.length]) % 12];
+    const fifth = keys[(keyIndex + scaleIntervals[(degree + 4) % scaleIntervals.length]) % 12];
+    
+    chords.push([
+      root + octave,
+      third + octave,
+      fifth + octave
+    ]);
+  }
+  
+  // Place chords on strong beats
+  for (let i = 0; i < state.sequenceLength; i++) {
+    if (i % 4 === 0) {
+      const chordIndex = Math.floor(i / 4) % chords.length;
+      patterns.keys[i].active = true;
+      patterns.keys[i].note = chords[chordIndex]; // Array for chord
+      patterns.keys[i].velocity = 0.6 + Math.random() * 0.2;
+      patterns.keys[i].duration = '2n';
+      patterns.keys[i].probability = 100;
+    }
+  }
+}
+
+function generateLeadMelody() {
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keys.indexOf(state.key);
+  const octave = 5;
+  
+  // Build scale notes
+  const scaleNotes = scaleIntervals.map(interval => 
+    keys[(keyIndex + interval) % 12] + octave
+  );
+  
+  // Add octave above for variety
+  const extendedScale = [...scaleNotes, ...scaleIntervals.map(interval => 
+    keys[(keyIndex + interval) % 12] + (octave + 1)
+  )];
+  
+  // Generate melodic pattern
+  let lastNoteIndex = 0;
+  const density = state.complexity === 1 ? 4 : state.complexity === 2 ? 6 : 10;
+  
+  for (let i = 0; i < state.sequenceLength; i++) {
+    if (Math.random() < (density / 16)) {
+      // Melodic movement: prefer steps over jumps
+      const jump = Math.random() < 0.7 ? (Math.random() < 0.5 ? 1 : -1) : Math.floor(Math.random() * 5) - 2;
+      lastNoteIndex = Math.max(0, Math.min(extendedScale.length - 1, lastNoteIndex + jump));
+      
+      patterns.lead[i].active = true;
+      patterns.lead[i].note = extendedScale[lastNoteIndex];
+      patterns.lead[i].velocity = 0.6 + Math.random() * 0.4;
+      patterns.lead[i].duration = Math.random() < 0.7 ? '8n' : '16n';
+      patterns.lead[i].probability = Math.random() < 0.8 ? 100 : 75;
+    }
+  }
 }
 
 function applyEuclidean() {
