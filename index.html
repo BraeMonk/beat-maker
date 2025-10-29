@@ -1019,13 +1019,37 @@ const fxConfig = {
 
 // ===== Low-latency audio context & scheduler =====
 function initAudioContext() {
+  // If Tone already has a context, keep it
+  if (Tone.getContext && Tone.getContext().rawContext) return;
+
   const ctx = new (window.AudioContext || window.webkitAudioContext)({
     latencyHint: 'interactive',
     sampleRate: 48000
   });
   Tone.setContext(new Tone.Context(ctx));
-  Tone.context.lookAhead = 0.04;        // smooth scheduling
-  Tone.context.updateInterval = 0.03;   // how often Tone processes events
+  Tone.context.lookAhead = 0.04;
+  Tone.context.updateInterval = 0.03;
+}
+
+function unlockAudioOnce() {
+  const unlock = async () => {
+    try {
+      // Start Tone (resumes Tone’s internal AudioContext)
+      await Tone.start();
+      // Also resume the underlying raw AudioContext (extra safety across browsers)
+      await Tone.getContext().rawContext.resume();
+      console.log('🔓 Audio unlocked:', Tone.getContext().rawContext.state);
+    } catch (e) {
+      console.warn('Unlock failed:', e);
+    } finally {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock, { passive: true });
+    }
+  };
+  window.addEventListener('pointerdown', unlock, { once: true });
+  window.addEventListener('keydown', unlock, { once: true });
+  window.addEventListener('touchstart', unlock, { once: true, passive: true });
 }
 
 // -------------------- Tone.js Setup --------------------
@@ -1200,6 +1224,7 @@ function init() {
   renderPresets();
   updateAllDisplays();
   initVisualizerOnce();
+  unlockAudioOnce();
 
   // === 🌈 VIBE SYSTEM INIT ===
   const savedVibe = localStorage.getItem('prostudio.vibe') || 'moon';
@@ -2006,20 +2031,34 @@ async function togglePlay() {
     document.getElementById('playBtn').innerHTML = '▶️ Play';
     stopTimer();
     stopVisualizer();
-  } else {
-    // Make sure context is running
-    if (Tone.context.state !== 'running') {
-      await Tone.start();
-    }
-    Tone.Transport.start();
-    state.isPlaying = true;
-    document.getElementById('playBtn').innerHTML = '⏸️ Pause';
-    startTimer();
-    document.getElementById('vizOverlay').style.display = 'none';
-
-    if (!window.vizRAF) updateVisualizer();
+    return;
   }
+
+  // Not playing → start
+  // Optional guard: do we have any notes?
+  const hasActive = Object.keys(patterns).some(inst => patterns[inst].some(s => s.active));
+  if (!hasActive) { alert('No active notes — click “Generate Beat” or add steps.'); }
+
+  try {
+    // MUST be in the user gesture
+    await Tone.start();
+    const raw = Tone.getContext().rawContext;
+    if (raw.state !== 'running') await raw.resume();
+    console.log('Tone:', Tone.version, 'ctx:', raw.state);
+  } catch (e) {
+    console.error('Could not start audio context:', e);
+    alert('Could not start audio. Click once anywhere on the page, then press Play again.');
+    return;
+  }
+
+  Tone.Transport.start();
+  state.isPlaying = true;
+  document.getElementById('playBtn').innerHTML = '⏸️ Pause';
+  startTimer();
+  document.getElementById('vizOverlay').style.display = 'none';
+  if (!window.vizRAF) updateVisualizer();
 }
+
   
 function stop() {
   Tone.Transport.stop();
