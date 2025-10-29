@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="description" content="Generate and export beautiful lo-fi hip hop beats">
+  <title>Lo-Fi Beat Generator</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 500px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-align: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #aaa;
+      margin-bottom: 30px;
+      font-size: 0.9em;
+    }
+
+    .visualizer {
+      width: 100%;
+      height: 100px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      margin-bottom: 30px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bar {
+      position: absolute;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(to top, #667eea, #764ba2);
+      transition: height 0.1s ease;
+      border-radius: 2px 2px 0 0;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .setting {
+      margin-bottom: 25px;
+    }
+
+    .setting-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    label {
+      font-weight: 600;
+      color: #ddd;
+    }
+
+    .value {
+      color: #667eea;
+      font-weight: 700;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 30px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      transition: width 0.3s ease;
+      border-radius: 2px;
+    }
+
+    .status {
+      text-align: center;
+      color: #aaa;
+      font-size: 0.9em;
+      margin-bottom: 20px;
+      min-height: 20px;
+    }
+
+    .status.recording {
+      color: #ff6b6b;
+      font-weight: 600;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .icon {
+      width: 20px;
+      height: 20px;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 30px 20px;
+      }
+
+      h1 {
+        font-size: 2em;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎵 Lo-Fi Generator</h1>
+    <p class="subtitle">Create chill beats for studying & relaxing</p>
+
+    <div class="visualizer" id="visualizer"></div>
+
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress"></div>
+    </div>
+
+    <div class="status" id="status">Ready to generate</div>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="playBtn" onclick="togglePlay()">
+        <svg class="icon" id="playIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span id="playText">Generate & Play</span>
+      </button>
+      <button class="btn btn-secondary" id="downloadBtn" onclick="downloadWav()" disabled>
+        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Export WAV
+      </button>
+    </div>
+
+    <div class="setting">
+      <div class="setting-header">
+        <label>Duration</label>
+        <span class="value" id="durationValue">5 min</span>
+      </div>
+      <input type="range" id="duration" min="5" max="15" value="5" step="1" oninput="updateDuration(this.value)">
+    </div>
+
+    <div class="setting">
+      <div class="setting-header">
+        <label>Tempo</label>
+        <span class="value" id="tempoValue">85 BPM</span>
+      </div>
+      <input type="range" id="tempo" min="70" max="100" value="85" step="5" oninput="updateTempo(this.value)">
+    </div>
+  </div>
+
+  <script>
+    let isPlaying = false;
+    let isRecording = false;
+    let recorder = null;
+    let recordedChunks = [];
+    let sequences = [];
+    let synths = {};
+    let currentChordProgression = [];
+    let totalDuration = 5 * 60; // seconds
+    let startTime = 0;
+    let progressInterval = null;
+
+    // Initialize visualizer bars
+    const visualizer = document.getElementById('visualizer');
+    const bars = [];
+    for (let i = 0; i < 50; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.left = `${i * (100 / 50)}%`;
+      bar.style.height = '5px';
+      visualizer.appendChild(bar);
+      bars.push(bar);
+    }
+
+    // Chord progressions and notes
+    const chordProgressions = [
+      ['Dm7', 'G7', 'Cmaj7', 'Fmaj7'],
+      ['Am7', 'Dm7', 'G7', 'Cmaj7'],
+      ['Fmaj7', 'Em7', 'Dm7', 'Cmaj7'],
+      ['Cmaj7', 'Am7', 'Fmaj7', 'G7'],
+      ['Em7', 'Am7', 'Dm7', 'G7']
+    ];
+
+    const chordNotes = {
+      'Cmaj7': ['C3', 'E3', 'G3', 'B3'],
+      'Dm7': ['D3', 'F3', 'A3', 'C4'],
+      'Em7': ['E3', 'G3', 'B3', 'D4'],
+      'Fmaj7': ['F3', 'A3', 'C4', 'E4'],
+      'G7': ['G3', 'B3', 'D4', 'F4'],
+      'Am7': ['A3', 'C4', 'E4', 'G4']
+    };
+
+    const scaleNotes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5'];
+
+    function updateDuration(val) {
+      totalDuration = parseInt(val) * 60;
+      document.getElementById('durationValue').textContent = val + ' min';
+    }
+
+    function updateTempo(val) {
+      Tone.Transport.bpm.value = parseInt(val);
+      document.getElementById('tempoValue').textContent = val + ' BPM';
+    }
+
+    function updateStatus(text, isRec = false) {
+      const status = document.getElementById('status');
+      status.textContent = text;
+      status.className = isRec ? 'status recording' : 'status';
+    }
+
+    function initializeSynths() {
+      // Kick
+      synths.kick = new Tone.MembraneSynth({
+        pitchDecay: 0.05,
+        octaves: 6,
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+      }).toDestination();
+      synths.kick.volume.value = -8;
+
+      // Snare
+      synths.snare = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
+      }).toDestination();
+      synths.snare.volume.value = -12;
+
+      // Hi-hat
+      synths.hihat = new Tone.MetalSynth({
+        frequency: 200,
+        envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+        harmonicity: 5.1,
+        modulationIndex: 32,
+        resonance: 4000,
+        octaves: 1.5
+      }).toDestination();
+      synths.hihat.volume.value = -20;
+
+      // Bass
+      const bassFilter = new Tone.Filter(800, 'lowpass').toDestination();
+      synths.bass = new Tone.Synth({
+        oscillator: { type: 'triangle' },
+        envelope: { attack: 0.1, decay: 0.3, sustain: 0.4, release: 0.8 }
+      }).connect(bassFilter);
+      synths.bass.volume.value = -10;
+
+      // Pad (chords)
+      const padReverb = new Tone.Reverb(3).toDestination();
+      const padFilter = new Tone.Filter(2000, 'lowpass').connect(padReverb);
+      synths.pad = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.5, decay: 0.3, sustain: 0.7, release: 2 }
+      }).connect(padFilter);
+      synths.pad.volume.value = -18;
+
+      // Lead melody
+      const leadDelay = new Tone.FeedbackDelay('8n', 0.3).toDestination();
+      const leadReverb = new Tone.Reverb(1.5).connect(leadDelay);
+      synths.lead = new Tone.Synth({
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 }
+      }).connect(leadReverb);
+      synths.lead.volume.value = -15;
+
+      // Vinyl crackle
+      synths.vinyl = new Tone.Noise('pink').toDestination();
+      synths.vinyl.volume.value = -30;
+      synths.vinyl.start();
+    }
+
+    function generatePattern() {
+      // Choose random chord progression
+      currentChordProgression = chordProgressions[Math.floor(Math.random() * chordProgressions.length)];
+      
+      const measures = Math.ceil(totalDuration / 8); // 8 seconds per 4-bar phrase
+      
+      // Clear existing sequences
+      sequences.forEach(seq => seq.dispose());
+      sequences = [];
+
+      // Drums - Kick pattern
+      const kickSeq = new Tone.Sequence((time, note) => {
+        synths.kick.triggerAttackRelease('C1', '8n', time, Math.random() * 0.3 + 0.5);
+      }, ['0:0', '0:2', '1:0', '1:2.5'], '2m');
+      kickSeq.loop = measures;
+      sequences.push(kickSeq);
+
+      // Snare pattern
+      const snareSeq = new Tone.Sequence((time) => {
+        synths.snare.triggerAttackRelease('8n', time, Math.random() * 0.2 + 0.3);
+      }, [null, '0:1', null, '0:3'], '1m');
+      snareSeq.loop = measures;
+      sequences.push(snareSeq);
+
+      // Hi-hat pattern with swing
+      const hihatSeq = new Tone.Sequence((time, vel) => {
+        synths.hihat.triggerAttackRelease('32n', time, vel);
+      }, [
+        { time: '0:0', vel: 0.3 },
+        { time: '0:0.66', vel: 0.1 },
+        { time: '0:1', vel: 0.2 },
+        { time: '0:1.66', vel: 0.1 },
+        { time: '0:2', vel: 0.3 },
+        { time: '0:2.66', vel: 0.1 },
+        { time: '0:3', vel: 0.2 },
+        { time: '0:3.66', vel: 0.1 }
+      ].map(h => h.time), '1m');
+      hihatSeq.loop = measures;
+      hihatSeq.humanize = true;
+      sequences.push(hihatSeq);
+
+      // Bass line
+      const bassSeq = new Tone.Sequence((time, chord) => {
+        const root = chordNotes[chord][0].replace('3', '2');
+        synths.bass.triggerAttackRelease(root, '4n', time, Math.random() * 0.2 + 0.6);
+      }, currentChordProgression, '4m');
+      bassSeq.loop = Math.ceil(measures / 4);
+      sequences.push(bassSeq);
+
+      // Chord pads
+      const padSeq = new Tone.Sequence((time, chord) => {
+        const notes = chordNotes[chord];
+        synths.pad.triggerAttackRelease(notes, '2m', time, Math.random() * 0.1 + 0.3);
+      }, currentChordProgression, '4m');
+      padSeq.loop = Math.ceil(measures / 4);
+      sequences.push(padSeq);
+
+      // Lead melody
+      const melodyNotes = [];
+      for (let i = 0; i < 16; i++) {
+        if (Math.random() > 0.3) {
+          melodyNotes.push({
+            time: `0:${i * 0.5}`,
+            note: scaleNotes[Math.floor(Math.random() * scaleNotes.length)],
+            duration: Math.random() > 0.5 ? '8n' : '4n'
+          });
+        }
+      }
+
+      const leadSeq = new Tone.Part((time, note) => {
+        synths.lead.triggerAttackRelease(note.note, note.duration, time, Math.random() * 0.2 + 0.4);
+      }, melodyNotes);
+      leadSeq.loop = true;
+      leadSeq.loopEnd = '4m';
+      sequences.push(leadSeq);
+
+      // Start all sequences
+      sequences.forEach(seq => seq.start(0));
+    }
+
+    function animateVisualizer() {
+      if (!isPlaying) return;
+      
+      bars.forEach((bar, i) => {
+        const height = Math.random() * 80 + 10;
+        bar.style.height = height + 'px';
+      });
+      
+      requestAnimationFrame(animateVisualizer);
+    }
+
+    async function startRecording() {
+      recordedChunks = [];
+      const dest = Tone.context.createMediaStreamDestination();
+      Tone.Destination.connect(dest);
+      
+      recorder = new MediaRecorder(dest.stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          recordedChunks.push(e.data);
+        }
+      };
+      
+      recorder.start();
+      isRecording = true;
+    }
+
+    function stopRecording() {
+      return new Promise((resolve) => {
+        if (!recorder) {
+          resolve();
+          return;
+        }
+        
+        recorder.onstop = () => {
+          isRecording = false;
+          resolve();
+        };
+        
+        recorder.stop();
+      });
+    }
+
+    async function togglePlay() {
+      if (!isPlaying) {
+        await Tone.start();
+        updateStatus('Generating beat...', true);
+        document.getElementById('playBtn').disabled = true;
+        
+        initializeSynths();
+        generatePattern();
+        
+        await startRecording();
+        
+        Tone.Transport.start();
+        startTime = Tone.now();
+        isPlaying = true;
+        
+        // Update UI
+        document.getElementById('playIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />';
+        document.getElementById('playText').textContent = 'Stop';
+        document.getElementById('playBtn').disabled = false;
+        updateStatus('Recording...', true);
+        
+        animateVisualizer();
+        
+        // Progress tracking
+        progressInterval = setInterval(() => {
+          const elapsed = Tone.now() - startTime;
+          const progress = Math.min((elapsed / totalDuration) * 100, 100);
+          document.getElementById('progress').style.width = progress + '%';
+          
+          if (elapsed >= totalDuration) {
+            togglePlay();
+          }
+        }, 100);
+        
+      } else {
+        updateStatus('Processing...', true);
+        
+        Tone.Transport.stop();
+        await stopRecording();
+        
+        sequences.forEach(seq => {
+          seq.stop();
+          seq.dispose();
+        });
+        sequences = [];
+        
+        Object.values(synths).forEach(synth => {
+          if (synth && synth.dispose) synth.dispose();
+        });
+        synths = {};
+        
+        clearInterval(progressInterval);
+        isPlaying = false;
+        
+        document.getElementById('playIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />';
+        document.getElementById('playText').textContent = 'Generate & Play';
+        document.getElementById('downloadBtn').disabled = false;
+        updateStatus('Ready to export');
+      }
+    }
+
+    async function downloadWav() {
+      if (recordedChunks.length === 0) {
+        alert('No recording available. Generate a beat first!');
+        return;
+      }
+
+      updateStatus('Converting to WAV...');
+      
+      const webmBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      try {
+        const arrayBuffer = await webmBlob.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        // Convert to WAV
+        const wavBlob = await audioBufferToWav(audioBuffer);
+        
+        const url = URL.createObjectURL(wavBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lofi-beat-${Date.now()}.wav`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        updateStatus('Download complete!');
+        setTimeout(() => updateStatus('Ready to export'), 2000);
+      } catch (err) {
+        console.error('Error converting audio:', err);
+        updateStatus('Export failed. Try generating again.');
+      }
+    }
+
+    function audioBufferToWav(buffer) {
+      const numberOfChannels = buffer.numberOfChannels;
+      const length = buffer.length * numberOfChannels * 2;
+      const arrayBuffer = new ArrayBuffer(44 + length);
+      const view = new DataView(arrayBuffer);
+      const channels = [];
+      let offset = 0;
+      let pos = 0;
+
+      // Write WAV header
+      setUint32(0x46464952); // "RIFF"
+      setUint32(36 + length); // file length
+      setUint32(0x45564157); // "WAVE"
+      setUint32(0x20746d66); // "fmt " chunk
+      setUint32(16); // length = 16
+      setUint16(1); // PCM (uncompressed)
+      setUint16(numberOfChannels);
+      setUint32(buffer.sampleRate);
+      setUint32(buffer.sampleRate * 2 * numberOfChannels); // avg. bytes/sec
+      setUint16(numberOfChannels * 2); // block-align
+      setUint16(16); // 16-bit
+      setUint32(0x61746164); // "data" - chunk
+      setUint32(length); // chunk length
+
+      // Write interleaved data
+      for (let i = 0; i < buffer.numberOfChannels; i++) {
+        channels.push(buffer.getChannelData(i));
+      }
+
+      while (pos < buffer.length) {
+        for (let i = 0; i < numberOfChannels; i++) {
+          let sample = Math.max(-1, Math.min(1, channels[i][pos]));
+          sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+          view.setInt16(44 + offset, sample, true);
+          offset += 2;
+        }
+        pos++;
+      }
+
+      return new Blob([arrayBuffer], { type: 'audio/wav' });
+
+      function setUint16(data) {
+        view.setUint16(pos, data, true);
+        pos += 2;
+      }
+
+      function setUint32(data) {
+        view.setUint32(pos, data, true);
+        pos += 4;
+      }
+    }
+
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
