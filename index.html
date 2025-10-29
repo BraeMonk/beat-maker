@@ -393,67 +393,134 @@
       // Choose random chord progression
       currentChordProgression = chordProgressions[Math.floor(Math.random() * chordProgressions.length)];
       
-      const measures = Math.ceil(totalDuration / 8); // 8 seconds per 4-bar phrase
+      const measures = Math.ceil(totalDuration / 8);
       
       // Clear existing sequences
       sequences.forEach(seq => seq.dispose());
       sequences = [];
 
-      // Drums - Kick pattern
-      const kickSeq = new Tone.Sequence((time, note) => {
+      // Generate random kick pattern variations
+      const kickPatterns = [
+        ['0:0', '0:2', '1:0', '1:2.5'],
+        ['0:0', '0:1.5', '0:3', '1:1', '1:3'],
+        ['0:0', '0:2', '1:0', '1:1.5', '1:3'],
+        ['0:0', '0:3', '1:0.5', '1:2']
+      ];
+      const kickPattern = kickPatterns[Math.floor(Math.random() * kickPatterns.length)];
+      
+      const kickSeq = new Tone.Sequence((time) => {
         synths.kick.triggerAttackRelease('C1', '8n', time, Math.random() * 0.3 + 0.5);
-      }, ['0:0', '0:2', '1:0', '1:2.5'], '2m');
+      }, kickPattern, '2m');
       kickSeq.loop = measures;
       sequences.push(kickSeq);
 
-      // Snare pattern
+      // Random snare variations
+      const snarePatterns = [
+        [null, '0:1', null, '0:3'],
+        [null, '0:1', null, '0:2.5', null, '0:3'],
+        [null, '0:1', '0:2.75', '0:3'],
+        ['0:0.5', '0:1', null, '0:3']
+      ];
+      const snarePattern = snarePatterns[Math.floor(Math.random() * snarePatterns.length)];
+      
       const snareSeq = new Tone.Sequence((time) => {
-        synths.snare.triggerAttackRelease('8n', time, Math.random() * 0.2 + 0.3);
-      }, [null, '0:1', null, '0:3'], '1m');
+        if (time !== null) {
+          synths.snare.triggerAttackRelease('8n', time, Math.random() * 0.2 + 0.3);
+        }
+      }, snarePattern, '1m');
       snareSeq.loop = measures;
       sequences.push(snareSeq);
 
-      // Hi-hat pattern with swing
-      const hihatSeq = new Tone.Sequence((time, vel) => {
-        synths.hihat.triggerAttackRelease('32n', time, vel);
-      }, [
-        { time: '0:0', vel: 0.3 },
-        { time: '0:0.66', vel: 0.1 },
-        { time: '0:1', vel: 0.2 },
-        { time: '0:1.66', vel: 0.1 },
-        { time: '0:2', vel: 0.3 },
-        { time: '0:2.66', vel: 0.1 },
-        { time: '0:3', vel: 0.2 },
-        { time: '0:3.66', vel: 0.1 }
-      ].map(h => h.time), '1m');
+      // Generate varied hi-hat pattern
+      const hihatPattern = [];
+      const hihatDensity = Math.random() > 0.5 ? 8 : 16; // 8th or 16th notes
+      for (let i = 0; i < hihatDensity; i++) {
+        const vel = i % 4 === 0 ? 0.3 : 0.1 + Math.random() * 0.1;
+        hihatPattern.push(`0:${i / (hihatDensity / 4)}`);
+      }
+      
+      const hihatSeq = new Tone.Sequence((time) => {
+        synths.hihat.triggerAttackRelease('32n', time, Math.random() * 0.15 + 0.1);
+      }, hihatPattern, '1m');
       hihatSeq.loop = measures;
       hihatSeq.humanize = true;
       sequences.push(hihatSeq);
 
-      // Bass line
-      const bassSeq = new Tone.Sequence((time, chord) => {
-        const root = chordNotes[chord][0].replace('3', '2');
-        synths.bass.triggerAttackRelease(root, '4n', time, Math.random() * 0.2 + 0.6);
-      }, currentChordProgression, '4m');
-      bassSeq.loop = Math.ceil(measures / 4);
+      // Generate varied bass line
+      const bassPatterns = [
+        // Root notes only
+        (chord) => [{ time: '0:0', note: chordNotes[chord][0].replace('3', '2') }],
+        // Root + fifth
+        (chord) => [
+          { time: '0:0', note: chordNotes[chord][0].replace('3', '2') },
+          { time: '0:2', note: chordNotes[chord][2].replace('3', '2') }
+        ],
+        // Walking bass
+        (chord) => [
+          { time: '0:0', note: chordNotes[chord][0].replace('3', '2') },
+          { time: '0:1', note: chordNotes[chord][1].replace('3', '2') },
+          { time: '0:2', note: chordNotes[chord][2].replace('3', '2') },
+          { time: '0:3', note: chordNotes[chord][1].replace('3', '2') }
+        ],
+        // Syncopated
+        (chord) => [
+          { time: '0:0', note: chordNotes[chord][0].replace('3', '2') },
+          { time: '0:1.5', note: chordNotes[chord][2].replace('3', '2') },
+          { time: '0:3', note: chordNotes[chord][0].replace('3', '2') }
+        ]
+      ];
+      
+      const bassPatternFunc = bassPatterns[Math.floor(Math.random() * bassPatterns.length)];
+      const bassNotes = [];
+      currentChordProgression.forEach((chord, idx) => {
+        const pattern = bassPatternFunc(chord);
+        pattern.forEach(note => {
+          bassNotes.push({
+            time: `${idx}:${note.time.split(':')[1]}`,
+            note: note.note,
+            duration: '4n'
+          });
+        });
+      });
+      
+      const bassSeq = new Tone.Part((time, note) => {
+        synths.bass.triggerAttackRelease(note.note, note.duration, time, Math.random() * 0.2 + 0.6);
+      }, bassNotes);
+      bassSeq.loop = true;
+      bassSeq.loopEnd = '4m';
       sequences.push(bassSeq);
 
-      // Chord pads
+      // Varied chord voicings
       const padSeq = new Tone.Sequence((time, chord) => {
-        const notes = chordNotes[chord];
+        const notes = [...chordNotes[chord]];
+        // Sometimes drop or add notes for variety
+        if (Math.random() > 0.7) {
+          notes.splice(Math.floor(Math.random() * notes.length), 1);
+        }
         synths.pad.triggerAttackRelease(notes, '2m', time, Math.random() * 0.1 + 0.3);
       }, currentChordProgression, '4m');
       padSeq.loop = Math.ceil(measures / 4);
       sequences.push(padSeq);
 
-      // Lead melody
+      // Generate unique melody for each generation
       const melodyNotes = [];
-      for (let i = 0; i < 16; i++) {
-        if (Math.random() > 0.3) {
+      const melodyStyle = Math.floor(Math.random() * 3);
+      
+      for (let i = 0; i < 32; i++) {
+        const shouldPlay = Math.random() > (melodyStyle === 0 ? 0.5 : melodyStyle === 1 ? 0.3 : 0.6);
+        
+        if (shouldPlay) {
+          // Choose notes from scale with preference for chord tones
+          const notePool = [...scaleNotes];
+          const note = notePool[Math.floor(Math.random() * notePool.length)];
+          
+          const durations = ['16n', '8n', '4n', '4n.'];
+          const duration = durations[Math.floor(Math.random() * durations.length)];
+          
           melodyNotes.push({
-            time: `0:${i * 0.5}`,
-            note: scaleNotes[Math.floor(Math.random() * scaleNotes.length)],
-            duration: Math.random() > 0.5 ? '8n' : '4n'
+            time: `0:${i * 0.25}`,
+            note: note,
+            duration: duration
           });
         }
       }
@@ -465,8 +532,26 @@
       leadSeq.loopEnd = '4m';
       sequences.push(leadSeq);
 
+      // Add occasional fills every 8 bars
+      let fillCounter = 0;
+      const fillSeq = new Tone.Loop((time) => {
+        fillCounter++;
+        if (fillCounter % 8 === 0) {
+          // Snare fill
+          for (let i = 0; i < 4; i++) {
+            Tone.Transport.scheduleOnce(() => {
+              synths.snare.triggerAttackRelease('16n', undefined, Math.random() * 0.3 + 0.2);
+            }, time + i * 0.1);
+          }
+        }
+      }, '1m');
+      fillSeq.start(0);
+      sequences.push(fillSeq);
+
       // Start all sequences
-      sequences.forEach(seq => seq.start(0));
+      sequences.forEach(seq => {
+        if (seq.start) seq.start(0);
+      });
     }
 
     function animateVisualizer() {
