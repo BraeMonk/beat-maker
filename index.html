@@ -1167,9 +1167,11 @@ function initAudio() {
         if (inst === 'kick') {
           synths[inst].triggerAttackRelease('C1', '8n', time + humanize, stepData.velocity);
         } else if (inst === 'snare' || inst === 'clap') {
+          // NoiseSynth uses (duration, time, velocity)
           synths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity);
         } else if (inst === 'hihat') {
-          synths[inst].triggerAttackRelease('16n', time + humanize, stepData.velocity * 0.5);
+          // MetalSynth needs pitch (or frequency) first, then duration
+          synths[inst].triggerAttackRelease('C6', '16n', time + humanize, stepData.velocity * 0.5);
         } else {
           synths[inst].triggerAttackRelease('C2', '16n', time + humanize, stepData.velocity);
         }
@@ -1178,6 +1180,7 @@ function initAudio() {
         const duration = stepData.duration || '8n';
         synths[inst].triggerAttackRelease(note, duration, time + humanize, stepData.velocity);
       }
+    
     });
 
     updateVisualizer();
@@ -2209,7 +2212,7 @@ async function exportAudio() {
         if (instruments[inst].type === 'drum') {
           if (inst === 'kick')                    s.triggerAttackRelease('C1','8n', time+human, p.velocity);
           else if (inst==='snare' || inst==='clap') s.triggerAttackRelease('16n', time+human, p.velocity);
-          else if (inst==='hihat')                s.triggerAttackRelease('16n', time+human, p.velocity*0.5);
+          else if (inst==='hihat')                s.triggerAttackRelease('C6', '16n', time+human, p.velocity * 0.5);
           else                                    s.triggerAttackRelease('C2','16n', time+human, p.velocity);
         } else {
           const note = p.note || instruments[inst].note || 'C4';
