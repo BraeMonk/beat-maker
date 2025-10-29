@@ -45,7 +45,58 @@
       --inset-bottom: env(safe-area-inset-bottom);
       --inset-left: env(safe-area-inset-left);
     }
+
+    /* ========== Vibes ========== */
+    /* Smooth transitions for palette swaps */
+    :root { transition: 
+      --bg-primary .35s ease, --bg-secondary .35s ease, --bg-tertiary .35s ease,
+      --text-primary .35s ease, --text-secondary .35s ease, --text-muted .35s ease,
+      --accent-primary .35s ease, --accent-secondary .35s ease, --accent-hover .35s ease,
+      background-color .35s ease, color .35s ease;
+    }
     
+    /* Default = Moon (what you already have) */
+    body[data-vibe="moon"]{
+      --bg-primary:#070b14; --bg-secondary:#0b1020; --bg-tertiary:#121a2e;
+      --text-primary:#eaf0f7; --text-secondary:#aab3c7; --text-muted:#77819a;
+      --accent-primary:#7c83ff; --accent-secondary:#8d6cff; --accent-hover:#a186ff;
+    }
+    
+    /* Dawn: warm sunrise purple/orange */
+    body[data-vibe="dawn"]{
+      --bg-primary:#0c0b12; --bg-secondary:#171321; --bg-tertiary:#20162a;
+      --text-primary:#fff1ea; --text-secondary:#f2cbbf; --text-muted:#c69d94;
+      --accent-primary:#ff8c6f; --accent-secondary:#ff66a3; --accent-hover:#ff9fb0;
+    }
+    
+    /* Nebula: deep space magenta/cyan */
+    body[data-vibe="nebula"]{
+      --bg-primary:#0a0a12; --bg-secondary:#0c1120; --bg-tertiary:#111428;
+      --text-primary:#e9f8ff; --text-secondary:#b5d7e6; --text-muted:#8aa4b3;
+      --accent-primary:#b86bff; --accent-secondary:#45e6ff; --accent-hover:#6ef0ff;
+    }
+    
+    /* Forest: emerald + moss */
+    body[data-vibe="forest"]{
+      --bg-primary:#08110d; --bg-secondary:#0d1a14; --bg-tertiary:#0f241b;
+      --text-primary:#e9fff4; --text-secondary:#b7e8cf; --text-muted:#8fbda8;
+      --accent-primary:#4be1a0; --accent-secondary:#3fc6b3; --accent-hover:#67f2c0;
+    }
+    
+    /* Sunset: gold + berry */
+    body[data-vibe="sunset"]{
+      --bg-primary:#0d0a13; --bg-secondary:#140e1f; --bg-tertiary:#1c1128;
+      --text-primary:#fff7e8; --text-secondary:#f0d7a8; --text-muted:#c3af88;
+      --accent-primary:#ffb454; --accent-secondary:#f06; --accent-hover:#ff7e7e;
+    }
+    
+    /* Aurora + starfield tint changes slightly per vibe */
+    body[data-vibe="dawn"]::before{ filter: blur(42px) saturate(120%) hue-rotate(10deg); }
+    body[data-vibe="nebula"]::before{ filter: blur(42px) saturate(135%) hue-rotate(60deg); }
+    body[data-vibe="forest"]::before{ filter: blur(42px) saturate(120%) hue-rotate(120deg); }
+    body[data-vibe="sunset"]::before{ filter: blur(42px) saturate(120%) hue-rotate(320deg); }
+    
+        
     *{box-sizing:border-box; margin:0; padding:0}
     html,body{height:100%; overflow-x:hidden}
     body{
@@ -530,6 +581,7 @@
       
       <div class="header-actions">
         <button class="btn btn-secondary btn-sm" id="installBtn" hidden>📱 Install</button>
+        <button class="btn btn-secondary btn-sm" id="vibeBtn">🌈 Vibe: Moon</button>
       </div>
     </header>
     
@@ -846,6 +898,21 @@ let state = {
   compressor: -18
 };
 
+// Vibe system
+const VIBES = ['moon','dawn','nebula','forest','sunset'];
+function applyVibe(v){
+  document.body.setAttribute('data-vibe', v);
+  localStorage.setItem('prostudio.vibe', v);
+  const label = v.charAt(0).toUpperCase()+v.slice(1);
+  const btn = document.getElementById('vibeBtn');
+  if (btn) btn.textContent = `🌈 Vibe: ${label}`;
+}
+function nextVibe(){
+  const cur = document.body.getAttribute('data-vibe') || 'moon';
+  const i = VIBES.indexOf(cur);
+  return VIBES[(i+1) % VIBES.length];
+}
+
 // Instruments and Patterns
 const instruments = {
   kick: { name: 'Kick', icon: '🥁', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
@@ -1094,7 +1161,19 @@ function init() {
   renderPresets();
   updateAllDisplays();
   initVisualizerOnce();
+
+  // === 🌈 VIBE SYSTEM INIT ===
+  const savedVibe = localStorage.getItem('prostudio.vibe') || 'moon';
+  applyVibe(savedVibe);
+
+  const vibeBtn = document.getElementById('vibeBtn');
+  if (vibeBtn) {
+    vibeBtn.addEventListener('click', () => {
+      applyVibe(nextVibe());
+    });
+  }
 }
+
 
 function setupEventListeners() {
   // Genre selector
