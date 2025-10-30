@@ -2988,8 +2988,8 @@ const scales = {
 
 // -------------------- FX Configuration --------------------
 const fxConfig = {
-  reverb: { name: 'Reverb', active: false, decay: 2, wet: 0.3 },
-  delay: { name: 'Delay', active: false, time: '8n', feedback: 0.4 },
+  reverb: { name: 'Reverb', active: true, decay: 3.5, wet: 0.4 },
+  delay: { name: 'Delay', active: true, time: '8n', feedback: 0.3 },
   chorus: { name: 'Chorus', active: false, frequency: 1.5, depth: 0.7 },
   distortion: { name: 'Distortion', active: false, amount: 0.5 },
   filter: { name: 'Filter', active: false, frequency: 1000, type: 'lowpass' },
@@ -3067,7 +3067,7 @@ function initAudio() {
     baseFrequency: 350
   });
   effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, fxConfig.delay.feedback);
-  effects.reverb = new Tone.Reverb(fxConfig.reverb.decay);
+  effects.reverb = new Tone.Reverb({ decay: 3.5, wet: 0.4 });
   
   // Master processing
   master.comp = new Tone.Compressor(-18, 3);
@@ -3151,25 +3151,43 @@ function createDrumSynth(inst) {
   switch (inst) {
     case 'kick':
       return new Tone.MembraneSynth({
-        pitchDecay: 0.08,
-        octaves: 8,
+        pitchDecay: 0.05,
+        octaves: 10,
         oscillator: { type: 'sine' },
-        envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+        envelope: { 
+          attack: 0.001, 
+          decay: 0.5, 
+          sustain: 0, 
+          release: 0.8,
+          attackCurve: 'exponential'
+        }
       });
     case 'snare':
     case 'clap':
-      return new Tone.NoiseSynth({
+      const noise = new Tone.NoiseSynth({
         noise: { type: 'white' },
-        envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
+        envelope: { 
+          attack: 0.001, 
+          decay: 0.15, 
+          sustain: 0,
+          release: 0.1
+        }
       });
+      const filter = new Tone.Filter(3000, 'highpass');
+      noise.connect(filter);
+      return noise;
     case 'hihat':
       return new Tone.MetalSynth({
-        frequency: 200,
-        envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
-        harmonicity: 5.1,
-        modulationIndex: 32,
-        resonance: 4000,
-        octaves: 1.5
+        frequency: 250,
+        envelope: { 
+          attack: 0.001, 
+          decay: 0.08, 
+          release: 0.03 
+        },
+        harmonicity: 3.1,
+        modulationIndex: 16,
+        resonance: 3000,
+        octaves: 0.5
       });
     default:
       return new Tone.MembraneSynth({
@@ -3184,33 +3202,62 @@ function createDrumSynth(inst) {
 function createMelodicSynth(inst) {
   switch (inst) {
     case 'bass':
-      return new Tone.MonoSynth({
-        oscillator: { type: 'sawtooth' },
-        filter: { Q: 2, type: 'lowpass', rolloff: -24 },
-        envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
+      const bass = new Tone.MonoSynth({
+        oscillator: { type: 'triangle' },
+        filter: { 
+          Q: 1, 
+          type: 'lowpass', 
+          rolloff: -12 
+        },
+        envelope: { 
+          attack: 0.02, 
+          decay: 0.4, 
+          sustain: 0.3, 
+          release: 1.2 
+        },
         filterEnvelope: {
           attack: 0.01,
-          decay: 0.2,
-          sustain: 0.3,
-          release: 0.5,
-          baseFrequency: 100,
-          octaves: 2.5
+          decay: 0.3,
+          sustain: 0.2,
+          release: 0.8,
+          baseFrequency: 80,
+          octaves: 2
         }
       });
+      return bass;
+      
     case 'keys':
-      return new Tone.PolySynth(Tone.AMSynth, {
-        harmonicity: 1.01,
-        envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.5 },
-        modulationEnvelope: { attack: 0.2, decay: 0.3, sustain: 0.2, release: 0.8 }
-      });
-    case 'lead':
-      return new Tone.FMSynth({
-        modulationIndex: 6,
+      const keys = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'sine' },
-        envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.8 },
-        modulation: { type: 'triangle' },
-        modulationEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.7 }
+        envelope: { 
+          attack: 0.08, 
+          decay: 0.6, 
+          sustain: 0.4, 
+          release: 2.5 
+        }
       });
+      
+      // Add subtle chorus for warmth
+      const chorus = new Tone.Chorus(0.5, 2.5, 0.3).start();
+      keys.connect(chorus);
+      return keys;
+      
+    case 'lead':
+      const lead = new Tone.Synth({
+        oscillator: { type: 'triangle' },
+        envelope: { 
+          attack: 0.05, 
+          decay: 0.3, 
+          sustain: 0.4, 
+          release: 1.8 
+        }
+      });
+      
+      // Add dreamy vibrato
+      const vibrato = new Tone.Vibrato(4, 0.1);
+      lead.connect(vibrato);
+      return lead;
+      
     default:
       return new Tone.Synth();
   }
@@ -4709,8 +4756,10 @@ function bufferToWav(audioBuffer) {
 }
 
 async function exportAudio() {
-  stopVisualizer();
-  stopTimer();
+  if (!state.isPlaying) {
+    alert('❌ Please start playback first, then export while playing!');
+    return;
+  }
   
   const hasActive = Object.keys(patterns).some(inst => 
     patterns[inst].some(s => s.active)
@@ -4721,115 +4770,58 @@ async function exportAudio() {
     return;
   }
   
-  const seconds = Math.max(1, state.duration * 60);
-  const bpm = state.bpm;
-  const seqLen = state.sequenceLength;
-  const res = state.resolution;
-  
-  console.log('⚙️ Rendering offline audio…');
-  
-  let rendered;
   try {
-    rendered = await Tone.Offline(() => {
-      // Build offline graph
-      const fxIn = new Tone.Gain(1);
-      const comp = new Tone.Compressor(-18, 3);
-      const limit = new Tone.Limiter(-1);
-      fxIn.chain(comp, limit, Tone.Destination);
-      
-      const localSynths = {};
-      Object.keys(instruments).forEach(inst => {
-        const data = instruments[inst];
-        let synth;
-        
-        if (data.type === 'drum') {
-          synth = createDrumSynth(inst);
-        } else {
-          synth = createMelodicSynth(inst);
-          synth.volume.value = data.volume || 0;
-        }
-        
-        const channel = new Tone.Channel({
-          pan: 0,
-          volume: data.volume || 0
-        }).connect(fxIn);
-        
-        synth.connect(channel);
-        localSynths[inst] = synth;
-      });
-      
-      Tone.Transport.bpm.value = bpm;
-      Tone.Transport.swing = state.swing / 100;
-      Tone.Transport.swingSubdivision = '8n';
-      
-      new Tone.Sequence((time, step) => {
-        Object.keys(instruments).forEach(inst => {
-          const pattern = patterns[inst][step];
-          if (!pattern?.active) return;
-          if (Math.random() * 100 > (pattern.probability ?? 100)) return;
-          
-          const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
-          const synth = localSynths[inst];
-          if (!synth) return;
-          
-          if (instruments[inst].type === 'drum') {
-            if (inst === 'kick') {
-              synth.triggerAttackRelease('C1', '8n', time + humanize, pattern.velocity);
-            } else if (inst === 'snare' || inst === 'clap') {
-              synth.triggerAttackRelease('16n', time + humanize, pattern.velocity);
-            } else if (inst === 'hihat') {
-              synth.triggerAttackRelease('C6', '16n', time + humanize, pattern.velocity * 0.5);
-            } else {
-              synth.triggerAttackRelease('C2', '16n', time + humanize, pattern.velocity);
-            }
-          } else {
-            const note = pattern.note || instruments[inst].note || 'C4';
-            const duration = pattern.duration || '8n';
-            synth.triggerAttackRelease(note, duration, time + humanize, pattern.velocity);
-          }
-        });
-      }, Array.from({ length: seqLen }, (_, i) => i), res).start(0);
-      
-      Tone.Transport.start(0);
-    }, seconds, 2);
-  } catch (err) {
-    console.error('Offline render failed:', err);
-    alert('❌ Export failed during rendering: ' + (err?.message || err));
-    return;
-  }
-  
-  if (!rendered || !rendered.length || !rendered.getChannelData) {
-    alert('❌ Render produced no audio.');
-    return;
-  }
-  
-  try {
-    const wav = bufferToWav(rendered);
-    const blob = new Blob([wav], { type: 'audio/wav' });
-    const name = (document.getElementById('projectName')?.value || 'beat')
-      .replace(/\s+/g, '_') + `_${Date.now()}.wav`;
+    // Start recording current playback
+    const mediaRecorder = new MediaRecorder(master.mediaDest.stream, {
+      mimeType: 'audio/webm;codecs=opus',
+      audioBitsPerSecond: 320000
+    });
     
-    if (window.showSaveFilePicker) {
-      const handle = await showSaveFilePicker({
-        suggestedName: name,
-        types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-    } else {
+    const chunks = [];
+    
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+    
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const name = (document.getElementById('projectName')?.value || 'beat')
+        .replace(/\s+/g, '_') + `_${Date.now()}.webm`;
+      
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = name;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
+      
+      alert('✅ Export complete! Recording saved as WebM audio.');
+    };
     
-    alert('✅ Export complete!');
+    mediaRecorder.start();
+    
+    // Auto-stop after 30 seconds or when user stops playback
+    const checkInterval = setInterval(() => {
+      if (!state.isPlaying || mediaRecorder.state === 'inactive') {
+        clearInterval(checkInterval);
+        if (mediaRecorder.state === 'recording') {
+          mediaRecorder.stop();
+        }
+      }
+    }, 500);
+    
+    setTimeout(() => {
+      if (mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        clearInterval(checkInterval);
+      }
+    }, 30000);
+    
+    alert('🎙️ Recording started! Press Stop when finished.');
+    
   } catch (err) {
-    console.error('Save step failed:', err);
-    alert('❌ Export failed while saving: ' + (err?.message || err));
+    console.error('Export failed:', err);
+    alert('❌ Export failed: ' + (err?.message || err));
   }
 }
 
