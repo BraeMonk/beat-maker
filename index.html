@@ -3048,11 +3048,8 @@ function unlockAudioOnce() {
 
 // -------------------- Audio Graph Initialization --------------------
 function initAudio() {
-  // Master chain with proper gain staging
+  // Master chain with much lower gain for desktop batching
   master.fxIn = new Tone.Gain(0.18);
-
-  // ✅ REMOVE THIS - PerformanceObserver doesn't detect audio clipping
-  // (It's for frame drops, not audio peaks)
   
   // Effects with much gentler settings
   effects.filter = new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type);
@@ -3067,14 +3064,14 @@ function initAudio() {
   effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, 0.1);
   effects.reverb = new Tone.Reverb({ decay: 0.8, wet: 0.15 });
   
-  // Proper dynamics control
+  // Proper dynamics control with more headroom
   master.comp = new Tone.Compressor({
-    threshold: -18,
-    ratio: 4,
+    threshold: -24,
+    ratio: 3,
     attack: 0.003,
-    release: 0.1
+    release: 0.15
   });
-  master.limiter = new Tone.Limiter(-1);
+  master.limiter = new Tone.Limiter(-3);
   
   // Connect chain
   master.fxIn.chain(
@@ -3091,7 +3088,7 @@ function initAudio() {
   
   master.limiter.toDestination();
   
-  // ✅ ADD THIS: Clip detection meter (CRITICAL!)
+  // Clip detection meter
   master.meter = new Tone.Meter();
   master.limiter.connect(master.meter);
   
@@ -3099,7 +3096,7 @@ function initAudio() {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     setInterval(() => {
       const level = master.meter.getValue();
-      if (level > -1.0) { // Limiter is at -1dB, so anything above is problematic
+      if (level > -3.5) {
         console.warn('🔥 CLIPPING:', level.toFixed(2), 'dB');
       }
     }, 200);
@@ -3134,13 +3131,11 @@ function initAudio() {
     state.currentStep = step;
     updateStepVisuals(step);
     
-    // ✅ ADD THIS: Stagger instrument triggering (CRITICAL FOR LAPTOP!)
     const activeInsts = Object.keys(instruments).filter(inst => 
       patterns[inst][step]?.active
     );
     
     activeInsts.forEach((inst, idx) => {
-      // Spread triggers across 5ms window
       const offset = (idx / Math.max(1, activeInsts.length - 1)) * 0.005;
       playStep(inst, step, time + offset);
     });
@@ -3168,29 +3163,29 @@ function createInstrumentChain(inst) {
     volume: instData.volume
   }).connect(master.fxIn);
   
-  // Individual reverb sends
+  // Individual reverb sends with much lower levels
   const reverbSend = new Tone.Gain(0);
   channel.connect(reverbSend);
   reverbSend.connect(effects.reverb);
   
-  // Set reverb amounts by instrument
+  // Set reverb amounts by instrument - reduced for headroom
   const reverbAmounts = {
-    kick: 0.005,
-    snare: 0.02,
-    hihat: 0.01,
-    guitar: 0.06,
-    keys: 0.05,
-    lead: 0.08,
-    bass: 0.01
+    kick: 0.002,
+    snare: 0.01,
+    hihat: 0.005,
+    guitar: 0.03,
+    keys: 0.025,
+    lead: 0.04,
+    bass: 0.005
   };
   
-  reverbSend.gain.value = reverbAmounts[inst] || 0.2;
+  reverbSend.gain.value = reverbAmounts[inst] || 0.02;
   
   instData.channel = channel;
   instData.reverbSend = reverbSend;
   synths[inst].connect(channel);
 }
-
+  
 function createDrumSynth(inst) {
   switch (inst) {
     case 'kick':
@@ -3543,19 +3538,22 @@ function playStep(inst, step, time) {
 function playDrumNote(inst, time, velocity) {
   const synth = synths[inst];
   
+  // Reduce drum velocities for desktop batching
+  const scaledVelocity = velocity * 0.7;
+  
   switch (inst) {
     case 'kick':
-      synth.triggerAttackRelease('C1', '8n', time, velocity * 0.6);
+      synth.triggerAttackRelease('C1', '8n', time, scaledVelocity * 0.5);
       break;
     case 'snare':
     case 'clap':
-      synth.triggerAttackRelease('16n', time, velocity);
+      synth.triggerAttackRelease('16n', time, scaledVelocity * 0.8);
       break;
     case 'hihat':
-      synth.triggerAttackRelease('C6', '16n', time, velocity * 0.5);
+      synth.triggerAttackRelease('C6', '16n', time, scaledVelocity * 0.4);
       break;
     default:
-      synth.triggerAttackRelease('C2', '16n', time, velocity);
+      synth.triggerAttackRelease('C2', '16n', time, scaledVelocity);
   }
 }
 
