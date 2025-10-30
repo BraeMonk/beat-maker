@@ -3037,25 +3037,25 @@ function unlockAudioOnce() {
 
 // -------------------- Audio Graph Initialization --------------------
 function initAudio() {
-  // Master chain
-  master.fxIn = new Tone.Gain(1);
+  // Master chain with proper gain staging
+  master.fxIn = new Tone.Gain(0.8); // Reduce input gain to prevent clipping
   
-  // Effects
+  // Effects with much gentler settings
   effects.filter = new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type);
-  effects.distortion = new Tone.Distortion(fxConfig.distortion.amount);
-  effects.chorus = new Tone.Chorus(1.5, 2.5, fxConfig.chorus.depth).start();
+  effects.distortion = new Tone.Distortion(0.1); // Much lower distortion
+  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.3).start(); // Lower depth
   effects.phaser = new Tone.Phaser({
     frequency: fxConfig.phaser.frequency,
     octaves: fxConfig.phaser.octaves,
     baseFrequency: 350
   });
   effects.bitcrusher = new Tone.BitCrusher(8);
-  effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, fxConfig.delay.feedback);
-  effects.reverb = new Tone.Reverb({ decay: 3.5, wet: 0.4 });
+  effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, 0.15); // Lower feedback
+  effects.reverb = new Tone.Reverb({ decay: 1.5, wet: 0.2 }); // Much shorter decay
   
-  // Master processing
-  master.comp = new Tone.Compressor(-18, 3);
-  master.limiter = new Tone.Limiter(-1);
+  // Gentler master processing
+  master.comp = new Tone.Compressor(-24, 2); // Higher threshold, lower ratio
+  master.limiter = new Tone.Limiter(-0.5); // Headroom for safety
   
   // Connect chain
   master.fxIn.chain(
@@ -3083,7 +3083,7 @@ function initAudio() {
   master.mediaRecorder = null;
   master.recordedChunks = [];
   
-  // Start with all FX dry
+  // Start with all FX completely dry
   Object.values(effects).forEach(fx => {
     if (fx.wet) fx.wet.value = 0;
   });
@@ -3135,13 +3135,13 @@ function createInstrumentChain(inst) {
   
   // Set reverb amounts by instrument
   const reverbAmounts = {
-    kick: 0.05,
-    snare: 0.15,
-    hihat: 0.1,
-    guitar: 0.3,
-    keys: 0.25,
-    lead: 0.4,
-    bass: 0.08
+    kick: 0.01,
+    snare: 0.05,
+    hihat: 0.03,
+    guitar: 0.12,
+    keys: 0.10,
+    lead: 0.15,
+    bass: 0.02
   };
   
   reverbSend.gain.value = reverbAmounts[inst] || 0.2;
@@ -4162,32 +4162,31 @@ function generateBeat() {
 // Add after generateBeat function
 function applyGenreFX() {
   if (state.currentGenre === 'postpunk') {
-    // Dark post-punk: heavy reverb, chorus
+    // Dark post-punk: moderate reverb, chorus
     fxConfig.reverb.active = true;
-    fxConfig.reverb.decay = 5;
+    fxConfig.reverb.decay = 2.0;  // Was 5
     fxConfig.chorus.active = true;
-    fxConfig.filter.active = true;
-    fxConfig.filter.frequency = 800;
+    fxConfig.filter.active = false; // Don't filter by default
   } else if (state.currentGenre === 'rnb') {
     // R&B: warm, subtle effects
     fxConfig.reverb.active = true;
-    fxConfig.reverb.decay = 2.5;
+    fxConfig.reverb.decay = 1.5;  // Was 2.5
     fxConfig.chorus.active = true;
-    fxConfig.chorus.depth = 0.5;
-    fxConfig.distortion.active = true;
-    fxConfig.distortion.amount = 0.1; // tape warmth
+    fxConfig.chorus.depth = 0.3;  // Was 0.5
+    fxConfig.distortion.active = false; // Turn off by default
   }
   
-  // Apply settings
+  // Apply settings with lower wet amounts
   Object.keys(fxConfig).forEach(fx => {
     const cfg = fxConfig[fx];
     if (effects[fx] && effects[fx].wet) {
-      effects[fx].wet.value = cfg.active ? 0.5 : 0;
+      effects[fx].wet.value = cfg.active ? 0.25 : 0; // Was 0.5
     }
   });
   
   renderFX();
 }
+  
 function addVariations() {
   Object.keys(instruments).forEach(inst => {
     for (let i = 0; i < state.sequenceLength; i++) {
