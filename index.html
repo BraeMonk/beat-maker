@@ -3010,20 +3010,19 @@ function initAudioContext() {
   const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
   
   const ctx = new (window.AudioContext || window.webkitAudioContext)({
-    latencyHint: isMobile ? 'balanced' : 'playback',
+    latencyHint: isMobile ? 'balanced' : 'interactive',
     sampleRate: 48000
   });
   
   Tone.setContext(new Tone.Context(ctx));
   
-  // Laptop needs MORE lookahead to avoid batching
-  Tone.context.lookAhead = isMobile ? 0.04 : 0.08;
-  Tone.context.updateInterval = isMobile ? 0.03 : 0.05;
+  // CRITICAL: Desktop needs LESS lookahead to avoid message handler violations
+  Tone.context.lookAhead = isMobile ? 0.05 : 0.02;
+  Tone.context.updateInterval = isMobile ? 0.03 : 0.01;
   
-  // ✅ ADD THIS: Log what we detected
   console.log('🎧 Device:', isMobile ? 'Mobile' : 'Desktop');
-  console.log('🎵 Sample rate:', ctx.sampleRate);
-  console.log('🎵 Base latency:', ctx.baseLatency.toFixed(3) + 's');
+  console.log('🎵 Lookahead:', Tone.context.lookAhead.toFixed(3) + 's');
+  console.log('🎵 Update:', Tone.context.updateInterval.toFixed(3) + 's');
 }
 
 function unlockAudioOnce() {
