@@ -2495,10 +2495,8 @@
       <div class="genre-selector" id="genreSelector">
         <button class="genre-btn active" data-genre="lofi">Lo-Fi</button>
         <button class="genre-btn" data-genre="hiphop">Hip-Hop</button>
-        <button class="genre-btn" data-genre="trap">Trap</button>
-        <button class="genre-btn" data-genre="house">House</button>
-        <button class="genre-btn" data-genre="techno">Techno</button>
-        <button class="genre-btn" data-genre="dnb">DnB</button>
+        <button class="genre-btn" data-genre="postpunk">Post-Punk</button>
+        <button class="genre-btn" data-genre="rnb">R&B</button>
         <button class="genre-btn" data-genre="ambient">Ambient</button>
       </div>
       
@@ -2844,6 +2842,7 @@ const instruments = {
   crash: { name: 'Crash', icon: '💥', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
   ride: { name: 'Ride', icon: '🌊', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
   bass: { name: 'Bass', icon: '🎸', mute: false, solo: false, volume: -3, pan: 0, type: 'melodic', note: 'C2' },
+  guitar: { name: 'Guitar', icon: '🎸', mute: false, solo: false, volume: -5, pan: 20, type: 'melodic', note: 'C3' },
   keys: { name: 'Keys', icon: '🎹', mute: false, solo: false, volume: -6, pan: 0, type: 'melodic', note: 'C4' },
   lead: { name: 'Lead', icon: '🎺', mute: false, solo: false, volume: -8, pan: 0, type: 'melodic', note: 'C5' }
 };
@@ -2873,10 +2872,12 @@ const genrePresets = {
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
       hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
       bass: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      guitar: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
       keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
     },
     notes: {
       bass: ['C2','C2','C2','C2','D#2','D#2','D#2','D#2','F2','F2','F2','F2','G2','G2','G2','G2'],
+      guitar: ['C3','E3','G3','C4','D#3','G3','A#3','D#4','F3','A3','C4','F3','G3','B3','D4','G3'],
       keys: ['C4','E4','G4','C4','D#4','G4','A#4','D#4','F4','A4','C5','F4','G4','B4','D5','G4'],
       lead: ['C5','D5','E5','G5','A5','G5','E5','D5']
     }
@@ -2888,72 +2889,51 @@ const genrePresets = {
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
       hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
       bass: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],
+      guitar: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
       keys: [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]
     },
     notes: {
       bass: ['A1','A1','A1','C2','C2','C2','D2','D2','D2','F2','F2','F2','G2','G2','G2','G2'],
+      guitar: ['A2','C3','E3','A3','C3','E3','D3','F3','A3','D3','F3','G2','B2','D3','G3','B3'],
       keys: ['A3','C4','E4','A4','C4','E4','D4','F4','A4','D4','F4','G3','B3','D4','G4','B4'],
       lead: ['A4','C5','E5','A5','G5','E5','D5','C5']
     }
   },
-  trap: {
-    name: 'Trap', icon: '💎', bpm: 140,
-    patterns: {
-      kick: [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
-      hihat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      bass: [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],
-      lead: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
-    },
-    notes: {
-      bass: ['C1','C1','C1','C1','C1','C1','D#1','D#1','D#1','D#1','F1','F1','F1','F1','G1','G1'],
-      keys: ['C4','D#4','G4','C5','D#4','G4','A#4','D#4'],
-      lead: ['C5','D#5','G5','C6','A#5','G5','D#5','C5']
-    }
-  },
-  house: {
-    name: 'House', icon: '🏠', bpm: 125,
+  postpunk: {
+    name: 'Post-Punk', icon: '🖤', bpm: 125,
     patterns: {
       kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
       hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],
-      bass: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      keys: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0]
+      rimshot: [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+      bass: [1,0,0,1,0,1,0,0,1,0,0,1,0,1,0,0],
+      guitar: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
+    },
+    notes: {
+      bass: ['E1','E1','E2','E1','G1','G1','G2','G1','A1','A1','A2','A1','D2','D2','D3','D2'],
+      guitar: ['E2','G2','B2','E3','G2','B2','D3','G3','A2','C3','E3','A3','D3','F3','A3','D4'],
+      keys: ['E3','G3','B3','E4','G3','B3','D4','G4','A3','C4','E4','A4','D4','F4','A4','D5'],
+      lead: ['E4','G4','B4','E5','D5','B4','A4','G4']
+    }
+  },
+  rnb: {
+    name: 'R&B', icon: '💫', bpm: 78,
+    patterns: {
+      kick: [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
+      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      hihat: [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1],
+      rimshot: [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0],
+      bass: [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0],
+      guitar: [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0],
+      keys: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      lead: [0,0,0,0,1,0,0,1,0,0,0,0,1,0,1,0]
     },
     notes: {
       bass: ['F2','F2','F2','F2','G2','G2','G2','G2','A2','A2','A2','A2','C3','C3','C3','C3'],
-      keys: ['F4','A4','C5','F5','G4','B4','D5','G5','A4','C5','E5','A5','C5','E5','G5','C6'],
-      lead: ['F5','G5','A5','C6','D6','C6','A5','G5']
-    }
-  },
-  techno: {
-    name: 'Techno', icon: '⚡', bpm: 130,
-    patterns: {
-      kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
-      bass: [1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,0],
-      lead: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0]
-    },
-    notes: {
-      bass: ['A1','A1','A1','A1','A1','A1','C2','C2','C2','C2','D2','D2','D2','D2','F2','F2'],
-      keys: ['A3','C4','E4','A4','C4','E4','D4','F4'],
-      lead: ['A5','C6','E6','A6','C6','E6','D6','F6']
-    }
-  },
-  dnb: {
-    name: 'Drum & Bass', icon: '🔊', bpm: 174,
-    patterns: {
-      kick: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      bass: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
-      lead: [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0]
-    },
-    notes: {
-      bass: ['D2','D2','D3','D2','D2','D3','F2','F2','F3','F2','G2','G2','G3','G2','A2','A2'],
-      keys: ['D4','F4','A4','D5','F4','A4','G4','B4'],
-      lead: ['D5','F5','A5','D6','F6','A6','D6','A5']
+      guitar: ['F3','A3','C4','F4','G3','B3','D4','G4','A3','C4','E4','A4','C4','E4','G4','C5'],
+      keys: ['F3','A3','C4','F4','A3','C4','E4','A4','G3','B3','D4','G4','B3','D4','F4','B4'],
+      lead: ['F5','G5','A5','C6','E6','D6','C6','A5']
     }
   },
   ambient: {
@@ -2963,11 +2943,13 @@ const genrePresets = {
       snare: [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
       hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0],
       bass: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+      guitar: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
       keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
       lead: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
     },
     notes: {
       bass: ['C2','C2','C2','C2','C2','C2','C2','C2','G1','G1','G1','G1','G1','G1','G1','G1'],
+      guitar: ['C3','E3','G3','C4','E4','G4','G3','B3','D4','G4','B4','D5'],
       keys: ['C3','E3','G3','C4','E4','G4','G3','B3','D4','G4','B4','D5'],
       lead: ['C5','E5','G5','C6','B5','G5','E5','D5']
     }
@@ -3150,112 +3132,304 @@ function createInstrumentChain(inst) {
 function createDrumSynth(inst) {
   switch (inst) {
     case 'kick':
+      // Deep, punchy kick
       return new Tone.MembraneSynth({
-        pitchDecay: 0.05,
-        octaves: 10,
+        pitchDecay: 0.08,
+        octaves: 8,
         oscillator: { type: 'sine' },
         envelope: { 
           attack: 0.001, 
-          decay: 0.5, 
+          decay: 0.4, 
           sustain: 0, 
-          release: 0.8,
+          release: 0.6,
           attackCurve: 'exponential'
         }
       });
+      
     case 'snare':
-    case 'clap':
-      const noise = new Tone.NoiseSynth({
+      // Layered snare (noise + tone)
+      const snareNoise = new Tone.NoiseSynth({
         noise: { type: 'white' },
         envelope: { 
           attack: 0.001, 
-          decay: 0.15, 
+          decay: 0.2, 
+          sustain: 0,
+          release: 0.15
+        }
+      });
+      
+      const snareTone = new Tone.MembraneSynth({
+        pitchDecay: 0.05,
+        octaves: 1.5,
+        oscillator: { type: 'triangle' },
+        envelope: {
+          attack: 0.001,
+          decay: 0.1,
           sustain: 0,
           release: 0.1
         }
       });
-      const filter = new Tone.Filter(3000, 'highpass');
-      noise.connect(filter);
-      return noise;
+      
+      const snareFilter = new Tone.Filter(2000, 'highpass', -12);
+      const snareGain = new Tone.Gain(0.7);
+      
+      snareNoise.connect(snareFilter);
+      snareTone.connect(snareGain);
+      snareFilter.connect(snareGain);
+      
+      // Return a proxy object
+      return {
+        triggerAttackRelease: (dur, time, velocity) => {
+          snareNoise.triggerAttackRelease(dur, time, velocity);
+          snareTone.triggerAttackRelease('G3', dur, time, velocity * 0.6);
+        },
+        connect: (node) => snareGain.connect(node),
+        toDestination: () => snareGain.toDestination()
+      };
+      
+    case 'clap':
+      const clapNoise = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { 
+          attack: 0.003, 
+          decay: 0.12, 
+          sustain: 0,
+          release: 0.08
+        }
+      });
+      const clapFilter = new Tone.Filter(1500, 'highpass', -12);
+      clapNoise.connect(clapFilter);
+      return clapNoise;
+      
     case 'hihat':
+      // Metallic hi-hat
       return new Tone.MetalSynth({
-        frequency: 250,
+        frequency: 300,
         envelope: { 
           attack: 0.001, 
-          decay: 0.08, 
-          release: 0.03 
+          decay: 0.12, 
+          release: 0.05 
         },
-        harmonicity: 3.1,
-        modulationIndex: 16,
-        resonance: 3000,
-        octaves: 0.5
+        harmonicity: 4,
+        modulationIndex: 24,
+        resonance: 4000,
+        octaves: 0.8
       });
-    default:
-      return new Tone.MembraneSynth({
-        pitchDecay: 0.05,
-        octaves: 6,
+      
+    case 'rimshot':
+      const rim = new Tone.MembraneSynth({
+        pitchDecay: 0.02,
+        octaves: 1,
         oscillator: { type: 'sine' },
-        envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+        envelope: {
+          attack: 0.001,
+          decay: 0.08,
+          sustain: 0,
+          release: 0.05
+        }
       });
+      return rim;
+      
+    case 'tom':
+      return new Tone.MembraneSynth({
+        pitchDecay: 0.12,
+        octaves: 4,
+        oscillator: { type: 'sine' },
+        envelope: { 
+          attack: 0.001, 
+          decay: 0.6, 
+          sustain: 0.01, 
+          release: 0.8 
+        }
+      });
+      
+    case 'crash':
+      return new Tone.MetalSynth({
+        frequency: 180,
+        envelope: { 
+          attack: 0.01, 
+          decay: 1.5, 
+          release: 2.0 
+        },
+        harmonicity: 5.1,
+        modulationIndex: 32,
+        resonance: 3000,
+        octaves: 1.2
+      });
+      
+    case 'ride':
+      return new Tone.MetalSynth({
+        frequency: 220,
+        envelope: { 
+          attack: 0.001, 
+          decay: 0.4, 
+          release: 0.8 
+        },
+        harmonicity: 3.8,
+        modulationIndex: 18,
+        resonance: 3500,
+        octaves: 0.7
+      });
+      
+    default:
+      return new Tone.MembraneSynth();
   }
 }
 
 function createMelodicSynth(inst) {
   switch (inst) {
     case 'bass':
+      // Realistic electric bass with pick attack
       const bass = new Tone.MonoSynth({
-        oscillator: { type: 'triangle' },
+        oscillator: { 
+          type: 'sawtooth',
+          count: 3,
+          spread: 30
+        },
         filter: { 
-          Q: 1, 
+          Q: 2, 
           type: 'lowpass', 
-          rolloff: -12 
+          rolloff: -24,
+          frequency: 800
         },
         envelope: { 
-          attack: 0.02, 
-          decay: 0.4, 
-          sustain: 0.3, 
-          release: 1.2 
+          attack: 0.005, 
+          decay: 0.3, 
+          sustain: 0.2, 
+          release: 0.8 
         },
         filterEnvelope: {
-          attack: 0.01,
-          decay: 0.3,
-          sustain: 0.2,
-          release: 0.8,
-          baseFrequency: 80,
-          octaves: 2
+          attack: 0.002,
+          decay: 0.2,
+          sustain: 0.3,
+          release: 0.6,
+          baseFrequency: 100,
+          octaves: 2.5,
+          exponent: 2
         }
       });
       return bass;
       
-    case 'keys':
-      const keys = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'sine' },
+    case 'guitar':
+      // Realistic guitar with string harmonics
+      const guitar = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { 
+          type: 'triangle',
+          partialCount: 8
+        },
         envelope: { 
-          attack: 0.08, 
-          decay: 0.6, 
-          sustain: 0.4, 
-          release: 2.5 
+          attack: 0.008, 
+          decay: 0.4, 
+          sustain: 0.2, 
+          release: 1.2,
+          attackCurve: 'exponential'
         }
       });
       
-      // Add subtle chorus for warmth
-      const chorus = new Tone.Chorus(0.5, 2.5, 0.3).start();
-      keys.connect(chorus);
+      // Add slight chorus for width
+      const guitarChorus = new Tone.Chorus({
+        frequency: 0.8,
+        delayTime: 2.5,
+        depth: 0.2,
+        type: 'sine',
+        spread: 180
+      }).start();
+      
+      // Add subtle vibrato
+      const guitarVibrato = new Tone.Vibrato({
+        frequency: 4.5,
+        depth: 0.05,
+        type: 'sine'
+      });
+      
+      // Slight distortion for character
+      const guitarDist = new Tone.Distortion(0.15);
+      
+      guitar.connect(guitarDist);
+      guitarDist.connect(guitarChorus);
+      guitarChorus.connect(guitarVibrato);
+      
+      return guitar;
+      
+    case 'keys':
+      // Warm electric piano
+      const keys = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { 
+          type: 'sine',
+          partialCount: 4
+        },
+        envelope: { 
+          attack: 0.005, 
+          decay: 0.8, 
+          sustain: 0.3, 
+          release: 2.0 
+        }
+      });
+      
+      // Subtle tremolo for warmth
+      const tremolo = new Tone.Tremolo({
+        frequency: 4,
+        depth: 0.15,
+        type: 'sine',
+        spread: 180
+      }).start();
+      
+      // Light chorus
+      const keysChorus = new Tone.Chorus(0.5, 2.5, 0.25).start();
+      
+      keys.connect(keysChorus);
+      keysChorus.connect(tremolo);
+      
       return keys;
       
     case 'lead':
+      // Expressive lead synth
       const lead = new Tone.Synth({
-        oscillator: { type: 'triangle' },
+        oscillator: { 
+          type: 'sawtooth',
+          count: 3,
+          spread: 40
+        },
+        filter: {
+          Q: 3,
+          type: 'lowpass',
+          rolloff: -12,
+          frequency: 2000
+        },
         envelope: { 
-          attack: 0.05, 
+          attack: 0.02, 
           decay: 0.3, 
-          sustain: 0.4, 
-          release: 1.8 
+          sustain: 0.5, 
+          release: 1.5 
+        },
+        filterEnvelope: {
+          attack: 0.01,
+          decay: 0.4,
+          sustain: 0.4,
+          release: 1.0,
+          baseFrequency: 800,
+          octaves: 3,
+          exponent: 2
         }
       });
       
-      // Add dreamy vibrato
-      const vibrato = new Tone.Vibrato(4, 0.1);
-      lead.connect(vibrato);
+      // Expressive vibrato
+      const leadVibrato = new Tone.Vibrato({
+        frequency: 5,
+        depth: 0.15,
+        type: 'sine'
+      });
+      
+      // Slight delay for depth
+      const leadDelay = new Tone.FeedbackDelay({
+        delayTime: '16n',
+        feedback: 0.2,
+        wet: 0.15
+      });
+      
+      lead.connect(leadVibrato);
+      leadVibrato.connect(leadDelay);
+      
       return lead;
       
     default:
