@@ -3002,17 +3002,28 @@ const throttle = (fn, ms) => {
 const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
 // -------------------- Audio Context Setup --------------------
+// -------------------- Audio Context Setup --------------------
 function initAudioContext() {
   if (Tone.getContext && Tone.getContext().rawContext) return;
 
+  // Detect device type
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  
   const ctx = new (window.AudioContext || window.webkitAudioContext)({
-    latencyHint: 'interactive',
+    latencyHint: isMobile ? 'balanced' : 'playback',
     sampleRate: 48000
   });
   
   Tone.setContext(new Tone.Context(ctx));
-  Tone.context.lookAhead = 0.04;
-  Tone.context.updateInterval = 0.03;
+  
+  // Laptop needs MORE lookahead to avoid batching
+  Tone.context.lookAhead = isMobile ? 0.04 : 0.08;
+  Tone.context.updateInterval = isMobile ? 0.03 : 0.05;
+  
+  // ✅ ADD THIS: Log what we detected
+  console.log('🎧 Device:', isMobile ? 'Mobile' : 'Desktop');
+  console.log('🎵 Sample rate:', ctx.sampleRate);
+  console.log('🎵 Base latency:', ctx.baseLatency.toFixed(3) + 's');
 }
 
 function unlockAudioOnce() {
@@ -3038,29 +3049,32 @@ function unlockAudioOnce() {
 // -------------------- Audio Graph Initialization --------------------
 function initAudio() {
   // Master chain with proper gain staging
-  master.fxIn = new Tone.Gain(0.4); // Reduce input gain to prevent clipping
+  master.fxIn = new Tone.Gain(0.35);
+
+  // ✅ REMOVE THIS - PerformanceObserver doesn't detect audio clipping
+  // (It's for frame drops, not audio peaks)
   
   // Effects with much gentler settings
   effects.filter = new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type);
-  effects.distortion = new Tone.Distortion(0.02); // Much lower distortion
-  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.2).start(); // Lower depth
+  effects.distortion = new Tone.Distortion(0.02);
+  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.2).start();
   effects.phaser = new Tone.Phaser({
     frequency: fxConfig.phaser.frequency,
     octaves: fxConfig.phaser.octaves,
     baseFrequency: 350
   });
   effects.bitcrusher = new Tone.BitCrusher(8);
-  effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, 0.1); // Lower feedback
-  effects.reverb = new Tone.Reverb({ decay: 0.8, wet: 0.15 }); // Much shorter decay
+  effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, 0.1);
+  effects.reverb = new Tone.Reverb({ decay: 0.8, wet: 0.15 });
   
-  // Gentler master processing
+  // Proper dynamics control
   master.comp = new Tone.Compressor({
     threshold: -18,
     ratio: 4,
     attack: 0.003,
     release: 0.1
-  }); // Higher threshold, lower ratio
-  master.limiter = new Tone.Limiter(-1); // Headroom for safety
+  });
+  master.limiter = new Tone.Limiter(-1);
   
   // Connect chain
   master.fxIn.chain(
@@ -3076,6 +3090,20 @@ function initAudio() {
   );
   
   master.limiter.toDestination();
+  
+  // ✅ ADD THIS: Clip detection meter (CRITICAL!)
+  master.meter = new Tone.Meter();
+  master.limiter.connect(master.meter);
+  
+  // Monitor for clipping (only in dev mode)
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    setInterval(() => {
+      const level = master.meter.getValue();
+      if (level > -1.0) { // Limiter is at -1dB, so anything above is problematic
+        console.warn('🔥 CLIPPING:', level.toFixed(2), 'dB');
+      }
+    }, 200);
+  }
   
   // Visualizer tap
   master.analyser = new Tone.Analyser('fft', 64);
@@ -3106,8 +3134,15 @@ function initAudio() {
     state.currentStep = step;
     updateStepVisuals(step);
     
-    Object.keys(instruments).forEach(inst => {
-      playStep(inst, step, time);
+    // ✅ ADD THIS: Stagger instrument triggering (CRITICAL FOR LAPTOP!)
+    const activeInsts = Object.keys(instruments).filter(inst => 
+      patterns[inst][step]?.active
+    );
+    
+    activeInsts.forEach((inst, idx) => {
+      // Spread triggers across 5ms window
+      const offset = (idx / Math.max(1, activeInsts.length - 1)) * 0.005;
+      playStep(inst, step, time + offset);
     });
     
     updateVisualizer();
