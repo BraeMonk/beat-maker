@@ -3038,24 +3038,29 @@ function unlockAudioOnce() {
 // -------------------- Audio Graph Initialization --------------------
 function initAudio() {
   // Master chain with proper gain staging
-  master.fxIn = new Tone.Gain(0.8); // Reduce input gain to prevent clipping
+  master.fxIn = new Tone.Gain(0.4); // Reduce input gain to prevent clipping
   
   // Effects with much gentler settings
   effects.filter = new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type);
-  effects.distortion = new Tone.Distortion(0.1); // Much lower distortion
-  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.3).start(); // Lower depth
+  effects.distortion = new Tone.Distortion(0.02); // Much lower distortion
+  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.2).start(); // Lower depth
   effects.phaser = new Tone.Phaser({
     frequency: fxConfig.phaser.frequency,
     octaves: fxConfig.phaser.octaves,
     baseFrequency: 350
   });
   effects.bitcrusher = new Tone.BitCrusher(8);
-  effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, 0.15); // Lower feedback
-  effects.reverb = new Tone.Reverb({ decay: 1.5, wet: 0.2 }); // Much shorter decay
+  effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, 0.1); // Lower feedback
+  effects.reverb = new Tone.Reverb({ decay: 0.8, wet: 0.15 }); // Much shorter decay
   
   // Gentler master processing
-  master.comp = new Tone.Compressor(-24, 2); // Higher threshold, lower ratio
-  master.limiter = new Tone.Limiter(-0.5); // Headroom for safety
+  master.comp = new Tone.Compressor({
+    threshold: -18,
+    ratio: 4,
+    attack: 0.003,
+    release: 0.1
+  }); // Higher threshold, lower ratio
+  master.limiter = new Tone.Limiter(-1); // Headroom for safety
   
   // Connect chain
   master.fxIn.chain(
@@ -3135,13 +3140,13 @@ function createInstrumentChain(inst) {
   
   // Set reverb amounts by instrument
   const reverbAmounts = {
-    kick: 0.01,
-    snare: 0.05,
-    hihat: 0.03,
-    guitar: 0.12,
-    keys: 0.10,
-    lead: 0.15,
-    bass: 0.02
+    kick: 0.005,
+    snare: 0.02,
+    hihat: 0.01,
+    guitar: 0.06,
+    keys: 0.05,
+    lead: 0.08,
+    bass: 0.01
   };
   
   reverbSend.gain.value = reverbAmounts[inst] || 0.2;
@@ -3505,7 +3510,7 @@ function playDrumNote(inst, time, velocity) {
   
   switch (inst) {
     case 'kick':
-      synth.triggerAttackRelease('C1', '8n', time, velocity);
+      synth.triggerAttackRelease('C1', '8n', time, velocity * 0.6);
       break;
     case 'snare':
     case 'clap':
