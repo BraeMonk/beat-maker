@@ -3049,7 +3049,7 @@ function unlockAudioOnce() {
 // -------------------- Audio Graph Initialization --------------------
 function initAudio() {
   // Master chain with proper gain staging
-  master.fxIn = new Tone.Gain(0.35);
+  master.fxIn = new Tone.Gain(0.18);
 
   // ✅ REMOVE THIS - PerformanceObserver doesn't detect audio clipping
   // (It's for frame drops, not audio peaks)
