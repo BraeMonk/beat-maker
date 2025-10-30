@@ -2883,7 +2883,7 @@ const genrePresets = {
     }
   },
   hiphop: {
-    name: 'Hip-Hop', icon: '🎤', bpm: 95,
+    name: 'Hip-Hop', icon: '🎤', bpm: 95, swing: 0,
     patterns: {
       kick: [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
@@ -2900,7 +2900,7 @@ const genrePresets = {
     }
   },
   postpunk: {
-    name: 'Post-Punk', icon: '🖤', bpm: 125,
+    name: 'Post-Punk', icon: '🖤', bpm: 125, swing: 50,
     patterns: {
       kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
@@ -2918,7 +2918,7 @@ const genrePresets = {
     }
   },
   rnb: {
-    name: 'R&B', icon: '💫', bpm: 78,
+    name: 'R&B', icon: '💫', bpm: 78, swing: 66,
     patterns: {
       kick: [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
       snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
@@ -3108,10 +3108,10 @@ function initAudio() {
   loop.start(0);
 }
 
+// In createInstrumentChain function (around line ~676), replace with:
 function createInstrumentChain(inst) {
   const instData = instruments[inst];
   
-  // Create synth
   if (instData.type === 'drum') {
     synths[inst] = createDrumSynth(inst);
   } else {
@@ -3119,13 +3119,32 @@ function createInstrumentChain(inst) {
     synths[inst].volume.value = instData.volume;
   }
   
-  // Create channel and connect
+  // Create channel with send to reverb
   const channel = new Tone.Channel({
     pan: 0,
     volume: instData.volume
   }).connect(master.fxIn);
   
+  // Individual reverb sends
+  const reverbSend = new Tone.Gain(0);
+  channel.connect(reverbSend);
+  reverbSend.connect(effects.reverb);
+  
+  // Set reverb amounts by instrument
+  const reverbAmounts = {
+    kick: 0.05,
+    snare: 0.15,
+    hihat: 0.1,
+    guitar: 0.3,
+    keys: 0.25,
+    lead: 0.4,
+    bass: 0.08
+  };
+  
+  reverbSend.gain.value = reverbAmounts[inst] || 0.2;
+  
   instData.channel = channel;
+  instData.reverbSend = reverbSend;
   synths[inst].connect(channel);
 }
 
@@ -3308,6 +3327,8 @@ function createMelodicSynth(inst) {
           exponent: 2
         }
       });
+      bass.portamento = 0.05;
+      
       return bass;
       
     case 'guitar':
@@ -3444,18 +3465,33 @@ function playStep(inst, step, time) {
   const instData = instruments[inst];
   if (instData.mute) return;
   
-  // Solo logic
   const anySolo = Object.values(instruments).some(i => i.solo);
   if (anySolo && !instData.solo) return;
   
-  // Probability check
   if (Math.random() * 100 > stepData.probability) return;
   
-  // Humanize timing
-  const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
+  // Per-instrument humanization scaling
+  const humanizeScale = {
+    kick: 0.5,    // tight
+    snare: 0.7,
+    hihat: 1.2,   // more loose
+    bass: 0.6,
+    guitar: 1.0,
+    keys: 0.8,
+    lead: 0.9
+  };
+  
+  const scale = humanizeScale[inst] || 1.0;
+  const humanize = (Math.random() - 0.5) * (state.humanize / 1000) * scale;
+  
+  // Subtle velocity variation per instrument
+  let velocity = stepData.velocity;
+  if (instData.type === 'drum') {
+    velocity *= (0.95 + Math.random() * 0.1); // ±5% variation
+  }
   
   if (instData.type === 'drum') {
-    playDrumNote(inst, time + humanize, stepData.velocity);
+    playDrumNote(inst, time + humanize, velocity);
   } else {
     playMelodicNote(inst, time + humanize, stepData);
   }
@@ -4090,6 +4126,13 @@ function generateBeat() {
           patterns[inst][i].active = value === 1;
           patterns[inst][i].velocity = 0.7 + Math.random() * 0.3;
           patterns[inst][i].probability = 100;
+
+          if (preset.swing !== undefined) {
+            state.swing = preset.swing;
+            document.getElementById('swingSlider').value = state.swing;
+            document.getElementById('swingValue').textContent = state.swing + '%';
+            Tone.Transport.swing = state.swing / 100;
+          }
           
           if (instruments[inst].type === 'melodic' && notes && notes[i]) {
             patterns[inst][i].note = notes[i];
@@ -4102,6 +4145,7 @@ function generateBeat() {
   
   if (state.complexity >= 2) addVariations();
   if (state.complexity >= 3) addGhostNotes();
+  addDrumFills();
   
   state.bpm = Math.min(CONFIG.MAX_BPM, preset.bpm);
   document.getElementById('bpmSlider').value = state.bpm;
@@ -4109,8 +4153,38 @@ function generateBeat() {
   Tone.Transport.bpm.value = state.bpm;
   
   renderSequencer();
+  applyGenreFX();
 }
 
+// Add after generateBeat function
+function applyGenreFX() {
+  if (state.currentGenre === 'postpunk') {
+    // Dark post-punk: heavy reverb, chorus
+    fxConfig.reverb.active = true;
+    fxConfig.reverb.decay = 5;
+    fxConfig.chorus.active = true;
+    fxConfig.filter.active = true;
+    fxConfig.filter.frequency = 800;
+  } else if (state.currentGenre === 'rnb') {
+    // R&B: warm, subtle effects
+    fxConfig.reverb.active = true;
+    fxConfig.reverb.decay = 2.5;
+    fxConfig.chorus.active = true;
+    fxConfig.chorus.depth = 0.5;
+    fxConfig.distortion.active = true;
+    fxConfig.distortion.amount = 0.1; // tape warmth
+  }
+  
+  // Apply settings
+  Object.keys(fxConfig).forEach(fx => {
+    const cfg = fxConfig[fx];
+    if (effects[fx] && effects[fx].wet) {
+      effects[fx].wet.value = cfg.active ? 0.5 : 0;
+    }
+  });
+  
+  renderFX();
+}
 function addVariations() {
   Object.keys(instruments).forEach(inst => {
     for (let i = 0; i < state.sequenceLength; i++) {
@@ -4173,9 +4247,34 @@ function clearPattern() {
 
 function generateMelodicPatterns() {
   generateBassLine();
+  generateGuitarStrums();
   generateKeyPattern();
   generateLeadMelody();
   renderSequencer();
+}
+
+// Add after generateMelodicPatterns function
+function addDrumFills() {
+  // Add crash on bar 1
+  patterns.crash[0].active = true;
+  patterns.crash[0].velocity = 0.8;
+  patterns.crash[0].probability = 100;
+  
+  // Random tom fills every 2 bars
+  if (state.complexity >= 2) {
+    for (let bar = 1; bar < state.sequenceLength / 16; bar++) {
+      const fillStart = (bar * 16) - 4; // Last 4 steps of bar
+      
+      if (Math.random() < 0.3) { // 30% chance
+        for (let i = 0; i < 4; i++) {
+          if (Math.random() < 0.7) {
+            patterns.tom[fillStart + i].active = true;
+            patterns.tom[fillStart + i].velocity = 0.6 + (i * 0.1);
+          }
+        }
+      }
+    }
+  }
 }
 
 function generateBassLine() {
@@ -4257,6 +4356,46 @@ function generateLeadMelody() {
       patterns.lead[i].velocity = 0.6 + Math.random() * 0.4;
       patterns.lead[i].duration = Math.random() < 0.7 ? '8n' : '16n';
       patterns.lead[i].probability = Math.random() < 0.8 ? 100 : 75;
+    }
+  }
+}
+
+// Add after line ~1260 (after generateLeadMelody function)
+function generateGuitarStrums() {
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  const octave = 3;
+  
+  // Build chord shapes (power chords for post-punk, full triads for R&B)
+  const chordShapes = [];
+  for (let i = 0; i < 4; i++) {
+    const degree = [0, 3, 4, 0][i];
+    const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
+    const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % scaleIntervals.length]) % 12];
+    const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % scaleIntervals.length]) % 12];
+    
+    if (state.currentGenre === 'postpunk') {
+      // Power chords (root + fifth only)
+      chordShapes.push([root + octave, fifth + octave, root + (octave + 1)]);
+    } else {
+      // Full triads
+      chordShapes.push([root + octave, third + octave, fifth + octave]);
+    }
+  }
+  
+  // Different strum patterns by genre
+  const strumPattern = state.currentGenre === 'rnb' 
+    ? [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0] // Steady quarter notes
+    : [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]; // Driving 8ths for post-punk
+  
+  for (let i = 0; i < state.sequenceLength; i++) {
+    if (strumPattern[i % strumPattern.length]) {
+      const chordIndex = Math.floor(i / 4) % chordShapes.length;
+      patterns.guitar[i].active = true;
+      patterns.guitar[i].note = chordShapes[chordIndex];
+      patterns.guitar[i].velocity = 0.5 + Math.random() * 0.2;
+      patterns.guitar[i].duration = state.currentGenre === 'postpunk' ? '16n' : '4n';
+      patterns.guitar[i].probability = 100;
     }
   }
 }
