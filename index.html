@@ -4756,160 +4756,79 @@ function bufferToWav(audioBuffer) {
 }
 
 async function exportAudio() {
-  const hasActive = Object.keys(patterns).some(inst => 
-    patterns[inst].some(s => s.active)
-  );
-  
-  if (!hasActive) {
-    alert('❌ No active notes! Please create a pattern first.');
+  // if we're already recording, this call means "stop & download"
+  if (master.mediaRecorder && master.mediaRecorder.state === 'recording') {
+    master.mediaRecorder.stop();
     return;
   }
-  
-  try {
-    // Stop current playback if playing
-    const wasPlaying = state.isPlaying;
-    if (wasPlaying) {
-      Tone.Transport.pause();
-      state.isPlaying = false;
-      document.getElementById('playBtn').innerHTML = '▶️ Play';
-      stopTimer();
-      stopVisualizer();
-    }
-    
-    // Reset transport to beginning
-    Tone.Transport.stop();
-    state.currentStep = 0;
-    
-    alert('🎵 Rendering your beat to WAV... This will take a moment.');
-    
-    // Calculate duration in seconds
-    const durationSeconds = state.duration * 60;
-    
-    // Create offline context for rendering
-    const sampleRate = 48000;
-    const offlineCtx = new OfflineAudioContext(2, sampleRate * durationSeconds, sampleRate);
-    
-    // Create offline Tone context
-    const offlineTone = new Tone.Context(offlineCtx);
-    Tone.setContext(offlineTone);
-    
-    // Recreate audio graph in offline context
-    const offlineMaster = {
-      fxIn: new Tone.Gain(1),
-      comp: new Tone.Compressor(-18, 3),
-      limiter: new Tone.Limiter(-1)
-    };
-    
-    offlineMaster.fxIn.chain(offlineMaster.comp, offlineMaster.limiter);
-    offlineMaster.limiter.toDestination();
-    
-    // Recreate synths
-    const offlineSynths = {};
-    Object.keys(instruments).forEach(inst => {
-      const instData = instruments[inst];
-      
-      if (instData.type === 'drum') {
-        offlineSynths[inst] = createDrumSynth(inst);
-      } else {
-        offlineSynths[inst] = createMelodicSynth(inst);
-      }
-      
-      const channel = new Tone.Channel({
-        pan: instData.pan / 100,
-        volume: instData.volume
-      }).connect(offlineMaster.fxIn);
-      
-      offlineSynths[inst].connect(channel);
-    });
-    
-    // Set BPM
-    Tone.Transport.bpm.value = state.bpm;
-    Tone.Transport.swing = state.swing / 100;
-    Tone.Transport.swingSubdivision = '8n';
-    
-    // Schedule all notes
-    Object.keys(instruments).forEach(inst => {
-      const instData = instruments[inst];
-      if (instData.mute) return;
-      
-      const anySolo = Object.values(instruments).some(i => i.solo);
-      if (anySolo && !instData.solo) return;
-      
-      patterns[inst].forEach((step, stepIndex) => {
-        if (!step.active) return;
-        if (Math.random() * 100 > step.probability) return;
-        
-        const time = Tone.Time(state.resolution).toSeconds() * stepIndex;
-        const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
-        // Ensure time is never negative by clamping to 0
-        const scheduledTime = Math.max(0, time + humanize);
-        
-        if (instData.type === 'drum') {
-          const synth = offlineSynths[inst];
-          switch (inst) {
-            case 'kick':
-              synth.triggerAttackRelease('C1', '8n', scheduledTime, step.velocity);
-              break;
-            case 'snare':
-            case 'clap':
-              synth.triggerAttackRelease('16n', scheduledTime, step.velocity);
-              break;
-            case 'hihat':
-              synth.triggerAttackRelease('C6', '16n', scheduledTime, step.velocity * 0.5);
-              break;
-            default:
-              synth.triggerAttackRelease('C2', '16n', scheduledTime, step.velocity);
-          }
-        } else {
-          const note = step.note || instData.note || 'C4';
-          const duration = step.duration || '8n';
-          offlineSynths[inst].triggerAttackRelease(note, duration, scheduledTime, step.velocity);
-        }
-      });
-    });
-    
-    // Start transport
-    Tone.Transport.start();
-    
-    // Render
-    const audioBuffer = await offlineCtx.startRendering();
-    
-    // Restore original context
-    Tone.setContext(new Tone.Context(Tone.getContext().rawContext));
-    
-    // Convert to WAV
-    const wavData = bufferToWav(audioBuffer);
-    const wavBlob = new Blob([wavData], { type: 'audio/wav' });
-    
-    // Download
-    const name = (document.getElementById('projectName')?.value || 'beat')
-      .replace(/\s+/g, '_') + `_${Date.now()}.wav`;
-    
-    const url = URL.createObjectURL(wavBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    
-    alert('✅ WAV export complete!');
-    
-    // Resume playback if it was playing
-    if (wasPlaying) {
-      Tone.Transport.start();
-      state.isPlaying = true;
-      document.getElementById('playBtn').innerHTML = '⏸️ Pause';
-      startTimer();
-      updateVisualizer();
-    }
-    
-  } catch (err) {
-    console.error('Export failed:', err);
-    alert('❌ Export failed: ' + (err?.message || err));
-    
-    // Restore original context on error
-    Tone.setContext(new Tone.Context(Tone.getContext().rawContext));
+
+  // ====== START RECORDING ======
+  await Tone.start(); // make sure audio is unlocked
+
+  const stream = master.mediaDest?.stream;
+  if (!stream) {
+    alert('❌ No recording stream available. Did initAudio() run?');
+    return;
   }
+
+  // pick a mime the browser likes
+  let mimeType = '';
+  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+    mimeType = 'audio/webm;codecs=opus';
+  } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+    mimeType = 'audio/webm';
+  } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+    mimeType = 'audio/ogg';
+  } else {
+    mimeType = ''; // let browser pick
+  }
+
+  master.recordedChunks = [];
+
+  const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  master.mediaRecorder = rec;
+
+  rec.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) {
+      master.recordedChunks.push(e.data);
+    }
+  };
+
+  rec.onstop = () => {
+    // build final blob
+    const blob = new Blob(master.recordedChunks, {
+      type: rec.mimeType || 'audio/webm'
+    });
+
+    const name =
+      (document.getElementById('projectName')?.value || 'live_take')
+        .replace(/\s+/g, '_') + `_${Date.now()}`;
+
+    // figure out extension from mime
+    let ext = 'webm';
+    if ((rec.mimeType || '').includes('ogg')) ext = 'ogg';
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}.${ext}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+    // restore button text if exists
+    const btn = document.getElementById('exportBtn');
+    if (btn) btn.textContent = '⬇️ Export (live)';
+  };
+
+  // start recording real-time audio
+  rec.start();
+
+  // update UI so user knows we're hot
+  const btn = document.getElementById('exportBtn');
+  if (btn) btn.textContent = '⏹️ Stop & Save';
+
+  // optional toast:
+  // alert('🎙️ Recording LIVE output now. Hit Export again to stop.');
 }
   
 // -------------------- PWA Installation --------------------
