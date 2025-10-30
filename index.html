@@ -4795,7 +4795,7 @@ async function exportAudio() {
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       
-      alert('✅ Export complete! Recording saved as WebM audio.');
+      alert('✅ Export complete! Recording saved as WebM audio (convert to WAV if needed).');
     };
     
     mediaRecorder.start();
@@ -4817,7 +4817,7 @@ async function exportAudio() {
     alert('❌ Export failed: ' + (err?.message || err));
   }
 }
-
+  
 // -------------------- PWA Installation --------------------
 let deferredPrompt;
 
