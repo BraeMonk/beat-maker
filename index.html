@@ -4841,28 +4841,29 @@ async function exportAudio() {
         
         const time = Tone.Time(state.resolution).toSeconds() * stepIndex;
         const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
+        // Ensure time is never negative by clamping to 0
         const scheduledTime = Math.max(0, time + humanize);
         
         if (instData.type === 'drum') {
           const synth = offlineSynths[inst];
           switch (inst) {
             case 'kick':
-              synth.triggerAttackRelease('C1', '8n', time + humanize, step.velocity);
+              synth.triggerAttackRelease('C1', '8n', scheduledTime, step.velocity);
               break;
             case 'snare':
             case 'clap':
-              synth.triggerAttackRelease('16n', time + humanize, step.velocity);
+              synth.triggerAttackRelease('16n', scheduledTime, step.velocity);
               break;
             case 'hihat':
-              synth.triggerAttackRelease('C6', '16n', time + humanize, step.velocity * 0.5);
+              synth.triggerAttackRelease('C6', '16n', scheduledTime, step.velocity * 0.5);
               break;
             default:
-              synth.triggerAttackRelease('C2', '16n', time + humanize, step.velocity);
+              synth.triggerAttackRelease('C2', '16n', scheduledTime, step.velocity);
           }
         } else {
           const note = step.note || instData.note || 'C4';
           const duration = step.duration || '8n';
-          offlineSynths[inst].triggerAttackRelease(note, duration, time + humanize, step.velocity);
+          offlineSynths[inst].triggerAttackRelease(note, duration, scheduledTime, step.velocity);
         }
       });
     });
