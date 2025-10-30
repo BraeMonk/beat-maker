@@ -4841,6 +4841,7 @@ async function exportAudio() {
         
         const time = Tone.Time(state.resolution).toSeconds() * stepIndex;
         const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
+        const scheduledTime = Math.max(0, time + humanize);
         
         if (instData.type === 'drum') {
           const synth = offlineSynths[inst];
