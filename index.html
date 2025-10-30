@@ -4800,7 +4800,7 @@ async function exportAudio() {
     
     mediaRecorder.start();
     
-    // Auto-stop after 30 seconds or when user stops playback
+    // Auto-stop only when user stops playback
     const checkInterval = setInterval(() => {
       if (!state.isPlaying || mediaRecorder.state === 'inactive') {
         clearInterval(checkInterval);
@@ -4810,14 +4810,7 @@ async function exportAudio() {
       }
     }, 500);
     
-    setTimeout(() => {
-      if (mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
-        clearInterval(checkInterval);
-      }
-    }, 30000);
-    
-    alert('🎙️ Recording started! Press Stop when finished.');
+    alert('🎙️ Recording started! Press Stop when finished (up to ' + state.duration + ' minutes).');
     
   } catch (err) {
     console.error('Export failed:', err);
