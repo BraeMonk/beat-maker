@@ -2520,7 +2520,7 @@
       <div class="transport-controls">
         <button class="btn btn-primary" id="playBtn">▶️ Play</button>
         <button class="btn btn-secondary" id="stopBtn">⏹️ Stop</button>
-        <button class="btn btn-secondary" id="exportBtn">🔴 Record</button>
+        <button class="btn btn-secondary" id="exportBtn">💾 Export</button>
       </div>
       
       <div class="progress-area">
@@ -4756,11 +4756,6 @@ function bufferToWav(audioBuffer) {
 }
 
 async function exportAudio() {
-  if (!state.isPlaying) {
-    alert('❌ Please start playback first, then export while playing!');
-    return;
-  }
-  
   const hasActive = Object.keys(patterns).some(inst => 
     patterns[inst].some(s => s.active)
   );
@@ -4771,50 +4766,147 @@ async function exportAudio() {
   }
   
   try {
-    // Start recording current playback
-    const mediaRecorder = new MediaRecorder(master.mediaDest.stream, {
-      mimeType: 'audio/webm;codecs=opus',
-      audioBitsPerSecond: 320000
+    // Stop current playback if playing
+    const wasPlaying = state.isPlaying;
+    if (wasPlaying) {
+      Tone.Transport.pause();
+      state.isPlaying = false;
+      document.getElementById('playBtn').innerHTML = '▶️ Play';
+      stopTimer();
+      stopVisualizer();
+    }
+    
+    // Reset transport to beginning
+    Tone.Transport.stop();
+    state.currentStep = 0;
+    
+    alert('🎵 Rendering your beat to WAV... This will take a moment.');
+    
+    // Calculate duration in seconds
+    const durationSeconds = state.duration * 60;
+    
+    // Create offline context for rendering
+    const sampleRate = 48000;
+    const offlineCtx = new OfflineAudioContext(2, sampleRate * durationSeconds, sampleRate);
+    
+    // Create offline Tone context
+    const offlineTone = new Tone.Context(offlineCtx);
+    Tone.setContext(offlineTone);
+    
+    // Recreate audio graph in offline context
+    const offlineMaster = {
+      fxIn: new Tone.Gain(1),
+      comp: new Tone.Compressor(-18, 3),
+      limiter: new Tone.Limiter(-1)
+    };
+    
+    offlineMaster.fxIn.chain(offlineMaster.comp, offlineMaster.limiter);
+    offlineMaster.limiter.toDestination();
+    
+    // Recreate synths
+    const offlineSynths = {};
+    Object.keys(instruments).forEach(inst => {
+      const instData = instruments[inst];
+      
+      if (instData.type === 'drum') {
+        offlineSynths[inst] = createDrumSynth(inst);
+      } else {
+        offlineSynths[inst] = createMelodicSynth(inst);
+      }
+      
+      const channel = new Tone.Channel({
+        pan: instData.pan / 100,
+        volume: instData.volume
+      }).connect(offlineMaster.fxIn);
+      
+      offlineSynths[inst].connect(channel);
     });
     
-    const chunks = [];
+    // Set BPM
+    Tone.Transport.bpm.value = state.bpm;
+    Tone.Transport.swing = state.swing / 100;
+    Tone.Transport.swingSubdivision = '8n';
     
-    mediaRecorder.ondataavailable = e => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
-    
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      const name = (document.getElementById('projectName')?.value || 'beat')
-        .replace(/\s+/g, '_') + `_${Date.now()}.webm`;
+    // Schedule all notes
+    Object.keys(instruments).forEach(inst => {
+      const instData = instruments[inst];
+      if (instData.mute) return;
       
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = name;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const anySolo = Object.values(instruments).some(i => i.solo);
+      if (anySolo && !instData.solo) return;
       
-      alert('✅ Export complete! Recording saved as WebM audio (convert to WAV if needed).');
-    };
-    
-    mediaRecorder.start();
-    
-    // Auto-stop only when user stops playback
-    const checkInterval = setInterval(() => {
-      if (!state.isPlaying || mediaRecorder.state === 'inactive') {
-        clearInterval(checkInterval);
-        if (mediaRecorder.state === 'recording') {
-          mediaRecorder.stop();
+      patterns[inst].forEach((step, stepIndex) => {
+        if (!step.active) return;
+        if (Math.random() * 100 > step.probability) return;
+        
+        const time = Tone.Time(state.resolution).toSeconds() * stepIndex;
+        const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
+        
+        if (instData.type === 'drum') {
+          const synth = offlineSynths[inst];
+          switch (inst) {
+            case 'kick':
+              synth.triggerAttackRelease('C1', '8n', time + humanize, step.velocity);
+              break;
+            case 'snare':
+            case 'clap':
+              synth.triggerAttackRelease('16n', time + humanize, step.velocity);
+              break;
+            case 'hihat':
+              synth.triggerAttackRelease('C6', '16n', time + humanize, step.velocity * 0.5);
+              break;
+            default:
+              synth.triggerAttackRelease('C2', '16n', time + humanize, step.velocity);
+          }
+        } else {
+          const note = step.note || instData.note || 'C4';
+          const duration = step.duration || '8n';
+          offlineSynths[inst].triggerAttackRelease(note, duration, time + humanize, step.velocity);
         }
-      }
-    }, 500);
+      });
+    });
     
-    alert('🎙️ Recording started! Press Stop when finished (up to ' + state.duration + ' minutes).');
+    // Start transport
+    Tone.Transport.start();
+    
+    // Render
+    const audioBuffer = await offlineCtx.startRendering();
+    
+    // Restore original context
+    Tone.setContext(new Tone.Context(Tone.getContext().rawContext));
+    
+    // Convert to WAV
+    const wavData = bufferToWav(audioBuffer);
+    const wavBlob = new Blob([wavData], { type: 'audio/wav' });
+    
+    // Download
+    const name = (document.getElementById('projectName')?.value || 'beat')
+      .replace(/\s+/g, '_') + `_${Date.now()}.wav`;
+    
+    const url = URL.createObjectURL(wavBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    
+    alert('✅ WAV export complete!');
+    
+    // Resume playback if it was playing
+    if (wasPlaying) {
+      Tone.Transport.start();
+      state.isPlaying = true;
+      document.getElementById('playBtn').innerHTML = '⏸️ Pause';
+      startTimer();
+      updateVisualizer();
+    }
     
   } catch (err) {
     console.error('Export failed:', err);
     alert('❌ Export failed: ' + (err?.message || err));
+    
+    // Restore original context on error
+    Tone.setContext(new Tone.Context(Tone.getContext().rawContext));
   }
 }
   
