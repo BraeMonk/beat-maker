@@ -3185,206 +3185,113 @@ function createInstrumentChain(inst) {
   synths[inst].connect(channel);
 }
   
+// Sample-based drum library using Web Audio API
+const DRUM_SAMPLES = {
+  kick: 'https://cdn.freesound.org/previews/171/171104_2394245-lq.mp3',
+  snare: 'https://cdn.freesound.org/previews/387/387186_7255534-lq.mp3',
+  hihat: 'https://cdn.freesound.org/previews/536/536547_11237873-lq.mp3',
+  clap: 'https://cdn.freesound.org/previews/147/147642_2615119-lq.mp3',
+  rimshot: 'https://cdn.freesound.org/previews/274/274195_5123851-lq.mp3',
+  tom: 'https://cdn.freesound.org/previews/464/464594_9497060-lq.mp3',
+  crash: 'https://cdn.freesound.org/previews/442/442127_5829361-lq.mp3',
+  ride: 'https://cdn.freesound.org/previews/536/536548_11237873-lq.mp3'
+};
+
 function createDrumSynth(inst) {
-  switch (inst) {
-    case 'kick':
-      // Deep, punchy kick
-      return new Tone.MembraneSynth({
-        pitchDecay: 0.08,
-        octaves: 8,
-        oscillator: { type: 'sine' },
-        envelope: { 
-          attack: 0.001, 
-          decay: 0.4, 
-          sustain: 0, 
-          release: 0.6,
-          attackCurve: 'exponential'
-        }
-      });
-      
-    case 'snare':
-      // Layered snare (noise + tone)
-      const snareNoise = new Tone.NoiseSynth({
-        noise: { type: 'white' },
-        envelope: { 
-          attack: 0.001, 
-          decay: 0.2, 
-          sustain: 0,
-          release: 0.15
-        }
-      });
-      
-      const snareTone = new Tone.MembraneSynth({
-        pitchDecay: 0.05,
-        octaves: 1.5,
-        oscillator: { type: 'triangle' },
-        envelope: {
-          attack: 0.001,
-          decay: 0.1,
-          sustain: 0,
-          release: 0.1
-        }
-      });
-      
-      const snareFilter = new Tone.Filter(2000, 'highpass', -12);
-      const snareGain = new Tone.Gain(0.7);
-      
-      snareNoise.connect(snareFilter);
-      snareTone.connect(snareGain);
-      snareFilter.connect(snareGain);
-      
-      // Return a proxy object
-      return {
-        triggerAttackRelease: (dur, time, velocity) => {
-          snareNoise.triggerAttackRelease(dur, time, velocity);
-          snareTone.triggerAttackRelease('G3', dur, time, velocity * 0.6);
-        },
-        connect: (node) => snareGain.connect(node),
-        toDestination: () => snareGain.toDestination()
-      };
-      
-    case 'clap':
-      const clapNoise = new Tone.NoiseSynth({
-        noise: { type: 'white' },
-        envelope: { 
-          attack: 0.003, 
-          decay: 0.12, 
-          sustain: 0,
-          release: 0.08
-        }
-      });
-      const clapFilter = new Tone.Filter(1500, 'highpass', -12);
-      clapNoise.connect(clapFilter);
-      return clapNoise;
-      
-    case 'hihat':
-      // Metallic hi-hat
-      return new Tone.MetalSynth({
-        frequency: 300,
-        envelope: { 
-          attack: 0.001, 
-          decay: 0.12, 
-          release: 0.05 
-        },
-        harmonicity: 4,
-        modulationIndex: 24,
-        resonance: 4000,
-        octaves: 0.8
-      });
-      
-    case 'rimshot':
-      const rim = new Tone.MembraneSynth({
-        pitchDecay: 0.02,
-        octaves: 1,
-        oscillator: { type: 'sine' },
-        envelope: {
-          attack: 0.001,
-          decay: 0.08,
-          sustain: 0,
-          release: 0.05
-        }
-      });
-      return rim;
-      
-    case 'tom':
-      return new Tone.MembraneSynth({
-        pitchDecay: 0.12,
-        octaves: 4,
-        oscillator: { type: 'sine' },
-        envelope: { 
-          attack: 0.001, 
-          decay: 0.6, 
-          sustain: 0.01, 
-          release: 0.8 
-        }
-      });
-      
-    case 'crash':
-      return new Tone.MetalSynth({
-        frequency: 180,
-        envelope: { 
-          attack: 0.01, 
-          decay: 1.5, 
-          release: 2.0 
-        },
-        harmonicity: 5.1,
-        modulationIndex: 32,
-        resonance: 3000,
-        octaves: 1.2
-      });
-      
-    case 'ride':
-      return new Tone.MetalSynth({
-        frequency: 220,
-        envelope: { 
-          attack: 0.001, 
-          decay: 0.4, 
-          release: 0.8 
-        },
-        harmonicity: 3.8,
-        modulationIndex: 18,
-        resonance: 3500,
-        octaves: 0.7
-      });
-      
-    default:
-      return new Tone.MembraneSynth();
+  const sampleUrl = DRUM_SAMPLES[inst];
+  
+  if (!sampleUrl) {
+    console.warn(`No sample for ${inst}, using fallback synth`);
+    return new Tone.MembraneSynth();
   }
+  
+  // Create a Tone.Player for single-shot drum samples
+  const player = new Tone.Player({
+    url: sampleUrl,
+    fadeIn: 0.001,
+    fadeOut: 0.01
+  }).toDestination();
+  
+  // Return a proxy object that matches the synth interface
+  return {
+    triggerAttackRelease: (note, duration, time, velocity = 1) => {
+      player.start(time, 0, duration, 0, velocity * 0.7);
+    },
+    connect: (node) => {
+      player.disconnect();
+      player.connect(node);
+      return player;
+    },
+    toDestination: () => player.toDestination()
+  };
 }
 
+// Melodic instrument samples using Tone.Sampler
+const MELODIC_SAMPLES = {
+  bass: {
+    'C2': 'https://tonejs.github.io/audio/salamander/C2.mp3',
+    'D#2': 'https://tonejs.github.io/audio/salamander/Ds2.mp3',
+    'F#2': 'https://tonejs.github.io/audio/salamander/Fs2.mp3',
+    'A2': 'https://tonejs.github.io/audio/salamander/A2.mp3'
+  },
+  guitar: {
+    'C3': 'https://tonejs.github.io/audio/salamander/C3.mp3',
+    'D#3': 'https://tonejs.github.io/audio/salamander/Ds3.mp3',
+    'F#3': 'https://tonejs.github.io/audio/salamander/Fs3.mp3',
+    'A3': 'https://tonejs.github.io/audio/salamander/A3.mp3',
+    'C4': 'https://tonejs.github.io/audio/salamander/C4.mp3'
+  },
+  keys: {
+    'C3': 'https://tonejs.github.io/audio/salamander/C3.mp3',
+    'D#3': 'https://tonejs.github.io/audio/salamander/Ds3.mp3',
+    'F#3': 'https://tonejs.github.io/audio/salamander/Fs3.mp3',
+    'A3': 'https://tonejs.github.io/audio/salamander/A3.mp3',
+    'C4': 'https://tonejs.github.io/audio/salamander/C4.mp3',
+    'D#4': 'https://tonejs.github.io/audio/salamander/Ds4.mp3',
+    'F#4': 'https://tonejs.github.io/audio/salamander/Fs4.mp3',
+    'A4': 'https://tonejs.github.io/audio/salamander/A4.mp3',
+    'C5': 'https://tonejs.github.io/audio/salamander/C5.mp3'
+  },
+  lead: {
+    'C4': 'https://tonejs.github.io/audio/salamander/C4.mp3',
+    'D#4': 'https://tonejs.github.io/audio/salamander/Ds4.mp3',
+    'F#4': 'https://tonejs.github.io/audio/salamander/Fs4.mp3',
+    'A4': 'https://tonejs.github.io/audio/salamander/A4.mp3',
+    'C5': 'https://tonejs.github.io/audio/salamander/C5.mp3',
+    'D#5': 'https://tonejs.github.io/audio/salamander/Ds5.mp3',
+    'F#5': 'https://tonejs.github.io/audio/salamander/Fs5.mp3',
+    'A5': 'https://tonejs.github.io/audio/salamander/A5.mp3'
+  }
+};
+
 function createMelodicSynth(inst) {
+  const samples = MELODIC_SAMPLES[inst];
+  
+  if (!samples) {
+    console.warn(`No samples for ${inst}, using fallback synth`);
+    return new Tone.PolySynth(Tone.Synth);
+  }
+  
+  // Create a Tone.Sampler with multi-sampled notes
+  const sampler = new Tone.Sampler({
+    urls: samples,
+    release: 1,
+    onload: () => {
+      console.log(`✅ ${inst} samples loaded`);
+    }
+  });
+  
+  // Add character-specific effects
   switch (inst) {
     case 'bass':
-      // Realistic electric bass with pick attack
-      const bass = new Tone.MonoSynth({
-        oscillator: { 
-          type: 'sawtooth',
-          count: 3,
-          spread: 30
-        },
-        filter: { 
-          Q: 2, 
-          type: 'lowpass', 
-          rolloff: -24,
-          frequency: 800
-        },
-        envelope: { 
-          attack: 0.005, 
-          decay: 0.3, 
-          sustain: 0.2, 
-          release: 0.8 
-        },
-        filterEnvelope: {
-          attack: 0.002,
-          decay: 0.2,
-          sustain: 0.3,
-          release: 0.6,
-          baseFrequency: 100,
-          octaves: 2.5,
-          exponent: 2
-        }
-      });
-      bass.portamento = 0.05;
-      
-      return bass;
+      // Add slight distortion and compression for punch
+      const bassComp = new Tone.Compressor(-30, 3);
+      const bassDist = new Tone.Distortion(0.1);
+      sampler.chain(bassDist, bassComp);
+      return sampler;
       
     case 'guitar':
-      // Realistic guitar with string harmonics
-      const guitar = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { 
-          type: 'triangle',
-          partialCount: 8
-        },
-        envelope: { 
-          attack: 0.008, 
-          decay: 0.4, 
-          sustain: 0.2, 
-          release: 1.2,
-          attackCurve: 'exponential'
-        }
-      });
-      
-      // Add slight chorus for width
+      // Add chorus and vibrato for guitar character
       const guitarChorus = new Tone.Chorus({
         frequency: 0.8,
         delayTime: 2.5,
@@ -3393,38 +3300,17 @@ function createMelodicSynth(inst) {
         spread: 180
       }).start();
       
-      // Add subtle vibrato
       const guitarVibrato = new Tone.Vibrato({
         frequency: 4.5,
         depth: 0.05,
         type: 'sine'
       });
       
-      // Slight distortion for character
-      const guitarDist = new Tone.Distortion(0.15);
-      
-      guitar.connect(guitarDist);
-      guitarDist.connect(guitarChorus);
-      guitarChorus.connect(guitarVibrato);
-      
-      return guitar;
+      sampler.chain(guitarChorus, guitarVibrato);
+      return sampler;
       
     case 'keys':
-      // Warm electric piano
-      const keys = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { 
-          type: 'sine',
-          partialCount: 4
-        },
-        envelope: { 
-          attack: 0.005, 
-          decay: 0.8, 
-          sustain: 0.3, 
-          release: 2.0 
-        }
-      });
-      
-      // Subtle tremolo for warmth
+      // Add tremolo for warmth
       const tremolo = new Tone.Tremolo({
         frequency: 4,
         depth: 0.15,
@@ -3432,66 +3318,30 @@ function createMelodicSynth(inst) {
         spread: 180
       }).start();
       
-      // Light chorus
       const keysChorus = new Tone.Chorus(0.5, 2.5, 0.25).start();
       
-      keys.connect(keysChorus);
-      keysChorus.connect(tremolo);
-      
-      return keys;
+      sampler.chain(keysChorus, tremolo);
+      return sampler;
       
     case 'lead':
-      // Expressive lead synth
-      const lead = new Tone.Synth({
-        oscillator: { 
-          type: 'sawtooth',
-          count: 3,
-          spread: 40
-        },
-        filter: {
-          Q: 3,
-          type: 'lowpass',
-          rolloff: -12,
-          frequency: 2000
-        },
-        envelope: { 
-          attack: 0.02, 
-          decay: 0.3, 
-          sustain: 0.5, 
-          release: 1.5 
-        },
-        filterEnvelope: {
-          attack: 0.01,
-          decay: 0.4,
-          sustain: 0.4,
-          release: 1.0,
-          baseFrequency: 800,
-          octaves: 3,
-          exponent: 2
-        }
-      });
-      
-      // Expressive vibrato
+      // Expressive vibrato and delay
       const leadVibrato = new Tone.Vibrato({
         frequency: 5,
         depth: 0.15,
         type: 'sine'
       });
       
-      // Slight delay for depth
       const leadDelay = new Tone.FeedbackDelay({
         delayTime: '16n',
         feedback: 0.2,
         wet: 0.15
       });
       
-      lead.connect(leadVibrato);
-      leadVibrato.connect(leadDelay);
-      
-      return lead;
+      sampler.chain(leadVibrato, leadDelay);
+      return sampler;
       
     default:
-      return new Tone.Synth();
+      return sampler;
   }
 }
 
