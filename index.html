@@ -3231,7 +3231,7 @@ const DRUM_SAMPLES = {
   kick: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/kick.mp3',
   snare: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
   hihat: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
-  clap: 'https://tonejs.github.io/audio/drum-samples/8080/clap.mp3',
+  clap: 'https://tonejs.github.io/audio/drum-samples/808/clap.mp3',
   rimshot: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/rim.mp3',
   tom: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/tom1.mp3',
   crash: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/crash.mp3',
@@ -3242,50 +3242,67 @@ function createDrumSynth(inst) {
   const sampleUrl = DRUM_SAMPLES[inst];
   
   if (!sampleUrl) {
-    console.warn(`No sample for ${inst}`);
+    console.warn(`No sample for ${inst}, using fallback synth`);
     return new Tone.MembraneSynth();
   }
   
-  // Use Tone.Players (plural) for better multi-trigger support
-  const players = new Tone.Players({
-    urls: {
-      [inst]: sampleUrl
-    },
+  // Use Tone.Player for single-shot samples
+  const player = new Tone.Player({
+    url: sampleUrl,
     fadeOut: 0.01,
     onload: () => {
       console.log(`✅ ${inst} loaded`);
     }
-  }).toDestination();
+  });
+  
+  // Create volume control for this player
+  const playerGain = new Tone.Gain(1);
+  player.connect(playerGain);
   
   // Return proxy that matches synth interface
   return {
     triggerAttackRelease: (note, duration, time, velocity = 1) => {
-      if (players.loaded) {
-        const player = players.player(inst);
-        if (player && player.loaded) {
-          player.start(time, 0, undefined, 0, velocity * 0.8);
-        }
+      if (player.loaded) {
+        // Stop any previous playback to avoid overlaps
+        player.stop(time);
+        // Start with velocity control
+        playerGain.gain.setValueAtTime(velocity, time);
+        player.start(time);
       }
     },
     connect: (node) => {
-      players.disconnect();
-      players.connect(node);
-      return players;
+      playerGain.disconnect();
+      playerGain.connect(node);
+      return playerGain;
     },
-    toDestination: () => players.toDestination(),
-    dispose: () => players.dispose(),
+    toDestination: () => playerGain.toDestination(),
+    dispose: () => {
+      player.dispose();
+      playerGain.dispose();
+    },
     get loaded() {
-      return players.loaded;
-    }
+      return player.loaded;
+    },
+    player: player, // Expose for debugging
+    gain: playerGain
   };
 }
 
 function playDrumNote(inst, time, velocity) {
   const synth = synths[inst];
-  if (!synth) return;
+  if (!synth) {
+    console.warn(`No synth for ${inst}`);
+    return;
+  }
   
-  // All drums use same trigger - samples handle their own characteristics
-  synth.triggerAttackRelease('C2', '8n', time, velocity * 0.7);
+  // Check if sample is loaded
+  if (!synth.loaded) {
+    console.warn(`${inst} sample not loaded yet`);
+    return;
+  }
+  
+  // All drums trigger at same pitch - sample handles the sound
+  synth.triggerAttackRelease('C2', '8n', time, velocity * 0.9);
 }
 
 // Melodic instrument samples using Tone.Sampler
@@ -4038,23 +4055,141 @@ function updateStepVisuals(step) {
 }
 
 function openNoteEditor(inst) {
-  const currentNote = instruments[inst].note || 'C4';
-  const newNote = prompt(
-    `Enter note for ${instruments[inst].name} (e.g., C4, D#3, F5):\n\nCurrent: ${currentNote}`,
-    currentNote
-  );
+  // Create modal backdrop
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.style.zIndex = '9999';
   
-  if (newNote && /^[A-G]#?[1-6]$/.test(newNote)) {
+  // Create modal
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '500px';
+  
+  // Get current note
+  const currentNote = instruments[inst].note || 'C4';
+  
+  // Generate all possible notes (C1 to C6)
+  const allNotes = [];
+  for (let octave = 1; octave <= 6; octave++) {
+    keysArr.forEach(note => {
+      allNotes.push(note + octave);
+    });
+  }
+  
+  modal.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">🎵 ${instruments[inst].icon} ${instruments[inst].name} - Select Note</div>
+      <button class="modal-close" id="closeNoteModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom: var(--space-4); color: var(--text-secondary);">
+        Choose the default note for <strong>${instruments[inst].name}</strong>. 
+        This will apply to all active steps that don't have a custom note set.
+      </p>
+      
+      <div style="display: grid; gap: var(--space-3);">
+        <label style="display: flex; flex-direction: column; gap: var(--space-2);">
+          <span style="font-weight: 700; color: var(--text-primary);">Note</span>
+          <select id="noteSelect" style="font-size: var(--text-base); padding: var(--space-4);">
+            ${allNotes.map(note => 
+              `<option value="${note}" ${note === currentNote ? 'selected' : ''}>${note}</option>`
+            ).join('')}
+          </select>
+        </label>
+        
+        <div style="padding: var(--space-4); background: var(--glass-bg); border-radius: var(--radius-md); border: 1px solid var(--glass-border);">
+          <div style="font-weight: 700; margin-bottom: var(--space-2); color: var(--text-primary);">Current: ${currentNote}</div>
+          <div style="font-size: var(--text-sm); color: var(--text-tertiary);">
+            Lower octaves (1-2) = Bass range<br>
+            Mid octaves (3-4) = Chord/melody range<br>
+            High octaves (5-6) = Lead range
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="cancelNoteBtn">Cancel</button>
+      <button class="btn btn-primary" id="applyNoteBtn">Apply Note</button>
+    </div>
+  `;
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  
+  // Focus the select
+  setTimeout(() => document.getElementById('noteSelect').focus(), 100);
+  
+  // Event handlers
+  const close = () => backdrop.remove();
+  
+  document.getElementById('closeNoteModal').onclick = close;
+  document.getElementById('cancelNoteBtn').onclick = close;
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) close();
+  };
+  
+  document.getElementById('applyNoteBtn').onclick = () => {
+    const newNote = document.getElementById('noteSelect').value;
     instruments[inst].note = newNote;
+    
+    // Update all active steps without custom notes
     patterns[inst].forEach(step => {
       if (step.active && !step.note) {
         step.note = newNote;
       }
     });
+    
     renderSequencer();
-  }
+    close();
+    
+    // Show confirmation toast
+    showToast(`🎵 ${instruments[inst].name} note set to ${newNote}`, 'success');
+  };
+  
+  // Keyboard support
+  modal.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+    if (e.key === 'Enter' && e.target.tagName !== 'SELECT') {
+      document.getElementById('applyNoteBtn').click();
+    }
+  });
 }
 
+function showToast(message, type = 'info') {
+  let container = document.querySelector('.toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+  
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
+    info: 'ℹ️'
+  };
+  
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type] || icons.info}</span>
+    <span>${message}</span>
+    <button class="toast-close">✕</button>
+  `;
+  
+  container.appendChild(toast);
+  
+  toast.querySelector('.toast-close').onclick = () => toast.remove();
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+  
 // -------------------- Pattern Generators --------------------
 function generateBeat() {
   const genre = state.currentGenre;
@@ -5817,34 +5952,48 @@ document.getElementById('installBtn').addEventListener('click', async () => {
   deferredPrompt = null;
 });
 
-  function checkSamplesLoaded() {
+function checkSamplesLoaded() {
+  const drumInsts = Object.keys(instruments).filter(k => instruments[k].type === 'drum');
+  const totalDrums = drumInsts.length;
   let loadedCount = 0;
-  const totalSamples = Object.keys(instruments).length;
+  let lastLoggedCount = -1;
   
   const checkInterval = setInterval(() => {
     loadedCount = 0;
+    const statusList = [];
     
-    Object.keys(synths).forEach(inst => {
+    drumInsts.forEach(inst => {
       const synth = synths[inst];
-      if (synth.loaded || synth.loaded === undefined) {
+      if (synth && synth.loaded) {
         loadedCount++;
+        statusList.push(`✅ ${inst}`);
+      } else {
+        statusList.push(`⏳ ${inst}`);
       }
     });
     
-    console.log(`📦 Samples loaded: ${loadedCount}/${totalSamples}`);
+    // Only log when count changes
+    if (loadedCount !== lastLoggedCount) {
+      console.log(`📦 Drum samples: ${loadedCount}/${totalDrums}`);
+      console.log(statusList.join(', '));
+      lastLoggedCount = loadedCount;
+    }
     
-    if (loadedCount === totalSamples) {
+    if (loadedCount === totalDrums) {
       clearInterval(checkInterval);
-      console.log('✅ All samples ready!');
+      console.log('✅ All drum samples ready!');
       document.getElementById('vizOverlay').textContent = 'All Samples Loaded - Press Play';
     }
   }, 500);
   
-  // Stop checking after 10 seconds
+  // Stop checking after 15 seconds
   setTimeout(() => {
     clearInterval(checkInterval);
-    console.log('⏱️ Sample check timeout - proceeding anyway');
-  }, 10000);
+    if (loadedCount < totalDrums) {
+      console.warn(`⚠️ Only ${loadedCount}/${totalDrums} samples loaded after timeout`);
+      console.warn('Missing samples:', drumInsts.filter(inst => !synths[inst]?.loaded));
+    }
+  }, 15000);
 }
   
 // -------------------- Initialization --------------------
