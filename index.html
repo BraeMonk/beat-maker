@@ -3193,37 +3193,13 @@ function createInstrumentChain(inst) {
     synths[inst].volume.value = instData.volume;
   }
   
-  // Create channel with more direct signal
+  // Create channel - completely dry, no reverb sends
   const channel = new Tone.Channel({
     pan: 0,
     volume: instData.volume
   }).connect(master.fxIn);
   
-  // Individual reverb sends with MUCH lower levels for clarity
-  const reverbSend = new Tone.Gain(0);
-  channel.connect(reverbSend);
-  reverbSend.connect(effects.reverb);
-  
-  // Drastically reduced reverb for punch and clarity
-  const reverbAmounts = {
-    kick: 0.001,      // Almost no reverb on kick
-    snare: 0.005,     // Minimal reverb
-    hihat: 0.002,     // Dry hats
-    clap: 0.003,
-    rimshot: 0.002,
-    tom: 0.004,
-    crash: 0.008,
-    ride: 0.006,
-    guitar: 0.015,    // Moderate for atmosphere
-    keys: 0.012,
-    lead: 0.020,      // Lead can have more
-    bass: 0.001       // Keep bass dry and punchy
-  };
-  
-  reverbSend.gain.value = reverbAmounts[inst] || 0.01;
-  
   instData.channel = channel;
-  instData.reverbSend = reverbSend;
   synths[inst].connect(channel);
 }
   
