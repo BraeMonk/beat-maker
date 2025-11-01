@@ -2252,6 +2252,461 @@
       color: var(--text-secondary);
       line-height: 1.7;
     }
+
+    /* -------- Multitrack Recording System -------- */
+    .multitrack-grid {
+      display: grid;
+      gap: var(--space-4);
+    }
+    
+    .track-strip {
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: var(--space-4);
+      align-items: center;
+      transition: all var(--duration-base) var(--ease-smooth);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .track-strip.recording {
+      border-color: var(--error);
+      box-shadow: 
+        var(--shadow-lg),
+        0 0 20px color-mix(in oklab, var(--error) 40%, transparent);
+      animation: recordPulse 1s ease-in-out infinite;
+    }
+    
+    @keyframes recordPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.85; }
+    }
+    
+    .track-strip.armed {
+      border-color: var(--warning);
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .track-strip:hover {
+      border-color: color-mix(in oklab, var(--accent-primary) 25%, var(--glass-border));
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .track-header {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      min-width: 140px;
+    }
+    
+    .track-name {
+      font-weight: 800;
+      font-size: var(--text-base);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    
+    .track-info {
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+    }
+    
+    .track-waveform {
+      position: relative;
+      height: 80px;
+      background: linear-gradient(180deg, rgba(0,0,0,.2), transparent);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+    }
+    
+    .waveform-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    .track-takes {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: var(--space-2);
+    }
+    
+    .take-region {
+      flex: 1;
+      background: linear-gradient(90deg, 
+        color-mix(in oklab, var(--accent-primary) 40%, transparent),
+        color-mix(in oklab, var(--accent-secondary) 30%, transparent));
+      border-radius: var(--radius-xs);
+      border: 1px solid color-mix(in oklab, var(--accent-primary) 50%, transparent);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-smooth);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+    
+    .take-region:hover {
+      transform: scaleY(1.1);
+      box-shadow: var(--shadow-sm);
+      z-index: 1;
+    }
+    
+    .take-region.selected {
+      border-color: var(--accent-primary);
+      box-shadow: 
+        var(--shadow-md),
+        0 0 12px color-mix(in oklab, var(--accent-primary) 40%, transparent);
+    }
+    
+    .take-region.muted {
+      opacity: 0.3;
+    }
+    
+    .track-controls {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-2);
+      min-width: 180px;
+    }
+    
+    .track-btn {
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      background: var(--glass-bg);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-weight: 700;
+      font-size: var(--text-sm);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-smooth);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+    }
+    
+    .track-btn:hover {
+      background: var(--glass-bg-strong);
+      color: var(--text-primary);
+      border-color: color-mix(in oklab, var(--accent-primary) 30%, transparent);
+      transform: translateY(-1px);
+    }
+    
+    .track-btn.armed {
+      background: linear-gradient(135deg, 
+        color-mix(in oklab, var(--warning) 80%, transparent),
+        color-mix(in oklab, var(--warning) 60%, transparent));
+      border-color: var(--warning);
+      color: var(--bg-primary);
+      font-weight: 900;
+    }
+    
+    .track-btn.recording {
+      background: linear-gradient(135deg, var(--error), color-mix(in oklab, var(--error) 70%, #fff));
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 
+        var(--shadow-md),
+        0 0 20px color-mix(in oklab, var(--error) 50%, transparent);
+      animation: recordBtnPulse 0.8s ease-in-out infinite;
+    }
+    
+    @keyframes recordBtnPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    .track-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    /* FX Chain Panel */
+    .fx-chain-panel {
+      background: var(--surface-elevated);
+      border: 1px solid var(--glass-border-strong);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      margin-top: var(--space-3);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .fx-chain-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-4);
+      padding-bottom: var(--space-3);
+      border-bottom: 1px solid var(--glass-border);
+    }
+    
+    .fx-chain-title {
+      font-size: var(--text-lg);
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+    
+    .fx-slots {
+      display: grid;
+      gap: var(--space-3);
+    }
+    
+    .fx-slot {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: var(--space-4);
+      align-items: center;
+      transition: all var(--duration-base) var(--ease-smooth);
+    }
+    
+    .fx-slot:hover {
+      border-color: color-mix(in oklab, var(--accent-primary) 30%, var(--glass-border));
+      background: var(--glass-bg-strong);
+    }
+    
+    .fx-slot-toggle {
+      width: 48px;
+      height: 28px;
+      border-radius: var(--radius-full);
+      background: var(--glass-bg);
+      border: 2px solid var(--glass-border);
+      cursor: pointer;
+      position: relative;
+      transition: all var(--duration-base) var(--ease-smooth);
+    }
+    
+    .fx-slot-toggle::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: all var(--duration-base) var(--ease-smooth);
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .fx-slot-toggle.active {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border-color: transparent;
+    }
+    
+    .fx-slot-toggle.active::after {
+      left: calc(100% - 23px);
+      background: var(--bg-primary);
+    }
+    
+    .fx-slot-params {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--space-3);
+    }
+    
+    .fx-slot-remove {
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--glass-bg);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-size: var(--text-base);
+      font-weight: 800;
+      transition: all var(--duration-fast) var(--ease-smooth);
+      display: grid;
+      place-items: center;
+    }
+    
+    .fx-slot-remove:hover {
+      background: var(--error);
+      color: #fff;
+      transform: scale(1.1);
+    }
+    
+    .fx-add-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .fx-add-menu {
+      position: absolute;
+      top: calc(100% + var(--space-2));
+      left: 0;
+      min-width: 200px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--glass-border-strong);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xl);
+      backdrop-filter: blur(24px) saturate(150%);
+      padding: var(--space-2);
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all var(--duration-base) var(--ease-smooth);
+    }
+    
+    .fx-add-dropdown.open .fx-add-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    
+    .fx-add-item {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: var(--text-sm);
+      transition: all var(--duration-fast) var(--ease-smooth);
+      border: 1px solid transparent;
+    }
+    
+    .fx-add-item:hover {
+      background: var(--glass-bg-strong);
+      color: var(--text-primary);
+      border-color: var(--glass-border);
+    }
+    
+    /* Recording meter */
+    .record-meter {
+      position: absolute;
+      top: var(--space-2);
+      right: var(--space-2);
+      width: 80px;
+      height: 8px;
+      background: rgba(0,0,0,.3);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.1);
+    }
+    
+    .record-meter-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--success), var(--warning), var(--error));
+      width: 0%;
+      transition: width 50ms linear;
+      box-shadow: 0 0 8px currentColor;
+    }
+    
+    /* Layer management */
+    .layer-list {
+      display: grid;
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+    }
+    
+    .layer-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-smooth);
+    }
+    
+    .layer-item:hover {
+      background: var(--glass-bg-strong);
+      border-color: color-mix(in oklab, var(--accent-primary) 30%, transparent);
+    }
+    
+    .layer-item.selected {
+      background: linear-gradient(135deg,
+        color-mix(in oklab, var(--accent-primary) 20%, transparent),
+        color-mix(in oklab, var(--accent-secondary) 15%, transparent));
+      border-color: var(--accent-primary);
+    }
+    
+    .layer-icon {
+      font-size: var(--text-xl);
+    }
+    
+    .layer-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+    
+    .layer-name {
+      font-weight: 700;
+      color: var(--text-primary);
+      font-size: var(--text-sm);
+    }
+    
+    .layer-meta {
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+    }
+    
+    .layer-controls {
+      display: flex;
+      gap: var(--space-1);
+    }
+    
+    .layer-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: var(--radius-xs);
+      background: var(--glass-bg);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      font-size: var(--text-xs);
+      font-weight: 800;
+      transition: all var(--duration-fast) var(--ease-smooth);
+      display: grid;
+      place-items: center;
+    }
+    
+    .layer-btn:hover {
+      background: var(--glass-bg-strong);
+      color: var(--text-primary);
+      transform: scale(1.05);
+    }
+    
+    .layer-btn.active {
+      color: #fff;
+    }
+    
+    .layer-btn.solo.active {
+      background: var(--warning);
+    }
+    
+    .layer-btn.mute.active {
+      background: var(--error);
+    }
     
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
@@ -2772,6 +3227,50 @@
               <div class="preset-name">Modal</div>
             </button>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class=\"section\" id=\"tab-multitrack\">
+      <div class=\"panel\">
+        <div class=\"panel-header\">
+          <div class=\"panel-title\">🎙️ Multitrack Recording</div>
+          <div class=\"flex\">
+            <button class=\"btn btn-primary\" id=\"addTrackBtn\">➕ Add Track</button>
+            <button class=\"btn btn-secondary\" id=\"bounceAllBtn\">🔽 Bounce All</button>
+            <button class=\"btn btn-ghost\" id=\"clearAllTracksBtn\">🗑️ Clear All</button>
+          </div>
+        </div>
+        
+        <div class=\"multitrack-grid\" id=\"multitrackGrid\">
+          <!-- Tracks will be dynamically inserted here -->
+        </div>
+      </div>
+      
+      <!-- FX Chain Panel (hidden by default) -->
+      <div class=\"fx-chain-panel\" id=\"fxChainPanel\" style=\"display: none;\">
+        <div class=\"fx-chain-header\">
+          <div class=\"fx-chain-title\">🎛️ FX Chain: <span id=\"fxChainTrackName\">Track 1</span></div>
+          <div class=\"flex\">
+            <div class=\"fx-add-dropdown\" id=\"fxAddDropdown\">
+              <button class=\"btn btn-primary btn-sm\" id=\"addFxBtn\">➕ Add Effect</button>
+              <div class=\"fx-add-menu\" id=\"fxAddMenu\">
+                <div class=\"fx-add-item\" data-fx-type=\"reverb\">🌊 Reverb</div>
+                <div class=\"fx-add-item\" data-fx-type=\"delay\">🔁 Delay</div>
+                <div class=\"fx-add-item\" data-fx-type=\"chorus\">🎵 Chorus</div>
+                <div class=\"fx-add-item\" data-fx-type=\"distortion\">🔥 Distortion</div>
+                <div class=\"fx-add-item\" data-fx-type=\"filter\">🎚️ Filter</div>
+                <div class=\"fx-add-item\" data-fx-type=\"compressor\">📊 Compressor</div>
+                <div class=\"fx-add-item\" data-fx-type=\"eq\">🎛️ EQ</div>
+                <div class=\"fx-add-item\" data-fx-type=\"bitcrusher\">💾 Bitcrusher</div>
+              </div>
+            </div>
+            <button class=\"btn btn-ghost btn-sm\" id=\"closeFxChainBtn\">✕ Close</button>
+          </div>
+        </div>
+        
+        <div class=\"fx-slots\" id=\"fxSlots\">
+          <!-- FX slots will be dynamically inserted here -->
         </div>
       </div>
     </section>
@@ -3808,6 +4307,7 @@ function setupEventListeners() {
   setupProjectManagement();
   setupKeyboardShortcuts();
   setupVibeSelector();
+  setupMultitrackListeners();
 }
 
 function setupGenreSelector() {
@@ -5902,6 +6402,1014 @@ function loadProgressionTemplate(name) {
   renderProgression();
 }
 
+  // ==================== MULTITRACK RECORDING SYSTEM ====================
+
+const multitrack = {
+  tracks: [],
+  nextTrackId: 1,
+  recordingTracks: new Set(),
+  currentFxTrackId: null
+};
+
+// Track class definition
+class AudioTrack {
+  constructor(id, name, instrument) {
+    this.id = id;
+    this.name = name;
+    this.instrument = instrument;
+    this.takes = [];
+    this.selectedTakeIndex = -1;
+    this.armed = false;
+    this.recording = false;
+    this.muted = false;
+    this.soloed = false;
+    this.volume = 0;
+    this.pan = 0;
+    
+    // Audio nodes
+    this.channel = new Tone.Channel({ volume: 0, pan: 0 }).connect(master.fxIn);
+    this.recorder = null;
+    this.recordedChunks = [];
+    this.fxChain = [];
+    
+    // Create meter
+    this.meter = new Tone.Meter();
+    this.channel.connect(this.meter);
+  }
+  
+  addFx(type, params = {}) {
+    let fx;
+    
+    switch(type) {
+      case 'reverb':
+        fx = new Tone.Reverb({ decay: params.decay || 1.5, wet: params.wet || 0.3 });
+        break;
+      case 'delay':
+        fx = new Tone.FeedbackDelay({
+          delayTime: params.time || '8n',
+          feedback: params.feedback || 0.3,
+          wet: params.wet || 0.3
+        });
+        break;
+      case 'chorus':
+        fx = new Tone.Chorus({
+          frequency: params.frequency || 1.5,
+          delayTime: params.delayTime || 3.5,
+          depth: params.depth || 0.7,
+          wet: params.wet || 0.5
+        }).start();
+        break;
+      case 'distortion':
+        fx = new Tone.Distortion({
+          distortion: params.amount || 0.4,
+          wet: params.wet || 0.5
+        });
+        break;
+      case 'filter':
+        fx = new Tone.Filter({
+          type: params.type || 'lowpass',
+          frequency: params.frequency || 5000,
+          Q: params.q || 1
+        });
+        break;
+      case 'compressor':
+        fx = new Tone.Compressor({
+          threshold: params.threshold || -24,
+          ratio: params.ratio || 4,
+          attack: params.attack || 0.003,
+          release: params.release || 0.25
+        });
+        break;
+      case 'eq':
+        fx = new Tone.EQ3({
+          low: params.low || 0,
+          mid: params.mid || 0,
+          high: params.high || 0
+        });
+        break;
+      case 'bitcrusher':
+        fx = new Tone.BitCrusher({
+          bits: params.bits || 4
+        });
+        break;
+      default:
+        return null;
+    }
+    
+    const fxObj = {
+      id: Date.now() + Math.random(),
+      type,
+      node: fx,
+      params,
+      enabled: true
+    };
+    
+    this.fxChain.push(fxObj);
+    this.reconnectFxChain();
+    
+    return fxObj;
+  }
+  
+  removeFx(fxId) {
+    const index = this.fxChain.findIndex(fx => fx.id === fxId);
+    if (index === -1) return;
+    
+    const fx = this.fxChain[index];
+    fx.node.disconnect();
+    fx.node.dispose();
+    
+    this.fxChain.splice(index, 1);
+    this.reconnectFxChain();
+  }
+  
+  reconnectFxChain() {
+    // Disconnect everything
+    this.fxChain.forEach(fx => fx.node.disconnect());
+    
+    // Get instrument output
+    const instSynth = synths[this.instrument];
+    if (!instSynth) return;
+    
+    instSynth.disconnect();
+    
+    // Chain FX in order
+    let lastNode = instSynth;
+    
+    this.fxChain.forEach(fx => {
+      if (fx.enabled) {
+        lastNode.connect(fx.node);
+        lastNode = fx.node;
+      }
+    });
+    
+    // Connect to channel
+    lastNode.connect(this.channel);
+  }
+  
+  updateFxParam(fxId, param, value) {
+    const fx = this.fxChain.find(f => f.id === fxId);
+    if (!fx) return;
+    
+    fx.params[param] = value;
+    const node = fx.node;
+    
+    // Update the actual audio node parameter
+    if (param === 'wet' && node.wet) {
+      node.wet.rampTo(value, 0.1);
+    } else if (param === 'decay' && node.decay !== undefined) {
+      node.decay = value;
+    } else if (param === 'time' && node.delayTime) {
+      node.delayTime.value = Tone.Time(value);
+    } else if (param === 'feedback' && node.feedback) {
+      node.feedback.rampTo(value, 0.1);
+    } else if (param === 'frequency' && node.frequency) {
+      node.frequency.rampTo(value, 0.1);
+    } else if (param === 'depth' && node.depth !== undefined) {
+      node.depth = value;
+    } else if (param === 'amount' && node.distortion !== undefined) {
+      node.distortion = value;
+    } else if (param === 'threshold' && node.threshold) {
+      node.threshold.rampTo(value, 0.1);
+    } else if (param === 'ratio' && node.ratio) {
+      node.ratio.rampTo(value, 0.1);
+    } else if (param === 'low' && node.low) {
+      node.low.rampTo(value, 0.1);
+    } else if (param === 'mid' && node.mid) {
+      node.mid.rampTo(value, 0.1);
+    } else if (param === 'high' && node.high) {
+      node.high.rampTo(value, 0.1);
+    } else if (param === 'bits' && node.bits !== undefined) {
+      node.bits = value;
+    } else if (param === 'q' && node.Q) {
+      node.Q.rampTo(value, 0.1);
+    }
+  }
+  
+  toggleFx(fxId) {
+    const fx = this.fxChain.find(f => f.id === fxId);
+    if (!fx) return;
+    
+    fx.enabled = !fx.enabled;
+    this.reconnectFxChain();
+  }
+  
+  async startRecording() {
+    if (this.recording) return;
+    
+    await Tone.start();
+    
+    // Create MediaRecorder for this track's channel
+    const stream = this.channel.context.createMediaStreamDestination();
+    this.channel.connect(stream);
+    
+    let mimeType = '';
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      mimeType = 'audio/webm;codecs=opus';
+    } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+      mimeType = 'audio/webm';
+    }
+    
+    this.recordedChunks = [];
+    this.recorder = new MediaRecorder(stream.stream, mimeType ? { mimeType } : undefined);
+    
+    this.recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        this.recordedChunks.push(e.data);
+      }
+    };
+    
+    this.recorder.onstop = () => {
+      this.finishRecording();
+    };
+    
+    this.recorder.start();
+    this.recording = true;
+    this.armed = false;
+    
+    multitrack.recordingTracks.add(this.id);
+    renderMultitrack();
+  }
+  
+  stopRecording() {
+    if (!this.recording || !this.recorder) return;
+    
+    this.recorder.stop();
+    this.recording = false;
+    
+    multitrack.recordingTracks.delete(this.id);
+  }
+  
+  async finishRecording() {
+    const blob = new Blob(this.recordedChunks, {
+      type: this.recorder.mimeType || 'audio/webm'
+    });
+    
+    // Create audio buffer from blob
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+    
+    // Create take
+    const take = {
+      id: Date.now(),
+      buffer: audioBuffer,
+      blob: blob,
+      duration: audioBuffer.duration,
+      timestamp: new Date().toISOString(),
+      muted: false
+    };
+    
+    this.takes.push(take);
+    this.selectedTakeIndex = this.takes.length - 1;
+    
+    this.recordedChunks = [];
+    this.recorder = null;
+    
+    renderMultitrack();
+  }
+  
+  selectTake(index) {
+    if (index < 0 || index >= this.takes.length) return;
+    this.selectedTakeIndex = index;
+    renderMultitrack();
+  }
+  
+  deleteTake(index) {
+    if (index < 0 || index >= this.takes.length) return;
+    
+    this.takes.splice(index, 1);
+    
+    if (this.selectedTakeIndex >= this.takes.length) {
+      this.selectedTakeIndex = this.takes.length - 1;
+    }
+    
+    renderMultitrack();
+  }
+  
+  async exportTake(index) {
+    if (index < 0 || index >= this.takes.length) return;
+    
+    const take = this.takes[index];
+    const url = URL.createObjectURL(take.blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.name.replace(/\\s+/g, '_')}_take${index + 1}_${Date.now()}.webm`;
+    a.click();
+    
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+  
+  dispose() {
+    if (this.recorder && this.recording) {
+      this.stopRecording();
+    }
+    
+    this.fxChain.forEach(fx => {
+      fx.node.disconnect();
+      fx.node.dispose();
+    });
+    
+    this.meter.dispose();
+    this.channel.disconnect();
+    this.channel.dispose();
+  }
+}
+
+// Create a new track
+function createTrack(instrument) {
+  const track = new AudioTrack(
+    multitrack.nextTrackId++,
+    `${instruments[instrument]?.name || instrument} ${multitrack.tracks.length + 1}`,
+    instrument
+  );
+  
+  multitrack.tracks.push(track);
+  renderMultitrack();
+  
+  return track;
+}
+
+// Remove a track
+function removeTrack(trackId) {
+  const index = multitrack.tracks.findIndex(t => t.id === trackId);
+  if (index === -1) return;
+  
+  const track = multitrack.tracks[index];
+  track.dispose();
+  
+  multitrack.tracks.splice(index, 1);
+  
+  if (multitrack.currentFxTrackId === trackId) {
+    multitrack.currentFxTrackId = null;
+    document.getElementById('fxChainPanel').style.display = 'none';
+  }
+  
+  renderMultitrack();
+}
+
+// Render multitrack UI
+function renderMultitrack() {
+  const grid = document.getElementById('multitrackGrid');
+  if (!grid) return;
+  
+  const fragment = document.createDocumentFragment();
+  
+  if (multitrack.tracks.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding: var(--space-8); text-align: center; color: var(--text-tertiary);';
+    empty.innerHTML = `
+      <div style=\"font-size: var(--text-2xl); margin-bottom: var(--space-3);\">🎙️</div>
+      <div style=\"font-size: var(--text-lg); font-weight: 700; margin-bottom: var(--space-2);\">No tracks yet</div>
+      <div style=\"font-size: var(--text-sm);\">Click \"Add Track\" to start recording</div>
+    `;
+    fragment.appendChild(empty);
+  } else {
+    multitrack.tracks.forEach(track => {
+      const strip = createTrackStrip(track);
+      fragment.appendChild(strip);
+    });
+  }
+  
+  grid.innerHTML = '';
+  grid.appendChild(fragment);
+  
+  // Update FX chain if open
+  if (multitrack.currentFxTrackId) {
+    renderFxChain(multitrack.currentFxTrackId);
+  }
+}
+
+// Create track strip element (continued)
+function createTrackStrip(track) {
+  const strip = document.createElement('div');
+  strip.className = 'track-strip';
+  if (track.recording) strip.classList.add('recording');
+  if (track.armed) strip.classList.add('armed');
+  
+  // Track header
+  const header = document.createElement('div');
+  header.className = 'track-header';
+  
+  const instData = instruments[track.instrument];
+  const takesCount = track.takes.length;
+  const duration = track.selectedTakeIndex >= 0 ? 
+    track.takes[track.selectedTakeIndex].duration.toFixed(1) + 's' : 
+    '0.0s';
+  
+  header.innerHTML = `
+    <div class=\"track-name\">
+      ${instData?.icon || '🎵'} ${track.name}
+    </div>
+    <div class=\"track-info\">
+      ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
+    </div>
+  `;
+  
+  // Waveform/takes area
+  const waveform = document.createElement('div');
+  waveform.className = 'track-waveform';
+  
+  if (track.recording) {
+    const meter = document.createElement('div');
+    meter.className = 'record-meter';
+    meter.innerHTML = '<div class=\"record-meter-fill\"></div>';
+    waveform.appendChild(meter);
+    
+    // Animate meter
+    const fill = meter.querySelector('.record-meter-fill');
+    const updateMeter = () => {
+      if (!track.recording) return;
+      
+      const level = track.meter ? track.meter.getValue() : -Infinity;
+      const normalized = Math.max(0, Math.min(1, (level + 60) / 60));
+      fill.style.width = (normalized * 100) + '%';
+      
+      requestAnimationFrame(updateMeter);
+    };
+    requestAnimationFrame(updateMeter);
+  }
+  
+  // Render takes
+  if (track.takes.length > 0) {
+    const takesContainer = document.createElement('div');
+    takesContainer.className = 'track-takes';
+    
+    track.takes.forEach((take, idx) => {
+      const takeEl = document.createElement('div');
+      takeEl.className = 'take-region';
+      if (idx === track.selectedTakeIndex) takeEl.classList.add('selected');
+      if (take.muted) takeEl.classList.add('muted');
+      
+      takeEl.textContent = `Take ${idx + 1} (${take.duration.toFixed(1)}s)`;
+      takeEl.dataset.trackId = track.id;
+      takeEl.dataset.takeIndex = idx;
+      
+      takeEl.addEventListener('click', () => {
+        track.selectTake(idx);
+      });
+      
+      takeEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showTakeContextMenu(e, track, idx);
+      });
+      
+      takesContainer.appendChild(takeEl);
+    });
+    
+    waveform.appendChild(takesContainer);
+  } else if (!track.recording) {
+    const placeholder = document.createElement('div');
+    placeholder.style.cssText = `
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      font-weight: 600;
+    `;
+    placeholder.textContent = 'No recordings yet';
+    waveform.appendChild(placeholder);
+  }
+  
+  // Controls
+  const controls = document.createElement('div');
+  controls.className = 'track-controls';
+  
+  const armBtn = document.createElement('button');
+  armBtn.className = 'track-btn';
+  if (track.armed) armBtn.classList.add('armed');
+  armBtn.innerHTML = track.armed ? '🔴 Armed' : '⚪ Arm';
+  armBtn.onclick = () => toggleArmTrack(track.id);
+  
+  const recBtn = document.createElement('button');
+  recBtn.className = 'track-btn';
+  if (track.recording) recBtn.classList.add('recording');
+  recBtn.innerHTML = track.recording ? '⏹️ Stop' : '⏺️ Rec';
+  recBtn.disabled = !track.armed && !track.recording;
+  recBtn.onclick = () => toggleRecordTrack(track.id);
+  
+  const fxBtn = document.createElement('button');
+  fxBtn.className = 'track-btn';
+  fxBtn.innerHTML = `🎛️ FX (${track.fxChain.length})`;
+  fxBtn.onclick = () => openFxChain(track.id);
+  
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'track-btn';
+  deleteBtn.innerHTML = '🗑️ Delete';
+  deleteBtn.onclick = () => {
+    if (confirm(`Delete track \"${track.name}\"?`)) {
+      removeTrack(track.id);
+    }
+  };
+  
+  controls.appendChild(armBtn);
+  controls.appendChild(recBtn);
+  controls.appendChild(fxBtn);
+  controls.appendChild(deleteBtn);
+  
+  strip.appendChild(header);
+  strip.appendChild(waveform);
+  strip.appendChild(controls);
+  
+  return strip;
+}
+
+// Show context menu for takes
+function showTakeContextMenu(event, track, takeIndex) {
+  // Remove existing menus
+  document.querySelectorAll('.context-menu').forEach(m => m.remove());
+  
+  const menu = document.createElement('div');
+  menu.className = 'context-menu';
+  menu.style.left = event.clientX + 'px';
+  menu.style.top = event.clientY + 'px';
+  
+  const take = track.takes[takeIndex];
+  
+  const items = [
+    { label: '✅ Select', action: () => track.selectTake(takeIndex) },
+    { label: take.muted ? '🔊 Unmute' : '🔇 Mute', action: () => {
+      take.muted = !take.muted;
+      renderMultitrack();
+    }},
+    { label: '💾 Export', action: () => track.exportTake(takeIndex) },
+    { label: '🗑️ Delete', action: () => {
+      if (confirm('Delete this take?')) {
+        track.deleteTake(takeIndex);
+      }
+    }}
+  ];
+  
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'dropdown-item';
+    div.textContent = item.label;
+    div.onclick = () => {
+      item.action();
+      menu.remove();
+    };
+    menu.appendChild(div);
+  });
+  
+  document.body.appendChild(menu);
+  
+  // Close on click outside
+  const closeMenu = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener('click', closeMenu);
+    }
+  };
+  
+  setTimeout(() => {
+    document.addEventListener('click', closeMenu);
+  }, 10);
+}
+
+// Toggle arm track
+function toggleArmTrack(trackId) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  
+  track.armed = !track.armed;
+  renderMultitrack();
+}
+
+// Toggle record track
+async function toggleRecordTrack(trackId) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  
+  if (track.recording) {
+    track.stopRecording();
+  } else if (track.armed) {
+    await track.startRecording();
+  }
+}
+
+// Open FX chain panel
+function openFxChain(trackId) {
+  multitrack.currentFxTrackId = trackId;
+  document.getElementById('fxChainPanel').style.display = 'block';
+  renderFxChain(trackId);
+  
+  // Scroll to panel
+  document.getElementById('fxChainPanel').scrollIntoView({ 
+    behavior: 'smooth', 
+    block: 'nearest' 
+  });
+}
+
+// Render FX chain
+function renderFxChain(trackId) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  
+  document.getElementById('fxChainTrackName').textContent = track.name;
+  
+  const slots = document.getElementById('fxSlots');
+  if (!slots) return;
+  
+  const fragment = document.createDocumentFragment();
+  
+  if (track.fxChain.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding: var(--space-6); text-align: center; color: var(--text-tertiary);';
+    empty.innerHTML = `
+      <div style=\"font-size: var(--text-lg); font-weight: 700; margin-bottom: var(--space-2);\">No effects yet</div>
+      <div style=\"font-size: var(--text-sm);\">Click \"Add Effect\" to start building your chain</div>
+    `;
+    fragment.appendChild(empty);
+  } else {
+    track.fxChain.forEach((fx, index) => {
+      const slot = createFxSlot(track, fx, index);
+      fragment.appendChild(slot);
+    });
+  }
+  
+  slots.innerHTML = '';
+  slots.appendChild(fragment);
+}
+
+// Create FX slot element
+function createFxSlot(track, fx, index) {
+  const slot = document.createElement('div');
+  slot.className = 'fx-slot';
+  
+  // Toggle
+  const toggle = document.createElement('div');
+  toggle.className = 'fx-slot-toggle';
+  if (fx.enabled) toggle.classList.add('active');
+  toggle.onclick = () => {
+    track.toggleFx(fx.id);
+    renderFxChain(track.id);
+  };
+  
+  // Parameters
+  const paramsContainer = document.createElement('div');
+  paramsContainer.className = 'fx-slot-params';
+  
+  // Get parameter definitions based on FX type
+  const paramDefs = getFxParamDefs(fx.type);
+  
+  Object.entries(paramDefs).forEach(([param, def]) => {
+    const control = document.createElement('div');
+    control.className = 'param-control';
+    
+    const currentValue = fx.params[param] ?? def.default;
+    const displayValue = formatFxParamValue(param, currentValue, def);
+    
+    control.innerHTML = `
+      <div class=\"param-label\">
+        <span>${def.label}</span>
+        <span class=\"param-value\">${displayValue}</span>
+      </div>
+      <input type=\"range\" 
+             min=\"${def.min}\" 
+             max=\"${def.max}\" 
+             step=\"${def.step || 1}\" 
+             value=\"${normalizeParamToSlider(param, currentValue, def)}\"
+             data-fx-id=\"${fx.id}\"
+             data-param=\"${param}\">
+    `;
+    
+    const slider = control.querySelector('input');
+    slider.addEventListener('input', (e) => {
+      const sliderValue = parseFloat(e.target.value);
+      const actualValue = denormalizeParamFromSlider(param, sliderValue, def);
+      
+      track.updateFxParam(fx.id, param, actualValue);
+      
+      const label = control.querySelector('.param-value');
+      label.textContent = formatFxParamValue(param, actualValue, def);
+    });
+    
+    paramsContainer.appendChild(control);
+  });
+  
+  // Remove button
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'fx-slot-remove';
+  removeBtn.textContent = '✕';
+  removeBtn.onclick = () => {
+    if (confirm(`Remove ${fx.type}?`)) {
+      track.removeFx(fx.id);
+      renderFxChain(track.id);
+    }
+  };
+  
+  // Title
+  const title = document.createElement('div');
+  title.style.cssText = `
+    font-weight: 800;
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    margin-bottom: var(--space-3);
+  `;
+  title.textContent = `${index + 1}. ${fx.type.charAt(0).toUpperCase() + fx.type.slice(1)}`;
+  
+  const content = document.createElement('div');
+  content.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: var(--space-3);';
+  content.appendChild(title);
+  content.appendChild(paramsContainer);
+  
+  slot.appendChild(toggle);
+  slot.appendChild(content);
+  slot.appendChild(removeBtn);
+  
+  return slot;
+}
+
+// Get parameter definitions for each FX type
+function getFxParamDefs(type) {
+  const defs = {
+    reverb: {
+      decay: { label: 'Decay', min: 0.1, max: 10, step: 0.1, default: 1.5, unit: 's' },
+      wet: { label: 'Mix', min: 0, max: 1, step: 0.01, default: 0.3, unit: '%' }
+    },
+    delay: {
+      time: { label: 'Time', min: 0, max: 1, step: 0.01, default: 0.25, unit: 's', special: 'time' },
+      feedback: { label: 'Feedback', min: 0, max: 0.9, step: 0.01, default: 0.3, unit: '%' },
+      wet: { label: 'Mix', min: 0, max: 1, step: 0.01, default: 0.3, unit: '%' }
+    },
+    chorus: {
+      frequency: { label: 'Rate', min: 0.1, max: 10, step: 0.1, default: 1.5, unit: 'Hz' },
+      depth: { label: 'Depth', min: 0, max: 1, step: 0.01, default: 0.7, unit: '%' },
+      wet: { label: 'Mix', min: 0, max: 1, step: 0.01, default: 0.5, unit: '%' }
+    },
+    distortion: {
+      amount: { label: 'Amount', min: 0, max: 1, step: 0.01, default: 0.4, unit: '%' },
+      wet: { label: 'Mix', min: 0, max: 1, step: 0.01, default: 0.5, unit: '%' }
+    },
+    filter: {
+      frequency: { label: 'Cutoff', min: 20, max: 20000, step: 10, default: 5000, unit: 'Hz', special: 'log' },
+      q: { label: 'Resonance', min: 0.1, max: 20, step: 0.1, default: 1, unit: '' }
+    },
+    compressor: {
+      threshold: { label: 'Threshold', min: -60, max: 0, step: 1, default: -24, unit: 'dB' },
+      ratio: { label: 'Ratio', min: 1, max: 20, step: 0.1, default: 4, unit: ':1' }
+    },
+    eq: {
+      low: { label: 'Low', min: -24, max: 24, step: 1, default: 0, unit: 'dB' },
+      mid: { label: 'Mid', min: -24, max: 24, step: 1, default: 0, unit: 'dB' },
+      high: { label: 'High', min: -24, max: 24, step: 1, default: 0, unit: 'dB' }
+    },
+    bitcrusher: {
+      bits: { label: 'Bits', min: 1, max: 16, step: 1, default: 4, unit: '' }
+    }
+  };
+  
+  return defs[type] || {};
+}
+
+// Format parameter value for display
+function formatFxParamValue(param, value, def) {
+  if (def.special === 'time') {
+    // Handle time values
+    if (typeof value === 'string') return value;
+    return (value * 1000).toFixed(0) + 'ms';
+  }
+  
+  if (def.unit === '%') {
+    return Math.round(value * 100) + '%';
+  } else if (def.unit === 's') {
+    return value.toFixed(2) + 's';
+  } else if (def.unit === 'Hz') {
+    return value >= 1000 ? (value / 1000).toFixed(1) + 'kHz' : Math.round(value) + 'Hz';
+  } else if (def.unit === 'dB') {
+    return value.toFixed(1) + 'dB';
+  } else if (def.unit === ':1') {
+    return value.toFixed(1) + ':1';
+  }
+  
+  return value.toString() + (def.unit || '');
+}
+
+// Normalize parameter to slider range (0-100 or custom)
+function normalizeParamToSlider(param, value, def) {
+  if (def.special === 'time') {
+    // Time values need special handling
+    if (typeof value === 'string') {
+      const timeMap = { '16n': 25, '8n': 50, '4n': 75, '2n': 100 };
+      return timeMap[value] || 50;
+    }
+    return value * 100; // Assume seconds
+  }
+  
+  if (def.special === 'log') {
+    // Logarithmic scaling for frequency
+    const minLog = Math.log(def.min);
+    const maxLog = Math.log(def.max);
+    const scale = (Math.log(value) - minLog) / (maxLog - minLog);
+    return scale * 100;
+  }
+  
+  // Linear scaling
+  return ((value - def.min) / (def.max - def.min)) * 100;
+}
+
+// Denormalize slider value back to parameter value
+function denormalizeParamFromSlider(param, sliderValue, def) {
+  if (def.special === 'time') {
+    // Map to note values or seconds
+    if (sliderValue <= 25) return '16n';
+    if (sliderValue <= 50) return '8n';
+    if (sliderValue <= 75) return '4n';
+    return '2n';
+  }
+  
+  if (def.special === 'log') {
+    // Logarithmic scaling for frequency
+    const minLog = Math.log(def.min);
+    const maxLog = Math.log(def.max);
+    const scale = sliderValue / 100;
+    return Math.exp(minLog + scale * (maxLog - minLog));
+  }
+  
+  // Linear scaling
+  return def.min + (sliderValue / 100) * (def.max - def.min);
+}
+
+// Bounce all tracks to a single file
+async function bounceAllTracks() {
+  const activeTracks = multitrack.tracks.filter(t => 
+    t.selectedTakeIndex >= 0 && !t.muted
+  );
+  
+  if (activeTracks.length === 0) {
+    alert('No tracks to bounce!');
+    return;
+  }
+  
+  // Find longest duration
+  let maxDuration = 0;
+  activeTracks.forEach(track => {
+    const take = track.takes[track.selectedTakeIndex];
+    if (take && take.duration > maxDuration) {
+      maxDuration = take.duration;
+    }
+  });
+  
+  const sampleRate = Tone.context.sampleRate;
+  const numFrames = Math.ceil(maxDuration * sampleRate);
+  
+  // Create offline context for rendering
+  const offlineContext = new OfflineAudioContext(2, numFrames, sampleRate);
+  
+  // Render each track
+  for (const track of activeTracks) {
+    const take = track.takes[track.selectedTakeIndex];
+    if (!take || take.muted) continue;
+    
+    const source = offlineContext.createBufferSource();
+    source.buffer = take.buffer;
+    
+    const gainNode = offlineContext.createGain();
+    gainNode.gain.value = Math.pow(10, track.volume / 20); // dB to linear
+    
+    const panNode = offlineContext.createStereoPanner();
+    panNode.pan.value = track.pan / 100;
+    
+    source.connect(gainNode);
+    gainNode.connect(panNode);
+    panNode.connect(offlineContext.destination);
+    
+    source.start(0);
+  }
+  
+  // Render
+  const renderedBuffer = await offlineContext.startRendering();
+  
+  // Convert to WAV
+  const wavData = bufferToWav(renderedBuffer);
+  const blob = new Blob([wavData], { type: 'audio/wav' });
+  
+  // Download
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bounce_${Date.now()}.wav`;
+  a.click();
+  
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  
+  showToast('✅ Bounce complete!', 'success');
+}
+
+// Setup multitrack event listeners
+function setupMultitrackListeners() {
+  // Add track button
+  document.getElementById('addTrackBtn')?.addEventListener('click', () => {
+    showAddTrackDialog();
+  });
+  
+  // Bounce all button
+  document.getElementById('bounceAllBtn')?.addEventListener('click', () => {
+    bounceAllTracks();
+  });
+  
+  // Clear all tracks button
+  document.getElementById('clearAllTracksBtn')?.addEventListener('click', () => {
+    if (confirm('Delete all tracks? This cannot be undone.')) {
+      multitrack.tracks.forEach(track => track.dispose());
+      multitrack.tracks = [];
+      multitrack.nextTrackId = 1;
+      renderMultitrack();
+    }
+  });
+  
+  // Close FX chain button
+  document.getElementById('closeFxChainBtn')?.addEventListener('click', () => {
+    document.getElementById('fxChainPanel').style.display = 'none';
+    multitrack.currentFxTrackId = null;
+  });
+  
+  // Add FX dropdown
+  const addFxBtn = document.getElementById('addFxBtn');
+  const dropdown = document.getElementById('fxAddDropdown');
+  
+  addFxBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle('open');
+  });
+  
+  document.addEventListener('click', (e) => {
+    if (!dropdown?.contains(e.target)) {
+      dropdown?.classList.remove('open');
+    }
+  });
+  
+  // Add FX menu items
+  document.querySelectorAll('.fx-add-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const fxType = item.dataset.fxType;
+      if (multitrack.currentFxTrackId) {
+        const track = multitrack.tracks.find(t => t.id === multitrack.currentFxTrackId);
+        if (track) {
+          track.addFx(fxType);
+          renderFxChain(track.id);
+          showToast(`✅ Added ${fxType}`, 'success');
+        }
+      }
+      dropdown?.classList.remove('open');
+    });
+  });
+}
+
+// Show add track dialog
+function showAddTrackDialog() {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '500px';
+  
+  const instrumentOptions = Object.keys(instruments).map(key => {
+    const inst = instruments[key];
+    return `<option value=\"${key}\">${inst.icon} ${inst.name}</option>`;
+  }).join('');
+  
+  modal.innerHTML = `
+    <div class=\"modal-header\">
+      <div class=\"modal-title\">➕ Add Track</div>
+      <button class=\"modal-close\" id=\"closeAddTrackModal\">✕</button>
+    </div>
+    <div class=\"modal-body\">
+      <div class=\"param-control\">
+        <label style=\"font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); display: block;\">
+          Select Instrument
+        </label>
+        <select id=\"newTrackInstrument\" style=\"font-size: var(--text-base);\">
+          ${instrumentOptions}
+        </select>
+      </div>
+    </div>
+    <div class=\"modal-footer\">
+      <button class=\"btn btn-secondary\" id=\"cancelAddTrackBtn\">Cancel</button>
+      <button class=\"btn btn-primary\" id=\"confirmAddTrackBtn\">Add Track</button>
+    </div>
+  `;
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  
+  const close = () => backdrop.remove();
+  
+  document.getElementById('closeAddTrackModal').onclick = close;
+  document.getElementById('cancelAddTrackBtn').onclick = close;
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) close();
+  };
+  
+  document.getElementById('confirmAddTrackBtn').onclick = () => {
+    const instrument = document.getElementById('newTrackInstrument').value;
+    createTrack(instrument);
+    close();
+    showToast('✅ Track added!', 'success');
+  };
+}
+  
 // -------------------- Preset System --------------------
 function renderPresets() {
   const grid = document.getElementById('presetGrid');
@@ -6121,6 +7629,27 @@ function saveProject() {
     }));
   });
   
+  // Serialize multitrack data (exclude audio buffers/blobs)
+  const multitrackData = {
+    tracks: multitrack.tracks.map(track => ({
+      id: track.id,
+      name: track.name,
+      instrument: track.instrument,
+      volume: track.volume,
+      pan: track.pan,
+      muted: track.muted,
+      soloed: track.soloed,
+      selectedTakeIndex: track.selectedTakeIndex,
+      takesCount: track.takes.length,
+      fxChain: track.fxChain.map(fx => ({
+        type: fx.type,
+        params: fx.params,
+        enabled: fx.enabled
+      }))
+    })),
+    nextTrackId: multitrack.nextTrackId
+  };
+  
   const project = {
     name: projectName,
     state: {
@@ -6129,6 +7658,7 @@ function saveProject() {
     },
     patterns: plainPatterns,
     instruments: getSerializableInstruments(),
+    multitrack: multitrackData,
     timestamp: Date.now()
   };
   
@@ -6137,11 +7667,11 @@ function saveProject() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${projectName.replace(/\s+/g, '_')}.prostudio.json`;
+  link.download = `${projectName.replace(/\\s+/g, '_')}.prostudio.json`;
   link.click();
   
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  alert('✅ Project saved!');
+  showToast('✅ Project saved!', 'success');
 }
 
 function applyLoadedInstruments(loaded) {
@@ -6194,6 +7724,49 @@ function loadProject() {
           applyLoadedInstruments(project.instruments);
         }
         
+        // ======= MULTITRACK RESTORATION =======
+        if (project.multitrack) {
+          // Clear existing tracks
+          multitrack.tracks.forEach(t => t.dispose());
+          multitrack.tracks = [];
+          
+          // Restore track metadata (but not audio data)
+          project.multitrack.tracks.forEach(trackData => {
+            const track = new AudioTrack(
+              trackData.id,
+              trackData.name,
+              trackData.instrument
+            );
+            
+            track.volume = trackData.volume;
+            track.pan = trackData.pan;
+            track.muted = trackData.muted;
+            track.soloed = trackData.soloed;
+            
+            // Restore FX chain
+            if (trackData.fxChain && trackData.fxChain.length > 0) {
+              trackData.fxChain.forEach(fxData => {
+                track.addFx(fxData.type, fxData.params);
+                const fx = track.fxChain[track.fxChain.length - 1];
+                if (fx) {
+                  fx.enabled = fxData.enabled;
+                }
+              });
+            }
+            
+            multitrack.tracks.push(track);
+          });
+          
+          multitrack.nextTrackId = project.multitrack.nextTrackId;
+          renderMultitrack();
+          
+          // Notify user about audio data
+          if (project.multitrack.tracks.some(t => t.takesCount > 0)) {
+            showToast('⚠️ Track settings loaded. Audio recordings must be re-recorded.', 'warning');
+          }
+        }
+        // ======= END MULTITRACK RESTORATION =======
+        
         updateAllDisplays();
         ensurePatternLength(state.sequenceLength);
         renderSequencer();
@@ -6202,9 +7775,10 @@ function loadProject() {
         renderHarmony();
         
         document.getElementById('projectName').value = project.name || 'Untitled';
-        alert('✅ Project loaded!');
+        showToast('✅ Project loaded!', 'success');
       } catch (err) {
-        alert('❌ Error loading project: ' + err.message);
+        showToast('❌ Error loading project: ' + err.message, 'error');
+        console.error('Load project error:', err);
       }
     };
     
