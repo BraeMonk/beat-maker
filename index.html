@@ -4058,8 +4058,7 @@ function openNoteEditor(inst) {
 
 // -------------------- Pattern Generators --------------------
 function generateBeat() {
-  const preset = genrePresets[state.currentGenre];
-  if (!preset) return;
+  const genre = state.currentGenre;
   
   // Clear all patterns first
   Object.keys(instruments).forEach(inst => {
@@ -4070,60 +4069,243 @@ function generateBeat() {
     });
   });
   
-  // Apply the preset patterns EXACTLY as designed
-  Object.keys(instruments).forEach(inst => {
-    const presetPattern = preset.patterns[inst];
-    const notes = preset.notes ? preset.notes[inst] : null;
-    
-    if (presetPattern) {
-      presetPattern.forEach((value, i) => {
-        if (i < state.sequenceLength) {
-          // EXACT pattern from preset - no randomization here
-          patterns[inst][i].active = value === 1;
-          
-          if (value === 1) {
-            // Subtle velocity variation for humanization
-            patterns[inst][i].velocity = 0.75 + Math.random() * 0.2;
-            patterns[inst][i].probability = 100;
-            
-            if (instruments[inst].type === 'melodic' && notes && notes[i]) {
-              patterns[inst][i].note = notes[i];
-              patterns[inst][i].duration = '8n';
-            }
-          }
-        }
-      });
-    }
-  });
-  
-  // ONLY add complexity if user wants it
-  if (state.complexity >= 2) {
-    addSubtleVariations();
-  }
-  if (state.complexity >= 3) {
-    addGhostNotes();
-  }
-  
-  // Set BPM from preset
-  state.bpm = Math.min(CONFIG.MAX_BPM, preset.bpm);
-  document.getElementById('bpmSlider').value = state.bpm;
-  document.getElementById('bpmValue').textContent = state.bpm;
-  Tone.Transport.bpm.value = state.bpm;
-  
-  // Set swing from preset
-  if (preset.swing !== undefined) {
-    state.swing = preset.swing;
-    document.getElementById('swingSlider').value = state.swing;
-    document.getElementById('swingValue').textContent = state.swing + '%';
-    Tone.Transport.swing = state.swing / 100;
+  // Generate rhythms based on genre theory
+  if (genre === 'lofi') {
+    generateLoFiBeat();
+  } else if (genre === 'hiphop') {
+    generateHipHopBeat();
+  } else if (genre === 'postpunk') {
+    generatePostPunkBeat();
+  } else if (genre === 'rnb') {
+    generateRnBBeat();
+  } else if (genre === 'ambient') {
+    generateAmbientBeat();
   }
   
   renderSequencer();
   applyGenreFX();
   
-  console.log(`✅ Generated ${state.currentGenre} beat with ${state.complexity} complexity`);
+  console.log(`✅ Generated ${genre} beat with ${state.complexity} complexity`);
 }
 
+// Lo-Fi: Laid back, off-grid, jazzy
+function generateLoFiBeat() {
+  state.bpm = 70 + Math.floor(Math.random() * 20); // 70-90 BPM
+  state.swing = 10 + Math.floor(Math.random() * 15); // 10-25% swing
+  
+  // Kick: Sparse, on 1 and 3, occasional on 2.5
+  [0, 8].forEach(i => setStep('kick', i, 0.8, 100));
+  if (state.complexity >= 2 && Math.random() > 0.3) setStep('kick', 6, 0.7, 80);
+  if (state.complexity >= 3 && Math.random() > 0.5) setStep('kick', 10, 0.75, 70);
+  
+  // Snare: Backbeat on 2 and 4, slightly late for swing
+  setStep('snare', 4, 0.75, 100);
+  setStep('snare', 12, 0.75, 100);
+  if (state.complexity >= 3) {
+    setStep('snare', 14, 0.4, 60); // Ghost note before 4
+  }
+  
+  // Hi-hat: Shuffled 8ths with velocity accents
+  for (let i = 0; i < 16; i += 2) {
+    const vel = i % 4 === 0 ? 0.7 : 0.45; // Accent downbeats
+    setStep('hihat', i, vel, 95);
+    if (state.complexity >= 2 && i % 4 === 2) {
+      setStep('hihat', i + 1, 0.3, 70); // 16th note shuffle
+    }
+  }
+  
+  // Rimshot: Sparse accent hits
+  if (state.complexity >= 2) {
+    const accentPositions = [6, 14];
+    accentPositions.forEach(i => {
+      if (Math.random() > 0.4) setStep('rimshot', i, 0.5, 80);
+    });
+  }
+  
+  updateBPMUI();
+}
+
+// Hip-Hop: Boom-bap, hard-hitting
+function generateHipHopBeat() {
+  state.bpm = 85 + Math.floor(Math.random() * 15); // 85-100 BPM
+  state.swing = 0; // Straight quantize
+  
+  // Kick: Classic boom-bap pattern
+  setStep('kick', 0, 0.9, 100);
+  setStep('kick', 6, 0.85, 100);
+  if (state.complexity >= 2) {
+    if (Math.random() > 0.5) setStep('kick', 9, 0.8, 90);
+    if (Math.random() > 0.6) setStep('kick', 13, 0.75, 85);
+  }
+  
+  // Snare: Hard backbeat
+  setStep('snare', 4, 0.9, 100);
+  setStep('snare', 12, 0.9, 100);
+  
+  // Clap: Layer with snare for thicker sound
+  setStep('clap', 4, 0.7, 100);
+  setStep('clap', 12, 0.7, 100);
+  
+  // Hi-hat: Steady 8ths and 16ths
+  for (let i = 0; i < 16; i += 2) {
+    setStep('hihat', i, 0.6, 100);
+  }
+  if (state.complexity >= 2) {
+    // Add 16th hats between
+    [3, 7, 11, 15].forEach(i => setStep('hihat', i, 0.4, 85));
+  }
+  if (state.complexity >= 3) {
+    // Open hat accents
+    [6, 14].forEach(i => setStep('crash', i, 0.5, 75));
+  }
+  
+  updateBPMUI();
+}
+
+// Post-Punk: Driving, motorik, relentless
+function generatePostPunkBeat() {
+  state.bpm = 120 + Math.floor(Math.random() * 20); // 120-140 BPM
+  state.swing = 0;
+  
+  // Kick: Four-on-floor or driving 8ths
+  const fourOnFloor = Math.random() > 0.3;
+  if (fourOnFloor) {
+    for (let i = 0; i < 16; i += 4) {
+      setStep('kick', i, 0.85, 100);
+    }
+  } else {
+    // Motorik driving pattern
+    for (let i = 0; i < 16; i += 2) {
+      setStep('kick', i, i % 4 === 0 ? 0.85 : 0.75, 100);
+    }
+  }
+  
+  // Snare: Backbeat or syncopated
+  setStep('snare', 4, 0.8, 100);
+  setStep('snare', 12, 0.8, 100);
+  if (state.complexity >= 2) {
+    setStep('snare', 10, 0.7, 80); // Syncopation
+  }
+  
+  // Rimshot: Driving 16ths for tension
+  if (state.complexity >= 2) {
+    for (let i = 1; i < 16; i += 2) {
+      if (Math.random() > 0.4) setStep('rimshot', i, 0.5, 85);
+    }
+  }
+  
+  // Hi-hat: Mechanical 16ths
+  for (let i = 0; i < 16; i++) {
+    const vel = i % 4 === 0 ? 0.7 : 0.5;
+    setStep('hihat', i, vel, 100);
+  }
+  
+  // Tom fills
+  if (state.complexity >= 3) {
+    [13, 14, 15].forEach((i, idx) => {
+      setStep('tom', i, 0.6 + idx * 0.1, 90);
+    });
+  }
+  
+  updateBPMUI();
+}
+
+// R&B: Syncopated, groovy, pocket
+function generateRnBBeat() {
+  state.bpm = 70 + Math.floor(Math.random() * 15); // 70-85 BPM
+  state.swing = 5 + Math.floor(Math.random() * 10); // Subtle swing
+  
+  // Kick: Syncopated, in the pocket
+  setStep('kick', 0, 0.85, 100);
+  if (Math.random() > 0.3) setStep('kick', 6, 0.75, 95);
+  setStep('kick', 10, 0.8, 100);
+  if (state.complexity >= 2 && Math.random() > 0.5) {
+    setStep('kick', 13, 0.7, 85);
+  }
+  
+  // Snare: Laid back backbeat
+  setStep('snare', 4, 0.75, 100);
+  setStep('snare', 12, 0.75, 100);
+  if (state.complexity >= 3) {
+    setStep('snare', 11, 0.4, 70); // Ghost note
+    setStep('snare', 15, 0.45, 75);
+  }
+  
+  // Rimshot: Syncopated accents
+  if (state.complexity >= 2) {
+    [6, 14].forEach(i => {
+      if (Math.random() > 0.4) setStep('rimshot', i, 0.55, 80);
+    });
+  }
+  
+  // Hi-hat: Intricate 16th patterns
+  for (let i = 0; i < 16; i += 2) {
+    setStep('hihat', i, 0.6, 100);
+  }
+  if (state.complexity >= 2) {
+    // Syncopated 16ths
+    [1, 3, 5, 9, 11, 13].forEach(i => {
+      if (Math.random() > 0.3) setStep('hihat', i, 0.35, 75);
+    });
+  }
+  
+  updateBPMUI();
+}
+
+// Ambient: Sparse, textural, atmospheric
+function generateAmbientBeat() {
+  state.bpm = 50 + Math.floor(Math.random() * 20); // 50-70 BPM
+  state.swing = 0;
+  
+  // Kick: Minimal, only bar markers
+  setStep('kick', 0, 0.7, 100);
+  if (state.complexity >= 2 && Math.random() > 0.5) {
+    setStep('kick', 8, 0.65, 90);
+  }
+  
+  // Snare: Very sparse
+  if (state.complexity >= 2) {
+    setStep('snare', 8, 0.5, 85);
+  }
+  
+  // Hi-hat: Sparse texture
+  [0, 6, 10].forEach(i => {
+    if (Math.random() > 0.3) setStep('hihat', i, 0.4, 80);
+  });
+  
+  // Crash: Textural swells
+  if (state.complexity >= 2) {
+    setStep('crash', 0, 0.6, 90);
+    if (Math.random() > 0.4) setStep('crash', 12, 0.55, 80);
+  }
+  
+  // Ride: Subtle pulse
+  if (state.complexity >= 3) {
+    for (let i = 0; i < 16; i += 4) {
+      if (Math.random() > 0.3) setStep('ride', i, 0.35, 70);
+    }
+  }
+  
+  updateBPMUI();
+}
+
+// Helper to set a step
+function setStep(inst, step, velocity, probability) {
+  if (step < state.sequenceLength) {
+    patterns[inst][step].active = true;
+    patterns[inst][step].velocity = velocity;
+    patterns[inst][step].probability = probability;
+  }
+}
+
+function updateBPMUI() {
+  document.getElementById('bpmSlider').value = state.bpm;
+  document.getElementById('bpmValue').textContent = state.bpm;
+  document.getElementById('swingSlider').value = state.swing;
+  document.getElementById('swingValue').textContent = state.swing + '%';
+  Tone.Transport.bpm.value = state.bpm;
+  Tone.Transport.swing = state.swing / 100;
+}
 // More subtle variations - don't destroy the groove
 function addSubtleVariations() {
   // Only add to hi-hats and rimshots - keep kick/snare solid
@@ -4228,11 +4410,315 @@ function clearPattern() {
 }
 
 function generateMelodicPatterns() {
-  generateBassLine();
-  generateGuitarStrums();
-  generateKeyPattern();
-  generateLeadMelody();
+  const genre = state.currentGenre;
+  
+  // Generate based on genre characteristics
+  if (genre === 'lofi') {
+    generateLoFiMelodies();
+  } else if (genre === 'hiphop') {
+    generateHipHopMelodies();
+  } else if (genre === 'postpunk') {
+    generatePostPunkMelodies();
+  } else if (genre === 'rnb') {
+    generateRnBMelodies();
+  } else if (genre === 'ambient') {
+    generateAmbientMelodies();
+  }
+  
   renderSequencer();
+}
+
+// Lo-Fi: Jazzy chords, warm bass, sparse leads
+function generateLoFiMelodies() {
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  // Bass: Root movement, walking feel
+  const bassOctave = 2;
+  const bassRoots = [0, 3, 4, 0].map(degree => 
+    keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave
+  );
+  
+  [0, 4, 8, 12].forEach((step, idx) => {
+    patterns.bass[step].active = true;
+    patterns.bass[step].note = bassRoots[idx];
+    patterns.bass[step].velocity = 0.7;
+    patterns.bass[step].duration = '4n';
+  });
+  
+  if (state.complexity >= 2) {
+    // Walking bass between roots
+    [2, 6, 10, 14].forEach((step, idx) => {
+      if (Math.random() > 0.4) {
+        const degree = [1, 2, 5, 6][idx];
+        patterns.bass[step].active = true;
+        patterns.bass[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
+        patterns.bass[step].velocity = 0.6;
+        patterns.bass[step].duration = '8n';
+      }
+    });
+  }
+  
+  // Keys: Jazz chords (7ths, 9ths)
+  const chordOctave = 3;
+  const jazzChords = [0, 3, 4, 0].map(degree => {
+    const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
+    const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % 7]) % 12];
+    const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % 7]) % 12];
+    const seventh = keysArr[(keyIndex + scaleIntervals[(degree + 6) % 7]) % 12];
+    return [root + chordOctave, third + chordOctave, fifth + chordOctave, seventh + (chordOctave + 1)];
+  });
+  
+  [0, 4, 8, 12].forEach((step, idx) => {
+    if (Math.random() > 0.2) {
+      patterns.keys[step].active = true;
+      patterns.keys[step].note = jazzChords[idx];
+      patterns.keys[step].velocity = 0.5;
+      patterns.keys[step].duration = '2n';
+    }
+  });
+  
+  // Guitar: Muted strums, sparse
+  if (state.complexity >= 2) {
+    [2, 6, 10, 14].forEach((step, idx) => {
+      if (Math.random() > 0.5) {
+        patterns.guitar[step].active = true;
+        patterns.guitar[step].note = jazzChords[idx % jazzChords.length];
+        patterns.guitar[step].velocity = 0.4;
+        patterns.guitar[step].duration = '8n';
+      }
+    });
+  }
+  
+  // Lead: Melodic fragments
+  if (state.complexity >= 3) {
+    const leadOctave = 4;
+    const melody = [0, 2, 4, 2, 0].map(degree =>
+      keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave
+    );
+    [8, 9, 10, 11, 12].forEach((step, idx) => {
+      if (Math.random() > 0.3 && melody[idx]) {
+        patterns.lead[step].active = true;
+        patterns.lead[step].note = melody[idx];
+        patterns.lead[step].velocity = 0.5;
+        patterns.lead[step].duration = '8n';
+      }
+    });
+  }
+}
+
+// Hip-Hop: Heavy bass, sparse chords, melodic hooks
+function generateHipHopMelodies() {
+  const scaleIntervals = scales.minor; // Hip-hop often uses minor
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  // Bass: Root notes, heavy and sparse
+  const bassOctave = 1;
+  const bassPattern = [0, 0, 4, 0, 0, 3, 0, 5];
+  
+  bassPattern.forEach((degree, idx) => {
+    const step = idx * 2;
+    if (degree !== null && step < 16) {
+      patterns.bass[step].active = true;
+      patterns.bass[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
+      patterns.bass[step].velocity = 0.8;
+      patterns.bass[step].duration = '4n';
+    }
+  });
+  
+  // Keys: Simple triads on downbeats
+  const chordOctave = 3;
+  [0, 8].forEach(step => {
+    const root = keysArr[keyIndex] + chordOctave;
+    const third = keysArr[(keyIndex + scaleIntervals[2]) % 12] + chordOctave;
+    const fifth = keysArr[(keyIndex + scaleIntervals[4]) % 12] + chordOctave;
+    
+    patterns.keys[step].active = true;
+    patterns.keys[step].note = [root, third, fifth];
+    patterns.keys[step].velocity = 0.5;
+    patterns.keys[step].duration = '1n';
+  });
+  
+  // Lead: Melodic hook
+  if (state.complexity >= 2) {
+    const leadOctave = 5;
+    const hook = [0, 3, 2, 0, 4];
+    [8, 9, 10, 11, 12].forEach((step, idx) => {
+      if (hook[idx] !== undefined) {
+        patterns.lead[step].active = true;
+        patterns.lead[step].note = keysArr[(keyIndex + scaleIntervals[hook[idx]]) % 12] + leadOctave;
+        patterns.lead[step].velocity = 0.6;
+        patterns.lead[step].duration = '8n';
+        patterns.lead[step].probability = 100;
+      }
+    });
+  }
+}
+
+// Post-Punk: Dark bass, angular guitars, minimal keys
+function generatePostPunkMelodies() {
+  const scaleIntervals = scales.minor;
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  // Bass: Driving 8th notes, root-fifth motion
+  const bassOctave = 1;
+  for (let i = 0; i < 16; i += 2) {
+    patterns.bass[i].active = true;
+    const useFifth = i % 4 === 2;
+    const degree = useFifth ? 4 : 0;
+    patterns.bass[i].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
+    patterns.bass[i].velocity = 0.75;
+    patterns.bass[i].duration = '8n';
+  }
+  
+  // Guitar: Power chords, angular rhythm
+  if (state.complexity >= 2) {
+    const chordOctave = 2;
+    [0, 4, 8, 12].forEach(step => {
+      const root = keysArr[keyIndex] + chordOctave;
+      const fifth = keysArr[(keyIndex + scaleIntervals[4]) % 12] + chordOctave;
+      const octave = keysArr[keyIndex] + (chordOctave + 1);
+      
+      patterns.guitar[step].active = true;
+      patterns.guitar[step].note = [root, fifth, octave];
+      patterns.guitar[step].velocity = 0.6;
+      patterns.guitar[step].duration = '4n';
+    });
+  }
+  
+  // Keys: Sparse stabs
+  if (state.complexity >= 3) {
+    [6, 14].forEach(step => {
+      if (Math.random() > 0.3) {
+        const chordOctave = 4;
+        patterns.keys[step].active = true;
+        patterns.keys[step].note = keysArr[(keyIndex + scaleIntervals[2]) % 12] + chordOctave;
+        patterns.keys[step].velocity = 0.5;
+        patterns.keys[step].duration = '16n';
+      }
+    });
+  }
+}
+
+// R&B: Smooth chords, groovy bass, soulful leads
+function generateRnBMelodies() {
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  // Bass: Syncopated groove
+  const bassOctave = 2;
+  const bassGroove = [0, null, 4, null, 3, null, 5, null];
+  
+  bassGroove.forEach((degree, idx) => {
+    const step = idx * 2;
+    if (degree !== null && step < 16) {
+      patterns.bass[step].active = true;
+      patterns.bass[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
+      patterns.bass[step].velocity = 0.7;
+      patterns.bass[step].duration = '8n';
+    }
+  });
+  
+  // Keys: 7th chords with extensions
+  const chordOctave = 3;
+  const rnbChords = [0, 3, 4, 5].map(degree => {
+    const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
+    const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % 7]) % 12];
+    const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % 7]) % 12];
+    const seventh = keysArr[(keyIndex + scaleIntervals[(degree + 6) % 7]) % 12];
+    const ninth = keysArr[(keyIndex + scaleIntervals[(degree + 1) % 7]) % 12];
+    return [root + chordOctave, third + chordOctave, fifth + chordOctave, seventh + chordOctave, ninth + (chordOctave + 1)];
+  });
+  
+  [0, 4, 8, 12].forEach((step, idx) => {
+    patterns.keys[step].active = true;
+    patterns.keys[step].note = rnbChords[idx];
+    patterns.keys[step].velocity = 0.45;
+    patterns.keys[step].duration = '2n';
+  });
+  
+  // Guitar: Rhythm chops
+  if (state.complexity >= 2) {
+    [2, 6, 10, 14].forEach(step => {
+      if (Math.random() > 0.4) {
+        patterns.guitar[step].active = true;
+        patterns.guitar[step].note = rnbChords[Math.floor(step / 4) % rnbChords.length];
+        patterns.guitar[step].velocity = 0.35;
+        patterns.guitar[step].duration = '16n';
+      }
+    });
+  }
+  
+  // Lead: Soulful melody
+  if (state.complexity >= 3) {
+    const leadOctave = 5;
+    const soul = [0, 2, 3, 4, 3, 2, 0, null];
+    soul.forEach((degree, idx) => {
+      const step = idx + 8;
+      if (degree !== null && step < 16) {
+        patterns.lead[step].active = true;
+        patterns.lead[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave;
+        patterns.lead[step].velocity = 0.55 + Math.random() * 0.15;
+        patterns.lead[step].duration = '8n';
+      }
+    });
+  }
+}
+
+// Ambient: Atmospheric pads, sparse melodic elements
+function generateAmbientMelodies() {
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  // Bass: Long sustained root notes
+  const bassOctave = 2;
+  [0].forEach(step => {
+    patterns.bass[step].active = true;
+    patterns.bass[step].note = keysArr[keyIndex] + bassOctave;
+    patterns.bass[step].velocity = 0.6;
+    patterns.bass[step].duration = '1n';
+  });
+  
+  if (state.complexity >= 2) {
+    patterns.bass[8].active = true;
+    patterns.bass[8].note = keysArr[(keyIndex + scaleIntervals[4]) % 12] + bassOctave;
+    patterns.bass[8].velocity = 0.55;
+    patterns.bass[8].duration = '1n';
+  }
+  
+  // Keys: Wide ambient chords
+  const chordOctave = 3;
+  const ambientChords = [0, 4, 5, 3].map(degree => {
+    const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
+    const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % 7]) % 12];
+    const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % 7]) % 12];
+    const seventh = keysArr[(keyIndex + scaleIntervals[(degree + 6) % 7]) % 12];
+    return [root + (chordOctave - 1), third + chordOctave, fifth + chordOctave, seventh + (chordOctave + 1)];
+  });
+  
+  [0, 8].forEach((step, idx) => {
+    if (Math.random() > 0.2) {
+      patterns.keys[step].active = true;
+      patterns.keys[step].note = ambientChords[idx % ambientChords.length];
+      patterns.keys[step].velocity = 0.4;
+      patterns.keys[step].duration = '1n';
+    }
+  });
+  
+  // Lead: Sparse ethereal notes
+  if (state.complexity >= 2) {
+    const leadOctave = 5;
+    [4, 8, 12].forEach((step, idx) => {
+      if (Math.random() > 0.4) {
+        const degree = [0, 2, 4][idx];
+        patterns.lead[step].active = true;
+        patterns.lead[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave;
+        patterns.lead[step].velocity = 0.35;
+        patterns.lead[step].duration = '2n';
+        patterns.lead[step].probability = 70;
+      }
+    });
+  }
 }
 
 // Add after generateMelodicPatterns function
