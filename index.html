@@ -5062,33 +5062,7 @@ document.getElementById('installBtn').addEventListener('click', async () => {
   deferredPrompt = null;
 });
 
-// -------------------- Initialization --------------------
-function init() {
-  initAudioContext();
-  initAudio();
-  ensurePatternLength(state.sequenceLength);
-  setupEventListeners();
-  renderSequencer();
-  renderMixer();
-  renderFX();
-  renderHarmony();
-  renderPresets();
-  updateAllDisplays();
-  initVisualizerOnce();
-  unlockAudioOnce();
-
-  checkSamplesLoaded();
-  
-  // Apply saved vibe
-  try {
-    const savedVibe = localStorage.getItem(CONFIG.STORAGE_KEY) || 'moon';
-    applyVibe(savedVibe);
-  } catch (e) {
-    applyVibe('moon');
-  }
-}
-
-function checkSamplesLoaded() {
+  function checkSamplesLoaded() {
   let loadedCount = 0;
   const totalSamples = Object.keys(instruments).length;
   
@@ -5117,7 +5091,33 @@ function checkSamplesLoaded() {
     console.log('⏱️ Sample check timeout - proceeding anyway');
   }, 10000);
 }
+  
+// -------------------- Initialization --------------------
+function init() {
+  initAudioContext();
+  initAudio();
+  ensurePatternLength(state.sequenceLength);
+  setupEventListeners();
+  renderSequencer();
+  renderMixer();
+  renderFX();
+  renderHarmony();
+  renderPresets();
+  updateAllDisplays();
+  initVisualizerOnce();
+  unlockAudioOnce();
 
+  checkSamplesLoaded();
+  
+  // Apply saved vibe
+  try {
+    const savedVibe = localStorage.getItem(CONFIG.STORAGE_KEY) || 'moon';
+    applyVibe(savedVibe);
+  } catch (e) {
+    applyVibe('moon');
+  }
+}
+  
 // -------------------- Entry Point --------------------
 document.addEventListener('DOMContentLoaded', init);
 </script>
