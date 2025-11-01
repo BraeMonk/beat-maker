@@ -2866,96 +2866,91 @@ Object.keys(instruments).forEach(inst => {
 // -------------------- Genre Presets --------------------
 const genrePresets = {
   lofi: {
-    name: 'Lo-Fi Hip-Hop', icon: '😌', bpm: 85, swing: 0,
+    name: 'Lo-Fi Hip-Hop', icon: '😌', bpm: 85, swing: 15,
     patterns: {
-      kick: [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
-      bass: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      guitar: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
+      kick:    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],
+      snare:   [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      hihat:   [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1],
+      rimshot: [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0],
+      bass:    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      keys:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
     },
     notes: {
       bass: ['C2','C2','C2','C2','D#2','D#2','D#2','D#2','F2','F2','F2','F2','G2','G2','G2','G2'],
-      guitar: ['C3','E3','G3','C4','D#3','G3','A#3','D#4','F3','A3','C4','F3','G3','B3','D4','G3'],
-      keys: ['C4','E4','G4','C4','D#4','G4','A#4','D#4','F4','A4','C5','F4','G4','B4','D5','G4'],
-      lead: ['C5','D5','E5','G5','A5','G5','E5','D5']
+      keys: ['C4','E4','G4','C4','D#4','G4','A#4','D#4','F4','A4','C5','F4','G4','B4','D5','G4']
     }
   },
+  
   hiphop: {
-    name: 'Hip-Hop', icon: '🎤', bpm: 95, swing: 0,
+    name: 'Hip-Hop', icon: '🎤', bpm: 90, swing: 0,
     patterns: {
-      kick: [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
-      bass: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],
-      guitar: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      keys: [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]
+      kick:    [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0],
+      snare:   [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      hihat:   [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+      clap:    [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      bass:    [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],
+      keys:    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]
     },
     notes: {
       bass: ['A1','A1','A1','C2','C2','C2','D2','D2','D2','F2','F2','F2','G2','G2','G2','G2'],
-      guitar: ['A2','C3','E3','A3','C3','E3','D3','F3','A3','D3','F3','G2','B2','D3','G3','B3'],
-      keys: ['A3','C4','E4','A4','C4','E4','D4','F4','A4','D4','F4','G3','B3','D4','G4','B4'],
-      lead: ['A4','C5','E5','A5','G5','E5','D5','C5']
+      keys: ['A3','C4','E4','A4','C4','E4','D4','F4','A4','D4','F4','G3','B3','D4','G4','B4']
     }
   },
+  
   postpunk: {
-    name: 'Post-Punk', icon: '🖤', bpm: 125, swing: 0,
+    name: 'Post-Punk', icon: '🖤', bpm: 128, swing: 0,
     patterns: {
-      kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],
+      kick:    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      snare:   [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      hihat:   [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],
       rimshot: [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
-      bass: [1,0,0,1,0,1,0,0,1,0,0,1,0,1,0,0],
-      guitar: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
+      bass:    [1,0,0,1,0,1,0,0,1,0,0,1,0,1,0,0],
+      guitar:  [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      keys:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
     },
     notes: {
       bass: ['E1','E1','E2','E1','G1','G1','G2','G1','A1','A1','A2','A1','D2','D2','D3','D2'],
       guitar: ['E2','G2','B2','E3','G2','B2','D3','G3','A2','C3','E3','A3','D3','F3','A3','D4'],
-      keys: ['E3','G3','B3','E4','G3','B3','D4','G4','A3','C4','E4','A4','D4','F4','A4','D5'],
-      lead: ['E4','G4','B4','E5','D5','B4','A4','G4']
+      keys: ['E3','G3','B3','E4','G3','B3','D4','G4','A3','C4','E4','A4','D4','F4','A4','D5']
     }
   },
+  
   rnb: {
-    name: 'R&B', icon: '💫', bpm: 78, swing: 0,
+    name: 'R&B', icon: '💫', bpm: 75, swing: 20,
     patterns: {
-      kick: [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
-      snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
-      hihat: [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1],
+      kick:    [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
+      snare:   [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
+      hihat:   [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1],
       rimshot: [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0],
-      bass: [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0],
-      guitar: [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0],
-      keys: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      lead: [0,0,0,0,1,0,0,1,0,0,0,0,1,0,1,0]
+      bass:    [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0],
+      keys:    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      lead:    [0,0,0,0,1,0,0,1,0,0,0,0,1,0,1,0]
     },
     notes: {
       bass: ['F2','F2','F2','F2','G2','G2','G2','G2','A2','A2','A2','A2','C3','C3','C3','C3'],
-      guitar: ['F3','A3','C4','F4','G3','B3','D4','G4','A3','C4','E4','A4','C4','E4','G4','C5'],
-      keys: ['F3','A3','C4','F4','A3','C4','E4','A4','G3','B3','D4','G4','B3','D4','F4','B4'],
+      keys: ['F3','A3','C4','F4','G3','B3','D4','G4','A3','C4','E4','A4','C4','E4','G4','C5'],
       lead: ['F5','G5','A5','C6','E6','D6','C6','A5']
     }
   },
+  
   ambient: {
     name: 'Ambient', icon: '🌌', bpm: 60, swing: 0,
     patterns: {
-      kick: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-      snare: [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      hihat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0],
-      bass: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-      guitar: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      keys: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      lead: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
+      kick:    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+      snare:   [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      hihat:   [0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0],
+      bass:    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+      keys:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      lead:    [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
     },
     notes: {
       bass: ['C2','C2','C2','C2','C2','C2','C2','C2','G1','G1','G1','G1','G1','G1','G1','G1'],
-      guitar: ['C3','E3','G3','C4','E4','G4','G3','B3','D4','G4','B4','D5'],
       keys: ['C3','E3','G3','C4','E4','G4','G3','B3','D4','G4','B4','D5'],
       lead: ['C5','E5','G5','C6','B5','G5','E5','D5']
     }
   }
 };
-
+  
 // -------------------- Music Theory --------------------
 const keysArr = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const scales = {
@@ -3185,7 +3180,7 @@ function createInstrumentChain(inst) {
   synths[inst].connect(channel);
 }
   
-// Sample-based drum library using Web Audio API
+// ============ DRUM SAMPLE SYSTEM ============
 const DRUM_SAMPLES = {
   kick: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/kick.mp3',
   snare: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
@@ -3198,47 +3193,53 @@ const DRUM_SAMPLES = {
 };
 
 function createDrumSynth(inst) {
-  const selectedLibrary = CUSTOM_DRUM_LIBRARIES[currentDrumLibrary];
-  const sampleUrl = selectedLibrary ? selectedLibrary[inst] : null;
+  const sampleUrl = DRUM_SAMPLES[inst];
   
   if (!sampleUrl) {
-    console.warn(`No sample for ${inst} in library '${currentDrumLibrary}', using fallback synth`);
+    console.warn(`No sample for ${inst}`);
     return new Tone.MembraneSynth();
   }
   
-  // Create a Tone.Player for single-shot drum samples
-  const player = new Tone.Player({
-    url: sampleUrl,
-    fadeIn: 0.001,
+  // Use Tone.Players (plural) for better multi-trigger support
+  const players = new Tone.Players({
+    urls: {
+      [inst]: sampleUrl
+    },
     fadeOut: 0.01,
     onload: () => {
-      console.log(`✅ Loaded ${inst} sample`);
+      console.log(`✅ ${inst} loaded`);
     }
   }).toDestination();
   
-  // Return a proxy object that matches the synth interface
+  // Return proxy that matches synth interface
   return {
     triggerAttackRelease: (note, duration, time, velocity = 1) => {
-      // For samples, we ignore the 'note' parameter and just trigger playback
-      // The duration can be used to cut short or let ring, but samples have natural decay
-      if (player.loaded) {
-        // Start playback: start(time, offset, duration, gain)
-        // Setting duration to undefined lets the sample play its full length
-        const playDuration = (inst === 'hihat' || inst === 'rimshot') ? 0.15 : undefined;
-        player.start(time, 0, playDuration, velocity * 0.8);
+      if (players.loaded) {
+        const player = players.player(inst);
+        if (player && player.loaded) {
+          player.start(time, 0, undefined, 0, velocity * 0.8);
+        }
       }
     },
     connect: (node) => {
-      player.disconnect();
-      player.connect(node);
-      return player;
+      players.disconnect();
+      players.connect(node);
+      return players;
     },
-    toDestination: () => player.toDestination(),
-    dispose: () => player.dispose(),
+    toDestination: () => players.toDestination(),
+    dispose: () => players.dispose(),
     get loaded() {
-      return player.loaded;
+      return players.loaded;
     }
   };
+}
+
+function playDrumNote(inst, time, velocity) {
+  const synth = synths[inst];
+  if (!synth) return;
+  
+  // All drums use same trigger - samples handle their own characteristics
+  synth.triggerAttackRelease('C2', '8n', time, velocity * 0.7);
 }
 
 // Melodic instrument samples using Tone.Sampler
@@ -3397,20 +3398,6 @@ function playStep(inst, step, time) {
   } else {
     playMelodicNote(inst, time + humanize, stepData);
   }
-}
-
-function playDrumNote(inst, time, velocity) {
-  const synth = synths[inst];
-  
-  // Reduce drum velocities for desktop batching
-  const scaledVelocity = velocity * 0.7;
-  
-  // For sample-based drums, duration determines sample playback length
-  // Most drum samples are short (0.5-2 seconds), so we use their natural length
-  const duration = inst === 'crash' || inst === 'ride' ? '2n' : '16n';
-  
-  // Sample-based drums don't need pitch - pass any valid note or just trigger
-  synth.triggerAttackRelease('C2', duration, time, scaledVelocity);
 }
 
 function playMelodicNote(inst, time, stepData) {
@@ -4013,6 +4000,16 @@ function generateBeat() {
   const preset = genrePresets[state.currentGenre];
   if (!preset) return;
   
+  // Clear all patterns first
+  Object.keys(instruments).forEach(inst => {
+    patterns[inst].forEach(step => {
+      step.active = false;
+      step.velocity = 0.8;
+      step.probability = 100;
+    });
+  });
+  
+  // Apply the preset patterns EXACTLY as designed
   Object.keys(instruments).forEach(inst => {
     const presetPattern = preset.patterns[inst];
     const notes = preset.notes ? preset.notes[inst] : null;
@@ -4020,37 +4017,65 @@ function generateBeat() {
     if (presetPattern) {
       presetPattern.forEach((value, i) => {
         if (i < state.sequenceLength) {
+          // EXACT pattern from preset - no randomization here
           patterns[inst][i].active = value === 1;
-          patterns[inst][i].velocity = 0.7 + Math.random() * 0.3;
-          patterns[inst][i].probability = 100;
-
-          if (preset.swing !== undefined) {
-            state.swing = preset.swing;
-            document.getElementById('swingSlider').value = state.swing;
-            document.getElementById('swingValue').textContent = state.swing + '%';
-            Tone.Transport.swing = state.swing / 100;
-          }
           
-          if (instruments[inst].type === 'melodic' && notes && notes[i]) {
-            patterns[inst][i].note = notes[i];
-            patterns[inst][i].duration = '8n';
+          if (value === 1) {
+            // Subtle velocity variation for humanization
+            patterns[inst][i].velocity = 0.75 + Math.random() * 0.2;
+            patterns[inst][i].probability = 100;
+            
+            if (instruments[inst].type === 'melodic' && notes && notes[i]) {
+              patterns[inst][i].note = notes[i];
+              patterns[inst][i].duration = '8n';
+            }
           }
         }
       });
     }
   });
   
-  if (state.complexity >= 2) addVariations();
-  if (state.complexity >= 3) addGhostNotes();
-  addDrumFills();
+  // ONLY add complexity if user wants it
+  if (state.complexity >= 2) {
+    addSubtleVariations();
+  }
+  if (state.complexity >= 3) {
+    addGhostNotes();
+  }
   
+  // Set BPM from preset
   state.bpm = Math.min(CONFIG.MAX_BPM, preset.bpm);
   document.getElementById('bpmSlider').value = state.bpm;
   document.getElementById('bpmValue').textContent = state.bpm;
   Tone.Transport.bpm.value = state.bpm;
   
+  // Set swing from preset
+  if (preset.swing !== undefined) {
+    state.swing = preset.swing;
+    document.getElementById('swingSlider').value = state.swing;
+    document.getElementById('swingValue').textContent = state.swing + '%';
+    Tone.Transport.swing = state.swing / 100;
+  }
+  
   renderSequencer();
   applyGenreFX();
+  
+  console.log(`✅ Generated ${state.currentGenre} beat with ${state.complexity} complexity`);
+}
+
+// More subtle variations - don't destroy the groove
+function addSubtleVariations() {
+  // Only add to hi-hats and rimshots - keep kick/snare solid
+  ['hihat', 'rimshot'].forEach(inst => {
+    for (let i = 0; i < state.sequenceLength; i++) {
+      // Only 15% chance to add variation on empty steps
+      if (Math.random() < 0.15 && !patterns[inst][i].active) {
+        patterns[inst][i].active = true;
+        patterns[inst][i].velocity = 0.4 + Math.random() * 0.2;
+        patterns[inst][i].probability = 60 + Math.random() * 30;
+      }
+    }
+  });
 }
 
 // Add after generateBeat function
