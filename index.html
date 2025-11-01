@@ -3228,14 +3228,17 @@ function createInstrumentChain(inst) {
   
 // ============ DRUM SAMPLE SYSTEM ============
 const DRUM_SAMPLES = {
+  // Acoustic kit (verified working)
   kick: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/kick.mp3',
   snare: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
   hihat: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
-  clap: 'https://tonejs.github.io/audio/drum-samples/808/clap.mp3',
-  rimshot: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/rim.mp3',
   tom: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/tom1.mp3',
-  crash: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/crash.mp3',
-  ride: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/ride.mp3'
+  
+  // CR78 samples (verified working)
+  clap: 'https://tonejs.github.io/audio/drum-samples/CR78/clap.mp3',
+  rimshot: 'https://tonejs.github.io/audio/drum-samples/CR78/cowbell.mp3',
+  crash: 'https://tonejs.github.io/audio/drum-samples/CR78/oh.mp3',
+  ride: 'https://tonejs.github.io/audio/drum-samples/CR78/ch.mp3'
 };
 
 function createDrumSynth(inst) {
