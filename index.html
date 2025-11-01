@@ -3059,6 +3059,31 @@ function initAudio() {
   // Master chain with much lower gain for desktop batching
   master.fxIn = new Tone.Gain(0.18);
   
+  // Master bus filters
+  master.lowCutFilter = new Tone.Filter({
+    type: 'highpass',
+    frequency: state.lowCut,
+    rolloff: -12
+  });
+  
+  master.highCutFilter = new Tone.Filter({
+    type: 'lowpass',
+    frequency: state.highCut,
+    rolloff: -12
+  });
+  
+  // Tape saturation (subtle warm distortion)
+  master.tapeDistortion = new Tone.Distortion({
+    distortion: state.tapeSaturation / 100 * 0.3,
+    wet: state.tapeSaturation / 100
+  });
+  
+  // Vinyl noise (pink noise layer)
+  master.vinylNoise = new Tone.Noise('pink');
+  master.vinylNoise.volume.value = -40 + (state.vinylNoise / 100 * 20);
+  master.vinylNoise.start();
+  master.vinylNoise.connect(master.fxIn);
+  
   // Effects with much gentler settings
   effects.filter = new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type);
   effects.distortion = new Tone.Distortion(0.02);
@@ -3074,15 +3099,18 @@ function initAudio() {
   
   // Proper dynamics control with more headroom
   master.comp = new Tone.Compressor({
-    threshold: -24,
+    threshold: state.compressor,
     ratio: 3,
     attack: 0.003,
     release: 0.15
   });
   master.limiter = new Tone.Limiter(-3);
   
-  // Connect chain
+  // Connect master bus chain
   master.fxIn.chain(
+    master.lowCutFilter,
+    master.highCutFilter,
+    master.tapeDistortion,
     effects.filter,
     effects.distortion,
     effects.bitcrusher,
@@ -3165,29 +3193,34 @@ function createInstrumentChain(inst) {
     synths[inst].volume.value = instData.volume;
   }
   
-  // Create channel with send to reverb
+  // Create channel with more direct signal
   const channel = new Tone.Channel({
     pan: 0,
     volume: instData.volume
   }).connect(master.fxIn);
   
-  // Individual reverb sends with much lower levels
+  // Individual reverb sends with MUCH lower levels for clarity
   const reverbSend = new Tone.Gain(0);
   channel.connect(reverbSend);
   reverbSend.connect(effects.reverb);
   
-  // Set reverb amounts by instrument - reduced for headroom
+  // Drastically reduced reverb for punch and clarity
   const reverbAmounts = {
-    kick: 0.002,
-    snare: 0.01,
-    hihat: 0.005,
-    guitar: 0.03,
-    keys: 0.025,
-    lead: 0.04,
-    bass: 0.005
+    kick: 0.001,      // Almost no reverb on kick
+    snare: 0.005,     // Minimal reverb
+    hihat: 0.002,     // Dry hats
+    clap: 0.003,
+    rimshot: 0.002,
+    tom: 0.004,
+    crash: 0.008,
+    ride: 0.006,
+    guitar: 0.015,    // Moderate for atmosphere
+    keys: 0.012,
+    lead: 0.020,      // Lead can have more
+    bass: 0.001       // Keep bass dry and punchy
   };
   
-  reverbSend.gain.value = reverbAmounts[inst] || 0.02;
+  reverbSend.gain.value = reverbAmounts[inst] || 0.01;
   
   instData.channel = channel;
   instData.reverbSend = reverbSend;
@@ -3560,27 +3593,45 @@ function setupMasterControls() {
   document.getElementById('tapeSlider').addEventListener('input', e => {
     state.tapeSaturation = parseInt(e.target.value, 10);
     document.getElementById('tapeValue').textContent = state.tapeSaturation + '%';
+    // Apply tape saturation via distortion
+    if (master.tapeDistortion) {
+      master.tapeDistortion.distortion = state.tapeSaturation / 100 * 0.3;
+      master.tapeDistortion.wet.value = state.tapeSaturation / 100;
+    }
   });
   
   document.getElementById('vinylSlider').addEventListener('input', e => {
     state.vinylNoise = parseInt(e.target.value, 10);
     document.getElementById('vinylValue').textContent = state.vinylNoise + '%';
+    // Apply vinyl noise
+    if (master.vinylNoise) {
+      master.vinylNoise.volume.value = -40 + (state.vinylNoise / 100 * 20);
+    }
   });
   
   document.getElementById('lowCutSlider').addEventListener('input', e => {
     state.lowCut = parseInt(e.target.value, 10);
     document.getElementById('lowCutValue').textContent = state.lowCut + 'Hz';
+    if (master.lowCutFilter) {
+      master.lowCutFilter.frequency.value = state.lowCut;
+    }
   });
   
   document.getElementById('highCutSlider').addEventListener('input', e => {
     state.highCut = parseInt(e.target.value, 10);
     document.getElementById('highCutValue').textContent = 
       (state.highCut / 1000).toFixed(1) + 'kHz';
+    if (master.highCutFilter) {
+      master.highCutFilter.frequency.value = state.highCut;
+    }
   });
   
   document.getElementById('compSlider').addEventListener('input', e => {
     state.compressor = parseInt(e.target.value, 10);
     document.getElementById('compValue').textContent = state.compressor + 'dB';
+    if (master.comp) {
+      master.comp.threshold.value = state.compressor;
+    }
   });
 }
 
