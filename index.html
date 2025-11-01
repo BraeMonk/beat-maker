@@ -8055,27 +8055,27 @@ function showAddTrackDialog() {
   
   const instrumentOptions = Object.keys(instruments).map(key => {
     const inst = instruments[key];
-    return `<option value=\"${key}\">${inst.icon} ${inst.name}</option>`;
+    return `<option value="${key}">${inst.icon} ${inst.name}</option>`;
   }).join('');
   
   modal.innerHTML = `
-    <div class=\"modal-header\">
-      <div class=\"modal-title\">➕ Add Track</div>
-      <button class=\"modal-close\" id=\"closeAddTrackModal\">✕</button>
+    <div class="modal-header">
+      <div class="modal-title">➕ Add Track</div>
+      <button class="modal-close" id="closeAddTrackModal">✕</button>
     </div>
-    <div class=\"modal-body\">
-      <div class=\"param-control\">
-        <label style=\"font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); display: block;\">
+    <div class="modal-body">
+      <div class="param-control">
+        <label style="font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); display: block;">
           Select Instrument
         </label>
-        <select id=\"newTrackInstrument\" style=\"font-size: var(--text-base);\">
+        <select id="newTrackInstrument" style="font-size: var(--text-base);">
           ${instrumentOptions}
         </select>
       </div>
     </div>
-    <div class=\"modal-footer\">
-      <button class=\"btn btn-secondary\" id=\"cancelAddTrackBtn\">Cancel</button>
-      <button class=\"btn btn-primary\" id=\"confirmAddTrackBtn\">Add Track</button>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="cancelAddTrackBtn">Cancel</button>
+      <button class="btn btn-primary" id="confirmAddTrackBtn">Add Track</button>
     </div>
   `;
   
@@ -8084,17 +8084,21 @@ function showAddTrackDialog() {
   
   const close = () => backdrop.remove();
   
-  document.getElementById('closeAddTrackModal').onclick = close;
-  document.getElementById('cancelAddTrackBtn').onclick = close;
+  // CRITICAL: Wait for DOM insertion before attaching listeners
+  setTimeout(() => {
+    document.getElementById('closeAddTrackModal').onclick = close;
+    document.getElementById('cancelAddTrackBtn').onclick = close;
+    
+    document.getElementById('confirmAddTrackBtn').onclick = () => {
+      const instrument = document.getElementById('newTrackInstrument').value;
+      createTrack(instrument);
+      close();
+      showToast('✅ Track added!', 'success');
+    };
+  }, 0);
+  
   backdrop.onclick = (e) => {
     if (e.target === backdrop) close();
-  };
-  
-  document.getElementById('confirmAddTrackBtn').onclick = () => {
-    const instrument = document.getElementById('newTrackInstrument').value;
-    createTrack(instrument);
-    close();
-    showToast('✅ Track added!', 'success');
   };
 }
   
