@@ -6722,7 +6722,7 @@ function loadProgressionTemplate(name) {
   renderProgression();
 }
 
-  // ==================== MULTITRACK RECORDING SYSTEM ====================
+// ==================== MULTITRACK RECORDING SYSTEM ====================
 
 const multitrack = {
   tracks: [],
@@ -6755,195 +6755,26 @@ class AudioTrack {
     // Create meter
     this.meter = new Tone.Meter();
     this.channel.connect(this.meter);
-    
-    // Input monitoring
-    this.monitoring = false;
-    this.inputGain = new Tone.Gain(0).connect(this.channel);
   }
   
-  addFx(type, params = {}) {
-    let fx;
-    
-    switch(type) {
-      case 'reverb':
-        fx = new Tone.Reverb({ decay: params.decay || 1.5, wet: params.wet || 0.3 });
-        break;
-      case 'delay':
-        fx = new Tone.FeedbackDelay({
-          delayTime: params.time || '8n',
-          feedback: params.feedback || 0.3,
-          wet: params.wet || 0.3
-        });
-        break;
-      case 'chorus':
-        fx = new Tone.Chorus({
-          frequency: params.frequency || 1.5,
-          delayTime: params.delayTime || 3.5,
-          depth: params.depth || 0.7,
-          wet: params.wet || 0.5
-        }).start();
-        break;
-      case 'distortion':
-        fx = new Tone.Distortion({
-          distortion: params.amount || 0.4,
-          wet: params.wet || 0.5
-        });
-        break;
-      case 'filter':
-        fx = new Tone.Filter({
-          type: params.type || 'lowpass',
-          frequency: params.frequency || 5000,
-          Q: params.q || 1
-        });
-        break;
-      case 'compressor':
-        fx = new Tone.Compressor({
-          threshold: params.threshold || -24,
-          ratio: params.ratio || 4,
-          attack: params.attack || 0.003,
-          release: params.release || 0.25
-        });
-        break;
-      case 'eq':
-        fx = new Tone.EQ3({
-          low: params.low || 0,
-          mid: params.mid || 0,
-          high: params.high || 0
-        });
-        break;
-      case 'bitcrusher':
-        fx = new Tone.BitCrusher({
-          bits: params.bits || 4
-        });
-        break;
-      default:
-        return null;
-    }
-    
-    const fxObj = {
-      id: Date.now() + Math.random(),
-      type,
-      node: fx,
-      params,
-      enabled: true
-    };
-    
-    this.fxChain.push(fxObj);
-    this.reconnectFxChain();
-    
-    return fxObj;
-  }
-  
-  removeFx(fxId) {
-    const index = this.fxChain.findIndex(fx => fx.id === fxId);
-    if (index === -1) return;
-    
-    const fx = this.fxChain[index];
-    fx.node.disconnect();
-    fx.node.dispose();
-    
-    this.fxChain.splice(index, 1);
-    this.reconnectFxChain();
-  }
-  
-  reconnectFxChain() {
-    // Disconnect everything
-    this.fxChain.forEach(fx => fx.node.disconnect());
-    
-    // Get instrument output
-    const instSynth = synths[this.instrument];
-    if (!instSynth) return;
-    
-    instSynth.disconnect();
-    
-    // Chain FX in order
-    let lastNode = instSynth;
-    
-    this.fxChain.forEach(fx => {
-      if (fx.enabled) {
-        lastNode.connect(fx.node);
-        lastNode = fx.node;
-      }
-    });
-    
-    // Connect to channel
-    lastNode.connect(this.channel);
-  }
-  
-  updateFxParam(fxId, param, value) {
-    const fx = this.fxChain.find(f => f.id === fxId);
-    if (!fx) return;
-    
-    fx.params[param] = value;
-    const node = fx.node;
-    
-    // Update the actual audio node parameter
-    if (param === 'wet' && node.wet) {
-      node.wet.rampTo(value, 0.1);
-    } else if (param === 'decay' && node.decay !== undefined) {
-      node.decay = value;
-    } else if (param === 'time' && node.delayTime) {
-      node.delayTime.value = Tone.Time(value);
-    } else if (param === 'feedback' && node.feedback) {
-      node.feedback.rampTo(value, 0.1);
-    } else if (param === 'frequency' && node.frequency) {
-      node.frequency.rampTo(value, 0.1);
-    } else if (param === 'depth' && node.depth !== undefined) {
-      node.depth = value;
-    } else if (param === 'amount' && node.distortion !== undefined) {
-      node.distortion = value;
-    } else if (param === 'threshold' && node.threshold) {
-      node.threshold.rampTo(value, 0.1);
-    } else if (param === 'ratio' && node.ratio) {
-      node.ratio.rampTo(value, 0.1);
-    } else if (param === 'low' && node.low) {
-      node.low.rampTo(value, 0.1);
-    } else if (param === 'mid' && node.mid) {
-      node.mid.rampTo(value, 0.1);
-    } else if (param === 'high' && node.high) {
-      node.high.rampTo(value, 0.1);
-    } else if (param === 'bits' && node.bits !== undefined) {
-      node.bits = value;
-    } else if (param === 'q' && node.Q) {
-      node.Q.rampTo(value, 0.1);
-    }
-  }
-  
-  toggleFx(fxId) {
-    const fx = this.fxChain.find(f => f.id === fxId);
-    if (!fx) return;
-    
-    fx.enabled = !fx.enabled;
-    this.reconnectFxChain();
-  }
-  
-  async startRecording(punchIn = null, punchOut = null) {
+  async startRecording() {
     if (this.recording) return;
-    
-    this.punchIn = punchIn;
-    this.punchOut = punchOut;
     
     await Tone.start();
     
-    // CRITICAL: Connect the INSTRUMENT synth to the track channel
+    // Connect instrument to this track's channel
     const instSynth = synths[this.instrument];
     if (!instSynth) {
       console.error(`No synth for ${this.instrument}`);
       return;
     }
     
-    // Disconnect from global chain
+    // Temporarily disconnect from master and route through track
     instSynth.disconnect();
-    
-    // Connect through track's FX chain to channel
-    if (this.fxChain.length > 0) {
-      this.reconnectFxChain();
-    } else {
-      instSynth.connect(this.channel);
-    }
+    instSynth.connect(this.channel);
     
     // Create recording destination
-    const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
+    const recordDest = Tone.context.rawContext.createMediaStreamDestination();
     this.channel.connect(recordDest);
     
     let mimeType = '';
@@ -7012,73 +6843,13 @@ class AudioTrack {
     this.recorder = null;
     
     renderMultitrack();
+    showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
   }
   
   selectTake(index) {
     if (index < 0 || index >= this.takes.length) return;
     this.selectedTakeIndex = index;
     renderMultitrack();
-  }
-
-  toggleTakeMute(index) {
-    if (index < 0 || index >= this.takes.length) return;
-    this.takes[index].muted = !this.takes[index].muted;
-    renderMultitrack();
-  }
-  
-  mergeTakes(indices) {
-    if (indices.length < 2) return;
-    
-    // Find longest duration
-    let maxDuration = 0;
-    indices.forEach(idx => {
-      if (this.takes[idx] && this.takes[idx].duration > maxDuration) {
-        maxDuration = this.takes[idx].duration;
-      }
-    });
-    
-    const sampleRate = Tone.context.sampleRate;
-    const numFrames = Math.ceil(maxDuration * sampleRate);
-    
-    // Create merged buffer
-    const numChannels = 2;
-    const mergedBuffer = Tone.context.rawContext.createBuffer(
-      numChannels, 
-      numFrames, 
-      sampleRate
-    );
-    
-    // Mix takes together
-    indices.forEach(idx => {
-      const take = this.takes[idx];
-      if (!take || take.muted) return;
-      
-      for (let ch = 0; ch < numChannels; ch++) {
-        const sourceData = take.buffer.getChannelData(ch);
-        const destData = mergedBuffer.getChannelData(ch);
-        
-        for (let i = 0; i < Math.min(sourceData.length, destData.length); i++) {
-          destData[i] += sourceData[i] / indices.length; // Average mix
-        }
-      }
-    });
-    
-    // Create new take from merged buffer
-    const mergedTake = {
-      id: Date.now(),
-      buffer: mergedBuffer,
-      blob: null, // Would need to re-encode
-      duration: maxDuration,
-      timestamp: new Date().toISOString(),
-      muted: false,
-      merged: true
-    };
-    
-    this.takes.push(mergedTake);
-    this.selectedTakeIndex = this.takes.length - 1;
-    renderMultitrack();
-    
-    showToast('✅ Takes merged!', 'success');
   }
   
   deleteTake(index) {
@@ -7100,7 +6871,7 @@ class AudioTrack {
     const url = URL.createObjectURL(take.blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${this.name.replace(/\\s+/g, '_')}_take${index + 1}_${Date.now()}.webm`;
+    a.download = `${this.name.replace(/\s+/g, '_')}_take${index + 1}_${Date.now()}.webm`;
     a.click();
     
     setTimeout(() => URL.revokeObjectURL(url), 5000);
@@ -7110,11 +6881,6 @@ class AudioTrack {
     if (this.recorder && this.recording) {
       this.stopRecording();
     }
-    
-    this.fxChain.forEach(fx => {
-      fx.node.disconnect();
-      fx.node.dispose();
-    });
     
     this.meter.dispose();
     this.channel.disconnect();
@@ -7133,6 +6899,7 @@ function createTrack(instrument) {
   multitrack.tracks.push(track);
   renderMultitrack();
   
+  console.log('✅ Track created:', track.name);
   return track;
 }
 
@@ -7145,30 +6912,6 @@ function removeTrack(trackId) {
   track.dispose();
   
   multitrack.tracks.splice(index, 1);
-  
-  if (multitrack.currentFxTrackId === trackId) {
-    multitrack.currentFxTrackId = null;
-    document.getElementById('fxChainPanel').style.display = 'none';
-  }
-  
-  renderMultitrack();
-}
-
-// Toggle input monitoring
-function toggleMonitoring(trackId) {
-  const track = multitrack.tracks.find(t => t.id === trackId);
-  if (!track) return;
-  
-  track.monitoring = !track.monitoring;
-  
-  if (track.monitoring) {
-    // Enable monitoring - connect input to output
-    track.inputGain.gain.rampTo(1, 0.1);
-  } else {
-    // Disable monitoring
-    track.inputGain.gain.rampTo(0, 0.1);
-  }
-  
   renderMultitrack();
 }
 
@@ -7177,43 +6920,32 @@ function renderMultitrack() {
   const grid = document.getElementById('multitrackGrid');
   if (!grid) return;
   
-  const fragment = document.createDocumentFragment();
+  // Clear existing content
+  grid.innerHTML = '';
   
   if (multitrack.tracks.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'padding: var(--space-8); text-align: center; color: var(--text-tertiary);';
-    empty.innerHTML = `
-      <div style=\"font-size: var(--text-2xl); margin-bottom: var(--space-3);\">🎙️</div>
-      <div style=\"font-size: var(--text-lg); font-weight: 700; margin-bottom: var(--space-2);\">No tracks yet</div>
-      <div style=\"font-size: var(--text-sm);\">Click \"Add Track\" to start recording</div>
+    grid.innerHTML = `
+      <div style="padding: var(--space-8); text-align: center; color: var(--text-tertiary);">
+        <div style="font-size: var(--text-2xl); margin-bottom: var(--space-3);">🎙️</div>
+        <div style="font-size: var(--text-lg); font-weight: 700; margin-bottom: var(--space-2);">No tracks yet</div>
+        <div style="font-size: var(--text-sm);">Click "Add Track" to start recording</div>
+      </div>
     `;
-    fragment.appendChild(empty);
-  } else {
-    multitrack.tracks.forEach(track => {
-      const strip = createTrackStrip(track);
-      fragment.appendChild(strip);
-    });
+    return;
   }
   
-  grid.innerHTML = '';
-  grid.appendChild(fragment);
-  
-  // Update FX chain if open
-  if (multitrack.currentFxTrackId) {
-    renderFxChain(multitrack.currentFxTrackId);
-  }
+  multitrack.tracks.forEach(track => {
+    const strip = createTrackStrip(track);
+    grid.appendChild(strip);
+  });
 }
 
-// Create track strip element (continued)
+// Create track strip element
 function createTrackStrip(track) {
   const strip = document.createElement('div');
   strip.className = 'track-strip';
   if (track.recording) strip.classList.add('recording');
   if (track.armed) strip.classList.add('armed');
-  
-  // Track header
-  const header = document.createElement('div');
-  header.className = 'track-header';
   
   const instData = instruments[track.instrument];
   const takesCount = track.takes.length;
@@ -7221,701 +6953,284 @@ function createTrackStrip(track) {
     track.takes[track.selectedTakeIndex].duration.toFixed(1) + 's' : 
     '0.0s';
   
-  header.innerHTML = `
-    <div class=\"track-name\">
-      ${instData?.icon || '🎵'} ${track.name}
-    </div>
-    <div class=\"track-info\">
-      ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
-    </div>
-  `;
-
-  const mixControls = document.createElement('div');
-  mixControls.style.cssText = `
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-2);
-    margin-top: var(--space-2);
-  `;
-  
-  mixControls.innerHTML = `
-    <div class="param-control">
-      <div class="param-label">
-        <span>Vol</span>
-        <span class="param-value">${track.volume}dB</span>
-      </div>
-      <input type="range" min="-40" max="10" value="${track.volume}" 
-             data-track-id="${track.id}" data-param="volume" class="track-param-slider">
-    </div>
-    <div class="param-control">
-      <div class="param-label">
-        <span>Pan</span>
-        <span class="param-value">${track.pan > 0 ? 'R' : track.pan < 0 ? 'L' : 'C'}${Math.abs(track.pan)}</span>
-      </div>
-      <input type="range" min="-100" max="100" value="${track.pan}" 
-             data-track-id="${track.id}" data-param="pan" class="track-param-slider">
-    </div>
-  `;
-  
-  header.appendChild(mixControls);
-
-  const trackBtns = document.createElement('div');
-  trackBtns.style.cssText = `
-    display: flex;
-    gap: var(--space-1);
-    margin-top: var(--space-2);
-  `;
-  
-  trackBtns.innerHTML = `
-    <button class="track-mini-btn mute ${track.muted ? 'active' : ''}" 
-            data-track-id="${track.id}" data-action="mute">M</button>
-    <button class="track-mini-btn solo ${track.soloed ? 'active' : ''}" 
-            data-track-id="${track.id}" data-action="solo">S</button>
-  `;
-  
-  header.appendChild(trackBtns);
-  
-  // Add event handlers
-  setTimeout(() => {
-    trackBtns.addEventListener('click', (e) => {
-      const btn = e.target.closest('.track-mini-btn');
-      if (!btn) return;
-      
-      const trackId = parseInt(btn.dataset.trackId);
-      const action = btn.dataset.action;
-      const track = multitrack.tracks.find(t => t.id === trackId);
-      if (!track) return;
-      
-      if (action === 'mute') {
-        track.muted = !track.muted;
-        track.channel.mute = track.muted;
-      } else if (action === 'solo') {
-        track.soloed = !track.soloed;
-        
-        // Handle solo logic
-        const anySolo = multitrack.tracks.some(t => t.soloed);
-        multitrack.tracks.forEach(t => {
-          t.channel.mute = anySolo && !t.soloed;
-        });
-      }
-      
-      renderMultitrack();
-    });
-  }, 100);
-  // Add event listener for sliders
-  setTimeout(() => {
-    document.querySelectorAll('.track-param-slider').forEach(slider => {
-      slider.addEventListener('input', (e) => {
-        const trackId = parseInt(e.target.dataset.trackId);
-        const param = e.target.dataset.param;
-        const value = parseFloat(e.target.value);
-        
-        const track = multitrack.tracks.find(t => t.id === trackId);
-        if (!track) return;
-        
-        track[param] = value;
-        
-        if (param === 'volume') {
-          track.channel.volume.rampTo(value, 0.1);
-        } else if (param === 'pan') {
-          track.channel.pan.rampTo(value / 100, 0.1);
-        }
-        
-        const label = e.target.closest('.param-control').querySelector('.param-value');
-        if (param === 'volume') {
-          label.textContent = value + 'dB';
-        } else {
-          label.textContent = (value > 0 ? 'R' : value < 0 ? 'L' : 'C') + Math.abs(value);
-        }
-      });
-    });
-  }, 100);
-  
-  // Waveform/takes area
-  const waveform = document.createElement('div');
-  waveform.className = 'track-waveform';
-  
-  if (track.recording) {
-    const meter = document.createElement('div');
-    meter.className = 'record-meter';
-    meter.innerHTML = '<div class=\"record-meter-fill\"></div>';
-    waveform.appendChild(meter);
-    
-    // Animate meter
-    const fill = meter.querySelector('.record-meter-fill');
-    const updateMeter = () => {
-      if (!track.recording) return;
-      
-      const level = track.meter ? track.meter.getValue() : -Infinity;
-      const normalized = Math.max(0, Math.min(1, (level + 60) / 60));
-      fill.style.width = (normalized * 100) + '%';
-      
-      requestAnimationFrame(updateMeter);
-    };
-    requestAnimationFrame(updateMeter);
-  }
-  
-  // Render takes
-  if (track.takes.length > 0) {
-    const takesContainer = document.createElement('div');
-    takesContainer.className = 'track-takes';
-    takesContainer.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-      padding: var(--space-3);
-    `;
-    
-    track.takes.forEach((take, idx) => {
-      const takeEl = document.createElement('div');
-      takeEl.className = 'take-region';
-      if (idx === track.selectedTakeIndex) takeEl.classList.add('selected');
-      if (take.muted) takeEl.classList.add('muted');
-      
-      // Create waveform canvas
-      const canvas = document.createElement('canvas');
-      canvas.className = 'take-waveform-canvas';
-      canvas.width = 240;
-      canvas.height = 80;
-      
-      // Render waveform
-      if (take.buffer) {
-        renderTakeWaveform(canvas, take.buffer);
-      }
-      
-      const info = document.createElement('div');
-      info.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 2px;';
-      info.innerHTML = `
-        <div style="font-weight: 800;">Take ${idx + 1}</div>
-        <div style="font-size: 0.75rem; color: var(--text-tertiary);">
-          ${take.duration.toFixed(2)}s • ${new Date(take.timestamp).toLocaleTimeString()}
+  strip.innerHTML = `
+    <div class="track-header">
+      <div class="track-header-top">
+        <div class="track-name">
+          ${instData?.icon || '🎵'} ${track.name}
         </div>
-      `;
+      </div>
+      <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
+        ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
+      </div>
       
-      takeEl.appendChild(canvas);
-      takeEl.appendChild(info);
+      <div class="track-controls-grid" style="margin-top: var(--space-3);">
+        <button class="track-mini-btn arm ${track.armed ? 'active' : ''}" data-action="arm">
+          ${track.armed ? '🔴' : '⚪'} Arm
+        </button>
+        <button class="track-mini-btn rec ${track.recording ? 'active' : ''}" data-action="rec" ${!track.armed && !track.recording ? 'disabled' : ''}>
+          ${track.recording ? '⏹️' : '⏺️'} ${track.recording ? 'Stop' : 'Rec'}
+        </button>
+        <button class="track-mini-btn mute ${track.muted ? 'active' : ''}" data-action="mute">
+          M
+        </button>
+        <button class="track-mini-btn solo ${track.soloed ? 'active' : ''}" data-action="solo">
+          S
+        </button>
+        <button class="track-mini-btn" data-action="delete" style="grid-column: span 2;">
+          🗑️ Delete
+        </button>
+      </div>
       
-      takeEl.dataset.trackId = track.id;
-      takeEl.dataset.takeIndex = idx;
-      
-      takeEl.addEventListener('click', () => {
-        track.selectTake(idx);
-      });
-      
-      takeEl.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        showTakeContextMenu(e, track, idx);
-      });
-      
-      takesContainer.appendChild(takeEl);
-    });
+      <div style="display: grid; gap: var(--space-2); margin-top: var(--space-3);">
+        <div class="param-control">
+          <div class="param-label">
+            <span>Vol</span>
+            <span class="param-value">${track.volume}dB</span>
+          </div>
+          <input type="range" min="-40" max="10" value="${track.volume}" 
+                 class="track-volume-slider" data-param="volume">
+        </div>
+        <div class="param-control">
+          <div class="param-label">
+            <span>Pan</span>
+            <span class="param-value">${track.pan > 0 ? 'R' : track.pan < 0 ? 'L' : 'C'}${Math.abs(track.pan)}</span>
+          </div>
+          <input type="range" min="-100" max="100" value="${track.pan}" 
+                 class="track-volume-slider" data-param="pan">
+        </div>
+      </div>
+    </div>
     
-    waveform.appendChild(takesContainer);
-  } else if (!track.recording) {
-    const placeholder = document.createElement('div');
-    placeholder.style.cssText = `
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      color: var(--text-muted);
-      font-size: var(--text-sm);
-      font-weight: 600;
-    `;
-    placeholder.textContent = 'No recordings yet';
-    waveform.appendChild(placeholder);
-  }
+    <div class="track-canvas-area">
+      ${track.takes.length === 0 && !track.recording ? `
+        <div class="track-empty-state">
+          <div class="track-empty-state-icon">🎙️</div>
+          <div>Arm and record to create takes</div>
+        </div>
+      ` : ''}
+      ${track.recording ? `
+        <div class="recording-indicator">
+          <div class="recording-indicator-dot"></div>
+          <span>Recording...</span>
+        </div>
+      ` : ''}
+      ${track.takes.length > 0 ? renderTakes(track) : ''}
+    </div>
+  `;
   
-  // Controls
-  const controls = document.createElement('div');
-  controls.className = 'track-controls';
+  // Attach event listeners
+  const controlsGrid = strip.querySelector('.track-controls-grid');
+  controlsGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.track-mini-btn');
+    if (!btn || btn.disabled) return;
+    
+    const action = btn.dataset.action;
+    handleTrackAction(track, action);
+  });
   
-  const armBtn = document.createElement('button');
-  armBtn.className = 'track-btn';
-  if (track.armed) armBtn.classList.add('armed');
-  armBtn.innerHTML = track.armed ? '🔴 Armed' : '⚪ Arm';
-  armBtn.onclick = () => toggleArmTrack(track.id);
-  
-  const recBtn = document.createElement('button');
-  recBtn.className = 'track-btn';
-  if (track.recording) recBtn.classList.add('recording');
-  recBtn.innerHTML = track.recording ? '⏹️ Stop' : '⏺️ Rec';
-  recBtn.disabled = !track.armed && !track.recording;
-  recBtn.onclick = () => toggleRecordTrack(track.id);
-  
-  const fxBtn = document.createElement('button');
-  fxBtn.className = 'track-btn';
-  fxBtn.innerHTML = `🎛️ FX (${track.fxChain.length})`;
-  fxBtn.onclick = () => openFxChain(track.id);
-  
-  const monitorBtn = document.createElement('button');
-  monitorBtn.className = 'track-btn';
-  monitorBtn.innerHTML = track.monitoring ? '🎧 Mon' : '🔇 Mon';
-  monitorBtn.onclick = () => toggleMonitoring(track.id);
-
-  const punchBtn = document.createElement('button');
-  punchBtn.className = 'track-btn';
-  punchBtn.innerHTML = '⏱️ Punch';
-  punchBtn.onclick = () => showPunchDialog(track.id);
-  
-  // Add after monitorBtn
-  controls.appendChild(armBtn);
-  controls.appendChild(recBtn);
-  controls.appendChild(punchBtn);
-  controls.appendChild(monitorBtn);
-  controls.appendChild(fxBtn);
-  controls.appendChild(deleteBtn);
-  
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'track-btn';
-  deleteBtn.innerHTML = '🗑️ Delete';
-  deleteBtn.onclick = () => {
-    if (confirm(`Delete track "${track.name}"?`)) {
-      removeTrack(track.id);
-    }
-  };
-  
-  controls.appendChild(armBtn);
-  controls.appendChild(recBtn);
-  controls.appendChild(monitorBtn);
-  controls.appendChild(fxBtn);
-  controls.appendChild(deleteBtn);
-  
-  strip.appendChild(header);
-  strip.appendChild(waveform);
-  strip.appendChild(controls);
+  // Volume/pan sliders
+  strip.querySelectorAll('.track-volume-slider').forEach(slider => {
+    slider.addEventListener('input', (e) => {
+      const param = e.target.dataset.param;
+      const value = parseFloat(e.target.value);
+      
+      track[param] = value;
+      
+      if (param === 'volume') {
+        track.channel.volume.rampTo(value, 0.1);
+      } else if (param === 'pan') {
+        track.channel.pan.rampTo(value / 100, 0.1);
+      }
+      
+      const label = e.target.closest('.param-control').querySelector('.param-value');
+      if (param === 'volume') {
+        label.textContent = value + 'dB';
+      } else {
+        label.textContent = (value > 0 ? 'R' : value < 0 ? 'L' : 'C') + Math.abs(value);
+      }
+    });
+  });
   
   return strip;
 }
 
-// Render waveform canvas for a take
-function renderTakeWaveform(canvas, audioBuffer) {
-  const ctx = canvas.getContext('2d');
-  const width = canvas.width;
-  const height = canvas.height;
+// Render takes for a track
+function renderTakes(track) {
+  let html = '<div style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">';
   
-  ctx.clearRect(0, 0, width, height);
-  
-  // Get channel data
-  const channelData = audioBuffer.getChannelData(0);
-  const step = Math.ceil(channelData.length / width);
-  const amp = height / 2;
-  
-  ctx.fillStyle = 'rgba(124, 131, 255, 0.3)';
-  ctx.strokeStyle = 'rgba(124, 131, 255, 0.8)';
-  ctx.lineWidth = 1;
-  
-  ctx.beginPath();
-  ctx.moveTo(0, amp);
-  
-  for (let i = 0; i < width; i++) {
-    let min = 1.0;
-    let max = -1.0;
-    
-    for (let j = 0; j < step; j++) {
-      const datum = channelData[(i * step) + j];
-      if (datum < min) min = datum;
-      if (datum > max) max = datum;
-    }
-    
-    const yMin = (1 + min) * amp;
-    const yMax = (1 + max) * amp;
-    
-    ctx.lineTo(i, yMax);
-  }
-  
-  for (let i = width - 1; i >= 0; i--) {
-    let min = 1.0;
-    
-    for (let j = 0; j < step; j++) {
-      const datum = channelData[(i * step) + j];
-      if (datum < min) min = datum;
-    }
-    
-    ctx.lineTo(i, (1 + min) * amp);
-  }
-  
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-}
-  
-// Show context menu for takes
-function showTakeContextMenu(event, track, takeIndex) {
-  // Remove existing menus
-  document.querySelectorAll('.context-menu').forEach(m => m.remove());
-  
-  const menu = document.createElement('div');
-  menu.className = 'context-menu';
-  menu.style.left = event.clientX + 'px';
-  menu.style.top = event.clientY + 'px';
-  
-  const take = track.takes[takeIndex];
-  
-  const items = [
-    { label: '✅ Select', action: () => track.selectTake(takeIndex) },
-    { label: take.muted ? '🔊 Unmute' : '🔇 Mute', action: () => {
-      take.muted = !take.muted;
-      renderMultitrack();
-    }},
-    { label: '💾 Export', action: () => track.exportTake(takeIndex) },
-    { label: '🗑️ Delete', action: () => {
-      if (confirm('Delete this take?')) {
-        track.deleteTake(takeIndex);
-      }
-    }}
-  ];
-  
-  items.forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'dropdown-item';
-    div.textContent = item.label;
-    div.onclick = () => {
-      item.action();
-      menu.remove();
-    };
-    menu.appendChild(div);
+  track.takes.forEach((take, idx) => {
+    const isSelected = idx === track.selectedTakeIndex;
+    html += `
+      <div class="take-region ${isSelected ? 'selected' : ''} ${take.muted ? 'muted' : ''}" 
+           data-take-index="${idx}">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: var(--space-1);">
+          <div style="font-weight: 800; font-size: var(--text-sm);">Take ${idx + 1}</div>
+          <div style="font-size: var(--text-xs); color: var(--text-tertiary);">
+            ${take.duration.toFixed(2)}s • ${new Date(take.timestamp).toLocaleTimeString()}
+          </div>
+        </div>
+        <div style="display: flex; gap: var(--space-1);">
+          <button class="region-action-btn" data-action="select" data-take-index="${idx}">
+            ${isSelected ? '✓' : '○'}
+          </button>
+          <button class="region-action-btn" data-action="export" data-take-index="${idx}">💾</button>
+          <button class="region-action-btn" data-action="delete" data-take-index="${idx}">🗑️</button>
+        </div>
+      </div>
+    `;
   });
   
-  document.body.appendChild(menu);
+  html += '</div>';
   
-  // Close on click outside
-  const closeMenu = (e) => {
-    if (!menu.contains(e.target)) {
-      menu.remove();
-      document.removeEventListener('click', closeMenu);
-    }
-  };
-  
+  // Need to attach listeners after rendering
   setTimeout(() => {
-    document.addEventListener('click', closeMenu);
-  }, 10);
+    document.querySelectorAll('.region-action-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = btn.dataset.action;
+        const takeIndex = parseInt(btn.dataset.takeIndex);
+        const trackId = findTrackIdFromTakeButton(btn);
+        const track = multitrack.tracks.find(t => t.id === trackId);
+        
+        if (!track) return;
+        
+        if (action === 'select') {
+          track.selectTake(takeIndex);
+        } else if (action === 'export') {
+          track.exportTake(takeIndex);
+        } else if (action === 'delete') {
+          if (confirm('Delete this take?')) {
+            track.deleteTake(takeIndex);
+          }
+        }
+      });
+    });
+  }, 0);
+  
+  return html;
 }
 
-// Toggle arm track
-function toggleArmTrack(trackId) {
-  const track = multitrack.tracks.find(t => t.id === trackId);
-  if (!track) return;
+// Helper to find track ID from a button deep in the DOM
+function findTrackIdFromTakeButton(btn) {
+  const strip = btn.closest('.track-strip');
+  if (!strip) return null;
   
-  track.armed = !track.armed;
-  renderMultitrack();
+  const index = Array.from(strip.parentElement.children).indexOf(strip);
+  return multitrack.tracks[index]?.id;
 }
 
-// Toggle record track
-async function toggleRecordTrack(trackId) {
-  const track = multitrack.tracks.find(t => t.id === trackId);
-  if (!track) return;
-  
-  if (track.recording) {
-    track.stopRecording();
-  } else if (track.armed) {
-    await track.startRecording();
+// Handle track actions
+async function handleTrackAction(track, action) {
+  if (action === 'arm') {
+    track.armed = !track.armed;
+    renderMultitrack();
+  } else if (action === 'rec') {
+    if (track.recording) {
+      track.stopRecording();
+    } else if (track.armed) {
+      // Make sure transport is playing
+      if (!state.isPlaying) {
+        await togglePlay();
+      }
+      await track.startRecording();
+    }
+  } else if (action === 'mute') {
+    track.muted = !track.muted;
+    track.channel.mute = track.muted;
+    renderMultitrack();
+  } else if (action === 'solo') {
+    track.soloed = !track.soloed;
+    
+    // Handle solo logic
+    const anySolo = multitrack.tracks.some(t => t.soloed);
+    multitrack.tracks.forEach(t => {
+      t.channel.mute = anySolo && !t.soloed;
+    });
+    
+    renderMultitrack();
+  } else if (action === 'delete') {
+    if (confirm(`Delete track "${track.name}"?`)) {
+      removeTrack(track.id);
+    }
   }
 }
 
-  // Show punch in/out dialog
-function showPunchDialog(trackId) {
-  const track = multitrack.tracks.find(t => t.id === trackId);
-  if (!track) return;
+// Show add track dialog - FIXED VERSION
+function showAddTrackDialog() {
+  // Remove any existing modals
+  document.querySelectorAll('.modal-backdrop').forEach(m => m.remove());
   
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
+  backdrop.style.zIndex = '9999';
   
   const modal = document.createElement('div');
   modal.className = 'modal';
-  modal.style.maxWidth = '400px';
+  modal.style.maxWidth = '500px';
+  
+  const instrumentOptions = Object.keys(instruments).map(key => {
+    const inst = instruments[key];
+    return `<option value="${key}">${inst.icon} ${inst.name}</option>`;
+  }).join('');
   
   modal.innerHTML = `
     <div class="modal-header">
-      <div class="modal-title">⏱️ Punch Recording</div>
-      <button class="modal-close" id="closePunchModal">✕</button>
+      <div class="modal-title">➕ Add Track</div>
+      <button class="modal-close">✕</button>
     </div>
     <div class="modal-body">
       <div class="param-control">
-        <label style="font-weight: 700; margin-bottom: var(--space-2); display: block;">
-          Punch In (seconds)
+        <label style="font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); display: block;">
+          Select Instrument
         </label>
-        <input type="number" id="punchInTime" value="0" min="0" step="0.1" 
-               style="width: 100%; padding: var(--space-3);">
-      </div>
-      <div class="param-control" style="margin-top: var(--space-3);">
-        <label style="font-weight: 700; margin-bottom: var(--space-2); display: block;">
-          Punch Out (seconds, 0 = manual)
-        </label>
-        <input type="number" id="punchOutTime" value="0" min="0" step="0.1" 
-               style="width: 100%; padding: var(--space-3);">
+        <select class="instrument-select" style="font-size: var(--text-base); padding: var(--space-3); width: 100%;">
+          ${instrumentOptions}
+        </select>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" id="cancelPunchBtn">Cancel</button>
-      <button class="btn btn-primary" id="startPunchBtn">⏺️ Start Punch</button>
+      <button class="btn btn-secondary cancel-btn">Cancel</button>
+      <button class="btn btn-primary confirm-btn">Add Track</button>
     </div>
   `;
   
   backdrop.appendChild(modal);
   document.body.appendChild(backdrop);
   
-  const close = () => backdrop.remove();
+  // Close function
+  const close = () => {
+    backdrop.remove();
+  };
   
-  document.getElementById('closePunchModal').onclick = close;
-  document.getElementById('cancelPunchBtn').onclick = close;
+  // Attach listeners using querySelector on modal (no IDs needed)
+  const closeBtn = modal.querySelector('.modal-close');
+  const cancelBtn = modal.querySelector('.cancel-btn');
+  const confirmBtn = modal.querySelector('.confirm-btn');
+  const instrumentSelect = modal.querySelector('.instrument-select');
+  
+  closeBtn.onclick = close;
+  cancelBtn.onclick = close;
+  
+  confirmBtn.onclick = () => {
+    const instrument = instrumentSelect.value;
+    createTrack(instrument);
+    close();
+    showToast('✅ Track added!', 'success');
+  };
+  
   backdrop.onclick = (e) => {
     if (e.target === backdrop) close();
   };
   
-  document.getElementById('startPunchBtn').onclick = async () => {
-    const punchIn = parseFloat(document.getElementById('punchInTime').value) || 0;
-    const punchOut = parseFloat(document.getElementById('punchOutTime').value) || null;
-    
-    track.armed = true;
-    await track.startRecording(punchIn, punchOut > 0 ? punchOut : null);
-    
-    close();
-    showToast(`⏺️ Punch recording: ${punchIn}s → ${punchOut ? punchOut + 's' : 'manual'}`, 'info');
-  };
-}
-  
-// Open FX chain panel
-function openFxChain(trackId) {
-  multitrack.currentFxTrackId = trackId;
-  document.getElementById('fxChainPanel').style.display = 'block';
-  renderFxChain(trackId);
-  
-  // Scroll to panel
-  document.getElementById('fxChainPanel').scrollIntoView({ 
-    behavior: 'smooth', 
-    block: 'nearest' 
-  });
-}
-
-// Render FX chain
-function renderFxChain(trackId) {
-  const track = multitrack.tracks.find(t => t.id === trackId);
-  if (!track) return;
-  
-  document.getElementById('fxChainTrackName').textContent = track.name;
-  
-  const slots = document.getElementById('fxSlots');
-  if (!slots) return;
-  
-  const fragment = document.createDocumentFragment();
-  
-  if (track.fxChain.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'padding: var(--space-6); text-align: center; color: var(--text-tertiary);';
-    empty.innerHTML = `
-      <div style=\"font-size: var(--text-lg); font-weight: 700; margin-bottom: var(--space-2);\">No effects yet</div>
-      <div style=\"font-size: var(--text-sm);\">Click \"Add Effect\" to start building your chain</div>
-    `;
-    fragment.appendChild(empty);
-  } else {
-    track.fxChain.forEach((fx, index) => {
-      const slot = createFxSlot(track, fx, index);
-      fragment.appendChild(slot);
-    });
-  }
-  
-  slots.innerHTML = '';
-  slots.appendChild(fragment);
-}
-
-// Create FX slot element
-function createFxSlot(track, fx, index) {
-  const slot = document.createElement('div');
-  slot.className = 'fx-slot';
-  
-  // Toggle
-  const toggle = document.createElement('div');
-  toggle.className = 'fx-slot-toggle';
-  if (fx.enabled) toggle.classList.add('active');
-  toggle.onclick = () => {
-    track.toggleFx(fx.id);
-    renderFxChain(track.id);
-  };
-  
-  // Parameters
-  const paramsContainer = document.createElement('div');
-  paramsContainer.className = 'fx-slot-params';
-  
-  // Get parameter definitions based on FX type
-  const paramDefs = getFxParamDefs(fx.type);
-  
-  Object.entries(paramDefs).forEach(([param, def]) => {
-    const control = document.createElement('div');
-    control.className = 'param-control';
-    
-    const currentValue = fx.params[param] ?? def.default;
-    const displayValue = formatFxParamValue(param, currentValue, def);
-    
-    control.innerHTML = `
-      <div class=\"param-label\">
-        <span>${def.label}</span>
-        <span class=\"param-value\">${displayValue}</span>
-      </div>
-      <input type=\"range\" 
-             min=\"${def.min}\" 
-             max=\"${def.max}\" 
-             step=\"${def.step || 1}\" 
-             value=\"${normalizeParamToSlider(param, currentValue, def)}\"
-             data-fx-id=\"${fx.id}\"
-             data-param=\"${param}\">
-    `;
-    
-    const slider = control.querySelector('input');
-    slider.addEventListener('input', (e) => {
-      const sliderValue = parseFloat(e.target.value);
-      const actualValue = denormalizeParamFromSlider(param, sliderValue, def);
-      
-      track.updateFxParam(fx.id, param, actualValue);
-      
-      const label = control.querySelector('.param-value');
-      label.textContent = formatFxParamValue(param, actualValue, def);
-    });
-    
-    paramsContainer.appendChild(control);
-  });
-  
-  // Remove button
-  const removeBtn = document.createElement('button');
-  removeBtn.className = 'fx-slot-remove';
-  removeBtn.textContent = '✕';
-  removeBtn.onclick = () => {
-    if (confirm(`Remove ${fx.type}?`)) {
-      track.removeFx(fx.id);
-      renderFxChain(track.id);
+  // ESC key handler
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      close();
+      document.removeEventListener('keydown', escHandler);
     }
   };
-  
-  // Title
-  const title = document.createElement('div');
-  title.style.cssText = `
-    font-weight: 800;
-    font-size: var(--text-base);
-    color: var(--text-primary);
-    margin-bottom: var(--space-3);
-  `;
-  title.textContent = `${index + 1}. ${fx.type.charAt(0).toUpperCase() + fx.type.slice(1)}`;
-  
-  const content = document.createElement('div');
-  content.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: var(--space-3);';
-  content.appendChild(title);
-  content.appendChild(paramsContainer);
-  
-  slot.appendChild(toggle);
-  slot.appendChild(content);
-  slot.appendChild(removeBtn);
-  
-  return slot;
-}
-
-// Get parameter definitions for each FX type
-function getFxParamDefs(type) {
-  const defs = {
-    reverb: {
-      decay: { label: 'Decay', min: 0.1, max: 10, step: 0.1, default: 1.5, unit: 's' },
-      wet: { label: 'Mix', min: 0, max: 1, step: 0.01, default: 0.3, unit: '%' }
-    },
-    delay: {
-      time: { label: 'Time', min: 0, max: 1, step: 0.01, default: 0.25, unit: 's', special: 'time' },
-      feedback: { label: 'Feedback', min: 0, max: 0.9, step: 0.01, default: 0.3, unit: '%' },
-      wet: { label: 'Mix', min: 0, max: 1, step: 0.01, default: 0.3, unit: '%' }
-    },
-    chorus: {
-      frequency: { label: 'Rate', min: 0.1, max: 10, step: 0.1, default: 1.5, unit: 'Hz' },
-      depth: { label: 'Depth', min: 0, max: 1, step: 0.01, default: 0.7, unit: '%' },
-      wet: { label: 'Mix', min: 0, max: 1, step: 0.01, default: 0.5, unit: '%' }
-    },
-    distortion: {
-      amount: { label: 'Amount', min: 0, max: 1, step: 0.01, default: 0.4, unit: '%' },
-      wet: { label: 'Mix', min: 0, max: 1, step: 0.01, default: 0.5, unit: '%' }
-    },
-    filter: {
-      frequency: { label: 'Cutoff', min: 20, max: 20000, step: 10, default: 5000, unit: 'Hz', special: 'log' },
-      q: { label: 'Resonance', min: 0.1, max: 20, step: 0.1, default: 1, unit: '' }
-    },
-    compressor: {
-      threshold: { label: 'Threshold', min: -60, max: 0, step: 1, default: -24, unit: 'dB' },
-      ratio: { label: 'Ratio', min: 1, max: 20, step: 0.1, default: 4, unit: ':1' }
-    },
-    eq: {
-      low: { label: 'Low', min: -24, max: 24, step: 1, default: 0, unit: 'dB' },
-      mid: { label: 'Mid', min: -24, max: 24, step: 1, default: 0, unit: 'dB' },
-      high: { label: 'High', min: -24, max: 24, step: 1, default: 0, unit: 'dB' }
-    },
-    bitcrusher: {
-      bits: { label: 'Bits', min: 1, max: 16, step: 1, default: 4, unit: '' }
-    }
-  };
-  
-  return defs[type] || {};
-}
-
-// Format parameter value for display
-function formatFxParamValue(param, value, def) {
-  if (def.special === 'time') {
-    // Handle time values
-    if (typeof value === 'string') return value;
-    return (value * 1000).toFixed(0) + 'ms';
-  }
-  
-  if (def.unit === '%') {
-    return Math.round(value * 100) + '%';
-  } else if (def.unit === 's') {
-    return value.toFixed(2) + 's';
-  } else if (def.unit === 'Hz') {
-    return value >= 1000 ? (value / 1000).toFixed(1) + 'kHz' : Math.round(value) + 'Hz';
-  } else if (def.unit === 'dB') {
-    return value.toFixed(1) + 'dB';
-  } else if (def.unit === ':1') {
-    return value.toFixed(1) + ':1';
-  }
-  
-  return value.toString() + (def.unit || '');
-}
-
-// Normalize parameter to slider range (0-100 or custom)
-function normalizeParamToSlider(param, value, def) {
-  if (def.special === 'time') {
-    // Time values need special handling
-    if (typeof value === 'string') {
-      const timeMap = { '16n': 25, '8n': 50, '4n': 75, '2n': 100 };
-      return timeMap[value] || 50;
-    }
-    return value * 100; // Assume seconds
-  }
-  
-  if (def.special === 'log') {
-    // Logarithmic scaling for frequency
-    const minLog = Math.log(def.min);
-    const maxLog = Math.log(def.max);
-    const scale = (Math.log(value) - minLog) / (maxLog - minLog);
-    return scale * 100;
-  }
-  
-  // Linear scaling
-  return ((value - def.min) / (def.max - def.min)) * 100;
-}
-
-// Denormalize slider value back to parameter value
-function denormalizeParamFromSlider(param, sliderValue, def) {
-  if (def.special === 'time') {
-    // Map to note values or seconds
-    if (sliderValue <= 25) return '16n';
-    if (sliderValue <= 50) return '8n';
-    if (sliderValue <= 75) return '4n';
-    return '2n';
-  }
-  
-  if (def.special === 'log') {
-    // Logarithmic scaling for frequency
-    const minLog = Math.log(def.min);
-    const maxLog = Math.log(def.max);
-    const scale = sliderValue / 100;
-    return Math.exp(minLog + scale * (maxLog - minLog));
-  }
-  
-  // Linear scaling
-  return def.min + (sliderValue / 100) * (def.max - def.min);
+  document.addEventListener('keydown', escHandler);
 }
 
 // Bounce all tracks to a single file
@@ -7925,7 +7240,7 @@ async function bounceAllTracks() {
   );
   
   if (activeTracks.length === 0) {
-    alert('No tracks to bounce!');
+    showToast('❌ No tracks to bounce!', 'error');
     return;
   }
   
@@ -7953,7 +7268,7 @@ async function bounceAllTracks() {
     source.buffer = take.buffer;
     
     const gainNode = offlineContext.createGain();
-    gainNode.gain.value = Math.pow(10, track.volume / 20); // dB to linear
+    gainNode.gain.value = Math.pow(10, track.volume / 20);
     
     const panNode = offlineContext.createStereoPanner();
     panNode.pan.value = track.pan / 100;
@@ -7986,120 +7301,31 @@ async function bounceAllTracks() {
 
 // Setup multitrack event listeners
 function setupMultitrackListeners() {
-  // Add track button
-  document.getElementById('addTrackBtn')?.addEventListener('click', () => {
-    showAddTrackDialog();
-  });
-  
-  // Bounce all button
-  document.getElementById('bounceAllBtn')?.addEventListener('click', () => {
-    bounceAllTracks();
-  });
-  
-  // Clear all tracks button
-  document.getElementById('clearAllTracksBtn')?.addEventListener('click', () => {
-    if (confirm('Delete all tracks? This cannot be undone.')) {
-      multitrack.tracks.forEach(track => track.dispose());
-      multitrack.tracks = [];
-      multitrack.nextTrackId = 1;
-      renderMultitrack();
-    }
-  });
-  
-  // Close FX chain button
-  document.getElementById('closeFxChainBtn')?.addEventListener('click', () => {
-    document.getElementById('fxChainPanel').style.display = 'none';
-    multitrack.currentFxTrackId = null;
-  });
-  
-  // Add FX dropdown
-  const addFxBtn = document.getElementById('addFxBtn');
-  const dropdown = document.getElementById('fxAddDropdown');
-  
-  addFxBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    dropdown.classList.toggle('open');
-  });
-  
-  document.addEventListener('click', (e) => {
-    if (!dropdown?.contains(e.target)) {
-      dropdown?.classList.remove('open');
-    }
-  });
-  
-  // Add FX menu items
-  document.querySelectorAll('.fx-add-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const fxType = item.dataset.fxType;
-      if (multitrack.currentFxTrackId) {
-        const track = multitrack.tracks.find(t => t.id === multitrack.currentFxTrackId);
-        if (track) {
-          track.addFx(fxType);
-          renderFxChain(track.id);
-          showToast(`✅ Added ${fxType}`, 'success');
-        }
-      }
-      dropdown?.classList.remove('open');
+  const addTrackBtn = document.getElementById('addTrackBtn');
+  if (addTrackBtn) {
+    addTrackBtn.addEventListener('click', () => {
+      showAddTrackDialog();
     });
-  });
-}
-
-// Show add track dialog
-function showAddTrackDialog() {
-  const backdrop = document.createElement('div');
-  backdrop.className = 'modal-backdrop';
+  }
   
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.style.maxWidth = '500px';
+  const bounceBtn = document.getElementById('bounceAllBtn');
+  if (bounceBtn) {
+    bounceBtn.addEventListener('click', () => {
+      bounceAllTracks();
+    });
+  }
   
-  const instrumentOptions = Object.keys(instruments).map(key => {
-    const inst = instruments[key];
-    return `<option value="${key}">${inst.icon} ${inst.name}</option>`;
-  }).join('');
-  
-  modal.innerHTML = `
-    <div class="modal-header">
-      <div class="modal-title">➕ Add Track</div>
-      <button class="modal-close" id="closeAddTrackModal">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="param-control">
-        <label style="font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); display: block;">
-          Select Instrument
-        </label>
-        <select id="newTrackInstrument" style="font-size: var(--text-base);">
-          ${instrumentOptions}
-        </select>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" id="cancelAddTrackBtn">Cancel</button>
-      <button class="btn btn-primary" id="confirmAddTrackBtn">Add Track</button>
-    </div>
-  `;
-  
-  backdrop.appendChild(modal);
-  document.body.appendChild(backdrop);
-  
-  const close = () => backdrop.remove();
-  
-  // CRITICAL: Wait for DOM insertion before attaching listeners
-  setTimeout(() => {
-    document.getElementById('closeAddTrackModal').onclick = close;
-    document.getElementById('cancelAddTrackBtn').onclick = close;
-    
-    document.getElementById('confirmAddTrackBtn').onclick = () => {
-      const instrument = document.getElementById('newTrackInstrument').value;
-      createTrack(instrument);
-      close();
-      showToast('✅ Track added!', 'success');
-    };
-  }, 0);
-  
-  backdrop.onclick = (e) => {
-    if (e.target === backdrop) close();
-  };
+  const clearBtn = document.getElementById('clearAllTracksBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Delete all tracks? This cannot be undone.')) {
+        multitrack.tracks.forEach(track => track.dispose());
+        multitrack.tracks = [];
+        multitrack.nextTrackId = 1;
+        renderMultitrack();
+      }
+    });
+  }
 }
   
 // -------------------- Preset System --------------------
