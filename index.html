@@ -8717,18 +8717,20 @@ function checkSamplesLoaded() {
     }
   }, 15000);
 }
-  
+
 // -------------------- Initialization --------------------
 function init() {
   initAudioContext();
   initAudio();
   ensurePatternLength(state.sequenceLength);
   setupEventListeners();
+  setupMultitrackListeners(); // Add this explicit call
   renderSequencer();
   renderMixer();
   renderFX();
   renderHarmony();
   renderPresets();
+  renderMultitrack(); // Add this to render initial state
   updateAllDisplays();
   initVisualizerOnce();
   unlockAudioOnce();
