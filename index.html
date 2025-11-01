@@ -4290,20 +4290,30 @@ function createFallbackDrumSynth(inst) {
       
     // NEW ATMOSPHERIC SYNTHS
     case 'fx':
-      // Glitchy pitched noise
-      const fxNoise = new Tone.NoiseSynth({
-        noise: { type: 'brown' },
-        envelope: { attack: 0.1, decay: 0.2, sustain: 0.3, release: 0.5 }
+      // Glitchy stutter effect
+      const fxSynth = new Tone.MetalSynth({
+        frequency: 200,
+        envelope: { attack: 0.001, decay: 0.05, release: 0.01 },
+        harmonicity: 12,
+        modulationIndex: 50,
+        resonance: 2000,
+        octaves: 0.5
       });
-      const fxFilter = new Tone.Filter({
-        type: 'bandpass',
-        frequency: 1000,
-        Q: 10
-      });
-      const fxPitch = new Tone.PitchShift(7); // Pitched up
-      fxNoise.chain(fxFilter, fxPitch);
-      synth = fxNoise;
-      break;
+      const fxGain = new Tone.Gain(0.2);
+      fxSynth.connect(fxGain);
+      
+      return {
+        triggerAttackRelease: (note, duration, time, velocity = 1) => {
+          fxSynth.triggerAttackRelease('32n', time, velocity * 0.3);
+        },
+        connect: (node) => fxGain.connect(node),
+        toDestination: () => fxGain.toDestination(),
+        dispose: () => {
+          fxSynth.dispose();
+          fxGain.dispose();
+        },
+        loaded: true
+      };
       
     case 'riser':
       // Sweeping frequency riser
