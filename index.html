@@ -2862,6 +2862,53 @@
       background: rgba(255,255,255,.1);
       width: 2px;
     }
+
+    /* Region manipulation */
+    .take-region {
+      position: relative;
+      padding: var(--space-2) var(--space-3);
+      background: linear-gradient(135deg,
+        color-mix(in oklab, var(--accent-primary) 30%, transparent),
+        color-mix(in oklab, var(--accent-secondary) 20%, transparent));
+      border: 1px solid color-mix(in oklab, var(--accent-primary) 60%, transparent);
+      border-radius: var(--radius-sm);
+      cursor: move;
+      user-select: none;
+      transition: all var(--duration-fast) var(--ease-smooth);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      margin-bottom: var(--space-2);
+    }
+    
+    .take-region:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--accent-primary);
+      z-index: 10;
+    }
+    
+    .take-region.selected {
+      border-color: var(--accent-primary);
+      border-width: 2px;
+      box-shadow: 
+        var(--shadow-lg),
+        0 0 24px color-mix(in oklab, var(--accent-primary) 40%, transparent);
+    }
+    
+    .take-region.muted {
+      opacity: 0.3;
+      filter: grayscale(1);
+    }
+    
+    .take-waveform-canvas {
+      width: 120px;
+      height: 40px;
+      border-radius: var(--radius-xs);
+      background: rgba(0,0,0,0.3);
+    }
     
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
@@ -6878,9 +6925,26 @@ class AudioTrack {
     
     await Tone.start();
     
-    // Create MediaRecorder for this track's channel
-    const stream = this.channel.context.createMediaStreamDestination();
-    this.channel.connect(stream);
+    // CRITICAL: Connect the INSTRUMENT synth to the track channel
+    const instSynth = synths[this.instrument];
+    if (!instSynth) {
+      console.error(`No synth for ${this.instrument}`);
+      return;
+    }
+    
+    // Disconnect from global chain
+    instSynth.disconnect();
+    
+    // Connect through track's FX chain to channel
+    if (this.fxChain.length > 0) {
+      this.reconnectFxChain();
+    } else {
+      instSynth.connect(this.channel);
+    }
+    
+    // Create recording destination
+    const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
+    this.channel.connect(recordDest);
     
     let mimeType = '';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -6890,7 +6954,7 @@ class AudioTrack {
     }
     
     this.recordedChunks = [];
-    this.recorder = new MediaRecorder(stream.stream, mimeType ? { mimeType } : undefined);
+    this.recorder = new MediaRecorder(recordDest.stream, mimeType ? { mimeType } : undefined);
     
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
@@ -6900,6 +6964,9 @@ class AudioTrack {
     
     this.recorder.onstop = () => {
       this.finishRecording();
+      // Reconnect to master after recording
+      instSynth.disconnect();
+      instSynth.connect(instruments[this.instrument].channel);
     };
     
     this.recorder.start();
@@ -7162,6 +7229,107 @@ function createTrackStrip(track) {
       ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
     </div>
   `;
+
+  const mixControls = document.createElement('div');
+  mixControls.style.cssText = `
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+  `;
+  
+  mixControls.innerHTML = `
+    <div class="param-control">
+      <div class="param-label">
+        <span>Vol</span>
+        <span class="param-value">${track.volume}dB</span>
+      </div>
+      <input type="range" min="-40" max="10" value="${track.volume}" 
+             data-track-id="${track.id}" data-param="volume" class="track-param-slider">
+    </div>
+    <div class="param-control">
+      <div class="param-label">
+        <span>Pan</span>
+        <span class="param-value">${track.pan > 0 ? 'R' : track.pan < 0 ? 'L' : 'C'}${Math.abs(track.pan)}</span>
+      </div>
+      <input type="range" min="-100" max="100" value="${track.pan}" 
+             data-track-id="${track.id}" data-param="pan" class="track-param-slider">
+    </div>
+  `;
+  
+  header.appendChild(mixControls);
+
+  const trackBtns = document.createElement('div');
+  trackBtns.style.cssText = `
+    display: flex;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+  `;
+  
+  trackBtns.innerHTML = `
+    <button class="track-mini-btn mute ${track.muted ? 'active' : ''}" 
+            data-track-id="${track.id}" data-action="mute">M</button>
+    <button class="track-mini-btn solo ${track.soloed ? 'active' : ''}" 
+            data-track-id="${track.id}" data-action="solo">S</button>
+  `;
+  
+  header.appendChild(trackBtns);
+  
+  // Add event handlers
+  setTimeout(() => {
+    trackBtns.addEventListener('click', (e) => {
+      const btn = e.target.closest('.track-mini-btn');
+      if (!btn) return;
+      
+      const trackId = parseInt(btn.dataset.trackId);
+      const action = btn.dataset.action;
+      const track = multitrack.tracks.find(t => t.id === trackId);
+      if (!track) return;
+      
+      if (action === 'mute') {
+        track.muted = !track.muted;
+        track.channel.mute = track.muted;
+      } else if (action === 'solo') {
+        track.soloed = !track.soloed;
+        
+        // Handle solo logic
+        const anySolo = multitrack.tracks.some(t => t.soloed);
+        multitrack.tracks.forEach(t => {
+          t.channel.mute = anySolo && !t.soloed;
+        });
+      }
+      
+      renderMultitrack();
+    });
+  }, 100);
+  // Add event listener for sliders
+  setTimeout(() => {
+    document.querySelectorAll('.track-param-slider').forEach(slider => {
+      slider.addEventListener('input', (e) => {
+        const trackId = parseInt(e.target.dataset.trackId);
+        const param = e.target.dataset.param;
+        const value = parseFloat(e.target.value);
+        
+        const track = multitrack.tracks.find(t => t.id === trackId);
+        if (!track) return;
+        
+        track[param] = value;
+        
+        if (param === 'volume') {
+          track.channel.volume.rampTo(value, 0.1);
+        } else if (param === 'pan') {
+          track.channel.pan.rampTo(value / 100, 0.1);
+        }
+        
+        const label = e.target.closest('.param-control').querySelector('.param-value');
+        if (param === 'volume') {
+          label.textContent = value + 'dB';
+        } else {
+          label.textContent = (value > 0 ? 'R' : value < 0 ? 'L' : 'C') + Math.abs(value);
+        }
+      });
+    });
+  }, 100);
   
   // Waveform/takes area
   const waveform = document.createElement('div');
@@ -7191,6 +7359,12 @@ function createTrackStrip(track) {
   if (track.takes.length > 0) {
     const takesContainer = document.createElement('div');
     takesContainer.className = 'track-takes';
+    takesContainer.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      padding: var(--space-3);
+    `;
     
     track.takes.forEach((take, idx) => {
       const takeEl = document.createElement('div');
@@ -7198,7 +7372,29 @@ function createTrackStrip(track) {
       if (idx === track.selectedTakeIndex) takeEl.classList.add('selected');
       if (take.muted) takeEl.classList.add('muted');
       
-      takeEl.textContent = `Take ${idx + 1} (${take.duration.toFixed(1)}s)`;
+      // Create waveform canvas
+      const canvas = document.createElement('canvas');
+      canvas.className = 'take-waveform-canvas';
+      canvas.width = 240;
+      canvas.height = 80;
+      
+      // Render waveform
+      if (take.buffer) {
+        renderTakeWaveform(canvas, take.buffer);
+      }
+      
+      const info = document.createElement('div');
+      info.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 2px;';
+      info.innerHTML = `
+        <div style="font-weight: 800;">Take ${idx + 1}</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary);">
+          ${take.duration.toFixed(2)}s • ${new Date(take.timestamp).toLocaleTimeString()}
+        </div>
+      `;
+      
+      takeEl.appendChild(canvas);
+      takeEl.appendChild(info);
+      
       takeEl.dataset.trackId = track.id;
       takeEl.dataset.takeIndex = idx;
       
@@ -7256,6 +7452,19 @@ function createTrackStrip(track) {
   monitorBtn.className = 'track-btn';
   monitorBtn.innerHTML = track.monitoring ? '🎧 Mon' : '🔇 Mon';
   monitorBtn.onclick = () => toggleMonitoring(track.id);
+
+  const punchBtn = document.createElement('button');
+  punchBtn.className = 'track-btn';
+  punchBtn.innerHTML = '⏱️ Punch';
+  punchBtn.onclick = () => showPunchDialog(track.id);
+  
+  // Add after monitorBtn
+  controls.appendChild(armBtn);
+  controls.appendChild(recBtn);
+  controls.appendChild(punchBtn);
+  controls.appendChild(monitorBtn);
+  controls.appendChild(fxBtn);
+  controls.appendChild(deleteBtn);
   
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'track-btn';
@@ -7279,6 +7488,58 @@ function createTrackStrip(track) {
   return strip;
 }
 
+// Render waveform canvas for a take
+function renderTakeWaveform(canvas, audioBuffer) {
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  
+  ctx.clearRect(0, 0, width, height);
+  
+  // Get channel data
+  const channelData = audioBuffer.getChannelData(0);
+  const step = Math.ceil(channelData.length / width);
+  const amp = height / 2;
+  
+  ctx.fillStyle = 'rgba(124, 131, 255, 0.3)';
+  ctx.strokeStyle = 'rgba(124, 131, 255, 0.8)';
+  ctx.lineWidth = 1;
+  
+  ctx.beginPath();
+  ctx.moveTo(0, amp);
+  
+  for (let i = 0; i < width; i++) {
+    let min = 1.0;
+    let max = -1.0;
+    
+    for (let j = 0; j < step; j++) {
+      const datum = channelData[(i * step) + j];
+      if (datum < min) min = datum;
+      if (datum > max) max = datum;
+    }
+    
+    const yMin = (1 + min) * amp;
+    const yMax = (1 + max) * amp;
+    
+    ctx.lineTo(i, yMax);
+  }
+  
+  for (let i = width - 1; i >= 0; i--) {
+    let min = 1.0;
+    
+    for (let j = 0; j < step; j++) {
+      const datum = channelData[(i * step) + j];
+      if (datum < min) min = datum;
+    }
+    
+    ctx.lineTo(i, (1 + min) * amp);
+  }
+  
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+  
 // Show context menu for takes
 function showTakeContextMenu(event, track, takeIndex) {
   // Remove existing menus
@@ -7352,6 +7613,68 @@ async function toggleRecordTrack(trackId) {
   }
 }
 
+  // Show punch in/out dialog
+function showPunchDialog(trackId) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '400px';
+  
+  modal.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">⏱️ Punch Recording</div>
+      <button class="modal-close" id="closePunchModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="param-control">
+        <label style="font-weight: 700; margin-bottom: var(--space-2); display: block;">
+          Punch In (seconds)
+        </label>
+        <input type="number" id="punchInTime" value="0" min="0" step="0.1" 
+               style="width: 100%; padding: var(--space-3);">
+      </div>
+      <div class="param-control" style="margin-top: var(--space-3);">
+        <label style="font-weight: 700; margin-bottom: var(--space-2); display: block;">
+          Punch Out (seconds, 0 = manual)
+        </label>
+        <input type="number" id="punchOutTime" value="0" min="0" step="0.1" 
+               style="width: 100%; padding: var(--space-3);">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="cancelPunchBtn">Cancel</button>
+      <button class="btn btn-primary" id="startPunchBtn">⏺️ Start Punch</button>
+    </div>
+  `;
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  
+  const close = () => backdrop.remove();
+  
+  document.getElementById('closePunchModal').onclick = close;
+  document.getElementById('cancelPunchBtn').onclick = close;
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) close();
+  };
+  
+  document.getElementById('startPunchBtn').onclick = async () => {
+    const punchIn = parseFloat(document.getElementById('punchInTime').value) || 0;
+    const punchOut = parseFloat(document.getElementById('punchOutTime').value) || null;
+    
+    track.armed = true;
+    await track.startRecording(punchIn, punchOut > 0 ? punchOut : null);
+    
+    close();
+    showToast(`⏺️ Punch recording: ${punchIn}s → ${punchOut ? punchOut + 's' : 'manual'}`, 'info');
+  };
+}
+  
 // Open FX chain panel
 function openFxChain(trackId) {
   multitrack.currentFxTrackId = trackId;
