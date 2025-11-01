@@ -3005,6 +3005,7 @@ const fxConfig = {
   reverb: { name: 'Reverb', active: false, decay: 1, wet: 0.2 },
   delay: { name: 'Delay', active: false, time: '4n', feedback: 0.2 },
   chorus: { name: 'Chorus', active: false, frequency: 1.5, depth: 0.7 },
+  flanger: { name: 'Flanger', active: false, frequency: 0.5, depth: 0.5 },
   distortion: { name: 'Distortion', active: false, amount: 0.5 },
   filter: { name: 'Filter', active: true, frequency: 3000, type: 'lowpass' },
   phaser: { name: 'Phaser', active: false, frequency: 0.5, octaves: 3 },
@@ -3111,9 +3112,16 @@ function initAudio() {
   effects.filter = new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type);
   effects.distortion = new Tone.Distortion(0.02);
   effects.chorus = new Tone.Chorus(1.5, 2.5, 0.2).start();
+  effects.flanger = new Tone.Chorus({
+    frequency: 0.5,
+    delayTime: 2,
+    depth: 0.5,
+    type: 'sine',
+    spread: 0
+  }).start();
   effects.phaser = new Tone.Phaser({
-    frequency: fxConfig.phaser.frequency,
-    octaves: fxConfig.phaser.octaves,
+    frequency: 0.5,
+    octaves: 3,
     baseFrequency: 350
   });
   effects.bitcrusher = new Tone.BitCrusher(8);
@@ -3138,6 +3146,7 @@ function initAudio() {
     effects.distortion,
     effects.bitcrusher,
     effects.chorus,
+    effects.flanger,
     effects.phaser,
     effects.delay,
     effects.reverb,
@@ -3954,10 +3963,15 @@ function applyFxParam(fx, param, value) {
     node.delayTime.value = Tone.Time(value);
   } else if (param === 'feedback' && node.feedback) {
     node.feedback.value = value;
-  } else if (param === 'frequency' && node.frequency) {
-    node.frequency.value = value;
-  } else if (param === 'depth' && node.depth !== undefined) {
-    node.depth = value;
+  } else if (param === 'frequency') {
+    // Safe frequency updates with ramp to avoid clicks
+    if (node.frequency) {
+      node.frequency.rampTo(value, 0.1);
+    }
+  } else if (param === 'depth') {
+    if (node.depth !== undefined) {
+      node.depth = value;
+    }
   } else if (param === 'amount' && node.distortion !== undefined) {
     node.distortion = value;
   } else if (param === 'octaves' && node.octaves !== undefined) {
