@@ -6675,6 +6675,184 @@ function loadProgressionTemplate(name) {
   renderProgression();
 }
 
+function getSerializableInstruments() {
+  const serialized = {};
+  Object.keys(instruments).forEach(key => {
+    const inst = instruments[key];
+    serialized[key] = {
+      name: inst.name,
+      icon: inst.icon,
+      mute: inst.mute,
+      solo: inst.solo,
+      volume: inst.volume,
+      pan: inst.pan,
+      type: inst.type,
+      note: inst.note
+    };
+  });
+  return serialized;
+}
+
+function applyLoadedInstruments(loaded) {
+  Object.keys(loaded).forEach(key => {
+    if (instruments[key]) {
+      Object.assign(instruments[key], loaded[key]);
+      if (instruments[key].channel) {
+        instruments[key].channel.volume.value = loaded[key].volume;
+        instruments[key].channel.pan.value = loaded[key].pan / 100;
+      }
+    }
+  });
+}
+
+function updateAllDisplays() {
+  document.getElementById('bpmSlider').value = state.bpm;
+  document.getElementById('bpmValue').textContent = state.bpm;
+  document.getElementById('swingSlider').value = state.swing;
+  document.getElementById('swingValue').textContent = state.swing + '%';
+  document.getElementById('durSlider').value = state.duration;
+  document.getElementById('durValue').textContent = state.duration + ' min';
+  document.getElementById('complexSlider').value = state.complexity;
+  document.getElementById('humanSlider').value = state.humanize;
+  document.getElementById('humanValue').textContent = state.humanize + 'ms';
+  
+  Tone.Transport.bpm.value = state.bpm;
+  Tone.Transport.swing = state.swing / 100;
+}
+
+function renderPresets() {
+  const grid = document.getElementById('presetGrid');
+  if (!grid) return;
+  
+  const fragment = document.createDocumentFragment();
+  
+  Object.entries(genrePresets).forEach(([key, preset]) => {
+    const btn = document.createElement('button');
+    btn.className = 'preset';
+    btn.dataset.genre = key;
+    btn.innerHTML = `
+      <div class="preset-icon">${preset.icon}</div>
+      <div class="preset-name">${preset.name}</div>
+    `;
+    btn.onclick = () => {
+      state.currentGenre = key;
+      document.querySelectorAll('.genre-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.genre === key);
+      });
+      generateBeat();
+    };
+    fragment.appendChild(btn);
+  });
+  
+  grid.innerHTML = '';
+  grid.appendChild(fragment);
+}
+
+let vizBars = [];
+let vizAnimFrame = null;
+
+function initVisualizerOnce() {
+  const viz = document.getElementById('visualizer');
+  if (!viz || vizBars.length > 0) return;
+  
+  for (let i = 0; i < CONFIG.VISUALIZER_BARS; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'viz-bar';
+    bar.style.left = `${(i / CONFIG.VISUALIZER_BARS) * 100}%`;
+    bar.style.height = '0%';
+    viz.appendChild(bar);
+    vizBars.push(bar);
+  }
+}
+
+function updateVisualizer() {
+  if (!master.analyser || !state.isPlaying) return;
+  
+  const values = master.analyser.getValue();
+  
+  vizBars.forEach((bar, i) => {
+    const value = Array.isArray(values) ? values[i] || -100 : values;
+    const normalized = Math.max(0, Math.min(1, (value + 100) / 100));
+    bar.style.height = (normalized * 100) + '%';
+  });
+}
+
+function checkSamplesLoaded() {
+  let allLoaded = true;
+  let loadedCount = 0;
+  let totalCount = 0;
+  
+  Object.keys(synths).forEach(inst => {
+    if (instruments[inst].type === 'drum') {
+      totalCount++;
+      if (synths[inst].loaded) {
+        loadedCount++;
+      } else {
+        allLoaded = false;
+      }
+    }
+  });
+  
+  if (!allLoaded && totalCount > 0) {
+    console.log(`⏳ Loading samples: ${loadedCount}/${totalCount}`);
+    setTimeout(checkSamplesLoaded, 500);
+  } else if (totalCount > 0) {
+    console.log(`✅ All ${totalCount} drum samples loaded`);
+  }
+}
+
+function bufferToWav(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  
+  const data = [];
+  for (let i = 0; i < buffer.length; i++) {
+    for (let channel = 0; channel < numChannels; channel++) {
+      const sample = buffer.getChannelData(channel)[i];
+      const int16 = Math.max(-1, Math.min(1, sample)) * 0x7FFF;
+      data.push(int16 < 0 ? int16 + 0x10000 : int16);
+    }
+  }
+  
+  const dataSize = data.length * bytesPerSample;
+  const view = new DataView(new ArrayBuffer(44 + dataSize));
+  
+  // WAV header
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(view, 8, 'WAVE');
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeString(view, 36, 'data');
+  view.setUint32(40, dataSize, true);
+  
+  // Write samples
+  let offset = 44;
+  for (let i = 0; i < data.length; i++) {
+    view.setInt16(offset, data[i], true);
+    offset += 2;
+  }
+  
+  return view.buffer;
+}
+
+function writeString(view, offset, string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}
+  
 // ==================== PROFESSIONAL MULTITRACK DAW SYSTEM ====================
 
 const multitrack = {
@@ -8493,45 +8671,86 @@ function setupAutomationCanvas() {
 
 // Update the main togglePlay function to handle multitrack playback
 const originalTogglePlay = togglePlay;
+// Store original if it exists
+let _isPlayingState = false;
+
 async function togglePlay() {
-  await originalTogglePlay();
+  await Tone.start();
   
-  if (state.isPlaying) {
-    // Schedule all regions for playback
+  if (_isPlayingState) {
+    // Stop
+    Tone.Transport.stop();
+    _isPlayingState = false;
+    state.isPlaying = false;
+    
+    document.getElementById('playBtn').innerHTML = '▶️ Play';
+    document.getElementById('vizOverlay').textContent = 'Paused';
+    
+  } else {
+    // Play
+    if (state.countInBars > 0 && state.metronomeEnabled) {
+      // Count-in logic
+      const barsToWait = state.countInBars;
+      const barDuration = (60 / state.bpm) * 4;
+      Tone.Transport.scheduleOnce(() => {
+        Tone.Transport.start();
+      }, `+${barsToWait * barDuration}`);
+    } else {
+      Tone.Transport.start();
+    }
+    
+    _isPlayingState = true;
+    state.isPlaying = true;
+    
+    document.getElementById('playBtn').innerHTML = '⏸️ Pause';
+    document.getElementById('vizOverlay').textContent = '';
+    
+    // Schedule multitrack regions
     multitrack.tracks.forEach(track => {
       if (track.muted) return;
       
       track.regions.forEach(region => {
         if (region.muted) return;
         
-        // Create player for this region
         const player = new Tone.Player({
           url: region.buffer,
           fadeIn: region.fadeIn,
-          fadeOut: region.fadeOut,
-          onload: () => {
-            // Schedule playback
-            player.start(
-              Tone.Transport.seconds + region.startTime,
-              region.offset,
-              region.playDuration
-            );
-          }
+          fadeOut: region.fadeOut
         }).connect(track.channel);
         
-        // Clean up after playback
+        player.start(
+          Tone.Transport.seconds + region.startTime,
+          region.offset,
+          region.playDuration
+        );
+        
         Tone.Transport.scheduleOnce(() => {
           player.dispose();
         }, region.startTime + region.playDuration + 1);
       });
     });
     
-    // Update playhead animation
     updatePlayheadAnimation();
-    
-    // Start meter updates
     updateMeters();
   }
+}
+
+function stop() {
+  Tone.Transport.stop();
+  Tone.Transport.position = 0;
+  _isPlayingState = false;
+  state.isPlaying = false;
+  state.currentStep = 0;
+  
+  document.getElementById('playBtn').innerHTML = '▶️ Play';
+  document.getElementById('vizOverlay').textContent = 'Press Play to Start';
+  document.getElementById('timeDisplay').textContent = '00:00';
+  document.getElementById('progressFill').style.width = '0%';
+  
+  const playhead = document.getElementById('timelinePlayhead');
+  if (playhead) playhead.style.left = '0%';
+  
+  Tone.Transport.cancel();
 }
 
 function updatePlayheadAnimation() {
