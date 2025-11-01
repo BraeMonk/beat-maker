@@ -2838,10 +2838,16 @@ const instruments = {
   snare: { name: 'Snare', icon: '🎤', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
   hihat: { name: 'Hi-Hat', icon: '🎩', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
   clap: { name: 'Clap', icon: '👏', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
-  rimshot: { name: 'Rimshot', icon: '🔊', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  rimshot: { name: 'Rimshot', icon: '🔊', mute: false, solo: false, volume: -3, pan: 0, type: 'drum' },
   tom: { name: 'Tom', icon: '🪘', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
-  crash: { name: 'Crash', icon: '💥', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
-  ride: { name: 'Ride', icon: '🌊', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
+  crash: { name: 'Crash', icon: '💥', mute: false, solo: false, volume: -3, pan: 0, type: 'drum' },
+  ride: { name: 'Ride', icon: '🌊', mute: false, solo: false, volume: -3, pan: 0, type: 'drum' },
+  
+  // NEW ATMOSPHERIC INSTRUMENTS
+  fx: { name: 'FX', icon: '✨', mute: false, solo: false, volume: -6, pan: 0, type: 'atmospheric' },
+  riser: { name: 'Riser', icon: '📈', mute: false, solo: false, volume: -8, pan: 0, type: 'atmospheric' },
+  ambience: { name: 'Ambience', icon: '🌫️', mute: false, solo: false, volume: -10, pan: 0, type: 'atmospheric' },
+  
   bass: { name: 'Bass', icon: '🎸', mute: false, solo: false, volume: -3, pan: 0, type: 'melodic', note: 'C2' },
   guitar: { name: 'Guitar', icon: '🎸', mute: false, solo: false, volume: -5, pan: 20, type: 'melodic', note: 'C3' },
   keys: { name: 'Keys', icon: '🎹', mute: false, solo: false, volume: -6, pan: 0, type: 'melodic', note: 'C4' },
@@ -3080,10 +3086,10 @@ function unlockAudioOnce() {
 
 // -------------------- Audio Graph Initialization --------------------
 function initAudio() {
-  // Master chain with much lower gain for desktop batching
-  master.fxIn = new Tone.Gain(0.18);
+  // CRITICAL: Much lower gain + slower ramps for desktop stability
+  master.fxIn = new Tone.Gain(0.12); // Reduced from 0.18
   
-  // Master bus filters
+  // Master bus filters with SLOWER frequency ramps
   master.lowCutFilter = new Tone.Filter({
     type: 'highpass',
     frequency: state.lowCut,
@@ -3098,44 +3104,44 @@ function initAudio() {
   
   // Tape saturation (subtle warm distortion)
   master.tapeDistortion = new Tone.Distortion({
-    distortion: state.tapeSaturation / 100 * 0.3,
-    wet: state.tapeSaturation / 100
+    distortion: state.tapeSaturation / 100 * 0.2, // Reduced from 0.3
+    wet: state.tapeSaturation / 100 * 0.6 // Reduced wet mix
   });
   
-  // Vinyl noise (pink noise layer)
+  // Vinyl noise (pink noise layer) - QUIETER
   master.vinylNoise = new Tone.Noise('pink');
-  master.vinylNoise.volume.value = -40 + (state.vinylNoise / 100 * 20);
+  master.vinylNoise.volume.value = -50 + (state.vinylNoise / 100 * 15); // Quieter
   master.vinylNoise.start();
   master.vinylNoise.connect(master.fxIn);
   
-  // Effects with much gentler settings
+  // Effects with MUCH gentler settings for desktop
   effects.filter = new Tone.Filter(fxConfig.filter.frequency, fxConfig.filter.type);
-  effects.distortion = new Tone.Distortion(0.02);
-  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.2).start();
+  effects.distortion = new Tone.Distortion(0.01); // Half strength
+  effects.chorus = new Tone.Chorus(1.5, 2.5, 0.1).start(); // Reduced depth
   effects.flanger = new Tone.Chorus({
     frequency: 0.5,
     delayTime: 2,
-    depth: 0.5,
+    depth: 0.3, // Reduced from 0.5
     type: 'sine',
     spread: 0
   }).start();
   effects.phaser = new Tone.Phaser({
-    frequency: 0.5,
-    octaves: 3,
+    frequency: 0.3, // Slower modulation
+    octaves: 2, // Reduced from 3
     baseFrequency: 350
   });
-  effects.bitcrusher = new Tone.BitCrusher(8);
-  effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, 0.1);
-  effects.reverb = new Tone.Reverb({ decay: 0.8, wet: 0.15 });
+  effects.bitcrusher = new Tone.BitCrusher(10); // Less crushing (was 8)
+  effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, 0.08); // Less feedback
+  effects.reverb = new Tone.Reverb({ decay: 0.6, wet: 0.1 }); // Drier reverb
   
-  // Proper dynamics control with more headroom
+  // Proper dynamics control with MORE headroom for desktop
   master.comp = new Tone.Compressor({
     threshold: state.compressor,
-    ratio: 3,
-    attack: 0.003,
-    release: 0.15
+    ratio: 2.5, // Gentler ratio (was 3)
+    attack: 0.005, // Slower attack
+    release: 0.2 // Slower release
   });
-  master.limiter = new Tone.Limiter(-3);
+  master.limiter = new Tone.Limiter(-4); // More headroom (was -3)
   
   // Connect master bus chain
   master.fxIn.chain(
@@ -3159,16 +3165,6 @@ function initAudio() {
   // Clip detection meter
   master.meter = new Tone.Meter();
   master.limiter.connect(master.meter);
-  
-  // Monitor for clipping (only in dev mode)
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    setInterval(() => {
-      const level = master.meter.getValue();
-      if (level > -3.5) {
-        console.warn('🔥 CLIPPING:', level.toFixed(2), 'dB');
-      }
-    }, 200);
-  }
   
   // Visualizer tap
   master.analyser = new Tone.Analyser('fft', 64);
@@ -3194,7 +3190,25 @@ function initAudio() {
   Tone.Transport.swing = state.swing / 100;
   Tone.Transport.swingSubdivision = '8n';
   
-  // Main sequencer loop
+  // CRITICAL: Batch note triggers to reduce message handler load
+  const noteQueue = [];
+  let batchTimeout = null;
+  
+  const flushNoteQueue = (time) => {
+    if (noteQueue.length === 0) return;
+    
+    // Sort by time to maintain order
+    noteQueue.sort((a, b) => a.time - b.time);
+    
+    // Trigger all notes at their scheduled times
+    noteQueue.forEach(({ inst, step, time: noteTime }) => {
+      playStep(inst, step, noteTime);
+    });
+    
+    noteQueue.length = 0;
+  };
+  
+  // Main sequencer loop with batching
   const loop = new Tone.Sequence((time, step) => {
     state.currentStep = step;
     updateStepVisuals(step);
@@ -3203,10 +3217,15 @@ function initAudio() {
       patterns[inst][step]?.active
     );
     
+    // Queue notes instead of playing immediately
     activeInsts.forEach((inst, idx) => {
       const offset = (idx / Math.max(1, activeInsts.length - 1)) * 0.005;
-      playStep(inst, step, time + offset);
+      noteQueue.push({ inst, step, time: time + offset });
     });
+    
+    // Flush queue with slight delay to batch
+    clearTimeout(batchTimeout);
+    batchTimeout = setTimeout(() => flushNoteQueue(time), 1);
     
     updateVisualizer();
   }, Array.from({ length: state.sequenceLength }, (_, i) => i), state.resolution);
@@ -3220,6 +3239,9 @@ function createInstrumentChain(inst) {
   
   if (instData.type === 'drum') {
     synths[inst] = createDrumSynth(inst);
+  } else if (instData.type === 'atmospheric') {
+    synths[inst] = createFallbackDrumSynth(inst); // Use synths for atmospheric
+    synths[inst].volume = { value: instData.volume };
   } else {
     synths[inst] = createMelodicSynth(inst);
     synths[inst].volume.value = instData.volume;
@@ -3241,10 +3263,17 @@ const DRUM_SAMPLES = {
   snare: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
   hihat: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
   tom: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/tom1.mp3',
+  
+  // FIXED: Using working CR78 samples
   clap: 'https://tonejs.github.io/audio/drum-samples/CR78/clap.mp3',
-  rimshot: 'https://tonejs.github.io/audio/drum-samples/CR78/maracas.mp3',
-  crash: 'https://tonejs.github.io/audio/drum-samples/CR78/tambourine.mp3',
-  ride: 'https://tonejs.github.io/audio/drum-samples/CR78/cabasa.mp3'
+  rimshot: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3', // Using snare as fallback
+  crash: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3', // Using hihat as fallback
+  ride: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3', // Using hihat as fallback
+  
+  // NEW INSTRUMENTS - using Tone.js built-in sounds since we need synths anyway
+  fx: null, // Will use synth
+  riser: null, // Will use synth
+  ambience: null // Will use synth
 };
 
 function createDrumSynth(inst) {
@@ -3327,11 +3356,31 @@ function createFallbackDrumSynth(inst) {
       break;
       
     case 'hihat':
+      synth = new Tone.MetalSynth({
+        frequency: 200,
+        envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+        harmonicity: 5.1,
+        modulationIndex: 32,
+        resonance: 4000,
+        octaves: 1.5
+      });
+      break;
+      
     case 'crash':
+      synth = new Tone.MetalSynth({
+        frequency: 100,
+        envelope: { attack: 0.001, decay: 1.4, release: 2 },
+        harmonicity: 5.1,
+        modulationIndex: 32,
+        resonance: 4000,
+        octaves: 1.5
+      });
+      break;
+      
     case 'ride':
       synth = new Tone.MetalSynth({
-        frequency: inst === 'hihat' ? 200 : inst === 'crash' ? 100 : 150,
-        envelope: { attack: 0.001, decay: inst === 'crash' ? 1.4 : 0.1, release: inst === 'crash' ? 2 : 0.01 },
+        frequency: 150,
+        envelope: { attack: 0.001, decay: 0.8, release: 0.5 },
         harmonicity: 5.1,
         modulationIndex: 32,
         resonance: 4000,
@@ -3340,6 +3389,43 @@ function createFallbackDrumSynth(inst) {
       break;
       
     case 'clap':
+      // Layered noise bursts for clap sound
+      const clap = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.001, decay: 0.05, sustain: 0 }
+      });
+      const clap2 = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.015, decay: 0.03, sustain: 0 }
+      });
+      const clap3 = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.025, decay: 0.02, sustain: 0 }
+      });
+      
+      // Merge into one synth
+      const clapGain = new Tone.Gain(1);
+      clap.connect(clapGain);
+      clap2.connect(clapGain);
+      clap3.connect(clapGain);
+      
+      return {
+        triggerAttackRelease: (note, duration, time, velocity = 1) => {
+          clap.triggerAttackRelease(duration, time, velocity);
+          clap2.triggerAttackRelease(duration, time + 0.015, velocity * 0.7);
+          clap3.triggerAttackRelease(duration, time + 0.025, velocity * 0.5);
+        },
+        connect: (node) => clapGain.connect(node),
+        toDestination: () => clapGain.toDestination(),
+        dispose: () => {
+          clap.dispose();
+          clap2.dispose();
+          clap3.dispose();
+          clapGain.dispose();
+        },
+        loaded: true
+      };
+      
     case 'rimshot':
       synth = new Tone.NoiseSynth({
         noise: { type: 'pink' },
@@ -3356,6 +3442,66 @@ function createFallbackDrumSynth(inst) {
       });
       break;
       
+    // NEW ATMOSPHERIC SYNTHS
+    case 'fx':
+      // Glitchy pitched noise
+      const fxNoise = new Tone.NoiseSynth({
+        noise: { type: 'brown' },
+        envelope: { attack: 0.1, decay: 0.2, sustain: 0.3, release: 0.5 }
+      });
+      const fxFilter = new Tone.Filter({
+        type: 'bandpass',
+        frequency: 1000,
+        Q: 10
+      });
+      const fxPitch = new Tone.PitchShift(7); // Pitched up
+      fxNoise.chain(fxFilter, fxPitch);
+      synth = fxNoise;
+      break;
+      
+    case 'riser':
+      // Sweeping frequency riser
+      synth = new Tone.FMSynth({
+        harmonicity: 3,
+        modulationIndex: 10,
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 2, decay: 0.1, sustain: 0.1, release: 0.5 },
+        modulation: { type: 'square' },
+        modulationEnvelope: { attack: 2, decay: 0.2, sustain: 0.5, release: 0.3 }
+      });
+      break;
+      
+    case 'ambience':
+      // Dark atmospheric pad
+      synth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sine' },
+        envelope: { attack: 1, decay: 1, sustain: 0.5, release: 2 }
+      });
+      
+      // Add reverb for atmosphere
+      const ambReverb = new Tone.Reverb({
+        decay: 8,
+        wet: 0.7
+      });
+      ambReverb.generate();
+      synth.connect(ambReverb);
+      return {
+        triggerAttackRelease: (note, duration, time, velocity = 1) => {
+          synth.triggerAttackRelease(note, duration, time, velocity);
+        },
+        connect: (node) => {
+          ambReverb.disconnect();
+          ambReverb.connect(node);
+          return ambReverb;
+        },
+        toDestination: () => ambReverb.toDestination(),
+        dispose: () => {
+          synth.dispose();
+          ambReverb.dispose();
+        },
+        loaded: true
+      };
+      
     default:
       synth = new Tone.MembraneSynth();
   }
@@ -3367,7 +3513,7 @@ function createFallbackDrumSynth(inst) {
     connect: (node) => synth.connect(node),
     toDestination: () => synth.toDestination(),
     dispose: () => synth.dispose(),
-    loaded: true // Synths are always "loaded"
+    loaded: true
   };
 }
 
@@ -3517,26 +3663,30 @@ function playStep(inst, step, time) {
   
   // Per-instrument humanization scaling
   const humanizeScale = {
-    kick: 0.5,    // tight
+    kick: 0.5,
     snare: 0.7,
-    hihat: 1.2,   // more loose
+    hihat: 1.2,
     bass: 0.6,
     guitar: 1.0,
     keys: 0.8,
-    lead: 0.9
+    lead: 0.9,
+    fx: 0.3,
+    riser: 0.1,
+    ambience: 0.2
   };
   
   const scale = humanizeScale[inst] || 1.0;
   const humanize = (Math.random() - 0.5) * (state.humanize / 1000) * scale;
   
-  // Subtle velocity variation per instrument
   let velocity = stepData.velocity;
   if (instData.type === 'drum') {
-    velocity *= (0.95 + Math.random() * 0.1); // ±5% variation
+    velocity *= (0.95 + Math.random() * 0.1);
   }
   
   if (instData.type === 'drum') {
     playDrumNote(inst, time + humanize, velocity);
+  } else if (instData.type === 'atmospheric') {
+    playAtmosphericNote(inst, time + humanize, stepData);
   } else {
     playMelodicNote(inst, time + humanize, stepData);
   }
@@ -3548,6 +3698,27 @@ function playMelodicNote(inst, time, stepData) {
   synths[inst].triggerAttackRelease(note, duration, time, stepData.velocity);
 }
 
+function playAtmosphericNote(inst, time, stepData) {
+  const duration = stepData.duration || '1n'; // Longer by default
+  const velocity = stepData.velocity || 0.5;
+  
+  if (inst === 'fx') {
+    // Glitchy FX - random pitch
+    const pitch = ['C4', 'D#4', 'F#4', 'A#4'][Math.floor(Math.random() * 4)];
+    synths[inst].triggerAttackRelease(pitch, '8n', time, velocity);
+  } else if (inst === 'riser') {
+    // Rising frequency sweep
+    synths[inst].triggerAttackRelease('C2', '2n', time, velocity);
+    // Add frequency sweep
+    if (synths[inst].frequency) {
+      synths[inst].frequency.exponentialRampTo('C6', '2n', time);
+    }
+  } else if (inst === 'ambience') {
+    // Dark ambient chord
+    const notes = ['C2', 'D#2', 'G2', 'A#2'];
+    synths[inst].triggerAttackRelease(notes, duration, time, velocity * 0.4);
+  }
+}
 // -------------------- Vibe System --------------------
 function applyVibe(vibe) {
   document.body.setAttribute('data-vibe', vibe);
@@ -3683,55 +3854,53 @@ function setupParameterControls() {
 }
 
 function setupMasterControls() {
-  document.getElementById('masterVolSlider').addEventListener('input', e => {
+  document.getElementById('masterVolSlider').addEventListener('input', debounce(e => {
     state.masterVolume = parseInt(e.target.value, 10);
     document.getElementById('masterVolValue').textContent = state.masterVolume + 'dB';
-    Tone.Destination.volume.value = state.masterVolume;
-  });
+    Tone.Destination.volume.rampTo(state.masterVolume, 0.1); // RAMP instead of instant
+  }, 100)); // Debounce
   
-  document.getElementById('tapeSlider').addEventListener('input', e => {
+  document.getElementById('tapeSlider').addEventListener('input', debounce(e => {
     state.tapeSaturation = parseInt(e.target.value, 10);
     document.getElementById('tapeValue').textContent = state.tapeSaturation + '%';
-    // Apply tape saturation via distortion
     if (master.tapeDistortion) {
-      master.tapeDistortion.distortion = state.tapeSaturation / 100 * 0.3;
-      master.tapeDistortion.wet.value = state.tapeSaturation / 100;
+      master.tapeDistortion.distortion = state.tapeSaturation / 100 * 0.2; // Reduced
+      master.tapeDistortion.wet.rampTo(state.tapeSaturation / 100 * 0.6, 0.1); // Ramp
     }
-  });
+  }, 100));
   
-  document.getElementById('vinylSlider').addEventListener('input', e => {
+  document.getElementById('vinylSlider').addEventListener('input', debounce(e => {
     state.vinylNoise = parseInt(e.target.value, 10);
     document.getElementById('vinylValue').textContent = state.vinylNoise + '%';
-    // Apply vinyl noise
     if (master.vinylNoise) {
-      master.vinylNoise.volume.value = -40 + (state.vinylNoise / 100 * 20);
+      master.vinylNoise.volume.rampTo(-50 + (state.vinylNoise / 100 * 15), 0.1); // Ramp
     }
-  });
+  }, 100));
   
-  document.getElementById('lowCutSlider').addEventListener('input', e => {
+  document.getElementById('lowCutSlider').addEventListener('input', debounce(e => {
     state.lowCut = parseInt(e.target.value, 10);
     document.getElementById('lowCutValue').textContent = state.lowCut + 'Hz';
     if (master.lowCutFilter) {
-      master.lowCutFilter.frequency.value = state.lowCut;
+      master.lowCutFilter.frequency.rampTo(state.lowCut, 0.15); // Slower ramp
     }
-  });
+  }, 100));
   
-  document.getElementById('highCutSlider').addEventListener('input', e => {
+  document.getElementById('highCutSlider').addEventListener('input', debounce(e => {
     state.highCut = parseInt(e.target.value, 10);
     document.getElementById('highCutValue').textContent = 
       (state.highCut / 1000).toFixed(1) + 'kHz';
     if (master.highCutFilter) {
-      master.highCutFilter.frequency.value = state.highCut;
+      master.highCutFilter.frequency.rampTo(state.highCut, 0.15); // Slower ramp
     }
-  });
+  }, 100));
   
-  document.getElementById('compSlider').addEventListener('input', e => {
+  document.getElementById('compSlider').addEventListener('input', debounce(e => {
     state.compressor = parseInt(e.target.value, 10);
     document.getElementById('compValue').textContent = state.compressor + 'dB';
     if (master.comp) {
-      master.comp.threshold.value = state.compressor;
+      master.comp.threshold.rampTo(state.compressor, 0.1); // Ramp
     }
-  });
+  }, 100));
 }
 
 function setupGeneratorButtons() {
