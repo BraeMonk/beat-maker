@@ -3004,6 +3004,14 @@
           <input type="range" id="swingSlider" min="0" max="100" value="50">
         </div>
       </div>
+      <div class="flex" style="gap: var(--space-2);">
+        <button class="btn btn-secondary btn-sm" id="metronomeBtn">
+          🥁 Click: Off
+        </button>
+        <button class="btn btn-secondary btn-sm" id="countInBtn">
+          ⏱️ Count: 1 bar
+        </button>
+      </div>
     </div>
     
     <section class="section active" id="tab-generate">
@@ -3276,6 +3284,33 @@
       </div>
     </section>
 
+    <!-- Automation Panel -->
+      <div class="fx-chain-panel" id="automationPanel" style="display: none;">
+        <div class="fx-chain-header">
+          <div class="fx-chain-title">📈 Automation: <span id="automationTrackName">Track 1</span></div>
+          <div class="flex">
+            <select id="automationParamSelect" class="btn btn-secondary btn-sm">
+              <option value="volume">Volume</option>
+              <option value="pan">Pan</option>
+              <option value="filter">Filter Cutoff</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" id="clearAutomationBtn">🧹 Clear</button>
+            <button class="btn btn-ghost btn-sm" id="closeAutomationBtn">✕ Close</button>
+          </div>
+        </div>
+        
+        <div style="padding: var(--space-4);">
+          <canvas id="automationCanvas" 
+                  width="800" 
+                  height="200" 
+                  style="width: 100%; height: 200px; background: var(--glass-bg); border-radius: var(--radius-md); border: 1px solid var(--glass-border); cursor: crosshair;">
+          </canvas>
+          <div style="margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--text-sm);">
+            Click to add automation points • Drag to move • Right-click to delete
+          </div>
+        </div>
+      </div>
+
     <footer class="footer">
       <strong>8-Beat Studio</strong> • Fun With Noise • 
       Shortcuts: <kbd>Space</kbd> Play/Pause • <kbd>S</kbd> Stop • <kbd>E</kbd> Record/Export • 
@@ -3330,7 +3365,17 @@ const state = {
   vinylNoise: 15,
   lowCut: 30,
   highCut: 16000,
-  compressor: -18
+  compressor: -18,
+  metronomeEnabled: false,
+  metronomeVolume: -6,
+  countInBars: 1
+};
+
+// Metronome system
+const metronome = {
+  synth: null,
+  enabled: false,
+  loop: null
 };
 
 // -------------------- Data Structures --------------------
@@ -3725,6 +3770,29 @@ function initAudio() {
   Tone.Transport.bpm.value = state.bpm;
   Tone.Transport.swing = state.swing / 100;
   Tone.Transport.swingSubdivision = '8n';
+
+  // Initialize metronome
+  metronome.synth = new Tone.MembraneSynth({
+    pitchDecay: 0.008,
+    octaves: 2,
+    oscillator: { type: 'sine' },
+    envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.3 }
+  }).toDestination();
+  
+  metronome.synth.volume.value = state.metronomeVolume;
+  
+  metronome.loop = new Tone.Loop((time) => {
+    const step = Math.floor(Tone.Transport.position.split(':')[1]);
+    const isDownbeat = step === 0;
+    const pitch = isDownbeat ? 'C5' : 'C4';
+    const velocity = isDownbeat ? 1 : 0.6;
+    
+    if (state.metronomeEnabled) {
+      metronome.synth.triggerAttackRelease(pitch, '32n', time, velocity);
+    }
+  }, '4n');
+  
+  metronome.loop.start(0);
   
   // CRITICAL: Batch note triggers to reduce message handler load
   const noteQueue = [];
@@ -4342,6 +4410,20 @@ function setupTransportControls() {
   document.getElementById('playBtn').addEventListener('click', togglePlay);
   document.getElementById('stopBtn').addEventListener('click', stop);
   document.getElementById('exportBtn').addEventListener('click', exportAudio);
+  
+  // Metronome controls
+  document.getElementById('metronomeBtn')?.addEventListener('click', () => {
+    state.metronomeEnabled = !state.metronomeEnabled;
+    const btn = document.getElementById('metronomeBtn');
+    btn.textContent = state.metronomeEnabled ? '🥁 Click: On' : '🥁 Click: Off';
+  });
+  
+  document.getElementById('countInBtn')?.addEventListener('click', () => {
+    state.countInBars = state.countInBars === 1 ? 2 : state.countInBars === 2 ? 0 : 1;
+    const btn = document.getElementById('countInBtn');
+    const labels = ['⏱️ Count: Off', '⏱️ Count: 1 bar', '⏱️ Count: 2 bars'];
+    btn.textContent = labels[state.countInBars];
+  });
 }
 
 function setupParameterControls() {
@@ -6436,6 +6518,10 @@ class AudioTrack {
     // Create meter
     this.meter = new Tone.Meter();
     this.channel.connect(this.meter);
+    
+    // Input monitoring
+    this.monitoring = false;
+    this.inputGain = new Tone.Gain(0).connect(this.channel);
   }
   
   addFx(type, params = {}) {
@@ -6594,8 +6680,11 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  async startRecording() {
+  async startRecording(punchIn = null, punchOut = null) {
     if (this.recording) return;
+    
+    this.punchIn = punchIn;
+    this.punchOut = punchOut;
     
     await Tone.start();
     
@@ -6673,6 +6762,67 @@ class AudioTrack {
     this.selectedTakeIndex = index;
     renderMultitrack();
   }
+
+  toggleTakeMute(index) {
+    if (index < 0 || index >= this.takes.length) return;
+    this.takes[index].muted = !this.takes[index].muted;
+    renderMultitrack();
+  }
+  
+  mergeTakes(indices) {
+    if (indices.length < 2) return;
+    
+    // Find longest duration
+    let maxDuration = 0;
+    indices.forEach(idx => {
+      if (this.takes[idx] && this.takes[idx].duration > maxDuration) {
+        maxDuration = this.takes[idx].duration;
+      }
+    });
+    
+    const sampleRate = Tone.context.sampleRate;
+    const numFrames = Math.ceil(maxDuration * sampleRate);
+    
+    // Create merged buffer
+    const numChannels = 2;
+    const mergedBuffer = Tone.context.rawContext.createBuffer(
+      numChannels, 
+      numFrames, 
+      sampleRate
+    );
+    
+    // Mix takes together
+    indices.forEach(idx => {
+      const take = this.takes[idx];
+      if (!take || take.muted) return;
+      
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sourceData = take.buffer.getChannelData(ch);
+        const destData = mergedBuffer.getChannelData(ch);
+        
+        for (let i = 0; i < Math.min(sourceData.length, destData.length); i++) {
+          destData[i] += sourceData[i] / indices.length; // Average mix
+        }
+      }
+    });
+    
+    // Create new take from merged buffer
+    const mergedTake = {
+      id: Date.now(),
+      buffer: mergedBuffer,
+      blob: null, // Would need to re-encode
+      duration: maxDuration,
+      timestamp: new Date().toISOString(),
+      muted: false,
+      merged: true
+    };
+    
+    this.takes.push(mergedTake);
+    this.selectedTakeIndex = this.takes.length - 1;
+    renderMultitrack();
+    
+    showToast('✅ Takes merged!', 'success');
+  }
   
   deleteTake(index) {
     if (index < 0 || index >= this.takes.length) return;
@@ -6742,6 +6892,24 @@ function removeTrack(trackId) {
   if (multitrack.currentFxTrackId === trackId) {
     multitrack.currentFxTrackId = null;
     document.getElementById('fxChainPanel').style.display = 'none';
+  }
+  
+  renderMultitrack();
+}
+
+// Toggle input monitoring
+function toggleMonitoring(trackId) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  
+  track.monitoring = !track.monitoring;
+  
+  if (track.monitoring) {
+    // Enable monitoring - connect input to output
+    track.inputGain.gain.rampTo(1, 0.1);
+  } else {
+    // Disable monitoring
+    track.inputGain.gain.rampTo(0, 0.1);
   }
   
   renderMultitrack();
@@ -6894,17 +7062,23 @@ function createTrackStrip(track) {
   fxBtn.innerHTML = `🎛️ FX (${track.fxChain.length})`;
   fxBtn.onclick = () => openFxChain(track.id);
   
+  const monitorBtn = document.createElement('button');
+  monitorBtn.className = 'track-btn';
+  monitorBtn.innerHTML = track.monitoring ? '🎧 Mon' : '🔇 Mon';
+  monitorBtn.onclick = () => toggleMonitoring(track.id);
+  
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'track-btn';
   deleteBtn.innerHTML = '🗑️ Delete';
   deleteBtn.onclick = () => {
-    if (confirm(`Delete track \"${track.name}\"?`)) {
+    if (confirm(`Delete track "${track.name}"?`)) {
       removeTrack(track.id);
     }
   };
   
   controls.appendChild(armBtn);
   controls.appendChild(recBtn);
+  controls.appendChild(monitorBtn);
   controls.appendChild(fxBtn);
   controls.appendChild(deleteBtn);
   
@@ -7941,6 +8115,19 @@ async function exportAudio() {
     if (btn) btn.textContent = '⬇️ Export (live)';
   };
 
+  // Handle punch in/out if specified
+  if (this.punchIn !== null) {
+    setTimeout(() => {
+      if (rec.state === 'inactive') rec.start();
+    }, this.punchIn * 1000);
+   }
+    
+   if (this.punchOut !== null) {
+    setTimeout(() => {
+      if (rec.state === 'recording') this.stopRecording();
+    }, this.punchOut * 1000);
+  }
+  
   // start recording real-time audio
   rec.start();
 
