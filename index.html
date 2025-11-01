@@ -3905,7 +3905,7 @@ function unlockAudioOnce() {
 // -------------------- Audio Graph Initialization --------------------
 function initAudio() {
   // CRITICAL: Much lower gain + slower ramps for desktop stability
-  master.fxIn = new Tone.Gain(0.12); // Reduced from 0.18
+  master.fxIn = new Tone.Gain(0.35); // Reduced from 0.18
   
   // Master bus filters with SLOWER frequency ramps
   master.lowCutFilter = new Tone.Filter({
@@ -3952,14 +3952,14 @@ function initAudio() {
   effects.delay = new Tone.FeedbackDelay(fxConfig.delay.time, 0.08); // Less feedback
   effects.reverb = new Tone.Reverb({ decay: 0.6, wet: 0.1 }); // Drier reverb
   
-  // Proper dynamics control with MORE headroom for desktop
+  // Proper dynamics control
   master.comp = new Tone.Compressor({
     threshold: state.compressor,
-    ratio: 2.5, // Gentler ratio (was 3)
-    attack: 0.005, // Slower attack
-    release: 0.2 // Slower release
+    ratio: 3,
+    attack: 0.003,
+    release: 0.15
   });
-  master.limiter = new Tone.Limiter(-4); // More headroom (was -3)
+  master.limiter = new Tone.Limiter(-1); // Less headroom = louder output
   
   // Connect master bus chain
   master.fxIn.chain(
@@ -4017,6 +4017,13 @@ function initAudio() {
   }).toDestination();
   
   metronome.synth.volume.value = state.metronomeVolume;
+
+  // Boost drum volumes by default
+  ['kick', 'snare', 'hihat', 'clap'].forEach(inst => {
+    if (instruments[inst]) {
+      instruments[inst].volume = 3; // Boost drums
+    }
+  });
   
   metronome.loop = new Tone.Loop((time) => {
     const step = Math.floor(Tone.Transport.position.split(':')[1]);
