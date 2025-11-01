@@ -6762,24 +6762,23 @@ class AudioTrack {
     this.channel.connect(this.meter);
   }
   
-  async startRecording() {
+  async startRecording(punchIn = null, punchOut = null) {
     if (this.recording) return;
+    
+    this.punchIn = punchIn;
+    this.punchOut = punchOut;
     
     await Tone.start();
     
-    // Connect instrument to this track's channel
-    const instSynth = synths[this.instrument];
-    if (!instSynth) {
-      console.error(`No synth for ${this.instrument}`);
-      return;
-    }
+    console.log(`🎙️ Starting recording for ${this.instrument} on track ${this.id}`);
     
-    // Temporarily disconnect from master and route through track
-    instSynth.disconnect();
-    instSynth.connect(this.channel);
+    // CRITICAL: Don't disconnect the synth - we need to tap into the existing signal
+    // The synth should already be playing through instruments[].channel
     
-    // Create recording destination
-    const recordDest = Tone.context.rawContext.createMediaStreamDestination();
+    // Create a recorder that taps the track's channel output
+    const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
+    
+    // Connect THIS track's channel to the recorder (non-destructive tap)
     this.channel.connect(recordDest);
     
     let mimeType = '';
@@ -6795,17 +6794,40 @@ class AudioTrack {
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
         this.recordedChunks.push(e.data);
+        console.log(`📼 Chunk received: ${e.data.size} bytes`);
       }
     };
     
     this.recorder.onstop = () => {
+      console.log(`⏹️ Recording stopped, ${this.recordedChunks.length} chunks`);
       this.finishRecording();
-      // Reconnect to master after recording
-      instSynth.disconnect();
-      instSynth.connect(instruments[this.instrument].channel);
     };
     
-    this.recorder.start();
+    this.recorder.onerror = (e) => {
+      console.error('❌ Recorder error:', e);
+    };
+    
+    // Handle punch in/out if specified
+    if (punchIn !== null && punchIn > 0) {
+      console.log(`⏱️ Punch in at ${punchIn}s`);
+      setTimeout(() => {
+        if (this.recorder.state === 'inactive') {
+          this.recorder.start(100); // Capture in 100ms chunks
+          console.log('▶️ Recorder started (punched in)');
+        }
+      }, punchIn * 1000);
+    } else {
+      this.recorder.start(100); // Capture in 100ms chunks for reliability
+      console.log('▶️ Recorder started immediately');
+    }
+    
+    if (punchOut !== null && punchOut > 0) {
+      console.log(`⏱️ Punch out at ${punchOut}s`);
+      setTimeout(() => {
+        if (this.recording) this.stopRecording();
+      }, punchOut * 1000);
+    }
+    
     this.recording = true;
     this.armed = false;
     
@@ -6893,7 +6915,6 @@ class AudioTrack {
   }
 }
 
-// Create a new track
 function createTrack(instrument) {
   const track = new AudioTrack(
     multitrack.nextTrackId++,
@@ -6901,10 +6922,24 @@ function createTrack(instrument) {
     instrument
   );
   
+  // CRITICAL: Route the instrument through this track's channel
+  const instData = instruments[instrument];
+  const instSynth = synths[instrument];
+  
+  if (instSynth && instData) {
+    // Disconnect from master
+    instSynth.disconnect();
+    
+    // Route: synth → track channel → master
+    instSynth.connect(track.channel);
+    track.channel.connect(master.fxIn);
+    
+    console.log(`🔌 Routed ${instrument} through track ${track.id}`);
+  }
+  
   multitrack.tracks.push(track);
   renderMultitrack();
   
-  console.log('✅ Track created:', track.name);
   return track;
 }
 
