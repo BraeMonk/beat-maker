@@ -2979,11 +2979,11 @@ const scales = {
 
 // -------------------- FX Configuration --------------------
 const fxConfig = {
-  reverb: { name: 'Reverb', active: true, decay: 1, wet: 0.2 },
-  delay: { name: 'Delay', active: true, time: '4n', feedback: 0.2 },
+  reverb: { name: 'Reverb', active: false, decay: 1, wet: 0.2 },
+  delay: { name: 'Delay', active: false, time: '4n', feedback: 0.2 },
   chorus: { name: 'Chorus', active: false, frequency: 1.5, depth: 0.7 },
   distortion: { name: 'Distortion', active: false, amount: 0.5 },
-  filter: { name: 'Filter', active: false, frequency: 1000, type: 'lowpass' },
+  filter: { name: 'Filter', active: true, frequency: 2000, type: 'lowpass' },
   phaser: { name: 'Phaser', active: false, frequency: 0.5, octaves: 3 },
   bitcrusher: { name: 'Bitcrusher', active: false, bits: 8, frequency: 4000 }
 };
@@ -4083,7 +4083,6 @@ function generateBeat() {
   }
   
   renderSequencer();
-  applyGenreFX();
   
   console.log(`✅ Generated ${genre} beat with ${state.complexity} complexity`);
 }
