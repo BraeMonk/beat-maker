@@ -2498,6 +2498,7 @@
         <button class="genre-btn" data-genre="postpunk">Post-Punk</button>
         <button class="genre-btn" data-genre="rnb">R&B</button>
         <button class="genre-btn" data-genre="ambient">Ambient</button>
+        <button class="genre-btn" data-genre="dazecore">Dazecore</button>
       </div>
       
       <div class="header-actions">
@@ -2962,6 +2963,28 @@ const genrePresets = {
       keys: ['C2','D#2','G2','A#2','D#2','G2','A#2','D3','A#1','D2','F2','A#2','D3','F3','A#3','D4'],
       lead: ['G3','A#3','D4','F4','D#4','D4','A#3','G3']
     }
+  },
+
+  dazecore: {
+    name: 'Dazecore', icon: '☀️', bpm: 95, swing: 20,
+    patterns: {
+      kick:    [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0],
+      snare:   [0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0],
+      hihat:   [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0],
+      clap:    [0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0],
+      rimshot: [0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0],
+      tom:     [0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0],
+      bass:    [1,0,0,1,0,0,0,0,1,0,0,0,1,0,0,0],
+      guitar:  [1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0],
+      keys:    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      lead:    [0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0]
+    },
+    notes: {
+      bass: ['E2','E2','E2','G2','G2','G2','A2','A2','A2','B2','B2','B2','D3','D3','D3','E2'],
+      guitar: ['E3','G3','B3','D4','E3','G3','B3','D4','A3','C4','E4','A3','B3','D4','F#4','B3'],
+      keys: ['E3','G3','B3','D4','E3','G3','B3','D4','A3','C4','E4','G4','B3','D4','F#4','A4'],
+      lead: ['B4','D5','E5','G5','F#5','E5','D5','B4']
+    }
   }
 };
   
@@ -2983,7 +3006,7 @@ const fxConfig = {
   delay: { name: 'Delay', active: false, time: '4n', feedback: 0.2 },
   chorus: { name: 'Chorus', active: false, frequency: 1.5, depth: 0.7 },
   distortion: { name: 'Distortion', active: false, amount: 0.5 },
-  filter: { name: 'Filter', active: true, frequency: 2000, type: 'lowpass' },
+  filter: { name: 'Filter', active: true, frequency: 3000, type: 'lowpass' },
   phaser: { name: 'Phaser', active: false, frequency: 0.5, octaves: 3 },
   bitcrusher: { name: 'Bitcrusher', active: false, bits: 8, frequency: 4000 }
 };
@@ -3208,9 +3231,9 @@ const DRUM_SAMPLES = {
   kick: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/kick.mp3',
   snare: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
   hihat: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
-  clap: 'https://tonejs.github.io/audio/drum-samples/CR78/clap.mp3',
+  clap: 'https://tonejs.github.io/audio/drum-samples/8080/clap.mp3',
   rimshot: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/rim.mp3',
-  tom: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/tom.mp3',
+  tom: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/tom1.mp3',
   crash: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/crash.mp3',
   ride: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/ride.mp3'
 };
@@ -4056,6 +4079,8 @@ function generateBeat() {
     generateRnBBeat();
   } else if (genre === 'ambient') {
     generateAmbientBeat();
+  } else if (genre === 'dazecore') {
+    generateDazecoreBeat();
   }
   
   renderSequencer();
@@ -4073,7 +4098,7 @@ function generateLoFiBeat() {
   if (state.complexity >= 2 && Math.random() > 0.3) setStep('kick', 6, 0.7, 80);
   if (state.complexity >= 3 && Math.random() > 0.5) setStep('kick', 10, 0.75, 70);
   
-  // Snare: Backbeat on 2 and 4, slightly late for swing
+  // Snare: Backbeat on 2 and 4
   setStep('snare', 4, 0.75, 100);
   setStep('snare', 12, 0.75, 100);
   if (state.complexity >= 3) {
@@ -4082,10 +4107,10 @@ function generateLoFiBeat() {
   
   // Hi-hat: Shuffled 8ths with velocity accents
   for (let i = 0; i < 16; i += 2) {
-    const vel = i % 4 === 0 ? 0.7 : 0.45; // Accent downbeats
+    const vel = i % 4 === 0 ? 0.7 : 0.45;
     setStep('hihat', i, vel, 95);
     if (state.complexity >= 2 && i % 4 === 2) {
-      setStep('hihat', i + 1, 0.3, 70); // 16th note shuffle
+      setStep('hihat', i + 1, 0.3, 70);
     }
   }
   
@@ -4095,6 +4120,11 @@ function generateLoFiBeat() {
     accentPositions.forEach(i => {
       if (Math.random() > 0.4) setStep('rimshot', i, 0.5, 80);
     });
+  }
+  
+  // Crash: Bar marker
+  if (state.complexity >= 3 && Math.random() > 0.6) {
+    setStep('crash', 0, 0.6, 90);
   }
   
   updateBPMUI();
@@ -4126,12 +4156,17 @@ function generateHipHopBeat() {
     setStep('hihat', i, 0.6, 100);
   }
   if (state.complexity >= 2) {
-    // Add 16th hats between
     [3, 7, 11, 15].forEach(i => setStep('hihat', i, 0.4, 85));
   }
   if (state.complexity >= 3) {
-    // Open hat accents
     [6, 14].forEach(i => setStep('crash', i, 0.5, 75));
+  }
+  
+  // Tom fills at end of phrase
+  if (state.complexity >= 3 && Math.random() > 0.6) {
+    [13, 14, 15].forEach((step, idx) => {
+      setStep('tom', step, 0.65 + idx * 0.1, 95);
+    });
   }
   
   updateBPMUI();
@@ -4149,7 +4184,6 @@ function generatePostPunkBeat() {
       setStep('kick', i, 0.85, 100);
     }
   } else {
-    // Motorik driving pattern
     for (let i = 0; i < 16; i += 2) {
       setStep('kick', i, i % 4 === 0 ? 0.85 : 0.75, 100);
     }
@@ -4159,7 +4193,7 @@ function generatePostPunkBeat() {
   setStep('snare', 4, 0.8, 100);
   setStep('snare', 12, 0.8, 100);
   if (state.complexity >= 2) {
-    setStep('snare', 10, 0.7, 80); // Syncopation
+    setStep('snare', 10, 0.7, 80);
   }
   
   // Rimshot: Driving 16ths for tension
@@ -4175,20 +4209,31 @@ function generatePostPunkBeat() {
     setStep('hihat', i, vel, 100);
   }
   
+  // Ride: Alternative to hi-hat for variation
+  if (state.complexity >= 3 && Math.random() > 0.5) {
+    for (let i = 0; i < 16; i += 2) {
+      if (Math.random() > 0.3) setStep('ride', i, 0.55, 90);
+    }
+  }
+  
   // Tom fills
-  if (state.complexity >= 3) {
+  if (state.complexity >= 3 && Math.random() > 0.5) {
     [13, 14, 15].forEach((i, idx) => {
       setStep('tom', i, 0.6 + idx * 0.1, 90);
     });
   }
   
+  // Crash on downbeat
+  if (Math.random() > 0.4) {
+    setStep('crash', 0, 0.75, 100);
+  }
+  
   updateBPMUI();
 }
-
 // R&B: Syncopated, groovy, pocket
 function generateRnBBeat() {
   state.bpm = 70 + Math.floor(Math.random() * 15); // 70-85 BPM
-  state.swing = 5 + Math.floor(Math.random() * 10); // Subtle swing
+  state.swing = 5 + Math.floor(Math.random() * 10);
   
   // Kick: Syncopated, in the pocket
   setStep('kick', 0, 0.85, 100);
@@ -4202,7 +4247,7 @@ function generateRnBBeat() {
   setStep('snare', 4, 0.75, 100);
   setStep('snare', 12, 0.75, 100);
   if (state.complexity >= 3) {
-    setStep('snare', 11, 0.4, 70); // Ghost note
+    setStep('snare', 11, 0.4, 70);
     setStep('snare', 15, 0.45, 75);
   }
   
@@ -4218,10 +4263,17 @@ function generateRnBBeat() {
     setStep('hihat', i, 0.6, 100);
   }
   if (state.complexity >= 2) {
-    // Syncopated 16ths
     [1, 3, 5, 9, 11, 13].forEach(i => {
       if (Math.random() > 0.3) setStep('hihat', i, 0.35, 75);
     });
+  }
+  
+  // Clap: Occasional hand clap layers
+  if (state.complexity >= 3) {
+    if (Math.random() > 0.6) {
+      setStep('clap', 4, 0.5, 85);
+      setStep('clap', 12, 0.5, 85);
+    }
   }
   
   updateBPMUI();
@@ -4259,6 +4311,71 @@ function generateAmbientBeat() {
     for (let i = 0; i < 16; i += 4) {
       if (Math.random() > 0.3) setStep('ride', i, 0.35, 70);
     }
+  }
+  
+  // Tom: Occasional atmospheric hits
+  if (state.complexity >= 3 && Math.random() > 0.7) {
+    const tomStep = [4, 8, 12][Math.floor(Math.random() * 3)];
+    setStep('tom', tomStep, 0.45, 75);
+  }
+  
+  updateBPMUI();
+}
+
+// Dazecore: Summer nostalgia with glitchy dial-up warmth
+function generateDazecoreBeat() {
+  state.bpm = 90 + Math.floor(Math.random() * 15); // 90-105 BPM - cruising tempo
+  state.swing = 15 + Math.floor(Math.random() * 15); // 15-30% swing - loose and warm
+  
+  // Kick: Warm and bouncy, syncopated
+  setStep('kick', 0, 0.8, 100);
+  if (Math.random() > 0.3) setStep('kick', 6, 0.75, 90);
+  setStep('kick', 12, 0.8, 100);
+  
+  // Glitchy kick stutter
+  if (state.complexity >= 3 && Math.random() > 0.5) {
+    setStep('kick', 3, 0.5, 70); // Unexpected placement
+  }
+  
+  // Snare: Off-grid, nostalgic
+  setStep('snare', 4, 0.7, 100);
+  if (state.complexity >= 2) {
+    setStep('snare', 7, 0.5, 80); // Glitchy early hit
+  }
+  setStep('snare', 12, 0.7, 100);
+  
+  // Hi-hat: Shimmering, irregular pattern (dial-up rhythm)
+  const glitchyHats = [0, 2, 3, 5, 6, 8, 10, 11, 13, 14];
+  glitchyHats.forEach((step, idx) => {
+    const vel = idx % 3 === 0 ? 0.65 : 0.4; // Accent every 3rd
+    const prob = Math.random() > 0.2 ? 90 : 60; // Some randomness
+    setStep('hihat', step, vel, prob);
+  });
+  
+  // Rimshot: Dial-up clicking sounds
+  if (state.complexity >= 2) {
+    [1, 5, 9].forEach(step => {
+      if (Math.random() > 0.4) setStep('rimshot', step, 0.45, 75);
+    });
+  }
+  
+  // Clap: Sunny handclaps on off-beats
+  if (state.complexity >= 2) {
+    [7, 15].forEach(step => {
+      if (Math.random() > 0.3) setStep('clap', step, 0.55, 85);
+    });
+  }
+  
+  // Tom: Nostalgic fill flourishes
+  if (state.complexity >= 3 && Math.random() > 0.6) {
+    [13, 14].forEach((step, idx) => {
+      setStep('tom', step, 0.6 + idx * 0.1, 90);
+    });
+  }
+  
+  // Crash: Sunshine swells
+  if (Math.random() > 0.5) {
+    setStep('crash', 0, 0.65, 95);
   }
   
   updateBPMUI();
@@ -4299,25 +4416,36 @@ function addSubtleVariations() {
 // Add after generateBeat function
 function applyGenreFX() {
   if (state.currentGenre === 'postpunk') {
-    // Dark post-punk: moderate reverb, chorus
     fxConfig.reverb.active = true;
-    fxConfig.reverb.decay = 2.0;  // Was 5
+    fxConfig.reverb.decay = 2.0;
     fxConfig.chorus.active = true;
-    fxConfig.filter.active = false; // Don't filter by default
+    fxConfig.filter.active = false;
   } else if (state.currentGenre === 'rnb') {
-    // R&B: warm, subtle effects
     fxConfig.reverb.active = true;
-    fxConfig.reverb.decay = 1.5;  // Was 2.5
+    fxConfig.reverb.decay = 1.5;
     fxConfig.chorus.active = true;
-    fxConfig.chorus.depth = 0.3;  // Was 0.5
-    fxConfig.distortion.active = false; // Turn off by default
+    fxConfig.chorus.depth = 0.3;
+    fxConfig.distortion.active = false;
+  } else if (state.currentGenre === 'dazecore') {
+    // Warm glitchy sunshine sound
+    fxConfig.reverb.active = true;
+    fxConfig.reverb.decay = 1.8; // Nostalgic space
+    fxConfig.chorus.active = true;
+    fxConfig.chorus.depth = 0.5; // Shimmer
+    fxConfig.bitcrusher.active = true; // Dial-up glitch texture
+    fxConfig.bitcrusher.bits = 6; // Lo-fi crunch
+    fxConfig.delay.active = true; // Echo memories
+    fxConfig.delay.time = '8n';
+    fxConfig.delay.feedback = 0.3;
+    fxConfig.filter.active = true; // Warm cut
+    fxConfig.filter.frequency = 4000; // Bright but not harsh
   }
   
-  // Apply settings with lower wet amounts
+  // Apply settings
   Object.keys(fxConfig).forEach(fx => {
     const cfg = fxConfig[fx];
     if (effects[fx] && effects[fx].wet) {
-      effects[fx].wet.value = cfg.active ? 0.25 : 0; // Was 0.5
+      effects[fx].wet.value = cfg.active ? 0.25 : 0;
     }
   });
   
@@ -4398,6 +4526,8 @@ function generateMelodicPatterns() {
     generateRnBMelodies();
   } else if (genre === 'ambient') {
     generateAmbientMelodies();
+  } else if (genre === 'dazecore') {
+    generateDazecoreMelodies();
   }
   
   renderSequencer();
@@ -4691,6 +4821,78 @@ function generateAmbientMelodies() {
         patterns.lead[step].velocity = 0.35;
         patterns.lead[step].duration = '2n';
         patterns.lead[step].probability = 70;
+      }
+    });
+  }
+}
+
+// Dazecore: Warm, nostalgic melodies with glitchy textures
+function generateDazecoreMelodies() {
+  const scaleIntervals = scales.major; // Bright, sunny scale
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  // Bass: Warm, syncopated bounce
+  const bassOctave = 2;
+  const sunnyBass = [0, 0, 2, 0, 4, 0, 2, 0];
+  
+  sunnyBass.forEach((degree, idx) => {
+    const step = idx * 2;
+    if (step < 16) {
+      patterns.bass[step].active = true;
+      patterns.bass[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
+      patterns.bass[step].velocity = 0.7 + Math.random() * 0.1; // Warm variation
+      patterns.bass[step].duration = '8n';
+      patterns.bass[step].probability = 95; // Slight glitch chance
+    }
+  });
+  
+  // Keys: Shimmering nostalgic chords with add9s
+  const chordOctave = 3;
+  const nostalgiachords = [0, 4, 5, 2].map(degree => {
+    const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
+    const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % 7]) % 12];
+    const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % 7]) % 12];
+    const ninth = keysArr[(keyIndex + scaleIntervals[(degree + 1) % 7]) % 12];
+    // Bright, open voicing
+    return [root + chordOctave, third + chordOctave, fifth + chordOctave, ninth + (chordOctave + 1)];
+  });
+  
+  [0, 4, 8, 12].forEach((step, idx) => {
+    patterns.keys[step].active = true;
+    patterns.keys[step].note = nostalgiachords[idx];
+    patterns.keys[step].velocity = 0.5;
+    patterns.keys[step].duration = '2n'; // Sustained warmth
+    patterns.keys[step].probability = 95; // Occasional glitch dropout
+  });
+  
+  // Guitar: Glitchy arpeggios (dial-up texture)
+  if (state.complexity >= 2) {
+    const arpSteps = [1, 2, 5, 6, 9, 10, 13, 14]; // Irregular timing
+    arpSteps.forEach((step, idx) => {
+      if (Math.random() > 0.3) { // Glitchy dropout
+        const chordIdx = Math.floor(step / 4) % nostalgiachords.length;
+        const noteIdx = idx % 4;
+        patterns.guitar[step].active = true;
+        patterns.guitar[step].note = nostalgiachords[chordIdx][noteIdx];
+        patterns.guitar[step].velocity = 0.35 + Math.random() * 0.15; // Shimmer
+        patterns.guitar[step].duration = '16n';
+        patterns.guitar[step].probability = 70 + Math.floor(Math.random() * 25); // Glitch factor
+      }
+    });
+  }
+  
+  // Lead: Nostalgic melody fragments (summer memory)
+  if (state.complexity >= 2) {
+    const leadOctave = 5;
+    const memory = [4, 5, 4, 2, 0, 2, 4, null]; // Wistful melody
+    memory.forEach((degree, idx) => {
+      const step = idx + 8;
+      if (degree !== null && step < 16 && Math.random() > 0.2) {
+        patterns.lead[step].active = true;
+        patterns.lead[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave;
+        patterns.lead[step].velocity = 0.5 + Math.random() * 0.15;
+        patterns.lead[step].duration = '8n';
+        patterns.lead[step].probability = 85; // Occasional nostalgic glitch
       }
     });
   }
