@@ -5044,36 +5044,41 @@ function generateMelodicPatterns() {
 function generateLoFiMelodies() {
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
+  const len = state.sequenceLength;
   
-  // Bass: Root movement, walking feel
+  // Bass: Root movement, walking feel throughout
   const bassOctave = 2;
-  const bassRoots = [0, 3, 4, 0].map(degree => 
-    keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave
-  );
+  const bassProgression = [0, 3, 4, 0]; // I-IV-V-I progression
   
-  [0, 4, 8, 12].forEach((step, idx) => {
-    patterns.bass[step].active = true;
-    patterns.bass[step].note = bassRoots[idx];
-    patterns.bass[step].velocity = 0.7;
-    patterns.bass[step].duration = '4n';
-  });
-  
-  if (state.complexity >= 2) {
-    // Walking bass between roots
-    [2, 6, 10, 14].forEach((step, idx) => {
-      if (Math.random() > 0.4) {
-        const degree = [1, 2, 5, 6][idx];
-        patterns.bass[step].active = true;
-        patterns.bass[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
-        patterns.bass[step].velocity = 0.6;
-        patterns.bass[step].duration = '8n';
-      }
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    
+    // Main bass notes on downbeats
+    [0, 4, 8, 12].forEach((step, idx) => {
+      const degree = bassProgression[idx % bassProgression.length];
+      patterns.bass[offset + step].active = true;
+      patterns.bass[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
+      patterns.bass[offset + step].velocity = 0.7;
+      patterns.bass[offset + step].duration = '4n';
     });
+    
+    // Walking bass between roots
+    if (state.complexity >= 2) {
+      [2, 6, 10, 14].forEach((step, idx) => {
+        if (Math.random() > 0.4) {
+          const degree = [1, 2, 5, 6][idx];
+          patterns.bass[offset + step].active = true;
+          patterns.bass[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree % 7]) % 12] + bassOctave;
+          patterns.bass[offset + step].velocity = 0.6;
+          patterns.bass[offset + step].duration = '8n';
+        }
+      });
+    }
   }
   
   // Keys: Jazz chords (7ths, 9ths)
   const chordOctave = 3;
-  const jazzChords = [0, 3, 4, 0].map(degree => {
+  const jazzChords = bassProgression.map(degree => {
     const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
     const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % 7]) % 12];
     const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % 7]) % 12];
@@ -5081,89 +5086,109 @@ function generateLoFiMelodies() {
     return [root + chordOctave, third + chordOctave, fifth + chordOctave, seventh + (chordOctave + 1)];
   });
   
-  [0, 4, 8, 12].forEach((step, idx) => {
-    if (Math.random() > 0.2) {
-      patterns.keys[step].active = true;
-      patterns.keys[step].note = jazzChords[idx];
-      patterns.keys[step].velocity = 0.5;
-      patterns.keys[step].duration = '2n';
-    }
-  });
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    [0, 4, 8, 12].forEach((step, idx) => {
+      if (Math.random() > 0.2) {
+        patterns.keys[offset + step].active = true;
+        patterns.keys[offset + step].note = jazzChords[idx % jazzChords.length];
+        patterns.keys[offset + step].velocity = 0.5;
+        patterns.keys[offset + step].duration = '2n';
+      }
+    });
+  }
   
   // Guitar: Muted strums, sparse
   if (state.complexity >= 2) {
-    [2, 6, 10, 14].forEach((step, idx) => {
-      if (Math.random() > 0.5) {
-        patterns.guitar[step].active = true;
-        patterns.guitar[step].note = jazzChords[idx % jazzChords.length];
-        patterns.guitar[step].velocity = 0.4;
-        patterns.guitar[step].duration = '8n';
-      }
-    });
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      [2, 6, 10, 14].forEach((step, idx) => {
+        if (Math.random() > 0.5) {
+          patterns.guitar[offset + step].active = true;
+          patterns.guitar[offset + step].note = jazzChords[idx % jazzChords.length];
+          patterns.guitar[offset + step].velocity = 0.4;
+          patterns.guitar[offset + step].duration = '8n';
+        }
+      });
+    }
   }
   
   // Lead: Melodic fragments
   if (state.complexity >= 3) {
     const leadOctave = 4;
-    const melody = [0, 2, 4, 2, 0].map(degree =>
-      keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave
-    );
-    [8, 9, 10, 11, 12].forEach((step, idx) => {
-      if (Math.random() > 0.3 && melody[idx]) {
-        patterns.lead[step].active = true;
-        patterns.lead[step].note = melody[idx];
-        patterns.lead[step].velocity = 0.5;
-        patterns.lead[step].duration = '8n';
-      }
-    });
+    const melody = [0, 2, 4, 2, 0];
+    
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      [8, 9, 10, 11, 12].forEach((step, idx) => {
+        if (Math.random() > 0.3 && melody[idx] !== undefined) {
+          patterns.lead[offset + step].active = true;
+          patterns.lead[offset + step].note = keysArr[(keyIndex + scaleIntervals[melody[idx]]) % 12] + leadOctave;
+          patterns.lead[offset + step].velocity = 0.5;
+          patterns.lead[offset + step].duration = '8n';
+        }
+      });
+    }
   }
 }
 
 // Hip-Hop: Heavy bass, sparse chords, melodic hooks
 function generateHipHopMelodies() {
-  const scaleIntervals = scales.minor; // Hip-hop often uses minor
+  const scaleIntervals = scales.minor;
   const keyIndex = keysArr.indexOf(state.key);
+  const len = state.sequenceLength;
   
   // Bass: Root notes, heavy and sparse
   const bassOctave = 1;
   const bassPattern = [0, 0, 4, 0, 0, 3, 0, 5];
   
-  bassPattern.forEach((degree, idx) => {
-    const step = idx * 2;
-    if (degree !== null && step < 16) {
-      patterns.bass[step].active = true;
-      patterns.bass[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
-      patterns.bass[step].velocity = 0.8;
-      patterns.bass[step].duration = '4n';
-    }
-  });
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    bassPattern.forEach((degree, idx) => {
+      const step = idx * 2;
+      if (step < 16) {
+        patterns.bass[offset + step].active = true;
+        patterns.bass[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree % 7]) % 12] + bassOctave;
+        patterns.bass[offset + step].velocity = 0.8;
+        patterns.bass[offset + step].duration = '4n';
+      }
+    });
+  }
   
   // Keys: Simple triads on downbeats
   const chordOctave = 3;
-  [0, 8].forEach(step => {
-    const root = keysArr[keyIndex] + chordOctave;
-    const third = keysArr[(keyIndex + scaleIntervals[2]) % 12] + chordOctave;
-    const fifth = keysArr[(keyIndex + scaleIntervals[4]) % 12] + chordOctave;
-    
-    patterns.keys[step].active = true;
-    patterns.keys[step].note = [root, third, fifth];
-    patterns.keys[step].velocity = 0.5;
-    patterns.keys[step].duration = '1n';
-  });
+  
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    [0, 8].forEach(step => {
+      const root = keysArr[keyIndex] + chordOctave;
+      const third = keysArr[(keyIndex + scaleIntervals[2]) % 12] + chordOctave;
+      const fifth = keysArr[(keyIndex + scaleIntervals[4]) % 12] + chordOctave;
+      
+      patterns.keys[offset + step].active = true;
+      patterns.keys[offset + step].note = [root, third, fifth];
+      patterns.keys[offset + step].velocity = 0.5;
+      patterns.keys[offset + step].duration = '1n';
+    });
+  }
   
   // Lead: Melodic hook
   if (state.complexity >= 2) {
     const leadOctave = 5;
     const hook = [0, 3, 2, 0, 4];
-    [8, 9, 10, 11, 12].forEach((step, idx) => {
-      if (hook[idx] !== undefined) {
-        patterns.lead[step].active = true;
-        patterns.lead[step].note = keysArr[(keyIndex + scaleIntervals[hook[idx]]) % 12] + leadOctave;
-        patterns.lead[step].velocity = 0.6;
-        patterns.lead[step].duration = '8n';
-        patterns.lead[step].probability = 100;
-      }
-    });
+    
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      [8, 9, 10, 11, 12].forEach((step, idx) => {
+        if (hook[idx] !== undefined) {
+          patterns.lead[offset + step].active = true;
+          patterns.lead[offset + step].note = keysArr[(keyIndex + scaleIntervals[hook[idx]]) % 12] + leadOctave;
+          patterns.lead[offset + step].velocity = 0.6;
+          patterns.lead[offset + step].duration = '8n';
+          patterns.lead[offset + step].probability = 100;
+        }
+      });
+    }
   }
 }
 
@@ -5171,10 +5196,12 @@ function generateHipHopMelodies() {
 function generatePostPunkMelodies() {
   const scaleIntervals = scales.minor;
   const keyIndex = keysArr.indexOf(state.key);
+  const len = state.sequenceLength;
   
   // Bass: Driving 8th notes, root-fifth motion
   const bassOctave = 1;
-  for (let i = 0; i < 16; i += 2) {
+  
+  for (let i = 0; i < len; i += 2) {
     patterns.bass[i].active = true;
     const useFifth = i % 4 === 2;
     const degree = useFifth ? 4 : 0;
@@ -5186,29 +5213,36 @@ function generatePostPunkMelodies() {
   // Guitar: Power chords, angular rhythm
   if (state.complexity >= 2) {
     const chordOctave = 2;
-    [0, 4, 8, 12].forEach(step => {
-      const root = keysArr[keyIndex] + chordOctave;
-      const fifth = keysArr[(keyIndex + scaleIntervals[4]) % 12] + chordOctave;
-      const octave = keysArr[keyIndex] + (chordOctave + 1);
-      
-      patterns.guitar[step].active = true;
-      patterns.guitar[step].note = [root, fifth, octave];
-      patterns.guitar[step].velocity = 0.6;
-      patterns.guitar[step].duration = '4n';
-    });
+    
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      [0, 4, 8, 12].forEach(step => {
+        const root = keysArr[keyIndex] + chordOctave;
+        const fifth = keysArr[(keyIndex + scaleIntervals[4]) % 12] + chordOctave;
+        const octave = keysArr[keyIndex] + (chordOctave + 1);
+        
+        patterns.guitar[offset + step].active = true;
+        patterns.guitar[offset + step].note = [root, fifth, octave];
+        patterns.guitar[offset + step].velocity = 0.6;
+        patterns.guitar[offset + step].duration = '4n';
+      });
+    }
   }
   
   // Keys: Sparse stabs
   if (state.complexity >= 3) {
-    [6, 14].forEach(step => {
-      if (Math.random() > 0.3) {
-        const chordOctave = 4;
-        patterns.keys[step].active = true;
-        patterns.keys[step].note = keysArr[(keyIndex + scaleIntervals[2]) % 12] + chordOctave;
-        patterns.keys[step].velocity = 0.5;
-        patterns.keys[step].duration = '16n';
-      }
-    });
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      [6, 14].forEach(step => {
+        if (Math.random() > 0.3) {
+          const chordOctave = 4;
+          patterns.keys[offset + step].active = true;
+          patterns.keys[offset + step].note = keysArr[(keyIndex + scaleIntervals[2]) % 12] + chordOctave;
+          patterns.keys[offset + step].velocity = 0.5;
+          patterns.keys[offset + step].duration = '16n';
+        }
+      });
+    }
   }
 }
 
@@ -5216,20 +5250,24 @@ function generatePostPunkMelodies() {
 function generateRnBMelodies() {
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
+  const len = state.sequenceLength;
   
   // Bass: Syncopated groove
   const bassOctave = 2;
   const bassGroove = [0, null, 4, null, 3, null, 5, null];
   
-  bassGroove.forEach((degree, idx) => {
-    const step = idx * 2;
-    if (degree !== null && step < 16) {
-      patterns.bass[step].active = true;
-      patterns.bass[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
-      patterns.bass[step].velocity = 0.7;
-      patterns.bass[step].duration = '8n';
-    }
-  });
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    bassGroove.forEach((degree, idx) => {
+      const step = idx * 2;
+      if (degree !== null && step < 16) {
+        patterns.bass[offset + step].active = true;
+        patterns.bass[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
+        patterns.bass[offset + step].velocity = 0.7;
+        patterns.bass[offset + step].duration = '8n';
+      }
+    });
+  }
   
   // Keys: 7th chords with extensions
   const chordOctave = 3;
@@ -5242,38 +5280,48 @@ function generateRnBMelodies() {
     return [root + chordOctave, third + chordOctave, fifth + chordOctave, seventh + chordOctave, ninth + (chordOctave + 1)];
   });
   
-  [0, 4, 8, 12].forEach((step, idx) => {
-    patterns.keys[step].active = true;
-    patterns.keys[step].note = rnbChords[idx];
-    patterns.keys[step].velocity = 0.45;
-    patterns.keys[step].duration = '2n';
-  });
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    [0, 4, 8, 12].forEach((step, idx) => {
+      patterns.keys[offset + step].active = true;
+      patterns.keys[offset + step].note = rnbChords[idx % rnbChords.length];
+      patterns.keys[offset + step].velocity = 0.45;
+      patterns.keys[offset + step].duration = '2n';
+    });
+  }
   
   // Guitar: Rhythm chops
   if (state.complexity >= 2) {
-    [2, 6, 10, 14].forEach(step => {
-      if (Math.random() > 0.4) {
-        patterns.guitar[step].active = true;
-        patterns.guitar[step].note = rnbChords[Math.floor(step / 4) % rnbChords.length];
-        patterns.guitar[step].velocity = 0.35;
-        patterns.guitar[step].duration = '16n';
-      }
-    });
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      [2, 6, 10, 14].forEach(step => {
+        if (Math.random() > 0.4) {
+          patterns.guitar[offset + step].active = true;
+          patterns.guitar[offset + step].note = rnbChords[Math.floor(step / 4) % rnbChords.length];
+          patterns.guitar[offset + step].velocity = 0.35;
+          patterns.guitar[offset + step].duration = '16n';
+        }
+      });
+    }
   }
   
   // Lead: Soulful melody
   if (state.complexity >= 3) {
     const leadOctave = 5;
     const soul = [0, 2, 3, 4, 3, 2, 0, null];
-    soul.forEach((degree, idx) => {
-      const step = idx + 8;
-      if (degree !== null && step < 16) {
-        patterns.lead[step].active = true;
-        patterns.lead[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave;
-        patterns.lead[step].velocity = 0.55 + Math.random() * 0.15;
-        patterns.lead[step].duration = '8n';
-      }
-    });
+    
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      soul.forEach((degree, idx) => {
+        const step = idx + 8;
+        if (degree !== null && step < 16) {
+          patterns.lead[offset + step].active = true;
+          patterns.lead[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave;
+          patterns.lead[offset + step].velocity = 0.55 + Math.random() * 0.15;
+          patterns.lead[offset + step].duration = '8n';
+        }
+      });
+    }
   }
 }
 
@@ -5281,21 +5329,27 @@ function generateRnBMelodies() {
 function generateAmbientMelodies() {
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
+  const len = state.sequenceLength;
   
   // Bass: Long sustained root notes
   const bassOctave = 2;
-  [0].forEach(step => {
-    patterns.bass[step].active = true;
-    patterns.bass[step].note = keysArr[keyIndex] + bassOctave;
-    patterns.bass[step].velocity = 0.6;
-    patterns.bass[step].duration = '1n';
-  });
+  const bassProgression = [0, 4]; // Alternate between root and fifth
   
-  if (state.complexity >= 2) {
-    patterns.bass[8].active = true;
-    patterns.bass[8].note = keysArr[(keyIndex + scaleIntervals[4]) % 12] + bassOctave;
-    patterns.bass[8].velocity = 0.55;
-    patterns.bass[8].duration = '1n';
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    const degree = bassProgression[bar % bassProgression.length];
+    
+    patterns.bass[offset].active = true;
+    patterns.bass[offset].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
+    patterns.bass[offset].velocity = 0.6;
+    patterns.bass[offset].duration = '1n';
+    
+    if (state.complexity >= 2 && bar % 2 === 1) {
+      patterns.bass[offset + 8].active = true;
+      patterns.bass[offset + 8].note = keysArr[(keyIndex + scaleIntervals[(degree + 2) % 7]) % 12] + bassOctave;
+      patterns.bass[offset + 8].velocity = 0.55;
+      patterns.bass[offset + 8].duration = '1n';
+    }
   }
   
   // Keys: Wide ambient chords
@@ -5308,103 +5362,124 @@ function generateAmbientMelodies() {
     return [root + (chordOctave - 1), third + chordOctave, fifth + chordOctave, seventh + (chordOctave + 1)];
   });
   
-  [0, 8].forEach((step, idx) => {
-    if (Math.random() > 0.2) {
-      patterns.keys[step].active = true;
-      patterns.keys[step].note = ambientChords[idx % ambientChords.length];
-      patterns.keys[step].velocity = 0.4;
-      patterns.keys[step].duration = '1n';
-    }
-  });
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    [0, 8].forEach((step, idx) => {
+      if (Math.random() > 0.2) {
+        patterns.keys[offset + step].active = true;
+        patterns.keys[offset + step].note = ambientChords[(bar + idx) % ambientChords.length];
+        patterns.keys[offset + step].velocity = 0.4;
+        patterns.keys[offset + step].duration = '1n';
+      }
+    });
+  }
   
   // Lead: Sparse ethereal notes
   if (state.complexity >= 2) {
     const leadOctave = 5;
-    [4, 8, 12].forEach((step, idx) => {
-      if (Math.random() > 0.4) {
-        const degree = [0, 2, 4][idx];
-        patterns.lead[step].active = true;
-        patterns.lead[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave;
-        patterns.lead[step].velocity = 0.35;
-        patterns.lead[step].duration = '2n';
-        patterns.lead[step].probability = 70;
-      }
-    });
+    const etherealNotes = [0, 2, 4];
+    
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      [4, 8, 12].forEach((step, idx) => {
+        if (Math.random() > 0.4) {
+          const degree = etherealNotes[idx % etherealNotes.length];
+          patterns.lead[offset + step].active = true;
+          patterns.lead[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave;
+          patterns.lead[offset + step].velocity = 0.35;
+          patterns.lead[offset + step].duration = '2n';
+          patterns.lead[offset + step].probability = 70;
+        }
+      });
+    }
   }
 }
 
 // Dazecore: Warm, nostalgic melodies with glitchy textures
 function generateDazecoreMelodies() {
-  const scaleIntervals = scales.major; // Bright, sunny scale
+  const scaleIntervals = scales.major;
   const keyIndex = keysArr.indexOf(state.key);
+  const len = state.sequenceLength;
   
   // Bass: Warm, syncopated bounce
   const bassOctave = 2;
   const sunnyBass = [0, 0, 2, 0, 4, 0, 2, 0];
   
-  sunnyBass.forEach((degree, idx) => {
-    const step = idx * 2;
-    if (step < 16) {
-      patterns.bass[step].active = true;
-      patterns.bass[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
-      patterns.bass[step].velocity = 0.7 + Math.random() * 0.1; // Warm variation
-      patterns.bass[step].duration = '8n';
-      patterns.bass[step].probability = 95; // Slight glitch chance
-    }
-  });
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    sunnyBass.forEach((degree, idx) => {
+      const step = idx * 2;
+      if (step < 16) {
+        patterns.bass[offset + step].active = true;
+        patterns.bass[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
+        patterns.bass[offset + step].velocity = 0.7 + Math.random() * 0.1;
+        patterns.bass[offset + step].duration = '8n';
+        patterns.bass[offset + step].probability = 95;
+      }
+    });
+  }
   
   // Keys: Shimmering nostalgic chords with add9s
   const chordOctave = 3;
-  const nostalgiachords = [0, 4, 5, 2].map(degree => {
+  const nostalgiaChords = [0, 4, 5, 2].map(degree => {
     const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
     const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % 7]) % 12];
     const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % 7]) % 12];
     const ninth = keysArr[(keyIndex + scaleIntervals[(degree + 1) % 7]) % 12];
-    // Bright, open voicing
     return [root + chordOctave, third + chordOctave, fifth + chordOctave, ninth + (chordOctave + 1)];
   });
   
-  [0, 4, 8, 12].forEach((step, idx) => {
-    patterns.keys[step].active = true;
-    patterns.keys[step].note = nostalgiachords[idx];
-    patterns.keys[step].velocity = 0.5;
-    patterns.keys[step].duration = '2n'; // Sustained warmth
-    patterns.keys[step].probability = 95; // Occasional glitch dropout
-  });
+  for (let bar = 0; bar < len / 16; bar++) {
+    const offset = bar * 16;
+    [0, 4, 8, 12].forEach((step, idx) => {
+      patterns.keys[offset + step].active = true;
+      patterns.keys[offset + step].note = nostalgiaChords[idx % nostalgiaChords.length];
+      patterns.keys[offset + step].velocity = 0.5;
+      patterns.keys[offset + step].duration = '2n';
+      patterns.keys[offset + step].probability = 95;
+    });
+  }
   
   // Guitar: Glitchy arpeggios (dial-up texture)
   if (state.complexity >= 2) {
-    const arpSteps = [1, 2, 5, 6, 9, 10, 13, 14]; // Irregular timing
-    arpSteps.forEach((step, idx) => {
-      if (Math.random() > 0.3) { // Glitchy dropout
-        const chordIdx = Math.floor(step / 4) % nostalgiachords.length;
-        const noteIdx = idx % 4;
-        patterns.guitar[step].active = true;
-        patterns.guitar[step].note = nostalgiachords[chordIdx][noteIdx];
-        patterns.guitar[step].velocity = 0.35 + Math.random() * 0.15; // Shimmer
-        patterns.guitar[step].duration = '16n';
-        patterns.guitar[step].probability = 70 + Math.floor(Math.random() * 25); // Glitch factor
-      }
-    });
+    const arpSteps = [1, 2, 5, 6, 9, 10, 13, 14];
+    
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      arpSteps.forEach((step, idx) => {
+        if (Math.random() > 0.3) {
+          const chordIdx = Math.floor(step / 4) % nostalgiaChords.length;
+          const noteIdx = idx % 4;
+          patterns.guitar[offset + step].active = true;
+          patterns.guitar[offset + step].note = nostalgiaChords[chordIdx][noteIdx];
+          patterns.guitar[offset + step].velocity = 0.35 + Math.random() * 0.15;
+          patterns.guitar[offset + step].duration = '16n';
+          patterns.guitar[offset + step].probability = 70 + Math.floor(Math.random() * 25);
+        }
+      });
+    }
   }
   
   // Lead: Nostalgic melody fragments (summer memory)
   if (state.complexity >= 2) {
     const leadOctave = 5;
-    const memory = [4, 5, 4, 2, 0, 2, 4, null]; // Wistful melody
-    memory.forEach((degree, idx) => {
-      const step = idx + 8;
-      if (degree !== null && step < 16 && Math.random() > 0.2) {
-        patterns.lead[step].active = true;
-        patterns.lead[step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave;
-        patterns.lead[step].velocity = 0.5 + Math.random() * 0.15;
-        patterns.lead[step].duration = '8n';
-        patterns.lead[step].probability = 85; // Occasional nostalgic glitch
-      }
-    });
+    const memory = [4, 5, 4, 2, 0, 2, 4, null];
+    
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      memory.forEach((degree, idx) => {
+        const step = idx + 8;
+        if (degree !== null && step < 16 && Math.random() > 0.2) {
+          patterns.lead[offset + step].active = true;
+          patterns.lead[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + leadOctave;
+          patterns.lead[offset + step].velocity = 0.5 + Math.random() * 0.15;
+          patterns.lead[offset + step].duration = '8n';
+          patterns.lead[offset + step].probability = 85;
+        }
+      });
+    }
   }
 }
-
 // Add after generateMelodicPatterns function
 function addDrumFills() {
   // Add crash on bar 1
