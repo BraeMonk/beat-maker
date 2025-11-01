@@ -6751,34 +6751,201 @@ class AudioTrack {
     this.volume = 0;
     this.pan = 0;
     
-    // Audio nodes
+    // Audio routing - create dedicated channel for this track
     this.channel = new Tone.Channel({ volume: 0, pan: 0 }).connect(master.fxIn);
     this.recorder = null;
     this.recordedChunks = [];
     this.fxChain = [];
     
-    // Create meter
+    // Meter for visual feedback
     this.meter = new Tone.Meter();
     this.channel.connect(this.meter);
+    
+    // CRITICAL: Route instrument through this track immediately
+    this.routeInstrument();
+  }
+  
+  routeInstrument() {
+    const instSynth = synths[this.instrument];
+    const instData = instruments[this.instrument];
+    
+    if (!instSynth || !instData) {
+      console.warn(`Cannot route ${this.instrument} - synth not ready`);
+      return;
+    }
+    
+    // Store original channel for cleanup
+    this.originalChannel = instData.channel;
+    
+    // Route synth through this track's channel
+    instSynth.disconnect();
+    instSynth.connect(this.channel);
+    
+    console.log(`✅ ${this.instrument} → Track ${this.id}`);
+  }
+  
+  addFx(type, params = {}) {
+    let fx;
+    
+    switch(type) {
+      case 'reverb':
+        fx = new Tone.Reverb({ decay: params.decay || 1.5, wet: params.wet || 0.3 });
+        break;
+      case 'delay':
+        fx = new Tone.FeedbackDelay({
+          delayTime: params.time || '8n',
+          feedback: params.feedback || 0.3,
+          wet: params.wet || 0.3
+        });
+        break;
+      case 'chorus':
+        fx = new Tone.Chorus({
+          frequency: params.frequency || 1.5,
+          delayTime: params.delayTime || 3.5,
+          depth: params.depth || 0.7,
+          wet: params.wet || 0.5
+        }).start();
+        break;
+      case 'distortion':
+        fx = new Tone.Distortion({
+          distortion: params.amount || 0.4,
+          wet: params.wet || 0.5
+        });
+        break;
+      case 'filter':
+        fx = new Tone.Filter({
+          type: params.type || 'lowpass',
+          frequency: params.frequency || 5000,
+          Q: params.q || 1
+        });
+        break;
+      case 'compressor':
+        fx = new Tone.Compressor({
+          threshold: params.threshold || -24,
+          ratio: params.ratio || 4,
+          attack: params.attack || 0.003,
+          release: params.release || 0.25
+        });
+        break;
+      case 'eq':
+        fx = new Tone.EQ3({
+          low: params.low || 0,
+          mid: params.mid || 0,
+          high: params.high || 0
+        });
+        break;
+      case 'bitcrusher':
+        fx = new Tone.BitCrusher({
+          bits: params.bits || 4
+        });
+        break;
+      default:
+        return null;
+    }
+    
+    const fxObj = {
+      id: Date.now() + Math.random(),
+      type,
+      node: fx,
+      params,
+      enabled: true
+    };
+    
+    this.fxChain.push(fxObj);
+    this.reconnectFxChain();
+    
+    return fxObj;
+  }
+  
+  removeFx(fxId) {
+    const index = this.fxChain.findIndex(fx => fx.id === fxId);
+    if (index === -1) return;
+    
+    const fx = this.fxChain[index];
+    fx.node.disconnect();
+    fx.node.dispose();
+    
+    this.fxChain.splice(index, 1);
+    this.reconnectFxChain();
+  }
+  
+  reconnectFxChain() {
+    const instSynth = synths[this.instrument];
+    if (!instSynth) return;
+    
+    // Disconnect everything
+    this.fxChain.forEach(fx => fx.node.disconnect());
+    instSynth.disconnect();
+    
+    // Chain FX in order
+    let lastNode = instSynth;
+    
+    this.fxChain.forEach(fx => {
+      if (fx.enabled) {
+        lastNode.connect(fx.node);
+        lastNode = fx.node;
+      }
+    });
+    
+    // Connect to channel
+    lastNode.connect(this.channel);
+  }
+  
+  updateFxParam(fxId, param, value) {
+    const fx = this.fxChain.find(f => f.id === fxId);
+    if (!fx) return;
+    
+    fx.params[param] = value;
+    const node = fx.node;
+    
+    if (param === 'wet' && node.wet) {
+      node.wet.rampTo(value, 0.1);
+    } else if (param === 'decay' && node.decay !== undefined) {
+      node.decay = value;
+    } else if (param === 'time' && node.delayTime) {
+      node.delayTime.value = Tone.Time(value);
+    } else if (param === 'feedback' && node.feedback) {
+      node.feedback.rampTo(value, 0.1);
+    } else if (param === 'frequency' && node.frequency) {
+      node.frequency.rampTo(value, 0.1);
+    } else if (param === 'depth' && node.depth !== undefined) {
+      node.depth = value;
+    } else if (param === 'amount' && node.distortion !== undefined) {
+      node.distortion = value;
+    } else if (param === 'threshold' && node.threshold) {
+      node.threshold.rampTo(value, 0.1);
+    } else if (param === 'ratio' && node.ratio) {
+      node.ratio.rampTo(value, 0.1);
+    } else if (param === 'low' && node.low) {
+      node.low.rampTo(value, 0.1);
+    } else if (param === 'mid' && node.mid) {
+      node.mid.rampTo(value, 0.1);
+    } else if (param === 'high' && node.high) {
+      node.high.rampTo(value, 0.1);
+    } else if (param === 'bits' && node.bits !== undefined) {
+      node.bits = value;
+    } else if (param === 'q' && node.Q) {
+      node.Q.rampTo(value, 0.1);
+    }
+  }
+  
+  toggleFx(fxId) {
+    const fx = this.fxChain.find(f => f.id === fxId);
+    if (!fx) return;
+    
+    fx.enabled = !fx.enabled;
+    this.reconnectFxChain();
   }
   
   async startRecording(punchIn = null, punchOut = null) {
     if (this.recording) return;
     
-    this.punchIn = punchIn;
-    this.punchOut = punchOut;
-    
     await Tone.start();
     
-    console.log(`🎙️ Starting recording for ${this.instrument} on track ${this.id}`);
+    console.log(`🎙️ Recording ${this.instrument} on track ${this.id}`);
     
-    // CRITICAL: Don't disconnect the synth - we need to tap into the existing signal
-    // The synth should already be playing through instruments[].channel
-    
-    // Create a recorder that taps the track's channel output
+    // Create recording destination that taps the track channel
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
-    
-    // Connect THIS track's channel to the recorder (non-destructive tap)
     this.channel.connect(recordDest);
     
     let mimeType = '';
@@ -6794,45 +6961,29 @@ class AudioTrack {
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
         this.recordedChunks.push(e.data);
-        console.log(`📼 Chunk received: ${e.data.size} bytes`);
       }
     };
     
     this.recorder.onstop = () => {
-      console.log(`⏹️ Recording stopped, ${this.recordedChunks.length} chunks`);
+      console.log(`⏹️ Stopped recording, ${this.recordedChunks.length} chunks`);
       this.finishRecording();
+      // Disconnect recording tap
+      this.channel.disconnect(recordDest);
     };
     
     this.recorder.onerror = (e) => {
       console.error('❌ Recorder error:', e);
     };
     
-    // Handle punch in/out if specified
-    if (punchIn !== null && punchIn > 0) {
-      console.log(`⏱️ Punch in at ${punchIn}s`);
-      setTimeout(() => {
-        if (this.recorder.state === 'inactive') {
-          this.recorder.start(100); // Capture in 100ms chunks
-          console.log('▶️ Recorder started (punched in)');
-        }
-      }, punchIn * 1000);
-    } else {
-      this.recorder.start(100); // Capture in 100ms chunks for reliability
-      console.log('▶️ Recorder started immediately');
-    }
-    
-    if (punchOut !== null && punchOut > 0) {
-      console.log(`⏱️ Punch out at ${punchOut}s`);
-      setTimeout(() => {
-        if (this.recording) this.stopRecording();
-      }, punchOut * 1000);
-    }
-    
+    // Start recording with small chunks for reliability
+    this.recorder.start(100);
     this.recording = true;
     this.armed = false;
     
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
+    
+    console.log(`▶️ Recording started`);
   }
   
   stopRecording() {
@@ -6845,37 +6996,57 @@ class AudioTrack {
   }
   
   async finishRecording() {
+    if (this.recordedChunks.length === 0) {
+      console.warn('⚠️ No audio data recorded');
+      this.recorder = null;
+      renderMultitrack();
+      return;
+    }
+    
     const blob = new Blob(this.recordedChunks, {
       type: this.recorder.mimeType || 'audio/webm'
     });
     
-    // Create audio buffer from blob
-    const arrayBuffer = await blob.arrayBuffer();
-    const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+    console.log(`💾 Processing ${blob.size} bytes`);
     
-    // Create take
-    const take = {
-      id: Date.now(),
-      buffer: audioBuffer,
-      blob: blob,
-      duration: audioBuffer.duration,
-      timestamp: new Date().toISOString(),
-      muted: false
-    };
-    
-    this.takes.push(take);
-    this.selectedTakeIndex = this.takes.length - 1;
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+      
+      const take = {
+        id: Date.now(),
+        buffer: audioBuffer,
+        blob: blob,
+        duration: audioBuffer.duration,
+        timestamp: new Date().toISOString(),
+        muted: false
+      };
+      
+      this.takes.push(take);
+      this.selectedTakeIndex = this.takes.length - 1;
+      
+      console.log(`✅ Take ${this.takes.length} created: ${take.duration.toFixed(1)}s`);
+      
+      renderMultitrack();
+      showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
+    } catch (err) {
+      console.error('❌ Failed to decode audio:', err);
+      showToast('❌ Recording failed to decode', 'error');
+    }
     
     this.recordedChunks = [];
     this.recorder = null;
-    
-    renderMultitrack();
-    showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
   }
   
   selectTake(index) {
     if (index < 0 || index >= this.takes.length) return;
     this.selectedTakeIndex = index;
+    renderMultitrack();
+  }
+
+  toggleTakeMute(index) {
+    if (index < 0 || index >= this.takes.length) return;
+    this.takes[index].muted = !this.takes[index].muted;
     renderMultitrack();
   }
   
@@ -6908,6 +7079,18 @@ class AudioTrack {
     if (this.recorder && this.recording) {
       this.stopRecording();
     }
+    
+    // Restore original routing
+    const instSynth = synths[this.instrument];
+    if (instSynth && this.originalChannel) {
+      instSynth.disconnect();
+      instSynth.connect(this.originalChannel);
+    }
+    
+    this.fxChain.forEach(fx => {
+      fx.node.disconnect();
+      fx.node.dispose();
+    });
     
     this.meter.dispose();
     this.channel.disconnect();
@@ -7166,15 +7349,7 @@ async function handleTrackAction(track, action) {
     track.armed = !track.armed;
     renderMultitrack();
   } else if (action === 'rec') {
-    if (track.recording) {
-      track.stopRecording();
-    } else if (track.armed) {
-      // Make sure transport is playing
-      if (!state.isPlaying) {
-        await togglePlay();
-      }
-      await track.startRecording();
-    }
+    await toggleRecordTrack(track.id);
   } else if (action === 'mute') {
     track.muted = !track.muted;
     track.channel.mute = track.muted;
@@ -7196,6 +7371,33 @@ async function handleTrackAction(track, action) {
   }
 }
 
+// Toggle recording for a track
+async function toggleRecordTrack(trackId) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  
+  if (track.recording) {
+    // Stop recording
+    track.stopRecording();
+    showToast(`⏹️ Stopped recording ${track.name}`, 'info');
+  } else {
+    // Start recording
+    if (!track.armed) {
+      track.armed = true;
+    }
+    
+    // Make sure transport is playing
+    if (!state.isPlaying) {
+      await togglePlay();
+    }
+    
+    await track.startRecording();
+    showToast(`🎙️ Recording ${track.name}...`, 'success');
+  }
+  
+  renderMultitrack();
+}
+  
 // Show add track dialog - FIXED VERSION
 function showAddTrackDialog() {
   // Remove any existing modals
@@ -7576,6 +7778,7 @@ function getSerializableInstruments() {
 function saveProject() {
   const projectName = document.getElementById('projectName').value || 'Untitled';
   
+  // Serialize patterns
   const plainPatterns = {};
   Object.keys(patterns).forEach(inst => {
     plainPatterns[inst] = patterns[inst].map(step => ({
@@ -7587,7 +7790,7 @@ function saveProject() {
     }));
   });
   
-  // Serialize multitrack data (exclude audio buffers/blobs)
+  // Serialize multitrack (metadata only, no audio blobs)
   const multitrackData = {
     tracks: multitrack.tracks.map(track => ({
       id: track.id,
@@ -7609,10 +7812,26 @@ function saveProject() {
   };
   
   const project = {
+    version: '1.0',
     name: projectName,
     state: {
-      ...state,
-      isPlaying: false
+      bpm: state.bpm,
+      swing: state.swing,
+      duration: state.duration,
+      complexity: state.complexity,
+      humanize: state.humanize,
+      sequenceLength: state.sequenceLength,
+      resolution: state.resolution,
+      key: state.key,
+      scale: state.scale,
+      octave: state.octave,
+      progression: state.progression,
+      masterVolume: state.masterVolume,
+      tapeSaturation: state.tapeSaturation,
+      vinylNoise: state.vinylNoise,
+      lowCut: state.lowCut,
+      highCut: state.highCut,
+      compressor: state.compressor
     },
     patterns: plainPatterns,
     instruments: getSerializableInstruments(),
@@ -7625,10 +7844,12 @@ function saveProject() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${projectName.replace(/\\s+/g, '_')}.prostudio.json`;
+  link.download = `${projectName.replace(/\s+/g, '_')}.8beat.json`;
   link.click();
   
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  
+  console.log('💾 Project saved:', projectName);
   showToast('✅ Project saved!', 'success');
 }
 
@@ -7653,7 +7874,7 @@ function applyLoadedInstruments(loaded) {
 function loadProject() {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.json,.prostudio.json';
+  input.accept = '.json,.8beat.json';
   
   input.onchange = e => {
     const file = e.target.files[0];
@@ -7664,31 +7885,37 @@ function loadProject() {
       try {
         const project = JSON.parse(ev.target.result);
         
-        const {
-          bpm, swing, duration, complexity, humanize,
-          sequenceLength, resolution, key, scale, octave, progression
-        } = project.state || {};
+        console.log('📂 Loading project:', project.name);
         
+        // Stop playback
+        if (state.isPlaying) {
+          stop();
+        }
+        
+        // Load state
         Object.assign(state, {
           ...state,
-          bpm, swing, duration, complexity, humanize,
-          sequenceLength, resolution, key, scale, octave, progression
+          ...project.state,
+          isPlaying: false,
+          currentStep: 0
         });
         
+        // Load patterns
         Object.keys(patterns).forEach(k => delete patterns[k]);
         Object.assign(patterns, project.patterns || {});
         
+        // Load instruments
         if (project.instruments) {
           applyLoadedInstruments(project.instruments);
         }
         
-        // ======= MULTITRACK RESTORATION =======
+        // Load multitrack
         if (project.multitrack) {
           // Clear existing tracks
           multitrack.tracks.forEach(t => t.dispose());
           multitrack.tracks = [];
           
-          // Restore track metadata (but not audio data)
+          // Restore track metadata
           project.multitrack.tracks.forEach(trackData => {
             const track = new AudioTrack(
               trackData.id,
@@ -7700,6 +7927,10 @@ function loadProject() {
             track.pan = trackData.pan;
             track.muted = trackData.muted;
             track.soloed = trackData.soloed;
+            
+            // Update channel settings
+            track.channel.volume.value = track.volume;
+            track.channel.pan.value = track.pan / 100;
             
             // Restore FX chain
             if (trackData.fxChain && trackData.fxChain.length > 0) {
@@ -7716,27 +7947,30 @@ function loadProject() {
           });
           
           multitrack.nextTrackId = project.multitrack.nextTrackId;
-          renderMultitrack();
           
-          // Notify user about audio data
           if (project.multitrack.tracks.some(t => t.takesCount > 0)) {
-            showToast('⚠️ Track settings loaded. Audio recordings must be re-recorded.', 'warning');
+            showToast('⚠️ Track settings loaded. Audio must be re-recorded.', 'warning');
           }
         }
-        // ======= END MULTITRACK RESTORATION =======
         
+        // Update all displays
         updateAllDisplays();
         ensurePatternLength(state.sequenceLength);
+        
         renderSequencer();
         renderMixer();
         renderFX();
         renderHarmony();
+        renderMultitrack();
         
         document.getElementById('projectName').value = project.name || 'Untitled';
+        
+        console.log('✅ Project loaded successfully');
         showToast('✅ Project loaded!', 'success');
+        
       } catch (err) {
+        console.error('❌ Load project error:', err);
         showToast('❌ Error loading project: ' + err.message, 'error');
-        console.error('Load project error:', err);
       }
     };
     
