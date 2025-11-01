@@ -2873,11 +2873,15 @@ const genrePresets = {
       hihat:   [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1],
       rimshot: [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0],
       bass:    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      keys:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
+      guitar:  [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
+      keys:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      lead:    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0]
     },
     notes: {
-      bass: ['C2','C2','C2','C2','D#2','D#2','D#2','D#2','F2','F2','F2','F2','G2','G2','G2','G2'],
-      keys: ['C4','E4','G4','C4','D#4','G4','A#4','D#4','F4','A4','C5','F4','G4','B4','D5','G4']
+      bass: ['C2','C2','C2','C2','D2','D2','D2','D2','D#2','D#2','D#2','D#2','G2','G2','G2','G2'],
+      guitar: ['C3','D#3','G3','C3','D3','F3','A#3','D3','D#3','G3','A#3','D#3','G3','D4','F3','G3'],
+      keys: ['C3','D#3','G3','A#3','D3','F3','A#3','D4','D#3','G3','A#3','D#4','G3','A#3','D4','F4'],
+      lead: ['G4','A#4','D5','C5','A#4','G4','F4','D#4']
     }
   },
   
@@ -2889,11 +2893,15 @@ const genrePresets = {
       hihat:   [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
       clap:    [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
       bass:    [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],
-      keys:    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]
+      guitar:  [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      keys:    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
+      lead:    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0]
     },
     notes: {
-      bass: ['A1','A1','A1','C2','C2','C2','D2','D2','D2','F2','F2','F2','G2','G2','G2','G2'],
-      keys: ['A3','C4','E4','A4','C4','E4','D4','F4','A4','D4','F4','G3','B3','D4','G4','B4']
+      bass: ['A1','A1','A1','C2','C2','C2','D2','D2','D2','F2','F2','F2','G2','G2','G2','A1'],
+      guitar: ['A2','C3','E3','A2','C3','E3','D3','F3','A3','D3','F3','G2','B2','D3','G3','B2'],
+      keys: ['A2','C3','E3','G3','C3','E3','D3','F3','A3','D3','F3','G2','B2','D3','F3','B3'],
+      lead: ['E4','G4','A4','C5','B4','A4','G4','E4']
     }
   },
   
@@ -2906,12 +2914,14 @@ const genrePresets = {
       rimshot: [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
       bass:    [1,0,0,1,0,1,0,0,1,0,0,1,0,1,0,0],
       guitar:  [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      keys:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
+      keys:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      lead:    [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0]
     },
     notes: {
-      bass: ['E1','E1','E2','E1','G1','G1','G2','G1','A1','A1','A2','A1','D2','D2','D3','D2'],
-      guitar: ['E2','G2','B2','E3','G2','B2','D3','G3','A2','C3','E3','A3','D3','F3','A3','D4'],
-      keys: ['E3','G3','B3','E4','G3','B3','D4','G4','A3','C4','E4','A4','D4','F4','A4','D5']
+      bass: ['E1','E1','E2','E1','G1','G1','G2','G1','A1','A1','A2','A1','D2','D2','D2','D1'],
+      guitar: ['E2','G2','B2','E2','G2','B2','D3','G2','A2','C3','E3','A2','D3','F3','A3','D3'],
+      keys: ['E2','G2','B2','D3','G2','B2','D3','F3','A2','C3','E3','G3','D3','F3','A3','C4'],
+      lead: ['B3','D4','E4','G4','F4','E4','D4','B3']
     }
   },
   
@@ -2923,13 +2933,15 @@ const genrePresets = {
       hihat:   [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1],
       rimshot: [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0],
       bass:    [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0],
+      guitar:  [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
       keys:    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
-      lead:    [0,0,0,0,1,0,0,1,0,0,0,0,1,0,1,0]
+      lead:    [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
     },
     notes: {
       bass: ['F2','F2','F2','F2','G2','G2','G2','G2','A2','A2','A2','A2','C3','C3','C3','C3'],
-      keys: ['F3','A3','C4','F4','G3','B3','D4','G4','A3','C4','E4','A4','C4','E4','G4','C5'],
-      lead: ['F5','G5','A5','C6','E6','D6','C6','A5']
+      guitar: ['F2','A2','C3','F2','G2','B2','D3','G2','A2','C3','E3','A2','C3','E3','G3','C3'],
+      keys: ['F2','A2','C3','E3','G2','B2','D3','F3','A2','C3','E3','A3','C3','E3','G3','C4'],
+      lead: ['C4','E4','F4','A4','G4','F4','E4','C4']
     }
   },
   
@@ -2940,13 +2952,15 @@ const genrePresets = {
       snare:   [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
       hihat:   [0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0],
       bass:    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+      guitar:  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
       keys:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      lead:    [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
+      lead:    [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0]
     },
     notes: {
-      bass: ['C2','C2','C2','C2','C2','C2','C2','C2','G1','G1','G1','G1','G1','G1','G1','G1'],
-      keys: ['C3','E3','G3','C4','E4','G4','G3','B3','D4','G4','B4','D5'],
-      lead: ['C5','E5','G5','C6','B5','G5','E5','D5']
+      bass: ['C2','C2','C2','C2','C2','C2','C2','C2','A#1','A#1','A#1','A#1','A#1','A#1','A#1','A#1'],
+      guitar: ['C2','D#2','G2','C2','D#2','G2','A#2','D#3','A#1','D2','F2','A#2','D3','F3','A#3','D3'],
+      keys: ['C2','D#2','G2','A#2','D#2','G2','A#2','D3','A#1','D2','F2','A#2','D3','F3','A#3','D4'],
+      lead: ['G3','A#3','D4','F4','D#4','D4','A#3','G3']
     }
   }
 };
@@ -3288,72 +3302,68 @@ function createMelodicSynth(inst) {
     return new Tone.PolySynth(Tone.Synth);
   }
   
-  // Create a Tone.Sampler with multi-sampled notes
   const sampler = new Tone.Sampler({
     urls: samples,
-    release: 1,
+    release: 2, // Longer release = more dreamy
     onload: () => {
       console.log(`✅ ${inst} samples loaded`);
     }
   });
   
-  // Add character-specific effects
   switch (inst) {
     case 'bass':
-      // Add slight distortion and compression for punch
       const bassComp = new Tone.Compressor(-30, 3);
       const bassDist = new Tone.Distortion(0.1);
       sampler.chain(bassDist, bassComp);
       return sampler;
       
     case 'guitar':
-      // Add chorus and vibrato for guitar character
+      // MORE reverb and chorus for dreamier sound
+      const guitarReverb = new Tone.Reverb({
+        decay: 3,
+        wet: 0.4
+      });
+      guitarReverb.generate();
+      
       const guitarChorus = new Tone.Chorus({
-        frequency: 0.8,
-        delayTime: 2.5,
-        depth: 0.2,
+        frequency: 0.5, // Slower = dreamier
+        delayTime: 3.5,
+        depth: 0.3,
         type: 'sine',
         spread: 180
       }).start();
       
-      const guitarVibrato = new Tone.Vibrato({
-        frequency: 4.5,
-        depth: 0.05,
-        type: 'sine'
-      });
-      
-      sampler.chain(guitarChorus, guitarVibrato);
+      sampler.chain(guitarChorus, guitarReverb);
       return sampler;
       
     case 'keys':
-      // Add tremolo for warmth
-      const tremolo = new Tone.Tremolo({
-        frequency: 4,
-        depth: 0.15,
-        type: 'sine',
-        spread: 180
-      }).start();
+      // Dark pad sound
+      const keysReverb = new Tone.Reverb({
+        decay: 4,
+        wet: 0.5
+      });
+      keysReverb.generate();
       
-      const keysChorus = new Tone.Chorus(0.5, 2.5, 0.25).start();
+      const keysChorus = new Tone.Chorus(0.3, 4, 0.4).start();
       
-      sampler.chain(keysChorus, tremolo);
+      sampler.chain(keysChorus, keysReverb);
       return sampler;
       
     case 'lead':
-      // Expressive vibrato and delay
-      const leadVibrato = new Tone.Vibrato({
-        frequency: 5,
-        depth: 0.15,
-        type: 'sine'
+      // Ethereal lead
+      const leadReverb = new Tone.Reverb({
+        decay: 5,
+        wet: 0.6
       });
+      leadReverb.generate();
       
       const leadDelay = new Tone.FeedbackDelay({
-        delayTime: '16n',
-        feedback: 0.2,
-        wet: 0.15
+        delayTime: '8n',
+        feedback: 0.4,
+        wet: 0.3
       });
       
-      sampler.chain(leadVibrato, leadDelay);
+      sampler.chain(leadDelay, leadReverb);
       return sampler;
       
     default:
@@ -4202,23 +4212,24 @@ function generateBassLine() {
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
   const root = state.key;
-  const octave = 2;
+  const octave = 2; // Keep bass in low register
   
+  // Use darker intervals - root, minor 3rd, 4th, 5th
   const bassNotes = [
     root + octave,
-    keysArr[(keyIndex + scaleIntervals[4]) % 12] + octave,
-    root + (octave + 1),
-    keysArr[(keyIndex + scaleIntervals[3]) % 12] + octave
+    keysArr[(keyIndex + scaleIntervals[2]) % 12] + octave,  // minor 3rd
+    keysArr[(keyIndex + scaleIntervals[3]) % 12] + octave,  // 4th
+    keysArr[(keyIndex + scaleIntervals[4]) % 12] + octave   // 5th
   ];
   
   const density = state.complexity === 1 ? 4 : state.complexity === 2 ? 6 : 8;
   
   for (let i = 0; i < state.sequenceLength; i++) {
-    if (i % (16 / density) === 0 || (state.complexity >= 3 && Math.random() < 0.3)) {
+    if (i % (16 / density) === 0 || (state.complexity >= 3 && Math.random() < 0.2)) {
       patterns.bass[i].active = true;
       patterns.bass[i].note = bassNotes[Math.floor(i / 4) % bassNotes.length];
-      patterns.bass[i].velocity = 0.7 + Math.random() * 0.3;
-      patterns.bass[i].duration = '8n';
+      patterns.bass[i].velocity = 0.6 + Math.random() * 0.2;
+      patterns.bass[i].duration = '4n'; // Longer, sustained notes
       patterns.bass[i].probability = 100;
     }
   }
@@ -4227,24 +4238,35 @@ function generateBassLine() {
 function generateKeyPattern() {
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
-  const octave = 4;
+  const octave = 3; // Lower octave - darker
   
+  // Build darker, more dissonant chords
   const chords = [];
   for (let i = 0; i < 4; i++) {
-    const degree = [0, 3, 4, 0][i];
+    const degree = [0, 2, 3, 4][i]; // Use 2nd (adds tension), minor 3rd, 4th
     const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
     const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % scaleIntervals.length]) % 12];
     const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % scaleIntervals.length]) % 12];
-    chords.push([root + octave, third + octave, fifth + octave]);
+    
+    // Add 7th for more color/tension
+    const seventh = keysArr[(keyIndex + scaleIntervals[(degree + 6) % scaleIntervals.length]) % 12];
+    
+    chords.push([
+      root + octave, 
+      third + octave, 
+      fifth + octave,
+      seventh + (octave + 1)
+    ]);
   }
   
+  // Sparse, sustained pads
   for (let i = 0; i < state.sequenceLength; i++) {
-    if (i % 4 === 0) {
-      const index = Math.floor(i / 4) % chords.length;
+    if (i % 8 === 0) { // Only every 8 steps = very sparse
+      const index = Math.floor(i / 8) % chords.length;
       patterns.keys[i].active = true;
       patterns.keys[i].note = chords[index];
-      patterns.keys[i].velocity = 0.6 + Math.random() * 0.2;
-      patterns.keys[i].duration = '2n';
+      patterns.keys[i].velocity = 0.5 + Math.random() * 0.15; // Quiet
+      patterns.keys[i].duration = '1n'; // Whole note - long sustain
       patterns.keys[i].probability = 100;
     }
   }
@@ -4253,30 +4275,26 @@ function generateKeyPattern() {
 function generateLeadMelody() {
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
-  const octave = 5;
+  const octave = 4; // Medium-low register
   
   const scaleNotes = scaleIntervals.map(iv => keysArr[(keyIndex + iv) % 12] + octave);
-  const extended = [
-    ...scaleNotes,
-    ...scaleIntervals.map(iv => keysArr[(keyIndex + iv) % 12] + (octave + 1))
-  ];
   
   let lastIndex = 0;
-  const density = state.complexity === 1 ? 4 : state.complexity === 2 ? 6 : 10;
+  const density = state.complexity === 1 ? 2 : state.complexity === 2 ? 3 : 5; // Very sparse
   
   for (let i = 0; i < state.sequenceLength; i++) {
-    if (Math.random() < (density / 16)) {
-      const jump = Math.random() < 0.7 
-        ? (Math.random() < 0.5 ? 1 : -1) 
-        : (Math.floor(Math.random() * 5) - 2);
+    // Much sparser - only occasional notes
+    if (Math.random() < (density / 32)) { // Half the normal density
+      // Prefer downward motion (darker feel)
+      const jump = Math.random() < 0.6 ? -1 : (Math.random() < 0.7 ? 1 : 2);
       
-      lastIndex = clamp(lastIndex + jump, 0, extended.length - 1);
+      lastIndex = clamp(lastIndex + jump, 0, scaleNotes.length - 1);
       
       patterns.lead[i].active = true;
-      patterns.lead[i].note = extended[lastIndex];
-      patterns.lead[i].velocity = 0.6 + Math.random() * 0.4;
-      patterns.lead[i].duration = Math.random() < 0.7 ? '8n' : '16n';
-      patterns.lead[i].probability = Math.random() < 0.8 ? 100 : 75;
+      patterns.lead[i].note = scaleNotes[lastIndex];
+      patterns.lead[i].velocity = 0.4 + Math.random() * 0.2; // Quiet, ghostly
+      patterns.lead[i].duration = Math.random() < 0.7 ? '4n' : '2n'; // Longer notes
+      patterns.lead[i].probability = Math.random() < 0.6 ? 100 : 70; // Some randomness
     }
   }
 }
@@ -4285,37 +4303,35 @@ function generateLeadMelody() {
 function generateGuitarStrums() {
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
-  const octave = 3;
+  const octave = 2; // Lower, darker
   
-  // Build chord shapes (power chords for post-punk, full triads for R&B)
+  // Build power chords and sus chords (no 3rd = ambiguous/dreamy)
   const chordShapes = [];
   for (let i = 0; i < 4; i++) {
-    const degree = [0, 3, 4, 0][i];
+    const degree = [0, 2, 3, 5][i];
     const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
-    const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % scaleIntervals.length]) % 12];
+    const fourth = keysArr[(keyIndex + scaleIntervals[(degree + 3) % scaleIntervals.length]) % 12]; // sus4
     const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % scaleIntervals.length]) % 12];
     
-    if (state.currentGenre === 'postpunk') {
-      // Power chords (root + fifth only)
-      chordShapes.push([root + octave, fifth + octave, root + (octave + 1)]);
-    } else {
-      // Full triads
-      chordShapes.push([root + octave, third + octave, fifth + octave]);
-    }
+    // Sus chords = dreamy, no major/minor
+    chordShapes.push([
+      root + octave, 
+      fourth + octave, 
+      fifth + octave,
+      root + (octave + 1)
+    ]);
   }
   
-  // Different strum patterns by genre
-  const strumPattern = state.currentGenre === 'rnb' 
-    ? [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0] // Steady quarter notes
-    : [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]; // Driving 8ths for post-punk
+  // Very sparse strumming
+  const strumPattern = [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]; // Only twice per bar
   
   for (let i = 0; i < state.sequenceLength; i++) {
     if (strumPattern[i % strumPattern.length]) {
-      const chordIndex = Math.floor(i / 4) % chordShapes.length;
+      const chordIndex = Math.floor(i / 8) % chordShapes.length;
       patterns.guitar[i].active = true;
       patterns.guitar[i].note = chordShapes[chordIndex];
-      patterns.guitar[i].velocity = 0.5 + Math.random() * 0.2;
-      patterns.guitar[i].duration = state.currentGenre === 'postpunk' ? '16n' : '4n';
+      patterns.guitar[i].velocity = 0.4 + Math.random() * 0.15; // Quiet
+      patterns.guitar[i].duration = '2n'; // Half note sustain
       patterns.guitar[i].probability = 100;
     }
   }
