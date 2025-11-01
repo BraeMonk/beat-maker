@@ -2975,57 +2975,57 @@ const genrePresets = {
   dazecore: {
     name: 'Dazecore', icon: '☀️', bpm: 95, swing: 20,
     patterns: {
-      // Sparse, unsettling kick - something's off
-      kick:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0],
+      // Warm, inviting kick - but the timing is slightly off
+      kick:    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0],
       
-      // Distant snare - like echoes in empty streets
-      snare:   [0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,1],
+      // Soft, jazzy snare - comforting but distant
+      snare:   [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,1,1,0,0,1],
       
-      // Glitchy hi-hats - VHS tracking errors
-      hihat:   [1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,0,0,1,0,1,0,0,1,0,1,0,0,1,0,0,0,0],
+      // Lounge hi-hats with subtle glitches
+      hihat:   [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1],
       
-      // Rare clap - isolated, haunting
-      clap:    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],
+      // Intimate claps - inviting you in
+      clap:    [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,0],
       
-      // Dial-up modem clicks - disturbing nostalgia
-      rimshot: [0,1,0,0,1,0,1,0,0,0,1,0,0,1,0,0,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0,1],
+      // Dial-up nostalgia - warm but uncanny
+      rimshot: [0,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0,0,0,1,0,1],
       
-      // Tom hits - distant thunder, childhood memories fading
-      tom:     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0],
+      // Rare tom fills - something stirring beneath
+      tom:     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0],
       
-      // Deep bass - ominous rumble under the warmth
-      bass:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0],
+      // Deep, warm bass - comforting rumble with wrong notes
+      bass:    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1,1,0,0,1,1,0,1,0],
       
-      // Detuned guitar - summer turned sour
-      guitar:  [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      // Lush guitar chords - too beautiful, almost sickly sweet
+      guitar:  [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,1,0,0,0],
       
-      // Warped piano - music box from hell
-      keys:    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      // Dreamy keys - lounge jazz piano with dissonant undertones
+      keys:    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1,1,0,0,0,1,0,0,1,1,0,1,0],
       
-      // Eerie melody - ice cream truck in the fog
-      lead:    [0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0],
+      // Warm melody - beckoning, seductive, slightly wrong
+      lead:    [0,0,1,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,1,0,0,1,0,0,1,0,0,1,0,1,0,0],
       
-      // Glitchy artifacts - TV static, corrupted memories
-      fx:      [0,0,1,0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,0,0,1,0,0,0,0,1],
+      // Vinyl crackle and tape warble - nostalgic texture
+      fx:      [1,0,0,1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1],
       
-      // Riser - anxiety building, something approaching
-      riser:   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+      // Subtle riser - the room is shifting around you
+      riser:   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0],
       
-      // Dark ambient drone - the fog rolling in
-      ambience:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+      // Warm ambient pad - the "off" feeling underneath everything
+      ambience:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
     },
     notes: {
-      // Deep, rumbling bass - ominous and warm at once
-      bass: ['C2','C2','C2','C2','D#2','D#2','D#2','D#2','F2','F2','F2','F2','G#2','G#2','G#2','G#2','C2','C2','C2','C2','D#2','D#2','D#2','D#2','F2','F2','F2','F2','A#2','A#2','C3','C2'],
+      // Warm bass with chromatic "wrong" notes
+      bass: ['D2','D2','D2','F2','F2','F2','A2','A2','A2','C3','C3','C3','D3','D3','D#3','D2','D2','D2','F2','F2','F2','A2','A2','C3','C3','C3','D3','D#3','D3','C3','A2','F2'],
       
-      // Detuned, dissonant guitar chords
-      guitar: ['C3','D#3','G3','C3','D#3','G3','A#3','D#3','F3','G#3','C4','F3','G#3','C4','D#4','G#3','C3','D#3','G3','C3','D#3','G3','A#3','D#3','F3','G#3','C4','F3','G#3','A#3','C4','D#4'],
+      // Lush major 7th chords with occasional dissonance
+      guitar: ['D3','F#3','A3','C#4','F#3','A3','C#4','F#3','A3','C#4','E4','G#4','A3','C#4','E4','A3','D3','F#3','A3','C#4','F#3','A3','C#4','F#3','A3','C#4','E4','G#4','B3','D4','F#4','A4'],
       
-      // Warped piano - slightly out of tune, nostalgic yet wrong
-      keys: ['C3','D#3','G3','A#3','D#3','G3','A#3','D4','F3','G#3','C4','D#4','G#3','C4','D#4','F4','C3','D#3','G3','A#3','D#3','G3','A#3','D4','F3','G#3','C4','D#4','G#3','A#3','C4','D#4'],
+      // Jazzy extended chords - warm but unsettling
+      keys: ['D3','F#3','A3','C#4','F#3','A3','C#4','E4','A3','C#4','E4','G#4','C#4','E4','G#4','B4','D3','F#3','A3','C#4','F#3','A3','C#4','E4','A3','C#4','E4','A4','C#4','E4','G#4','C#5'],
       
-      // Eerie melody - childhood song you can't quite remember
-      lead: ['G4','A#4','C5','D#5','D5','C5','A#4','G4','F4','G#4','A#4','D5','C5','A#4','G#4','F4','G4','A#4','C5','D#5','D5','C5','A#4','G4','F4','G#4','C5','D5','D#5','F5','G5','A#5']
+      // Nostalgic melody - familiar but you can't place it
+      lead: ['A4','C#5','D5','F#5','E5','D5','C#5','A4','F#4','A4','C#5','E5','D5','C#5','B4','A4','A4','C#5','D5','F#5','E5','D5','C#5','B4','A4','C#5','E5','F#5','G#5','A5','C#6','D6']
     }
   }
 };
