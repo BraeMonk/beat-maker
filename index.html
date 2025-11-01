@@ -3187,21 +3187,22 @@ function createInstrumentChain(inst) {
   
 // Sample-based drum library using Web Audio API
 const DRUM_SAMPLES = {
-  kick: 'https://cdn.freesound.org/previews/171/171104_2394245-lq.mp3',
-  snare: 'https://cdn.freesound.org/previews/387/387186_7255534-lq.mp3',
-  hihat: 'https://cdn.freesound.org/previews/536/536547_11237873-lq.mp3',
-  clap: 'https://cdn.freesound.org/previews/147/147642_2615119-lq.mp3',
-  rimshot: 'https://cdn.freesound.org/previews/274/274195_5123851-lq.mp3',
-  tom: 'https://cdn.freesound.org/previews/464/464594_9497060-lq.mp3',
-  crash: 'https://cdn.freesound.org/previews/442/442127_5829361-lq.mp3',
-  ride: 'https://cdn.freesound.org/previews/536/536548_11237873-lq.mp3'
+  kick: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/kick.mp3',
+  snare: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
+  hihat: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
+  clap: 'https://tonejs.github.io/audio/drum-samples/CR78/clap.mp3',
+  rimshot: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/rim.mp3',
+  tom: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/tom.mp3',
+  crash: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/crash.mp3',
+  ride: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/ride.mp3'
 };
 
 function createDrumSynth(inst) {
-  const sampleUrl = DRUM_SAMPLES[inst];
+  const selectedLibrary = CUSTOM_DRUM_LIBRARIES[currentDrumLibrary];
+  const sampleUrl = selectedLibrary ? selectedLibrary[inst] : null;
   
   if (!sampleUrl) {
-    console.warn(`No sample for ${inst}, using fallback synth`);
+    console.warn(`No sample for ${inst} in library '${currentDrumLibrary}', using fallback synth`);
     return new Tone.MembraneSynth();
   }
   
@@ -3209,20 +3210,34 @@ function createDrumSynth(inst) {
   const player = new Tone.Player({
     url: sampleUrl,
     fadeIn: 0.001,
-    fadeOut: 0.01
+    fadeOut: 0.01,
+    onload: () => {
+      console.log(`✅ Loaded ${inst} sample`);
+    }
   }).toDestination();
   
   // Return a proxy object that matches the synth interface
   return {
     triggerAttackRelease: (note, duration, time, velocity = 1) => {
-      player.start(time, 0, duration, 0, velocity * 0.7);
+      // For samples, we ignore the 'note' parameter and just trigger playback
+      // The duration can be used to cut short or let ring, but samples have natural decay
+      if (player.loaded) {
+        // Start playback: start(time, offset, duration, gain)
+        // Setting duration to undefined lets the sample play its full length
+        const playDuration = (inst === 'hihat' || inst === 'rimshot') ? 0.15 : undefined;
+        player.start(time, 0, playDuration, velocity * 0.8);
+      }
     },
     connect: (node) => {
       player.disconnect();
       player.connect(node);
       return player;
     },
-    toDestination: () => player.toDestination()
+    toDestination: () => player.toDestination(),
+    dispose: () => player.dispose(),
+    get loaded() {
+      return player.loaded;
+    }
   };
 }
 
@@ -3390,20 +3405,12 @@ function playDrumNote(inst, time, velocity) {
   // Reduce drum velocities for desktop batching
   const scaledVelocity = velocity * 0.7;
   
-  switch (inst) {
-    case 'kick':
-      synth.triggerAttackRelease('C1', '8n', time, scaledVelocity * 0.5);
-      break;
-    case 'snare':
-    case 'clap':
-      synth.triggerAttackRelease('16n', time, scaledVelocity * 0.8);
-      break;
-    case 'hihat':
-      synth.triggerAttackRelease('C6', '16n', time, scaledVelocity * 0.4);
-      break;
-    default:
-      synth.triggerAttackRelease('C2', '16n', time, scaledVelocity);
-  }
+  // For sample-based drums, duration determines sample playback length
+  // Most drum samples are short (0.5-2 seconds), so we use their natural length
+  const duration = inst === 'crash' || inst === 'ride' ? '2n' : '16n';
+  
+  // Sample-based drums don't need pitch - pass any valid note or just trigger
+  synth.triggerAttackRelease('C2', duration, time, scaledVelocity);
 }
 
 function playMelodicNote(inst, time, stepData) {
@@ -5069,6 +5076,8 @@ function init() {
   updateAllDisplays();
   initVisualizerOnce();
   unlockAudioOnce();
+
+  checkSamplesLoaded();
   
   // Apply saved vibe
   try {
@@ -5077,6 +5086,36 @@ function init() {
   } catch (e) {
     applyVibe('moon');
   }
+}
+
+function checkSamplesLoaded() {
+  let loadedCount = 0;
+  const totalSamples = Object.keys(instruments).length;
+  
+  const checkInterval = setInterval(() => {
+    loadedCount = 0;
+    
+    Object.keys(synths).forEach(inst => {
+      const synth = synths[inst];
+      if (synth.loaded || synth.loaded === undefined) {
+        loadedCount++;
+      }
+    });
+    
+    console.log(`📦 Samples loaded: ${loadedCount}/${totalSamples}`);
+    
+    if (loadedCount === totalSamples) {
+      clearInterval(checkInterval);
+      console.log('✅ All samples ready!');
+      document.getElementById('vizOverlay').textContent = 'All Samples Loaded - Press Play';
+    }
+  }, 500);
+  
+  // Stop checking after 10 seconds
+  setTimeout(() => {
+    clearInterval(checkInterval);
+    console.log('⏱️ Sample check timeout - proceeding anyway');
+  }, 10000);
 }
 
 // -------------------- Entry Point --------------------
