@@ -8313,9 +8313,9 @@ async function bounceAllTracks() {
     return;
   }
   
-  showToast('🎵 Bouncing tracks...', 'info');
+  showToast('🎵 Preparing bounce...', 'info');
   
-  // Find the earliest start time and latest end time
+  // Find total duration needed
   let minStartTime = Infinity;
   let maxEndTime = 0;
   
@@ -8328,97 +8328,126 @@ async function bounceAllTracks() {
     
     if (startTime < minStartTime) minStartTime = startTime;
     if (endTime > maxEndTime) maxEndTime = endTime;
-    
-    console.log(`📊 ${track.name}: ${startTime.toFixed(2)}s → ${endTime.toFixed(2)}s (${take.duration.toFixed(2)}s)`);
   });
   
-  // CRITICAL FIX: If all tracks start at 0, use the longest duration
-  if (minStartTime === 0 || minStartTime === Infinity) {
-    minStartTime = 0;
-    maxEndTime = Math.max(...activeTracks.map(t => {
-      const take = t.takes[t.selectedTakeIndex];
-      return (take?.startTime || 0) + (take?.duration || 0);
-    }));
-  }
-  
+  if (minStartTime === Infinity) minStartTime = 0;
   const totalDuration = maxEndTime - minStartTime;
   
-  console.log(`📏 Bounce range: ${minStartTime.toFixed(2)}s → ${maxEndTime.toFixed(2)}s (${totalDuration.toFixed(2)}s total)`);
+  console.log(`📏 Bouncing ${totalDuration.toFixed(2)}s from ${minStartTime.toFixed(2)}s to ${maxEndTime.toFixed(2)}s`);
   
-  const sampleRate = Tone.context.sampleRate;
-  const numFrames = Math.ceil(totalDuration * sampleRate);
+  // Create players for all takes
+  const players = [];
   
-  // Create offline context for rendering
-  const offlineContext = new OfflineAudioContext(2, numFrames, sampleRate);
-  
-  // Render each track at its proper offset
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted) continue;
-    
-    // CRITICAL FIX: Calculate offset relative to earliest start
-    const offsetSeconds = (take.startTime || 0) - minStartTime;
-    
-    console.log(`🎚️ ${track.name}: offset ${offsetSeconds.toFixed(3)}s, duration ${take.duration.toFixed(3)}s`);
+    if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
     
     try {
-      // CRITICAL FIX: Validate buffer before using
-      if (!take.buffer || !take.buffer.length || take.buffer.numberOfChannels === 0) {
-        console.error(`❌ ${track.name}: Invalid buffer, skipping`);
-        continue;
-      }
+      const player = new Tone.Player({
+        buffer: take.buffer,
+        fadeOut: 0.01
+      }).connect(track.channel);
       
-      const source = offlineContext.createBufferSource();
-      source.buffer = take.buffer;
+      await new Promise((resolve, reject) => {
+        if (player.loaded) {
+          resolve();
+        } else {
+          const timeout = setTimeout(() => reject(new Error('Timeout')), 5000);
+          player.onsuccess = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
+        }
+      });
       
-      const gainNode = offlineContext.createGain();
-      gainNode.gain.value = Math.pow(10, track.volume / 20);
+      players.push({
+        player,
+        startTime: (take.startTime || 0) - minStartTime,
+        trackName: track.name
+      });
       
-      const panNode = offlineContext.createStereoPanner();
-      panNode.pan.value = track.pan / 100;
-      
-      source.connect(gainNode);
-      gainNode.connect(panNode);
-      panNode.connect(offlineContext.destination);
-      
-      // CRITICAL FIX: Start at the correct offset (must be >= 0)
-      const safeOffset = Math.max(0, offsetSeconds);
-      source.start(safeOffset);
-      
-      console.log(`✅ ${track.name} scheduled at ${safeOffset.toFixed(3)}s`);
+      console.log(`✅ Loaded ${track.name}: start at ${((take.startTime || 0) - minStartTime).toFixed(3)}s`);
       
     } catch (err) {
-      console.error(`❌ Failed to render ${track.name}:`, err);
+      console.error(`❌ Failed to load ${track.name}:`, err);
     }
   }
   
-  try {
-    // Render
-    console.log('🎬 Starting offline render...');
-    const renderedBuffer = await offlineContext.startRendering();
-    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
-    
-    // Convert to WAV
-    const wavData = bufferToWavImproved(renderedBuffer);
-    const blob = new Blob([wavData], { type: 'audio/wav' });
-    
-    // Download
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `bounce_${Date.now()}.wav`;
-    a.click();
-    
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    
-    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
-    
-  } catch (err) {
-    console.error('❌ Bounce failed:', err);
-    showToast(`❌ Bounce failed: ${err.message}`, 'error');
+  if (players.length === 0) {
+    showToast('❌ No valid takes to bounce', 'error');
+    return;
   }
+  
+  await Tone.start();
+  
+  const stream = master.mediaDest?.stream;
+  if (!stream) {
+    showToast('❌ Recording stream not available', 'error');
+    players.forEach(p => p.player.dispose());
+    return;
+  }
+  
+  let mimeType = '';
+  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+    mimeType = 'audio/webm;codecs=opus';
+  } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+    mimeType = 'audio/webm';
+  }
+  
+  const recordedChunks = [];
+  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  
+  recorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) {
+      recordedChunks.push(e.data);
+    }
+  };
+  
+  recorder.onstop = async () => {
+    console.log('🎬 Recording stopped, processing...');
+    
+    try {
+      const blob = new Blob(recordedChunks, {
+        type: recorder.mimeType || 'audio/webm'
+      });
+      
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+      const wavData = bufferToWavImproved(audioBuffer);
+      const wavBlob = new Blob([wavData], { type: 'audio/wav' });
+      
+      const url = URL.createObjectURL(wavBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bounce_${Date.now()}.wav`;
+      a.click();
+      
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
+      
+    } catch (err) {
+      console.error('❌ Bounce failed:', err);
+      showToast('❌ Bounce failed: ' + err.message, 'error');
+    }
+    
+    players.forEach(p => p.player.dispose());
+  };
+  
+  recorder.start(100);
+  showToast('🎙️ Recording bounce...', 'info');
+  
+  const now = Tone.now() + 0.1;
+  
+  players.forEach(({ player, startTime, trackName }) => {
+    player.start(now + startTime);
+    console.log(`▶️ ${trackName} scheduled at +${startTime.toFixed(3)}s`);
+  });
+  
+  setTimeout(() => {
+    recorder.stop();
+  }, (totalDuration + 0.5) * 1000);
 }
-
+  
 async function previewMultitrack() {
   const activeTracks = multitrack.tracks.filter(t => 
     t.selectedTakeIndex >= 0 && !t.muted
