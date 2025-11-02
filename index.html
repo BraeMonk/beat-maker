@@ -8015,42 +8015,70 @@ async function previewMultitrack() {
   
   await Tone.start();
   
+  // Ensure context is running
+  if (Tone.context.state !== 'running') {
+    await Tone.context.resume();
+  }
+  
   // Create players for each track's selected take
   multitrack.previewPlayers = [];
+  let maxDuration = 0;
   
   activeTracks.forEach(track => {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted) return;
     
-    const player = new Tone.Player({
-      buffer: take.buffer
-    }).connect(track.channel);
-    
-    player.start();
-    multitrack.previewPlayers.push(player);
+    try {
+      const player = new Tone.Player({
+        buffer: take.buffer,
+        onload: () => {
+          console.log(`✅ Preview player loaded for ${track.name}`);
+        }
+      }).connect(track.channel);
+      
+      // Start immediately
+      player.start('+0.1'); // Small delay for sync
+      multitrack.previewPlayers.push(player);
+      
+      if (take.duration > maxDuration) {
+        maxDuration = take.duration;
+      }
+      
+      console.log(`▶️ Playing ${track.name} - Take ${track.selectedTakeIndex + 1}`);
+    } catch (err) {
+      console.error(`❌ Failed to preview ${track.name}:`, err);
+    }
   });
   
-  showToast(`▶️ Previewing ${activeTracks.length} track(s)`, 'success');
+  if (multitrack.previewPlayers.length === 0) {
+    showToast('❌ No takes could be previewed', 'error');
+    return;
+  }
   
-  // Find longest duration for auto-stop
-  const maxDuration = Math.max(...activeTracks.map(t => {
-    const take = t.takes[t.selectedTakeIndex];
-    return take ? take.duration : 0;
-  }));
+  showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
   
   // Auto-cleanup when done
   setTimeout(() => {
     stopMultitrackPreview();
+    const btn = document.getElementById('previewMultitrackBtn');
+    if (btn) btn.textContent = '▶️ Preview Mix';
   }, maxDuration * 1000 + 500);
 }
 
 function stopMultitrackPreview() {
   if (multitrack.previewPlayers) {
     multitrack.previewPlayers.forEach(player => {
-      player.stop();
-      player.dispose();
+      try {
+        if (player.state === 'started') {
+          player.stop();
+        }
+        player.dispose();
+      } catch (err) {
+        console.warn('Error stopping preview player:', err);
+      }
     });
     multitrack.previewPlayers = null;
+    console.log('⏹️ Preview stopped');
   }
 }
   
@@ -8072,12 +8100,12 @@ function setupMultitrackListeners() {
     const newBtn = previewBtn.cloneNode(true);
     previewBtn.parentNode.replaceChild(newBtn, previewBtn);
     
-    newBtn.addEventListener('click', () => {
-      if (multitrack.previewPlayers) {
+    newBtn.addEventListener('click', async () => {
+      if (multitrack.previewPlayers && multitrack.previewPlayers.length > 0) {
         stopMultitrackPreview();
         newBtn.textContent = '▶️ Preview Mix';
       } else {
-        previewMultitrack();
+        await previewMultitrack();
         newBtn.textContent = '⏹️ Stop Preview';
       }
     });
