@@ -7096,6 +7096,8 @@ class AudioTrack {
   }
   
   dispose() {
+    console.log('🗑️ Disposing track:', this.id);
+    
     if (this.recorder && this.recording) {
       this.stopRecording();
     }
@@ -7103,20 +7105,39 @@ class AudioTrack {
     // Restore original routing
     const instSynth = synths[this.instrument];
     if (instSynth && this.originalChannel) {
-      instSynth.disconnect();
-      instSynth.connect(this.originalChannel);
+      // Safe disconnect - handle different synth types
+      if (typeof instSynth.disconnect === 'function') {
+        instSynth.disconnect();
+        instSynth.connect(this.originalChannel);
+      } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+        // Wrapped Player with .gain
+        instSynth.gain.disconnect();
+        instSynth.gain.connect(this.originalChannel);
+      } else {
+        console.warn(`Cannot restore routing for ${this.instrument} - no disconnect method`);
+      }
     }
     
+    // Dispose FX chain
     this.fxChain.forEach(fx => {
-      fx.node.disconnect();
-      fx.node.dispose();
+      if (fx.node && typeof fx.node.dispose === 'function') {
+        fx.node.disconnect();
+        fx.node.dispose();
+      }
     });
     
-    this.meter.dispose();
-    this.channel.disconnect();
-    this.channel.dispose();
+    // Dispose audio nodes
+    if (this.meter && typeof this.meter.dispose === 'function') {
+      this.meter.dispose();
+    }
+    
+    if (this.channel && typeof this.channel.dispose === 'function') {
+      this.channel.disconnect();
+      this.channel.dispose();
+    }
+    
+    console.log('✅ Track disposed:', this.id);
   }
-}
 
 function createTrack(instrument) {
   const track = new AudioTrack(
