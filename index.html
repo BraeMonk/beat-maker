@@ -8524,7 +8524,8 @@ async function previewMultitrack() {
   
   showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
   
-  setTimeout(() => {
+  // Auto-stop after duration
+  multitrack.previewTimeout = setTimeout(() => {
     stopMultitrackPreview();
     const btn = document.getElementById('previewMultitrackBtn');
     if (btn) btn.textContent = '▶️ Preview Mix';
@@ -8533,7 +8534,7 @@ async function previewMultitrack() {
   
 function stopMultitrackPreview() {
   if (multitrack.previewPlayers) {
-    multitrack.previewPlayers.forEach(player => {
+    multitrack.previewPlayers.forEach(({ player }) => {
       try {
         if (player.state === 'started') {
           player.stop();
@@ -8545,6 +8546,12 @@ function stopMultitrackPreview() {
     });
     multitrack.previewPlayers = null;
     console.log('⏹️ Preview stopped');
+  }
+  
+  // Clear timeout if exists
+  if (multitrack.previewTimeout) {
+    clearTimeout(multitrack.previewTimeout);
+    multitrack.previewTimeout = null;
   }
 }
   
@@ -8567,7 +8574,8 @@ function setupMultitrackListeners() {
     previewBtn.parentNode.replaceChild(newBtn, previewBtn);
     
     newBtn.addEventListener('click', async () => {
-      if (multitrack.previewPlayers && multitrack.previewPlayers.length > 0) {
+      // Check if ANY players exist (even if disposed)
+      if (newBtn.textContent.includes('Stop')) {
         stopMultitrackPreview();
         newBtn.textContent = '▶️ Preview Mix';
       } else {
