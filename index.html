@@ -7187,20 +7187,39 @@ class AudioTrack {
     
     await Tone.start();
     
-    // DON'T set recordStartTime here - it's already been set by toggleRecordAllArmed
-    // This preserves the synchronized transport position across all tracks
-    
-    console.log(`🎙️ Recording ${this.instrument} on track ${this.id} at transport ${this.recordStartTime.toFixed(2)}s`);
+    console.log(`🎙️ Recording ${this.instrument} output on track ${this.id}`);
     
     // IMMEDIATE UI UPDATE
     this.recording = true;
     this.armed = false;
     multitrack.recordingTracks.add(this.id);
-    renderMultitrack(); // Update UI first
+    renderMultitrack();
     
-    // Create recording destination that taps the track channel
+    // Create recording destination that taps ONLY this instrument's output
+    const instSynth = synths[this.instrument];
+    if (!instSynth) {
+      console.error(`❌ No synth found for ${this.instrument}`);
+      this.recording = false;
+      renderMultitrack();
+      return;
+    }
+    
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
-    this.channel.connect(recordDest);
+    
+    // Connect instrument directly to recording destination
+    // Check synth type and connect appropriately
+    if (instSynth.gain && typeof instSynth.gain.connect === 'function') {
+      // Wrapped Player with .gain property
+      instSynth.gain.connect(recordDest);
+    } else if (typeof instSynth.connect === 'function') {
+      // Standard Tone.js synth
+      instSynth.connect(recordDest);
+    } else {
+      console.error(`❌ Cannot connect ${this.instrument} for recording`);
+      this.recording = false;
+      renderMultitrack();
+      return;
+    }
     
     let mimeType = '';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -7221,8 +7240,13 @@ class AudioTrack {
     this.recorder.onstop = () => {
       console.log(`⏹️ Stopped recording, ${this.recordedChunks.length} chunks`);
       this.finishRecording();
-      // Disconnect recording tap
-      this.channel.disconnect(recordDest);
+      
+      // Disconnect recording tap from instrument
+      if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+        try { instSynth.gain.disconnect(recordDest); } catch (e) {}
+      } else if (typeof instSynth.disconnect === 'function') {
+        try { instSynth.disconnect(recordDest); } catch (e) {}
+      }
     };
     
     this.recorder.onerror = (e) => {
@@ -7289,8 +7313,7 @@ class AudioTrack {
         duration: audioBuffer.duration,
         timestamp: new Date().toISOString(),
         muted: false,
-        // CRITICAL: Store when recording started relative to transport
-        startTime: this.recordStartTime || 0,
+        startTime: 0, // Always start at 0 - instrument output is already in sync
         recordedAt: Date.now()
       };
       
@@ -7811,28 +7834,21 @@ async function toggleRecordAllArmed() {
     return;
   }
   
-  // CRITICAL: Start transport FIRST if not playing
-  let transportStartTime = null;
-  
+  // Start transport if not playing
   if (!state.isPlaying) {
     await togglePlay();
-    // Wait for transport to stabilize
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   
-  // NOW capture the transport position - this is our global sync point
-  transportStartTime = Tone.Transport.seconds;
-  
   await Tone.start();
   
-  // Start ALL armed tracks with the SAME transport reference time
+  // Start ALL armed tracks - no sync needed, instrument output is inherently synced
   for (const track of armedTracks) {
-    track.recordStartTime = transportStartTime; // Set BEFORE starting
     await track.startRecording();
   }
   
-  console.log(`🎙️ All tracks synced to transport time: ${transportStartTime.toFixed(3)}s`);
-  showToast(`🎙️ Recording ${armedTracks.length} track(s) in sync`, 'success');
+  console.log(`🎙️ Recording ${armedTracks.length} instrument output(s)`);
+  showToast(`🎙️ Recording ${armedTracks.length} track(s)`, 'success');
   renderMultitrack();
 }
 
