@@ -2863,6 +2863,73 @@
       width: 2px;
     }
 
+    /* FX Chain Panel */
+    .fx-chain-panel {
+      background: var(--surface-elevated);
+      border: 1px solid var(--glass-border-strong);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      margin-top: var(--space-6);
+      box-shadow: var(--shadow-xl);
+    }
+    
+    .fx-chain-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-5);
+      padding-bottom: var(--space-4);
+      border-bottom: 1px solid var(--glass-border);
+    }
+    
+    .fx-chain-title {
+      font-size: var(--text-xl);
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+    
+    .fx-add-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .fx-add-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + var(--space-2));
+      right: 0;
+      min-width: 200px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--glass-border-strong);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-2xl);
+      backdrop-filter: blur(24px) saturate(150%);
+      padding: var(--space-2);
+      z-index: 1000;
+    }
+    
+    .fx-add-item {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: var(--text-sm);
+      transition: all var(--duration-fast) var(--ease-smooth);
+      border: 1px solid transparent;
+    }
+    
+    .fx-add-item:hover {
+      background: var(--glass-bg-strong);
+      color: var(--text-primary);
+      border-color: var(--glass-border);
+    }
+    
+    .fx-slots {
+      display: grid;
+      gap: var(--space-4);
+    }
+    
     /* Region manipulation */
     .take-region {
       position: relative;
@@ -7218,17 +7285,17 @@ function createTrackStrip(track) {
         <button class="track-mini-btn arm ${track.armed ? 'active' : ''}" data-action="arm">
           ${track.armed ? '🔴' : '⚪'} Arm
         </button>
-        <button class="track-mini-btn rec ${track.recording ? 'active' : ''}" data-action="rec" ${!track.armed && !track.recording ? 'disabled' : ''}>
-          ${track.recording ? '⏹️' : '⏺️'} ${track.recording ? 'Stop' : 'Rec'}
-        </button>
         <button class="track-mini-btn mute ${track.muted ? 'active' : ''}" data-action="mute">
           M
         </button>
         <button class="track-mini-btn solo ${track.soloed ? 'active' : ''}" data-action="solo">
           S
         </button>
-        <button class="track-mini-btn" data-action="delete" style="grid-column: span 2;">
-          🗑️ Delete
+        <button class="track-mini-btn" data-action="fx" style="grid-column: span 1;">
+          🎛️ FX
+        </button>
+        <button class="track-mini-btn" data-action="edit" style="grid-column: span 2;">
+          ✂️ Edit Takes
         </button>
       </div>
       
@@ -7391,6 +7458,10 @@ async function handleTrackAction(track, action) {
     });
     
     renderMultitrack();
+  } else if (action === 'fx') {
+    openFxChainEditor(track.id);
+  } else if (action === 'edit') {
+    openTakeEditor(track.id);
   } else if (action === 'delete') {
     if (confirm(`Delete track "${track.name}"?`)) {
       removeTrack(track.id);
@@ -7398,22 +7469,55 @@ async function handleTrackAction(track, action) {
   }
 }
 
-// Toggle recording for a track
+// Toggle recording for ALL armed tracks (synchronized)
+async function toggleRecordAllArmed() {
+  const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
+  const recordingTracks = multitrack.tracks.filter(t => t.recording);
+  
+  if (recordingTracks.length > 0) {
+    // Stop all recording tracks
+    recordingTracks.forEach(track => track.stopRecording());
+    showToast(`⏹️ Stopped recording ${recordingTracks.length} track(s)`, 'info');
+    renderMultitrack();
+    return;
+  }
+  
+  if (armedTracks.length === 0) {
+    showToast('❌ No armed tracks to record', 'error');
+    return;
+  }
+  
+  // Start transport if not playing
+  if (!state.isPlaying) {
+    await togglePlay();
+  }
+  
+  await Tone.start();
+  
+  // Start ALL armed tracks at exact same time
+  const startTime = Tone.now() + 0.1; // Small delay for sync
+  
+  for (const track of armedTracks) {
+    await track.startRecording();
+  }
+  
+  showToast(`🎙️ Recording ${armedTracks.length} track(s) simultaneously`, 'success');
+  renderMultitrack();
+}
+
+// Toggle recording for a single track (legacy support)
 async function toggleRecordTrack(trackId) {
   const track = multitrack.tracks.find(t => t.id === trackId);
   if (!track) return;
   
   if (track.recording) {
-    // Stop recording
     track.stopRecording();
     showToast(`⏹️ Stopped recording ${track.name}`, 'info');
   } else {
-    // Start recording
     if (!track.armed) {
       track.armed = true;
     }
     
-    // Make sure transport is playing
     if (!state.isPlaying) {
       await togglePlay();
     }
@@ -7423,6 +7527,233 @@ async function toggleRecordTrack(trackId) {
   }
   
   renderMultitrack();
+}
+
+// Open FX chain editor for a track
+function openFxChainEditor(trackId) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  
+  multitrack.currentFxTrackId = trackId;
+  
+  const panel = document.getElementById('fxChainPanel');
+  if (!panel) return;
+  
+  document.getElementById('fxChainTrackName').textContent = track.name;
+  
+  renderFxChain(track);
+  
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Render FX chain slots
+function renderFxChain(track) {
+  const slots = document.getElementById('fxSlots');
+  if (!slots) return;
+  
+  slots.innerHTML = '';
+  
+  if (track.fxChain.length === 0) {
+    slots.innerHTML = `
+      <div style="padding: var(--space-8); text-align: center; color: var(--text-tertiary);">
+        <div style="font-size: var(--text-xl); margin-bottom: var(--space-2);">🎛️</div>
+        <div>No effects on this track</div>
+        <div style="font-size: var(--text-sm); margin-top: var(--space-2);">Click "Add Effect" above</div>
+      </div>
+    `;
+    return;
+  }
+  
+  track.fxChain.forEach((fx, idx) => {
+    const fxSlot = document.createElement('div');
+    fxSlot.className = 'fx-unit';
+    fxSlot.style.opacity = fx.enabled ? '1' : '0.5';
+    
+    let paramsHTML = '';
+    Object.entries(fx.params).forEach(([param, value]) => {
+      const display = formatFxDisplay(param, value);
+      let sliderVal = 50;
+      
+      if (param === 'decay') {
+        sliderVal = clamp(Math.round(value * 20), 0, 100);
+      } else if (['wet', 'feedback', 'depth', 'amount'].includes(param)) {
+        sliderVal = Math.round(value * 100);
+      } else if (param === 'frequency') {
+        sliderVal = Math.round((value - 100) / 79);
+      }
+      
+      paramsHTML += `
+        <div class="param-control">
+          <div class="param-label">
+            <span>${param}</span>
+            <span class="param-value">${display}</span>
+          </div>
+          <input type="range" min="0" max="100" value="${sliderVal}" 
+                 data-fx-id="${fx.id}" data-param="${param}" class="fx-param-slider">
+        </div>
+      `;
+    });
+    
+    fxSlot.innerHTML = `
+      <div class="fx-header">
+        <div class="fx-name">${fx.type.toUpperCase()}</div>
+        <div style="display: flex; gap: var(--space-2); align-items: center;">
+          <div class="fx-toggle ${fx.enabled ? 'active' : ''}" data-fx-id="${fx.id}"></div>
+          <button class="btn btn-ghost btn-sm" data-action="remove-fx" data-fx-id="${fx.id}">✕</button>
+        </div>
+      </div>
+      ${paramsHTML}
+    `;
+    
+    slots.appendChild(fxSlot);
+  });
+  
+  // Attach listeners
+  slots.querySelectorAll('.fx-toggle').forEach(toggle => {
+    toggle.addEventListener('click', () => {
+      const fxId = parseFloat(toggle.dataset.fxId);
+      track.toggleFx(fxId);
+      renderFxChain(track);
+    });
+  });
+  
+  slots.querySelectorAll('[data-action="remove-fx"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fxId = parseFloat(btn.dataset.fxId);
+      if (confirm('Remove this effect?')) {
+        track.removeFx(fxId);
+        renderFxChain(track);
+      }
+    });
+  });
+  
+  slots.querySelectorAll('.fx-param-slider').forEach(slider => {
+    slider.addEventListener('input', (e) => {
+      const fxId = parseFloat(e.target.dataset.fxId);
+      const param = e.target.dataset.param;
+      const raw = parseInt(e.target.value, 10);
+      const value = mapFxParam(param, raw);
+      
+      track.updateFxParam(fxId, param, value);
+      
+      const label = e.target.closest('.param-control').querySelector('.param-value');
+      label.textContent = formatFxDisplay(param, value);
+    });
+  });
+}
+
+// Open take editor for a track
+function openTakeEditor(trackId) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  
+  if (track.takes.length === 0) {
+    showToast('❌ No takes to edit', 'error');
+    return;
+  }
+  
+  // Create modal
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.style.zIndex = '9999';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '700px';
+  
+  let takesHTML = '';
+  track.takes.forEach((take, idx) => {
+    const isSelected = idx === track.selectedTakeIndex;
+    takesHTML += `
+      <div class="take-region ${isSelected ? 'selected' : ''} ${take.muted ? 'muted' : ''}" 
+           style="margin-bottom: var(--space-3); padding: var(--space-4);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="flex: 1;">
+            <div style="font-weight: 800; font-size: var(--text-base); margin-bottom: var(--space-2);">
+              Take ${idx + 1} ${isSelected ? '(Active)' : ''}
+            </div>
+            <div style="font-size: var(--text-sm); color: var(--text-tertiary);">
+              ${take.duration.toFixed(2)}s • ${new Date(take.timestamp).toLocaleString()}
+            </div>
+          </div>
+          <div style="display: flex; gap: var(--space-2);">
+            <button class="btn btn-secondary btn-sm" data-action="select-take" data-index="${idx}">
+              ${isSelected ? '✓ Active' : 'Set Active'}
+            </button>
+            <button class="btn btn-secondary btn-sm" data-action="toggle-mute-take" data-index="${idx}">
+              ${take.muted ? '🔇 Unmute' : '🔊 Mute'}
+            </button>
+            <button class="btn btn-secondary btn-sm" data-action="export-take" data-index="${idx}">
+              💾
+            </button>
+            <button class="btn btn-ghost btn-sm" data-action="delete-take" data-index="${idx}">
+              🗑️
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  modal.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">✂️ Edit Takes: ${track.name}</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom: var(--space-4); padding: var(--space-3); background: var(--glass-bg); border-radius: var(--radius-md);">
+        <div style="font-size: var(--text-sm); color: var(--text-secondary);">
+          <strong>${track.takes.length}</strong> take${track.takes.length !== 1 ? 's' : ''} recorded
+        </div>
+      </div>
+      ${takesHTML}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary close-btn">Close</button>
+    </div>
+  `;
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  
+  const close = () => {
+    backdrop.remove();
+    renderMultitrack();
+  };
+  
+  modal.querySelector('.modal-close').onclick = close;
+  modal.querySelector('.close-btn').onclick = close;
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) close();
+  };
+  
+  // Handle take actions
+  modal.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      const index = parseInt(btn.dataset.index);
+      
+      if (action === 'select-take') {
+        track.selectTake(index);
+        close();
+      } else if (action === 'toggle-mute-take') {
+        track.toggleTakeMute(index);
+        close();
+      } else if (action === 'export-take') {
+        track.exportTake(index);
+      } else if (action === 'delete-take') {
+        if (confirm('Delete this take?')) {
+          track.deleteTake(index);
+          if (track.takes.length === 0) {
+            close();
+          } else {
+            close();
+          }
+        }
+      }
+    });
+  });
 }
   
 // Show add track dialog - FIXED VERSION
@@ -7577,6 +7908,13 @@ function setupMultitrackListeners() {
     });
   }
   
+  const recordArmedBtn = document.getElementById('recordArmedBtn');
+  if (recordArmedBtn) {
+    recordArmedBtn.addEventListener('click', async () => {
+      await toggleRecordAllArmed();
+    });
+  }
+  
   const bounceBtn = document.getElementById('bounceAllBtn');
   if (bounceBtn) {
     bounceBtn.addEventListener('click', () => {
@@ -7593,6 +7931,46 @@ function setupMultitrackListeners() {
         multitrack.nextTrackId = 1;
         renderMultitrack();
       }
+    });
+  }
+  
+  // FX chain panel controls
+  const closeFxBtn = document.getElementById('closeFxChainBtn');
+  if (closeFxBtn) {
+    closeFxBtn.addEventListener('click', () => {
+      document.getElementById('fxChainPanel').style.display = 'none';
+    });
+  }
+  
+  const addFxBtn = document.getElementById('addFxBtn');
+  const fxAddMenu = document.getElementById('fxAddMenu');
+  
+  if (addFxBtn && fxAddMenu) {
+    addFxBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fxAddMenu.style.display = fxAddMenu.style.display === 'block' ? 'none' : 'block';
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', () => {
+      fxAddMenu.style.display = 'none';
+    });
+    
+    // Add FX
+    fxAddMenu.querySelectorAll('.fx-add-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const fxType = item.dataset.fxType;
+        const trackId = multitrack.currentFxTrackId;
+        const track = multitrack.tracks.find(t => t.id === trackId);
+        
+        if (track) {
+          track.addFx(fxType);
+          renderFxChain(track);
+          showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
+        }
+        
+        fxAddMenu.style.display = 'none';
+      });
     });
   }
 }
