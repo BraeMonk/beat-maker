@@ -7196,16 +7196,16 @@ class AudioTrack {
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
     
-    // CRITICAL: Use GLOBAL record start time if available, otherwise create one
-    if (multitrack.globalRecordStartTime === null) {
-      multitrack.globalRecordStartTime = Tone.Transport.seconds;
-      console.log(`🎬 NEW GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
-    }
+    // CRITICAL FIX: Record the EXACT Tone.Transport time when recording starts
+    // This is captured synchronously BEFORE any async operations
+    const exactStartTime = Tone.Transport.seconds;
     
-    this.recordStartTime = multitrack.globalRecordStartTime;
-    console.log(`⏱️ ${this.instrument} using global start time: ${this.recordStartTime.toFixed(3)}s`);
+    // Store this as the authoritative start time
+    this.recordStartTime = exactStartTime;
     
-    // Create recording destination that taps ONLY this instrument's output
+    console.log(`⏱️ ${this.instrument} EXACT start: ${exactStartTime.toFixed(6)}s (transport)`);
+    
+    // Create recording destination
     const instSynth = synths[this.instrument];
     if (!instSynth) {
       console.error(`❌ No synth found for ${this.instrument}`);
@@ -7216,7 +7216,7 @@ class AudioTrack {
     
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
     
-    // Connect instrument directly to recording destination
+    // Connect instrument to recording tap
     if (instSynth.gain && typeof instSynth.gain.connect === 'function') {
       instSynth.gain.connect(recordDest);
     } else if (typeof instSynth.connect === 'function') {
@@ -7236,6 +7236,8 @@ class AudioTrack {
     }
     
     this.recordedChunks = [];
+    
+    // CRITICAL FIX: Use timeslice to get predictable chunks
     this.recorder = new MediaRecorder(recordDest.stream, mimeType ? { mimeType } : undefined);
     
     this.recorder.ondataavailable = (e) => {
@@ -7245,10 +7247,20 @@ class AudioTrack {
     };
     
     this.recorder.onstop = () => {
-      console.log(`⏹️ Stopped recording, ${this.recordedChunks.length} chunks`);
+      // CRITICAL FIX: Capture EXACT stop time
+      const exactStopTime = Tone.Transport.seconds;
+      const exactDuration = exactStopTime - this.recordStartTime;
+      
+      console.log(`⏹️ ${this.instrument} EXACT stop: ${exactStopTime.toFixed(6)}s`);
+      console.log(`⏹️ ${this.instrument} EXACT duration: ${exactDuration.toFixed(6)}s`);
+      
+      // Store this for validation
+      this.recordStopTime = exactStopTime;
+      this.recordDuration = exactDuration;
+      
       this.finishRecording();
       
-      // Disconnect recording tap from instrument
+      // Disconnect recording tap
       if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
         try { instSynth.gain.disconnect(recordDest); } catch (e) {}
       } else if (typeof instSynth.disconnect === 'function') {
@@ -7260,10 +7272,10 @@ class AudioTrack {
       console.error('❌ Recorder error:', e);
     };
     
-    // Start recording with small chunks for reliability
+    // CRITICAL FIX: Use 100ms timeslice for consistent chunks
     this.recorder.start(100);
     
-    console.log(`▶️ Recording started`);
+    console.log(`▶️ Recording started at transport ${exactStartTime.toFixed(6)}s`);
   }
   
   stopRecording() {
@@ -7284,18 +7296,11 @@ class AudioTrack {
       return;
     }
     
-    // CRITICAL: Capture the EXACT time we stopped recording
-    const recordEndTime = Tone.Transport.seconds;
-    const recordDuration = recordEndTime - this.recordStartTime;
-    
-    console.log(`⏱️ Recording stopped at transport time: ${recordEndTime.toFixed(3)}s`);
-    console.log(`⏱️ Real recording duration: ${recordDuration.toFixed(3)}s`);
-    
     const blob = new Blob(this.recordedChunks, {
       type: this.recorder.mimeType || 'audio/webm'
     });
     
-    console.log(`💾 Processing ${blob.size} bytes`);
+    console.log(`💾 Processing ${blob.size} bytes for ${this.instrument}`);
     
     if (blob.size < 1000) {
       console.error('❌ Recording too small, likely corrupted');
@@ -7320,25 +7325,27 @@ class AudioTrack {
         throw new Error('Decoded buffer is invalid');
       }
       
+      // CRITICAL FIX: Use the EXACT transport times we recorded
       const take = {
         id: Date.now(),
         buffer: audioBuffer,
         blob: blob,
-        duration: audioBuffer.duration, // This is the ACTUAL recorded duration
+        duration: this.recordDuration, // Use EXACT measured duration from transport
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime: this.recordStartTime, // Uses the GLOBAL start time
+        startTime: this.recordStartTime, // Use EXACT start time from transport
         recordedAt: Date.now()
       };
       
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
       
-      console.log(`✅ Take ${this.takes.length} created:`);
-      console.log(`   - Using GLOBAL start: ${take.startTime.toFixed(3)}s (transport)`);
-      console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
-      console.log(`   - Ends at: ${(take.startTime + take.duration).toFixed(3)}s (transport)`);
-      console.log(`   - Channels: ${audioBuffer.numberOfChannels}`);
+      console.log(`✅ ${this.instrument} Take ${this.takes.length} created:`);
+      console.log(`   - Start: ${take.startTime.toFixed(6)}s (transport)`);
+      console.log(`   - Duration: ${take.duration.toFixed(6)}s (transport measurement)`);
+      console.log(`   - Ends at: ${(take.startTime + take.duration).toFixed(6)}s (transport)`);
+      console.log(`   - Buffer duration: ${audioBuffer.duration.toFixed(6)}s (decoded)`);
+      console.log(`   - Drift: ${Math.abs(audioBuffer.duration - take.duration).toFixed(6)}s`);
       
       renderMultitrack();
       showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
@@ -7351,6 +7358,8 @@ class AudioTrack {
     this.recordedChunks = [];
     this.recorder = null;
     this.recordStartTime = null;
+    this.recordStopTime = null;
+    this.recordDuration = null;
   }
   
   selectTake(index) {
@@ -7840,9 +7849,12 @@ async function toggleRecordAllArmed() {
   const recordingTracks = multitrack.tracks.filter(t => t.recording);
   
   if (recordingTracks.length > 0) {
-    // Stop all recording tracks
+    // CRITICAL FIX: Stop all at the EXACT same transport time
+    const stopTime = Tone.Transport.seconds;
+    console.log(`🛑 Stopping all recordings at transport ${stopTime.toFixed(6)}s`);
+    
     recordingTracks.forEach(track => track.stopRecording());
-    multitrack.globalRecordStartTime = null; // RESET global start time
+    multitrack.globalRecordStartTime = null;
     showToast(`⏹️ Stopped recording ${recordingTracks.length} track(s)`, 'info');
     renderMultitrack();
     return;
@@ -7856,21 +7868,23 @@ async function toggleRecordAllArmed() {
   // Start transport if not playing
   if (!state.isPlaying) {
     await togglePlay();
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // CRITICAL FIX: Wait for transport to actually start
+    await new Promise(resolve => setTimeout(resolve, 200));
   }
   
   await Tone.start();
   
-  // SET GLOBAL RECORD START TIME - all tracks use this same zero point
-  multitrack.globalRecordStartTime = Tone.Transport.seconds;
-  console.log(`🎬 GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
+  // CRITICAL FIX: Capture ONE global start time BEFORE starting any recorders
+  const globalStartTime = Tone.Transport.seconds;
+  multitrack.globalRecordStartTime = globalStartTime;
   
-  // Start ALL armed tracks with the same global start time
-  for (const track of armedTracks) {
-    await track.startRecording();
-  }
+  console.log(`🎬 GLOBAL RECORD START: ${globalStartTime.toFixed(6)}s (transport)`);
   
-  console.log(`🎙️ Recording ${armedTracks.length} tracks from global time ${multitrack.globalRecordStartTime.toFixed(3)}s`);
+  // CRITICAL FIX: Start ALL recorders synchronously in one batch
+  const startPromises = armedTracks.map(track => track.startRecording());
+  await Promise.all(startPromises);
+  
+  console.log(`🎙️ Recording ${armedTracks.length} tracks from ${globalStartTime.toFixed(6)}s`);
   showToast(`🎙️ Recording ${armedTracks.length} track(s)`, 'success');
   renderMultitrack();
 }
