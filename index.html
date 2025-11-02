@@ -4850,8 +4850,19 @@ function setupMasterControls() {
 }
 
 function setupGeneratorButtons() {
-  document.getElementById('generateBtn').addEventListener('click', generateBeat);
-  document.getElementById('generateRhythmBtn').addEventListener('click', generateMelodicPatterns);
+  document.getElementById('generateBtn').addEventListener('click', () => {
+    generateBeat();
+    if (state.complexity >= 2) {
+      addRhythmicVariety();
+    }
+  });
+  
+  document.getElementById('generateRhythmBtn').addEventListener('click', () => {
+    generateMelodicPatterns();
+    addDrumFills();
+    addSwingVariations();
+  });
+  
   document.getElementById('randomVelBtn').addEventListener('click', randomizeVelocity);
   document.getElementById('randomProbBtn').addEventListener('click', randomizeProbability);
   document.getElementById('clearBtn').addEventListener('click', clearPattern);
@@ -5407,6 +5418,7 @@ function generateBeat() {
   });
   
   // Generate rhythms based on genre theory
+  // DON'T change BPM/swing - user controls those
   if (genre === 'lofi') {
     generateLoFiBeat();
   } else if (genre === 'hiphop') {
@@ -5423,14 +5435,12 @@ function generateBeat() {
   
   renderSequencer();
   
-  console.log(`✅ Generated ${genre} beat with ${state.complexity} complexity`);
+  console.log(`✅ Generated ${genre} beat with ${state.complexity} complexity at ${state.bpm} BPM`);
 }
 
 // Lo-Fi: Laid back, off-grid, jazzy
 function generateLoFiBeat() {
-  state.bpm = 70 + Math.floor(Math.random() * 20);
-  state.swing = 10 + Math.floor(Math.random() * 15);
-  
+  // DON'T set BPM - user controls it
   const len = state.sequenceLength;
   
   // Kick: Sparse, on 1 and 3 throughout entire sequence
@@ -5472,15 +5482,10 @@ function generateLoFiBeat() {
       if (Math.random() > 0.6) setStep('crash', bar * 16, 0.6, 90);
     }
   }
-  
-  updateBPMUI();
 }
-
+  
 // Hip-Hop: Boom-bap, hard-hitting
 function generateHipHopBeat() {
-  state.bpm = 85 + Math.floor(Math.random() * 15);
-  state.swing = 0;
-  
   const len = state.sequenceLength;
   
   // Kick: Boom-bap throughout
@@ -5536,15 +5541,10 @@ function generateHipHopBeat() {
       }
     }
   }
-  
-  updateBPMUI();
 }
-
+  
 // Post-Punk: Driving, motorik, relentless
 function generatePostPunkBeat() {
-  state.bpm = 120 + Math.floor(Math.random() * 20);
-  state.swing = 0;
-  
   const len = state.sequenceLength;
   const fourOnFloor = Math.random() > 0.3;
   
@@ -5603,15 +5603,10 @@ function generatePostPunkBeat() {
   for (let bar = 0; bar < len / 16; bar++) {
     if (Math.random() > 0.4) setStep('crash', bar * 16, 0.75, 100);
   }
-  
-  updateBPMUI();
 }
   
 // R&B: Syncopated, groovy, pocket
 function generateRnBBeat() {
-  state.bpm = 70 + Math.floor(Math.random() * 15);
-  state.swing = 5 + Math.floor(Math.random() * 10);
-  
   const len = state.sequenceLength;
   
   // Kick: Syncopated
@@ -5664,15 +5659,10 @@ function generateRnBBeat() {
       setStep('clap', offset + 12, 0.5, 85);
     }
   }
-  
-  updateBPMUI();
 }
   
 // Ambient: Sparse, textural, atmospheric
 function generateAmbientBeat() {
-  state.bpm = 50 + Math.floor(Math.random() * 20);
-  state.swing = 0;
-  
   const len = state.sequenceLength;
   
   // Kick: Minimal bar markers
@@ -5722,14 +5712,9 @@ function generateAmbientBeat() {
       }
     }
   }
-  
-  updateBPMUI();
 }
-
-function generateDazecoreBeat() {
-  state.bpm = 90 + Math.floor(Math.random() * 15);
-  state.swing = 15 + Math.floor(Math.random() * 15);
   
+function generateDazecoreBeat() {
   const len = state.sequenceLength;
   
   // Kick: Warm and bouncy
@@ -5794,8 +5779,6 @@ function generateDazecoreBeat() {
   for (let bar = 0; bar < len / 16; bar++) {
     if (Math.random() > 0.5) setStep('crash', bar * 16, 0.65, 95);
   }
-  
-  updateBPMUI();
 }
 
 // Helper to set a step
@@ -5807,14 +5790,132 @@ function setStep(inst, step, velocity, probability) {
   }
 }
 
-function updateBPMUI() {
-  document.getElementById('bpmSlider').value = state.bpm;
-  document.getElementById('bpmValue').textContent = state.bpm;
-  document.getElementById('swingSlider').value = state.swing;
-  document.getElementById('swingValue').textContent = state.swing + '%';
-  Tone.Transport.bpm.value = state.bpm;
-  Tone.Transport.swing = state.swing / 100;
+// ==================== BEAT VARIETY GENERATORS ====================
+
+// Add rhythmic variations - keep the groove but make it interesting
+function addRhythmicVariety() {
+  const len = state.sequenceLength;
+  
+  // Add syncopated kicks (occasional off-beat hits)
+  if (state.complexity >= 2) {
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      // 30% chance to add syncopated kick
+      if (Math.random() > 0.7) {
+        const positions = [3, 7, 11, 15]; // Syncopated positions
+        const pos = positions[Math.floor(Math.random() * positions.length)];
+        setStep('kick', offset + pos, 0.65 + Math.random() * 0.15, 85);
+      }
+    }
+  }
+  
+  // Add hi-hat variations (open hats, rolls)
+  if (state.complexity >= 2) {
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      // Random hi-hat roll at end of bar
+      if (Math.random() > 0.6) {
+        for (let i = 13; i < 16; i++) {
+          if (Math.random() > 0.3) {
+            setStep('hihat', offset + i, 0.4 + Math.random() * 0.2, 90);
+          }
+        }
+      }
+    }
+  }
+  
+  // Add snare flams (double hits)
+  if (state.complexity >= 3) {
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      // 20% chance to add flam before main snare
+      [4, 12].forEach(mainHit => {
+        if (Math.random() > 0.8 && !patterns.snare[offset + mainHit - 1].active) {
+          setStep('snare', offset + mainHit - 1, 0.4, 80);
+        }
+      });
+    }
+  }
+  
+  // Add crash accents on sections
+  if (state.complexity >= 2) {
+    const sectionsCount = Math.floor(len / 16);
+    for (let i = 0; i < sectionsCount; i += 4) {
+      // Every 4 bars, add emphasis
+      if (i > 0) {
+        setStep('crash', i * 16, 0.7, 100);
+      }
+    }
+  }
+  
+  renderSequencer();
 }
+
+// Create a fill pattern at the end of 4/8 bar sections
+function addDrumFills() {
+  const len = state.sequenceLength;
+  const barsPerFill = state.complexity === 1 ? 8 : state.complexity === 2 ? 4 : 2;
+  
+  for (let bar = barsPerFill - 1; bar < len / 16; bar += barsPerFill) {
+    const fillStart = bar * 16 + 12; // Last 4 steps of bar
+    
+    if (fillStart + 4 > len) continue;
+    
+    // Random fill type
+    const fillType = Math.floor(Math.random() * 3);
+    
+    if (fillType === 0) {
+      // Tom roll descending
+      for (let i = 0; i < 4; i++) {
+        setStep('tom', fillStart + i, 0.6 + (i * 0.1), 95);
+      }
+    } else if (fillType === 1) {
+      // Snare roll
+      for (let i = 0; i < 4; i++) {
+        if (i % 2 === 0 || state.complexity >= 3) {
+          setStep('snare', fillStart + i, 0.5 + (i * 0.1), 90);
+        }
+      }
+    } else {
+      // Mixed fill (toms + crash)
+      setStep('tom', fillStart + 0, 0.6, 95);
+      setStep('tom', fillStart + 1, 0.7, 95);
+      setStep('snare', fillStart + 2, 0.75, 95);
+      setStep('crash', fillStart + 3, 0.8, 100);
+    }
+  }
+  
+  renderSequencer();
+}
+
+// Add swing feel variations
+function addSwingVariations() {
+  const len = state.sequenceLength;
+  
+  // Offset every other hi-hat slightly for swing feel
+  for (let i = 1; i < len; i += 4) {
+    if (patterns.hihat[i].active) {
+      patterns.hihat[i].velocity *= 0.7; // Quieter on off-beats
+    }
+  }
+  
+  // Add ghost notes on snare
+  if (state.complexity >= 2) {
+    for (let bar = 0; bar < len / 16; bar++) {
+      const offset = bar * 16;
+      const ghostPositions = [2, 6, 10, 14];
+      
+      ghostPositions.forEach(pos => {
+        if (Math.random() > 0.6 && !patterns.snare[offset + pos].active) {
+          setStep('snare', offset + pos, 0.25 + Math.random() * 0.15, 70);
+        }
+      });
+    }
+  }
+  
+  renderSequencer();
+}
+  
 // More subtle variations - don't destroy the groove
 function addSubtleVariations() {
   // Only add to hi-hats and rimshots - keep kick/snare solid
@@ -7076,12 +7177,18 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  async startRecording(punchIn = null, punchOut = null) {
+  async function startRecording(punchIn = null, punchOut = null) {
     if (this.recording) return;
     
     await Tone.start();
     
     console.log(`🎙️ Recording ${this.instrument} on track ${this.id}`);
+    
+    // IMMEDIATE UI UPDATE
+    this.recording = true;
+    this.armed = false;
+    multitrack.recordingTracks.add(this.id);
+    renderMultitrack(); // Update UI first
     
     // Create recording destination that taps the track channel
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
@@ -7116,11 +7223,6 @@ class AudioTrack {
     
     // Start recording with small chunks for reliability
     this.recorder.start(100);
-    this.recording = true;
-    this.armed = false;
-    
-    multitrack.recordingTracks.add(this.id);
-    renderMultitrack();
     
     console.log(`▶️ Recording started`);
   }
@@ -7227,6 +7329,15 @@ class AudioTrack {
     await Tone.start();
     this.currentPlayer.start();
     
+    // Visual feedback - highlight playing take
+    const takeRegions = document.querySelectorAll('.take-region');
+    takeRegions.forEach((region, idx) => {
+      if (idx === index) {
+        region.style.borderColor = 'var(--warning)';
+        region.style.boxShadow = '0 0 20px var(--warning)';
+      }
+    });
+    
     showToast(`▶️ Playing ${this.name} - Take ${index + 1}`, 'info');
     
     // Auto-cleanup when done
@@ -7235,6 +7346,12 @@ class AudioTrack {
         this.currentPlayer.dispose();
         this.currentPlayer = null;
       }
+      
+      // Remove visual feedback
+      takeRegions.forEach(region => {
+        region.style.borderColor = '';
+        region.style.boxShadow = '';
+      });
     }, take.duration * 1000 + 500);
   }
   
