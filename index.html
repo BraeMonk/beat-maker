@@ -1312,6 +1312,10 @@
       font-size: var(--text-sm);
       transition: all var(--duration-base) var(--ease-smooth);
     }
+
+    .seq-icon[data-action="play"] {
+      display: none;
+    }
     
     .seq-label:hover{
       border-color: color-mix(in oklab, var(--accent-primary) 30%, var(--glass-border));
@@ -8759,6 +8763,11 @@ function stop() {
   document.querySelectorAll('.step').forEach(el => el.classList.remove('playing'));
   stopTimer();
   stopVisualizer();
+  
+  // Stop multitrack preview
+  stopMultitrackPreview();
+  const previewBtn = document.getElementById('previewMultitrackBtn');
+  if (previewBtn) previewBtn.textContent = '▶️ Preview Mix';
 }
 
 // -------------------- Timer System --------------------
