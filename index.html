@@ -6968,22 +6968,47 @@ class AudioTrack {
     const instSynth = synths[this.instrument];
     if (!instSynth) return;
     
-    // Disconnect everything
-    this.fxChain.forEach(fx => fx.node.disconnect());
-    instSynth.disconnect();
+    // Disconnect FX chain first
+    this.fxChain.forEach(fx => {
+      if (fx.node && typeof fx.node.disconnect === 'function') {
+        fx.node.disconnect();
+      }
+    });
     
-    // Chain FX in order
-    let lastNode = instSynth;
+    // Disconnect synth safely - handle different types
+    let sourceNode = null;
+    
+    if (typeof instSynth.disconnect === 'function') {
+      // Standard Tone.js synth
+      instSynth.disconnect();
+      sourceNode = instSynth;
+    } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+      // Wrapped Player with .gain property
+      instSynth.gain.disconnect();
+      sourceNode = instSynth.gain;
+    } else if (instSynth.player && typeof instSynth.player.disconnect === 'function') {
+      // Custom wrapped synth with .player property
+      instSynth.player.disconnect();
+      sourceNode = instSynth.player;
+    } else {
+      console.warn(`Cannot reconnect FX for ${this.instrument} - unknown synth type`);
+      return;
+    }
+    
+    // Chain enabled FX in order
+    let lastNode = sourceNode;
     
     this.fxChain.forEach(fx => {
-      if (fx.enabled) {
+      if (fx.enabled && fx.node) {
         lastNode.connect(fx.node);
         lastNode = fx.node;
       }
     });
     
-    // Connect to channel
+    // Connect final node to channel
     lastNode.connect(this.channel);
+    
+    console.log(`🔗 Reconnected FX chain for ${this.instrument}: ${this.fxChain.filter(f => f.enabled).length} active effects`);
   }
   
   updateFxParam(fxId, param, value) {
