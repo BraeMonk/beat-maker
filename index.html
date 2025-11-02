@@ -7183,10 +7183,10 @@ class AudioTrack {
     
     await Tone.start();
     
-    // CRITICAL: Capture transport position when we START recording
-    this.recordStartTime = Tone.Transport.seconds;
+    // DON'T set recordStartTime here - it's already been set by toggleRecordAllArmed
+    // This preserves the synchronized transport position across all tracks
     
-    console.log(`🎙️ Recording ${this.instrument} on track ${this.id} starting at ${this.recordStartTime.toFixed(2)}s`);
+    console.log(`🎙️ Recording ${this.instrument} on track ${this.id} at transport ${this.recordStartTime.toFixed(2)}s`);
     
     // IMMEDIATE UI UPDATE
     this.recording = true;
@@ -7807,25 +7807,27 @@ async function toggleRecordAllArmed() {
     return;
   }
   
-  // Start transport if not playing
+  // CRITICAL: Start transport FIRST if not playing
+  let transportStartTime = null;
+  
   if (!state.isPlaying) {
     await togglePlay();
-    // Wait a moment for transport to stabilize
+    // Wait for transport to stabilize
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   
+  // NOW capture the transport position - this is our global sync point
+  transportStartTime = Tone.Transport.seconds;
+  
   await Tone.start();
   
-  // CRITICAL: Capture EXACT same start time for all tracks
-  const syncStartTime = Tone.Transport.seconds;
-  
-  // Start ALL armed tracks with the SAME timestamp
+  // Start ALL armed tracks with the SAME transport reference time
   for (const track of armedTracks) {
-    track.recordStartTime = syncStartTime; // Set before starting
+    track.recordStartTime = transportStartTime; // Set BEFORE starting
     await track.startRecording();
   }
   
-  console.log(`🎙️ All tracks synced to start time: ${syncStartTime.toFixed(3)}s`);
+  console.log(`🎙️ All tracks synced to transport time: ${transportStartTime.toFixed(3)}s`);
   showToast(`🎙️ Recording ${armedTracks.length} track(s) in sync`, 'success');
   renderMultitrack();
 }
@@ -8315,7 +8317,7 @@ async function bounceAllTracks() {
   
   showToast('🎵 Preparing bounce...', 'info');
   
-  // Find the actual time range we need to render
+  // Find the earliest start time (this becomes time zero in our render)
   let minStart = Infinity;
   let maxEnd = 0;
   
@@ -8333,9 +8335,9 @@ async function bounceAllTracks() {
   if (minStart === Infinity) minStart = 0;
   const totalDuration = maxEnd - minStart;
   
-  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s (${minStart.toFixed(2)}s → ${maxEnd.toFixed(2)}s)`);
+  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s (earliest: ${minStart.toFixed(2)}s, latest: ${maxEnd.toFixed(2)}s)`);
   
-  // Create offline context for the EXACT duration we need
+  // Create offline context
   const sampleRate = 48000;
   const numFrames = Math.ceil(totalDuration * sampleRate);
   
@@ -8352,9 +8354,7 @@ async function bounceAllTracks() {
   offlineMaster.connect(offlineLimiter);
   offlineLimiter.connect(offlineContext.destination);
   
-  // Create players for each take and schedule them
-  const players = [];
-  
+  // Create players for each take
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
@@ -8376,37 +8376,22 @@ async function bounceAllTracks() {
       player.connect(channel);
       channel.connect(offlineMaster);
       
-      // Calculate when to start relative to our render window
-      const startTime = (take.startTime || 0) - minStart;
+      // CRITICAL: Start time is RELATIVE to the earliest take
+      // This preserves the exact spacing between recordings
+      const relativeStartTime = (take.startTime || 0) - minStart;
       
-      players.push({
-        player,
-        startTime,
-        trackName: track.name
-      });
+      player.start(relativeStartTime);
       
-      console.log(`✅ Scheduled ${track.name} at ${startTime.toFixed(3)}s`);
+      console.log(`✅ ${track.name}: recorded at ${take.startTime.toFixed(3)}s → renders at ${relativeStartTime.toFixed(3)}s`);
       
     } catch (err) {
       console.error(`❌ Failed to schedule ${track.name}:`, err);
     }
   }
   
-  if (players.length === 0) {
-    showToast('❌ No valid takes to bounce', 'error');
-    return;
-  }
-  
-  // Schedule all players to start at their correct times
-  players.forEach(({ player, startTime, trackName }) => {
-    player.start(startTime);
-    console.log(`🎵 ${trackName} → ${startTime.toFixed(3)}s`);
-  });
-  
   try {
-    showToast('⏳ Rendering (this may take a moment)...', 'info');
+    showToast('⏳ Rendering...', 'info');
     
-    // Render the audio
     const renderedBuffer = await offlineContext.startRendering();
     
     console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
@@ -8445,7 +8430,6 @@ async function previewMultitrack() {
     return;
   }
   
-  // Stop any existing previews
   stopMultitrackPreview();
   
   await Tone.start();
@@ -8455,42 +8439,36 @@ async function previewMultitrack() {
   }
   
   multitrack.previewPlayers = [];
-  let maxEndTime = 0;
   let minStartTime = Infinity;
+  let maxEndTime = 0;
   
   showToast('⏳ Loading takes...', 'info');
   
-  // Load all players first
+  // Load all players
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted) continue;
     
-    // Validate buffer
     if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
       console.error(`❌ ${track.name}: Invalid buffer`);
-      showToast(`❌ ${track.name}: Buffer corrupted`, 'error');
       continue;
     }
     
     try {
-      // Create player
       const player = new Tone.Player({
         url: take.buffer,
         fadeOut: 0.01
       }).connect(track.channel);
       
-      // Wait for buffer to load
       await new Promise((resolve, reject) => {
         if (player.loaded) {
           resolve();
         } else {
           const timeout = setTimeout(() => reject(new Error('Load timeout')), 5000);
-          
           player.onsuccess = () => {
             clearTimeout(timeout);
             resolve();
           };
-          
           player.onerror = (err) => {
             clearTimeout(timeout);
             reject(err);
@@ -8522,17 +8500,19 @@ async function previewMultitrack() {
     return;
   }
   
-  // Calculate total playback duration
-  const totalDuration = maxEndTime - (minStartTime === Infinity ? 0 : minStartTime);
+  // Find earliest take to use as time zero
+  if (minStartTime === Infinity) minStartTime = 0;
+  const totalDuration = maxEndTime - minStartTime;
   
-  // Start all players at the SAME reference time
+  // Start all players with RELATIVE timing
   const now = Tone.now() + 0.1;
   
   multitrack.previewPlayers.forEach(({ player, track, startTime }) => {
     try {
-      // Schedule each player to start at its recorded time offset
-      player.start(now + startTime);
-      console.log(`▶️ ${track.name} scheduled at +${startTime.toFixed(3)}s`);
+      // Play relative to the earliest take
+      const relativeStart = startTime - minStartTime;
+      player.start(now + relativeStart);
+      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s (recorded at ${startTime.toFixed(3)}s)`);
     } catch (err) {
       console.error(`❌ Failed to start ${track.name}:`, err);
     }
@@ -8540,7 +8520,6 @@ async function previewMultitrack() {
   
   showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
   
-  // Auto-stop after everything finishes
   setTimeout(() => {
     stopMultitrackPreview();
     const btn = document.getElementById('previewMultitrackBtn');
