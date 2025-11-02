@@ -8332,7 +8332,15 @@ async function bounceAllTracks() {
     console.log(`📊 ${track.name}: ${startTime.toFixed(2)}s → ${endTime.toFixed(2)}s (${take.duration.toFixed(2)}s)`);
   });
   
-  // Use earliest start as reference point
+  // CRITICAL FIX: If all tracks start at 0, use the longest duration
+  if (minStartTime === 0 || minStartTime === Infinity) {
+    minStartTime = 0;
+    maxEndTime = Math.max(...activeTracks.map(t => {
+      const take = t.takes[t.selectedTakeIndex];
+      return (take?.startTime || 0) + (take?.duration || 0);
+    }));
+  }
+  
   const totalDuration = maxEndTime - minStartTime;
   
   console.log(`📏 Bounce range: ${minStartTime.toFixed(2)}s → ${maxEndTime.toFixed(2)}s (${totalDuration.toFixed(2)}s total)`);
@@ -8348,13 +8356,18 @@ async function bounceAllTracks() {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted) continue;
     
-    // Calculate offset relative to earliest start
+    // CRITICAL FIX: Calculate offset relative to earliest start
     const offsetSeconds = (take.startTime || 0) - minStartTime;
-    const offsetSamples = Math.floor(offsetSeconds * sampleRate);
     
-    console.log(`🎚️ ${track.name}: offset ${offsetSeconds.toFixed(2)}s (${offsetSamples} samples)`);
+    console.log(`🎚️ ${track.name}: offset ${offsetSeconds.toFixed(3)}s, duration ${take.duration.toFixed(3)}s`);
     
     try {
+      // CRITICAL FIX: Validate buffer before using
+      if (!take.buffer || !take.buffer.length || take.buffer.numberOfChannels === 0) {
+        console.error(`❌ ${track.name}: Invalid buffer, skipping`);
+        continue;
+      }
+      
       const source = offlineContext.createBufferSource();
       source.buffer = take.buffer;
       
@@ -8368,8 +8381,11 @@ async function bounceAllTracks() {
       gainNode.connect(panNode);
       panNode.connect(offlineContext.destination);
       
-      // Start at the correct offset
-      source.start(offsetSeconds);
+      // CRITICAL FIX: Start at the correct offset (must be >= 0)
+      const safeOffset = Math.max(0, offsetSeconds);
+      source.start(safeOffset);
+      
+      console.log(`✅ ${track.name} scheduled at ${safeOffset.toFixed(3)}s`);
       
     } catch (err) {
       console.error(`❌ Failed to render ${track.name}:`, err);
@@ -8378,7 +8394,9 @@ async function bounceAllTracks() {
   
   try {
     // Render
+    console.log('🎬 Starting offline render...');
     const renderedBuffer = await offlineContext.startRendering();
+    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
     
     // Convert to WAV
     const wavData = bufferToWavImproved(renderedBuffer);
