@@ -7276,10 +7276,10 @@ class AudioTrack {
   
   async finishRecording() {
     if (this.recordedChunks.length === 0) {
-      console.warn('⚠️ No audio data recorded');
+      console.warn('⚠️ No audio data recorded for', this.instrument);
       this.recorder = null;
       renderMultitrack();
-      showToast('⚠️ Recording was empty', 'warning');
+      showToast(`⚠️ ${this.name}: No audio captured - check instrument is playing`, 'warning');
       return;
     }
     
@@ -7289,9 +7289,9 @@ class AudioTrack {
     
     console.log(`💾 Processing ${blob.size} bytes for ${this.instrument}`);
     
-    if (blob.size < 1000) {
+    if (blob.size < 100) {
       console.error('❌ Recording too small, likely corrupted');
-      showToast('❌ Recording failed - file too small', 'error');
+      showToast(`❌ ${this.name}: Recording failed - file too small`, 'error');
       this.recordedChunks = [];
       this.recorder = null;
       renderMultitrack();
@@ -7312,15 +7312,15 @@ class AudioTrack {
         throw new Error('Decoded buffer is invalid');
       }
       
-      // CRITICAL FIX: Use the EXACT transport times we recorded
+      // Use the EXACT transport times we recorded
       const take = {
         id: Date.now(),
         buffer: audioBuffer,
         blob: blob,
-        duration: this.recordDuration, // Use EXACT measured duration from transport
+        duration: this.recordDuration,
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime: this.recordStartTime, // Use EXACT start time from transport
+        startTime: this.recordStartTime,
         recordedAt: Date.now()
       };
       
@@ -7330,16 +7330,14 @@ class AudioTrack {
       console.log(`✅ ${this.instrument} Take ${this.takes.length} created:`);
       console.log(`   - Start: ${take.startTime.toFixed(6)}s (transport)`);
       console.log(`   - Duration: ${take.duration.toFixed(6)}s (transport measurement)`);
-      console.log(`   - Ends at: ${(take.startTime + take.duration).toFixed(6)}s (transport)`);
-      console.log(`   - Buffer duration: ${audioBuffer.duration.toFixed(6)}s (decoded)`);
-      console.log(`   - Drift: ${Math.abs(audioBuffer.duration - take.duration).toFixed(6)}s`);
+      console.log(`   - Buffer: ${audioBuffer.duration.toFixed(6)}s`);
       
       renderMultitrack();
-      showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
+      showToast(`✅ ${this.name}: Recorded ${take.duration.toFixed(1)}s`, 'success');
       
     } catch (err) {
       console.error('❌ Failed to decode audio:', err);
-      showToast(`❌ Recording failed: ${err.message}`, 'error');
+      showToast(`❌ ${this.name}: Recording failed - ${err.message}`, 'error');
     }
     
     this.recordedChunks = [];
@@ -7509,38 +7507,45 @@ class AudioTrack {
       this.stopRecording();
     }
     
-    // Restore original routing
-    const instSynth = synths[this.instrument];
-    if (instSynth && this.originalChannel) {
-      // Safe disconnect - handle different synth types
-      if (typeof instSynth.disconnect === 'function') {
-        instSynth.disconnect();
-        instSynth.connect(this.originalChannel);
-      } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-        // Wrapped Player with .gain
-        instSynth.gain.disconnect();
-        instSynth.gain.connect(this.originalChannel);
-      } else {
-        console.warn(`Cannot restore routing for ${this.instrument} - no disconnect method`);
+    // Clean up recorder gain if it exists
+    if (this.recorderGain) {
+      try {
+        this.recorderGain.disconnect();
+        this.recorderGain.dispose();
+        this.recorderGain = null;
+      } catch (e) {
+        console.warn('Recorder gain cleanup warning:', e);
       }
     }
     
     // Dispose FX chain
     this.fxChain.forEach(fx => {
       if (fx.node && typeof fx.node.dispose === 'function') {
-        fx.node.disconnect();
-        fx.node.dispose();
+        try {
+          fx.node.disconnect();
+          fx.node.dispose();
+        } catch (e) {
+          console.warn('FX dispose warning:', e);
+        }
       }
     });
     
     // Dispose audio nodes
     if (this.meter && typeof this.meter.dispose === 'function') {
-      this.meter.dispose();
+      try {
+        this.meter.dispose();
+      } catch (e) {
+        console.warn('Meter dispose warning:', e);
+      }
     }
     
     if (this.channel && typeof this.channel.dispose === 'function') {
-      this.channel.disconnect();
-      this.channel.dispose();
+      try {
+        this.channel.disconnect();
+        this.channel.dispose();
+      } catch (e) {
+        console.warn('Channel dispose warning:', e);
+      }
     }
     
     console.log('✅ Track disposed:', this.id);
@@ -7553,6 +7558,28 @@ function createTrack(instrument) {
     `${instruments[instrument]?.name || instrument} ${multitrack.tracks.length + 1}`,
     instrument
   );
+  
+  // CRITICAL: Route the instrument's synth through this track's channel
+  const instSynth = synths[instrument];
+  if (instSynth) {
+    try {
+      // Disconnect from master
+      let sourceNode = instSynth;
+      if (instSynth.gain) sourceNode = instSynth.gain;
+      if (instSynth.player) sourceNode = instSynth.player;
+      
+      if (typeof sourceNode.disconnect === 'function') {
+        sourceNode.disconnect();
+      }
+      
+      // Connect to track channel
+      sourceNode.connect(track.channel);
+      
+      console.log(`🔗 ${instrument} routed through track ${track.id}`);
+    } catch (e) {
+      console.warn(`Warning routing ${instrument}:`, e);
+    }
+  }
   
   multitrack.tracks.push(track);
   renderMultitrack();
