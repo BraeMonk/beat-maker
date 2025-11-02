@@ -7195,6 +7195,10 @@ class AudioTrack {
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
     
+    // CRITICAL: Record the EXACT time we start recording (in Tone.Transport time)
+    this.recordStartTime = Tone.Transport.seconds;
+    console.log(`⏱️ Recording started at transport time: ${this.recordStartTime.toFixed(3)}s`);
+    
     // Create recording destination that taps ONLY this instrument's output
     const instSynth = synths[this.instrument];
     if (!instSynth) {
@@ -7207,12 +7211,9 @@ class AudioTrack {
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
     
     // Connect instrument directly to recording destination
-    // Check synth type and connect appropriately
     if (instSynth.gain && typeof instSynth.gain.connect === 'function') {
-      // Wrapped Player with .gain property
       instSynth.gain.connect(recordDest);
     } else if (typeof instSynth.connect === 'function') {
-      // Standard Tone.js synth
       instSynth.connect(recordDest);
     } else {
       console.error(`❌ Cannot connect ${this.instrument} for recording`);
@@ -7277,6 +7278,13 @@ class AudioTrack {
       return;
     }
     
+    // CRITICAL: Capture the EXACT time we stopped recording
+    const recordEndTime = Tone.Transport.seconds;
+    const recordDuration = recordEndTime - this.recordStartTime;
+    
+    console.log(`⏱️ Recording stopped at transport time: ${recordEndTime.toFixed(3)}s`);
+    console.log(`⏱️ Real recording duration: ${recordDuration.toFixed(3)}s`);
+    
     const blob = new Blob(this.recordedChunks, {
       type: this.recorder.mimeType || 'audio/webm'
     });
@@ -7310,17 +7318,21 @@ class AudioTrack {
         id: Date.now(),
         buffer: audioBuffer,
         blob: blob,
-        duration: audioBuffer.duration,
+        duration: audioBuffer.duration, // This is the ACTUAL recorded duration
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime: 0, // Always start at 0 - instrument output is already in sync
+        startTime: this.recordStartTime, // When we STARTED recording (transport time)
         recordedAt: Date.now()
       };
       
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
       
-      console.log(`✅ Take ${this.takes.length} created: ${take.duration.toFixed(1)}s at ${take.startTime.toFixed(2)}s, ${audioBuffer.numberOfChannels}ch`);
+      console.log(`✅ Take ${this.takes.length} created:`);
+      console.log(`   - Recorded from: ${take.startTime.toFixed(3)}s (transport)`);
+      console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
+      console.log(`   - Ends at: ${(take.startTime + take.duration).toFixed(3)}s (transport)`);
+      console.log(`   - Channels: ${audioBuffer.numberOfChannels}`);
       
       renderMultitrack();
       showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
@@ -8337,7 +8349,7 @@ async function bounceAllTracks() {
   
   showToast('🎵 Preparing bounce...', 'info');
   
-  // Find the earliest start time (this becomes time zero in our render)
+  // Find the earliest start time and latest end time
   let minStart = Infinity;
   let maxEnd = 0;
   
@@ -8355,7 +8367,9 @@ async function bounceAllTracks() {
   if (minStart === Infinity) minStart = 0;
   const totalDuration = maxEnd - minStart;
   
-  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s (earliest: ${minStart.toFixed(2)}s, latest: ${maxEnd.toFixed(2)}s)`);
+  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
+  console.log(`   - Earliest take starts: ${minStart.toFixed(2)}s`);
+  console.log(`   - Latest take ends: ${maxEnd.toFixed(2)}s`);
   
   // Create offline context
   const sampleRate = 48000;
@@ -8397,12 +8411,15 @@ async function bounceAllTracks() {
       channel.connect(offlineMaster);
       
       // CRITICAL: Start time is RELATIVE to the earliest take
-      // This preserves the exact spacing between recordings
+      // This preserves timing including all silences
       const relativeStartTime = (take.startTime || 0) - minStart;
       
       player.start(relativeStartTime);
       
-      console.log(`✅ ${track.name}: recorded at ${take.startTime.toFixed(3)}s → renders at ${relativeStartTime.toFixed(3)}s`);
+      console.log(`✅ ${track.name}:`);
+      console.log(`   - Recorded at: ${take.startTime.toFixed(3)}s (transport)`);
+      console.log(`   - Renders at: ${relativeStartTime.toFixed(3)}s (bounce)`);
+      console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
       
     } catch (err) {
       console.error(`❌ Failed to schedule ${track.name}:`, err);
@@ -8524,15 +8541,20 @@ async function previewMultitrack() {
   if (minStartTime === Infinity) minStartTime = 0;
   const totalDuration = maxEndTime - minStartTime;
   
+  console.log(`▶️ Preview:`);
+  console.log(`   - Total duration: ${totalDuration.toFixed(3)}s`);
+  console.log(`   - Earliest start: ${minStartTime.toFixed(3)}s`);
+  console.log(`   - Latest end: ${maxEndTime.toFixed(3)}s`);
+  
   // Start all players with RELATIVE timing
   const now = Tone.now() + 0.1;
   
   multitrack.previewPlayers.forEach(({ player, track, startTime }) => {
     try {
-      // Play relative to the earliest take
+      // Play relative to the earliest take - preserves all timing/silences
       const relativeStart = startTime - minStartTime;
       player.start(now + relativeStart);
-      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s (recorded at ${startTime.toFixed(3)}s)`);
+      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
     } catch (err) {
       console.error(`❌ Failed to start ${track.name}:`, err);
     }
