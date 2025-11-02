@@ -8315,27 +8315,44 @@ async function bounceAllTracks() {
   
   showToast('🎵 Preparing bounce...', 'info');
   
-  // Find total duration needed
-  let minStartTime = Infinity;
-  let maxEndTime = 0;
+  // Find the actual time range we need to render
+  let minStart = Infinity;
+  let maxEnd = 0;
   
   activeTracks.forEach(track => {
     const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted) return;
+    if (!take || take.muted || !take.buffer) return;
     
     const startTime = take.startTime || 0;
     const endTime = startTime + take.duration;
     
-    if (startTime < minStartTime) minStartTime = startTime;
-    if (endTime > maxEndTime) maxEndTime = endTime;
+    if (startTime < minStart) minStart = startTime;
+    if (endTime > maxEnd) maxEnd = endTime;
   });
   
-  if (minStartTime === Infinity) minStartTime = 0;
-  const totalDuration = maxEndTime - minStartTime;
+  if (minStart === Infinity) minStart = 0;
+  const totalDuration = maxEnd - minStart;
   
-  console.log(`📏 Bouncing ${totalDuration.toFixed(2)}s from ${minStartTime.toFixed(2)}s to ${maxEndTime.toFixed(2)}s`);
+  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s (${minStart.toFixed(2)}s → ${maxEnd.toFixed(2)}s)`);
   
-  // Create players for all takes
+  // Create offline context for the EXACT duration we need
+  const sampleRate = 48000;
+  const numFrames = Math.ceil(totalDuration * sampleRate);
+  
+  const offlineContext = new OfflineAudioContext({
+    numberOfChannels: 2,
+    length: numFrames,
+    sampleRate: sampleRate
+  });
+  
+  // Create master output chain
+  const offlineMaster = new Tone.Gain(0.7, { context: offlineContext });
+  const offlineLimiter = new Tone.Limiter(-0.5, { context: offlineContext });
+  
+  offlineMaster.connect(offlineLimiter);
+  offlineLimiter.connect(offlineContext.destination);
+  
+  // Create players for each take and schedule them
   const players = [];
   
   for (const track of activeTracks) {
@@ -8343,33 +8360,35 @@ async function bounceAllTracks() {
     if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
     
     try {
+      // Create offline player
       const player = new Tone.Player({
-        buffer: take.buffer,
-        fadeOut: 0.01
-      }).connect(track.channel);
-      
-      await new Promise((resolve, reject) => {
-        if (player.loaded) {
-          resolve();
-        } else {
-          const timeout = setTimeout(() => reject(new Error('Timeout')), 5000);
-          player.onsuccess = () => {
-            clearTimeout(timeout);
-            resolve();
-          };
-        }
+        url: take.buffer,
+        context: offlineContext
       });
+      
+      // Create offline channel with track settings
+      const channel = new Tone.Channel({
+        volume: track.volume,
+        pan: track.pan / 100,
+        context: offlineContext
+      });
+      
+      player.connect(channel);
+      channel.connect(offlineMaster);
+      
+      // Calculate when to start relative to our render window
+      const startTime = (take.startTime || 0) - minStart;
       
       players.push({
         player,
-        startTime: (take.startTime || 0) - minStartTime,
+        startTime,
         trackName: track.name
       });
       
-      console.log(`✅ Loaded ${track.name}: start at ${((take.startTime || 0) - minStartTime).toFixed(3)}s`);
+      console.log(`✅ Scheduled ${track.name} at ${startTime.toFixed(3)}s`);
       
     } catch (err) {
-      console.error(`❌ Failed to load ${track.name}:`, err);
+      console.error(`❌ Failed to schedule ${track.name}:`, err);
     }
   }
   
@@ -8378,74 +8397,42 @@ async function bounceAllTracks() {
     return;
   }
   
-  await Tone.start();
-  
-  const stream = master.mediaDest?.stream;
-  if (!stream) {
-    showToast('❌ Recording stream not available', 'error');
-    players.forEach(p => p.player.dispose());
-    return;
-  }
-  
-  let mimeType = '';
-  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-    mimeType = 'audio/webm;codecs=opus';
-  } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-    mimeType = 'audio/webm';
-  }
-  
-  const recordedChunks = [];
-  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-  
-  recorder.ondataavailable = (e) => {
-    if (e.data && e.data.size > 0) {
-      recordedChunks.push(e.data);
-    }
-  };
-  
-  recorder.onstop = async () => {
-    console.log('🎬 Recording stopped, processing...');
-    
-    try {
-      const blob = new Blob(recordedChunks, {
-        type: recorder.mimeType || 'audio/webm'
-      });
-      
-      const arrayBuffer = await blob.arrayBuffer();
-      const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
-      const wavData = bufferToWavImproved(audioBuffer);
-      const wavBlob = new Blob([wavData], { type: 'audio/wav' });
-      
-      const url = URL.createObjectURL(wavBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `bounce_${Date.now()}.wav`;
-      a.click();
-      
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
-      
-    } catch (err) {
-      console.error('❌ Bounce failed:', err);
-      showToast('❌ Bounce failed: ' + err.message, 'error');
-    }
-    
-    players.forEach(p => p.player.dispose());
-  };
-  
-  recorder.start(100);
-  showToast('🎙️ Recording bounce...', 'info');
-  
-  const now = Tone.now() + 0.1;
-  
+  // Schedule all players to start at their correct times
   players.forEach(({ player, startTime, trackName }) => {
-    player.start(now + startTime);
-    console.log(`▶️ ${trackName} scheduled at +${startTime.toFixed(3)}s`);
+    player.start(startTime);
+    console.log(`🎵 ${trackName} → ${startTime.toFixed(3)}s`);
   });
   
-  setTimeout(() => {
-    recorder.stop();
-  }, (totalDuration + 0.5) * 1000);
+  try {
+    showToast('⏳ Rendering (this may take a moment)...', 'info');
+    
+    // Render the audio
+    const renderedBuffer = await offlineContext.startRendering();
+    
+    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
+    
+    // Convert to WAV
+    const wavData = bufferToWavImproved(renderedBuffer);
+    const blob = new Blob([wavData], { type: 'audio/wav' });
+    
+    // Download
+    const projectName = document.getElementById('projectName')?.value || 'mix';
+    const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    
+    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
+    
+  } catch (err) {
+    console.error('❌ Bounce failed:', err);
+    showToast(`❌ Bounce failed: ${err.message}`, 'error');
+  }
 }
   
 async function previewMultitrack() {
@@ -8463,109 +8450,104 @@ async function previewMultitrack() {
   
   await Tone.start();
   
-  // Ensure context is running
   if (Tone.context.state !== 'running') {
     await Tone.context.resume();
   }
   
-  // Create players for each track's selected take
   multitrack.previewPlayers = [];
-  let maxDuration = 0;
-  let loadedCount = 0;
+  let maxEndTime = 0;
+  let minStartTime = Infinity;
   
   showToast('⏳ Loading takes...', 'info');
   
   // Load all players first
-  const playerPromises = activeTracks.map(async (track) => {
+  for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted) return null;
+    if (!take || take.muted) continue;
+    
+    // Validate buffer
+    if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
+      console.error(`❌ ${track.name}: Invalid buffer`);
+      showToast(`❌ ${track.name}: Buffer corrupted`, 'error');
+      continue;
+    }
     
     try {
-      // CRITICAL FIX: Check if buffer exists and is valid
-      if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
-        console.error(`❌ ${track.name}: Invalid or empty buffer`);
-        showToast(`❌ ${track.name}: Cannot preview - buffer corrupted`, 'error');
-        return null;
-      }
-      
+      // Create player
       const player = new Tone.Player({
-        buffer: take.buffer,
+        url: take.buffer,
         fadeOut: 0.01
       }).connect(track.channel);
       
-      // Wait for buffer to be loaded
+      // Wait for buffer to load
       await new Promise((resolve, reject) => {
-        let attempts = 0;
-        const checkReady = setInterval(() => {
-          attempts++;
-          
-          if (player.loaded) {
-            clearInterval(checkReady);
-            loadedCount++;
-            resolve();
-          } else if (attempts > 50) { // 5 second timeout
-            clearInterval(checkReady);
-            reject(new Error('Buffer load timeout'));
-          }
-        }, 100);
-        
-        player.onsuccess = () => {
-          clearInterval(checkReady);
-          loadedCount++;
+        if (player.loaded) {
           resolve();
-        };
+        } else {
+          const timeout = setTimeout(() => reject(new Error('Load timeout')), 5000);
+          
+          player.onsuccess = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
+          
+          player.onerror = (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          };
+        }
       });
       
-      if (take.duration > maxDuration) {
-        maxDuration = take.duration;
-      }
+      const startTime = take.startTime || 0;
+      const endTime = startTime + take.duration;
       
-      console.log(`✅ Loaded ${track.name} - Take ${track.selectedTakeIndex + 1}`);
+      if (startTime < minStartTime) minStartTime = startTime;
+      if (endTime > maxEndTime) maxEndTime = endTime;
       
-      return { player, track };
+      multitrack.previewPlayers.push({ 
+        player, 
+        track, 
+        startTime: startTime
+      });
+      
+      console.log(`✅ ${track.name} ready (starts at ${startTime.toFixed(3)}s)`);
       
     } catch (err) {
-      console.error(`❌ Failed to load ${track.name}:`, err);
-      return null;
+      console.error(`❌ ${track.name} failed:`, err);
     }
-  });
+  }
   
-  // Wait for all to load
-  const loadedPlayers = (await Promise.all(playerPromises)).filter(p => p !== null);
-  
-  if (loadedPlayers.length === 0) {
+  if (multitrack.previewPlayers.length === 0) {
     showToast('❌ No takes could be loaded', 'error');
     return;
   }
   
-  // NOW start all players synchronously
-  const startTime = Tone.now() + 0.1;
+  // Calculate total playback duration
+  const totalDuration = maxEndTime - (minStartTime === Infinity ? 0 : minStartTime);
   
-  loadedPlayers.forEach(({ player, track }) => {
+  // Start all players at the SAME reference time
+  const now = Tone.now() + 0.1;
+  
+  multitrack.previewPlayers.forEach(({ player, track, startTime }) => {
     try {
-      player.start(startTime);
-      multitrack.previewPlayers.push(player);
-      console.log(`▶️ Playing ${track.name} - Take ${track.selectedTakeIndex + 1}`);
+      // Schedule each player to start at its recorded time offset
+      player.start(now + startTime);
+      console.log(`▶️ ${track.name} scheduled at +${startTime.toFixed(3)}s`);
     } catch (err) {
       console.error(`❌ Failed to start ${track.name}:`, err);
-      player.dispose();
     }
   });
   
-  if (multitrack.previewPlayers.length > 0) {
-    showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
-    
-    // Auto-cleanup when done
-    setTimeout(() => {
-      stopMultitrackPreview();
-      const btn = document.getElementById('previewMultitrackBtn');
-      if (btn) btn.textContent = '▶️ Preview Mix';
-    }, maxDuration * 1000 + 500);
-  } else {
-    showToast('❌ No takes could be previewed', 'error');
-  }
+  showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
+  
+  // Auto-stop after everything finishes
+  setTimeout(() => {
+    stopMultitrackPreview();
+    const btn = document.getElementById('previewMultitrackBtn');
+    if (btn) btn.textContent = '▶️ Preview Mix';
+  }, (totalDuration + 0.5) * 1000);
 }
-
+  
 function stopMultitrackPreview() {
   if (multitrack.previewPlayers) {
     multitrack.previewPlayers.forEach(player => {
