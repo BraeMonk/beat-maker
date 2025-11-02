@@ -8374,7 +8374,7 @@ async function bounceAllTracks() {
   
   showToast('🎵 Preparing bounce...', 'info');
   
-  // Find the earliest start time and latest end time
+  // CRITICAL FIX: Find min/max using the EXACT transport times
   let minStart = Infinity;
   let maxEnd = 0;
   
@@ -8382,8 +8382,10 @@ async function bounceAllTracks() {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer) return;
     
-    const startTime = take.startTime || 0;
-    const endTime = startTime + take.duration;
+    const startTime = take.startTime; // This is the exact Tone.Transport.seconds value
+    const endTime = startTime + take.duration; // Duration is also from transport
+    
+    console.log(`📊 ${track.name}: start=${startTime.toFixed(6)}s, end=${endTime.toFixed(6)}s`);
     
     if (startTime < minStart) minStart = startTime;
     if (endTime > maxEnd) maxEnd = endTime;
@@ -8392,9 +8394,10 @@ async function bounceAllTracks() {
   if (minStart === Infinity) minStart = 0;
   const totalDuration = maxEnd - minStart;
   
-  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
-  console.log(`   - Earliest take starts: ${minStart.toFixed(2)}s`);
-  console.log(`   - Latest take ends: ${maxEnd.toFixed(2)}s`);
+  console.log(`🎬 Bounce setup:`);
+  console.log(`   - Earliest: ${minStart.toFixed(6)}s`);
+  console.log(`   - Latest: ${maxEnd.toFixed(6)}s`);
+  console.log(`   - Duration: ${totalDuration.toFixed(6)}s`);
   
   // Create offline context
   const sampleRate = 48000;
@@ -8413,13 +8416,21 @@ async function bounceAllTracks() {
   offlineMaster.connect(offlineLimiter);
   offlineLimiter.connect(offlineContext.destination);
   
-  // Create players for each take
+  // CRITICAL FIX: Schedule each take at its EXACT relative position
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
     
     try {
-      // Create offline player
+      // CRITICAL: Calculate position relative to earliest take
+      const relativeStartTime = take.startTime - minStart;
+      
+      console.log(`🎵 ${track.name}:`);
+      console.log(`   - Transport start: ${take.startTime.toFixed(6)}s`);
+      console.log(`   - Bounce position: ${relativeStartTime.toFixed(6)}s`);
+      console.log(`   - Duration: ${take.duration.toFixed(6)}s`);
+      
+      // Create offline player with the EXACT buffer
       const player = new Tone.Player({
         url: take.buffer,
         context: offlineContext
@@ -8435,16 +8446,10 @@ async function bounceAllTracks() {
       player.connect(channel);
       channel.connect(offlineMaster);
       
-      // CRITICAL: Start time is RELATIVE to the earliest take
-      // This preserves timing including all silences
-      const relativeStartTime = (take.startTime || 0) - minStart;
-      
+      // CRITICAL FIX: Start at the EXACT calculated position
       player.start(relativeStartTime);
       
-      console.log(`✅ ${track.name}:`);
-      console.log(`   - Recorded at: ${take.startTime.toFixed(3)}s (transport)`);
-      console.log(`   - Renders at: ${relativeStartTime.toFixed(3)}s (bounce)`);
-      console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
+      console.log(`   ✅ Scheduled at ${relativeStartTime.toFixed(6)}s`);
       
     } catch (err) {
       console.error(`❌ Failed to schedule ${track.name}:`, err);
@@ -8456,7 +8461,7 @@ async function bounceAllTracks() {
     
     const renderedBuffer = await offlineContext.startRendering();
     
-    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
+    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(6)}s`);
     
     // Convert to WAV
     const wavData = bufferToWavImproved(renderedBuffer);
@@ -8506,6 +8511,26 @@ async function previewMultitrack() {
   
   showToast('⏳ Loading takes...', 'info');
   
+  // Find the time range using EXACT transport times
+  activeTracks.forEach(track => {
+    const take = track.takes[track.selectedTakeIndex];
+    if (!take || take.muted) return;
+    
+    const startTime = take.startTime;
+    const endTime = startTime + take.duration;
+    
+    if (startTime < minStartTime) minStartTime = startTime;
+    if (endTime > maxEndTime) maxEndTime = endTime;
+  });
+  
+  if (minStartTime === Infinity) minStartTime = 0;
+  const totalDuration = maxEndTime - minStartTime;
+  
+  console.log(`▶️ Preview setup:`);
+  console.log(`   - Earliest: ${minStartTime.toFixed(6)}s`);
+  console.log(`   - Latest: ${maxEndTime.toFixed(6)}s`);
+  console.log(`   - Duration: ${totalDuration.toFixed(6)}s`);
+  
   // Load all players
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
@@ -8522,6 +8547,7 @@ async function previewMultitrack() {
         fadeOut: 0.01
       }).connect(track.channel);
       
+      // Wait for buffer to load
       await new Promise((resolve, reject) => {
         if (player.loaded) {
           resolve();
@@ -8538,19 +8564,16 @@ async function previewMultitrack() {
         }
       });
       
-      const startTime = take.startTime || 0;
-      const endTime = startTime + take.duration;
-      
-      if (startTime < minStartTime) minStartTime = startTime;
-      if (endTime > maxEndTime) maxEndTime = endTime;
+      // CRITICAL FIX: Calculate EXACT relative position
+      const relativeStart = take.startTime - minStartTime;
       
       multitrack.previewPlayers.push({ 
         player, 
-        track, 
-        startTime: startTime
+        track,
+        relativeStart: relativeStart
       });
       
-      console.log(`✅ ${track.name} ready (starts at ${startTime.toFixed(3)}s)`);
+      console.log(`✅ ${track.name} ready (starts at +${relativeStart.toFixed(6)}s)`);
       
     } catch (err) {
       console.error(`❌ ${track.name} failed:`, err);
@@ -8562,24 +8585,15 @@ async function previewMultitrack() {
     return;
   }
   
-  // Find earliest take to use as time zero
-  if (minStartTime === Infinity) minStartTime = 0;
-  const totalDuration = maxEndTime - minStartTime;
+  console.log(`▶️ Starting preview with ${multitrack.previewPlayers.length} tracks`);
   
-  console.log(`▶️ Preview:`);
-  console.log(`   - Total duration: ${totalDuration.toFixed(3)}s`);
-  console.log(`   - Earliest start: ${minStartTime.toFixed(3)}s`);
-  console.log(`   - Latest end: ${maxEndTime.toFixed(3)}s`);
-  
-  // Start all players with RELATIVE timing
+  // CRITICAL FIX: Start all players at their EXACT relative positions
   const now = Tone.now() + 0.1;
   
-  multitrack.previewPlayers.forEach(({ player, track, startTime }) => {
+  multitrack.previewPlayers.forEach(({ player, track, relativeStart }) => {
     try {
-      // Play relative to the earliest take - preserves all timing/silences
-      const relativeStart = startTime - minStartTime;
       player.start(now + relativeStart);
-      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
+      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(6)}s`);
     } catch (err) {
       console.error(`❌ Failed to start ${track.name}:`, err);
     }
