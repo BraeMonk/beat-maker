@@ -7177,7 +7177,7 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  async function startRecording(punchIn = null, punchOut = null) {
+  async startRecording(punchIn = null, punchOut = null) {
     if (this.recording) return;
     
     await Tone.start();
