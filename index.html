@@ -7153,116 +7153,81 @@ class AudioTrack {
   
   async startRecording(punchIn = null, punchOut = null) {
     if (this.recording) return;
-    
+  
     await Tone.start();
-    
+  
     console.log(`🎙️ Recording ${this.instrument} output on track ${this.id}`);
-    
+  
     // IMMEDIATE UI UPDATE
     this.recording = true;
     this.armed = false;
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
-    
+  
     // Capture exact start time
     const exactStartTime = Tone.Transport.seconds;
     this.recordStartTime = exactStartTime;
-    
+  
     console.log(`⏱️ ${this.instrument} EXACT start: ${exactStartTime.toFixed(6)}s (transport)`);
-    
-    // CRITICAL FIX: Create a recorder gain node to tap the synth output
+  
+    // CRITICAL FIX: Tap AFTER the instrument's channel (which has FX applied)
     this.recorderGain = new Tone.Gain(1);
-    
-    // Get the synth
-    const instSynth = synths[this.instrument];
-    if (!instSynth) {
-      console.error(`❌ No synth found for ${this.instrument}`);
-      this.recording = false;
-      renderMultitrack();
-      return;
-    }
-    
-    // Determine the source node (handle different synth types)
-    let sourceNode = instSynth;
-    if (instSynth.gain) sourceNode = instSynth.gain;
-    if (instSynth.player) sourceNode = instSynth.player;
-    
-    // Disconnect synth from channel temporarily
-    try {
-      if (typeof sourceNode.disconnect === 'function') {
-        sourceNode.disconnect();
-      }
-    } catch (e) {
-      console.warn('Disconnect warning:', e);
-    }
-    
-    // Insert recorder gain: Synth -> RecorderGain -> Channel
-    sourceNode.connect(this.recorderGain);
-    this.recorderGain.connect(this.channel);
-    
-    // Create recording destination from the recorder gain
+  
+    // Connect channel output -> recorder gain -> recorder destination
+    // This captures the FINAL sound after FX
+    this.channel.connect(this.recorderGain);
+  
+    // Create recording destination
     const recordDest = this.recorderGain.context.rawContext.createMediaStreamDestination();
     this.recorderGain.connect(recordDest);
-    
+  
     let mimeType = '';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
       mimeType = 'audio/webm;codecs=opus';
     } else if (MediaRecorder.isTypeSupported('audio/webm')) {
       mimeType = 'audio/webm';
     }
-    
+  
     this.recordedChunks = [];
     this.recorder = new MediaRecorder(recordDest.stream, mimeType ? { mimeType } : undefined);
-    
+  
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
         this.recordedChunks.push(e.data);
       }
     };
-    
+  
     this.recorder.onstop = () => {
       const exactStopTime = Tone.Transport.seconds;
       const exactDuration = exactStopTime - this.recordStartTime;
-      
+    
       console.log(`⏹️ ${this.instrument} EXACT stop: ${exactStopTime.toFixed(6)}s`);
       console.log(`⏹️ ${this.instrument} EXACT duration: ${exactDuration.toFixed(6)}s`);
-      
+    
       this.recordStopTime = exactStopTime;
       this.recordDuration = exactDuration;
-      
+    
       this.finishRecording();
-      
-      // CRITICAL FIX: Clean up recorder routing
+    
+      // Clean up recorder routing
       try {
         if (this.recorderGain) {
           this.recorderGain.disconnect();
           this.recorderGain.dispose();
           this.recorderGain = null;
         }
-        
-        // Restore direct synth -> channel connection
-        const instSynth = synths[this.instrument];
-        if (instSynth) {
-          let sourceNode = instSynth;
-          if (instSynth.gain) sourceNode = instSynth.gain;
-          if (instSynth.player) sourceNode = instSynth.player;
-          
-          if (typeof sourceNode.connect === 'function') {
-            sourceNode.connect(this.channel);
-          }
-        }
       } catch (e) {
         console.warn('Cleanup warning:', e);
       }
     };
-    
+  
     this.recorder.onerror = (e) => {
       console.error('❌ Recorder error:', e);
     };
-    
+  
     this.recorder.start(100);
-    
-    console.log(`▶️ Recording ${this.instrument} via recorder gain at ${exactStartTime.toFixed(6)}s`);
+  
+    console.log(`▶️ Recording ${this.instrument} via channel output at ${exactStartTime.toFixed(6)}s`);
   }
   
   stopRecording() {
@@ -8388,10 +8353,6 @@ async function bounceAllTracks() {
   
   showToast('🎵 Preparing bounce...', 'info');
   
-  // CRITICAL: All takes were recorded starting at the SAME time
-  // So they should all start at position 0 in the bounce
-  const globalStartTime = multitrack.globalRecordStartTime || 0;
-  
   // Find the longest take to determine bounce duration
   let maxDuration = 0;
   
@@ -8399,21 +8360,23 @@ async function bounceAllTracks() {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer) return;
     
-    // Use the buffer's actual duration
     const bufferDuration = take.buffer.duration;
     
-    console.log(`📊 ${track.name}:`);
-    console.log(`   - Buffer duration: ${bufferDuration.toFixed(6)}s`);
-    console.log(`   - Start offset: ${(take.startTime - globalStartTime).toFixed(6)}s`);
+    console.log(`📊 ${track.name}: ${bufferDuration.toFixed(6)}s`);
     
     if (bufferDuration > maxDuration) maxDuration = bufferDuration;
   });
   
-  console.log(`🎬 Bounce duration: ${maxDuration.toFixed(6)}s`);
+  if (maxDuration === 0) {
+    showToast('❌ No valid audio buffers found', 'error');
+    return;
+  }
   
-  // Create offline context with enough length for all takes
+  console.log(`🎬 Total bounce duration: ${maxDuration.toFixed(6)}s`);
+  
+  // Create offline context
   const sampleRate = 48000;
-  const numFrames = Math.ceil(maxDuration * sampleRate);
+  const numFrames = Math.ceil(maxDuration * sampleRate) + sampleRate; // Add 1s padding
   
   const offlineContext = new OfflineAudioContext({
     numberOfChannels: 2,
@@ -8421,46 +8384,52 @@ async function bounceAllTracks() {
     sampleRate: sampleRate
   });
   
-  // Create master output chain
-  const offlineMaster = new Tone.Gain(0.7, { context: offlineContext });
-  const offlineLimiter = new Tone.Limiter(-0.5, { context: offlineContext });
+  // Create master chain matching live playback
+  const offlineMaster = new Tone.Gain(0.8, { context: offlineContext });
+  const offlineComp = new Tone.Compressor({
+    threshold: -18,
+    ratio: 4,
+    attack: 0.003,
+    release: 0.15,
+    context: offlineContext
+  });
+  const offlineLimiter = new Tone.Limiter(-1, { context: offlineContext });
   
-  offlineMaster.connect(offlineLimiter);
+  offlineMaster.chain(offlineComp, offlineLimiter);
   offlineLimiter.connect(offlineContext.destination);
   
-  // Schedule each take - they all start at 0 since they were recorded simultaneously
+  // Schedule each track's take - ALL START AT TIME 0
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
     
     try {
-      // All takes start at 0 (they were recorded at the same time)
-      const startPosition = 0;
+      // CRITICAL: All takes start at position 0 (they were recorded simultaneously)
+      const startTime = 0;
       
-      console.log(`🎵 ${track.name}:`);
-      console.log(`   - Position: ${startPosition}s`);
-      console.log(`   - Duration: ${take.buffer.duration.toFixed(6)}s`);
+      console.log(`🎵 Scheduling ${track.name} at ${startTime}s`);
       
-      // Create offline player
+      // Create player from buffer
       const player = new Tone.Player({
         url: take.buffer,
         context: offlineContext
       });
       
-      // Create offline channel with track settings
+      // Create channel matching track settings
       const channel = new Tone.Channel({
         volume: track.volume,
         pan: track.pan / 100,
         context: offlineContext
       });
       
+      // Connect player -> channel -> master
       player.connect(channel);
       channel.connect(offlineMaster);
       
-      // Start immediately (position 0)
-      player.start(startPosition);
+      // Start at time 0
+      player.start(startTime);
       
-      console.log(`   ✅ Scheduled at ${startPosition}s`);
+      console.log(`   ✅ Scheduled at ${startTime}s, duration ${take.buffer.duration.toFixed(3)}s`);
       
     } catch (err) {
       console.error(`❌ Failed to schedule ${track.name}:`, err);
@@ -8520,10 +8489,6 @@ async function previewMultitrack() {
   
   showToast('⏳ Loading takes...', 'info');
   
-  // CRITICAL: All takes were recorded at the same time
-  // So they should all start playing at the same time
-  const globalStartTime = multitrack.globalRecordStartTime || 0;
-  
   // Find longest duration for auto-stop
   let maxDuration = 0;
   
@@ -8538,10 +8503,14 @@ async function previewMultitrack() {
     }
     
     try {
+      // Create player from buffer
       const player = new Tone.Player({
         url: take.buffer,
         fadeOut: 0.01
-      }).connect(track.channel);
+      });
+      
+      // CRITICAL: Connect to track's channel (includes FX and mixing)
+      player.connect(track.channel);
       
       // Wait for buffer to load
       await new Promise((resolve, reject) => {
