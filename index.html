@@ -6952,38 +6952,6 @@ class AudioTrack {
     // Meter for visual feedback
     this.meter = new Tone.Meter();
     this.channel.connect(this.meter);
-    
-    // CRITICAL: Route instrument through this track immediately
-    this.routeInstrument();
-  }
-  
-  routeInstrument() {
-    const instSynth = synths[this.instrument];
-    const instData = instruments[this.instrument];
-    
-    if (!instSynth || !instData) {
-      console.warn(`Cannot route ${this.instrument} - synth not ready`);
-      return;
-    }
-    
-    // Store original channel for cleanup
-    this.originalChannel = instData.channel;
-    
-    // Check if synth has disconnect method (could be wrapped Player or custom synth)
-    if (typeof instSynth.disconnect === 'function') {
-      // Route synth through this track's channel
-      instSynth.disconnect();
-      instSynth.connect(this.channel);
-    } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-      // It's a wrapped Player with .gain property
-      instSynth.gain.disconnect();
-      instSynth.gain.connect(this.channel);
-    } else {
-      console.warn(`${this.instrument} synth has no disconnect method - skipping routing`);
-      return;
-    }
-    
-    console.log(`✅ ${this.instrument} → Track ${this.id}`);
   }
   
   addFx(type, params = {}) {
@@ -7196,37 +7164,19 @@ class AudioTrack {
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
     
-    // CRITICAL FIX: Record the EXACT Tone.Transport time when recording starts
-    // This is captured synchronously BEFORE any async operations
+    // Capture exact start time
     const exactStartTime = Tone.Transport.seconds;
-    
-    // Store this as the authoritative start time
     this.recordStartTime = exactStartTime;
     
     console.log(`⏱️ ${this.instrument} EXACT start: ${exactStartTime.toFixed(6)}s (transport)`);
     
-    // Create recording destination
-    const instSynth = synths[this.instrument];
-    if (!instSynth) {
-      console.error(`❌ No synth found for ${this.instrument}`);
-      this.recording = false;
-      renderMultitrack();
-      return;
-    }
+    // CRITICAL FIX: We need to tap the CHANNEL output, not re-route the synth
+    // The synth is already playing through the channel from the sequencer
     
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
     
-    // Connect instrument to recording tap
-    if (instSynth.gain && typeof instSynth.gain.connect === 'function') {
-      instSynth.gain.connect(recordDest);
-    } else if (typeof instSynth.connect === 'function') {
-      instSynth.connect(recordDest);
-    } else {
-      console.error(`❌ Cannot connect ${this.instrument} for recording`);
-      this.recording = false;
-      renderMultitrack();
-      return;
-    }
+    // CRITICAL FIX: Connect the CHANNEL (which has the sequencer output) to recording
+    this.channel.connect(recordDest);
     
     let mimeType = '';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -7236,8 +7186,6 @@ class AudioTrack {
     }
     
     this.recordedChunks = [];
-    
-    // CRITICAL FIX: Use timeslice to get predictable chunks
     this.recorder = new MediaRecorder(recordDest.stream, mimeType ? { mimeType } : undefined);
     
     this.recorder.ondataavailable = (e) => {
@@ -7247,24 +7195,22 @@ class AudioTrack {
     };
     
     this.recorder.onstop = () => {
-      // CRITICAL FIX: Capture EXACT stop time
       const exactStopTime = Tone.Transport.seconds;
       const exactDuration = exactStopTime - this.recordStartTime;
       
       console.log(`⏹️ ${this.instrument} EXACT stop: ${exactStopTime.toFixed(6)}s`);
       console.log(`⏹️ ${this.instrument} EXACT duration: ${exactDuration.toFixed(6)}s`);
       
-      // Store this for validation
       this.recordStopTime = exactStopTime;
       this.recordDuration = exactDuration;
       
       this.finishRecording();
       
-      // Disconnect recording tap
-      if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-        try { instSynth.gain.disconnect(recordDest); } catch (e) {}
-      } else if (typeof instSynth.disconnect === 'function') {
-        try { instSynth.disconnect(recordDest); } catch (e) {}
+      // CRITICAL FIX: Disconnect from channel, not synth
+      try { 
+        this.channel.disconnect(recordDest); 
+      } catch (e) {
+        console.warn('Disconnect warning:', e);
       }
     };
     
@@ -7272,10 +7218,9 @@ class AudioTrack {
       console.error('❌ Recorder error:', e);
     };
     
-    // CRITICAL FIX: Use 100ms timeslice for consistent chunks
     this.recorder.start(100);
     
-    console.log(`▶️ Recording started at transport ${exactStartTime.toFixed(6)}s`);
+    console.log(`▶️ Recording ${this.instrument} channel output at ${exactStartTime.toFixed(6)}s`);
   }
   
   stopRecording() {
