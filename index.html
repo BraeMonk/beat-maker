@@ -6923,7 +6923,8 @@ const multitrack = {
   tracks: [],
   nextTrackId: 1,
   recordingTracks: new Set(),
-  currentFxTrackId: null
+  currentFxTrackId: null,
+  globalRecordStartTime: null
 };
 
 // Track class definition
@@ -7195,9 +7196,14 @@ class AudioTrack {
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
     
-    // CRITICAL: Record the EXACT time we start recording (in Tone.Transport time)
-    this.recordStartTime = Tone.Transport.seconds;
-    console.log(`⏱️ Recording started at transport time: ${this.recordStartTime.toFixed(3)}s`);
+    // CRITICAL: Use GLOBAL record start time if available, otherwise create one
+    if (multitrack.globalRecordStartTime === null) {
+      multitrack.globalRecordStartTime = Tone.Transport.seconds;
+      console.log(`🎬 NEW GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
+    }
+    
+    this.recordStartTime = multitrack.globalRecordStartTime;
+    console.log(`⏱️ ${this.instrument} using global start time: ${this.recordStartTime.toFixed(3)}s`);
     
     // Create recording destination that taps ONLY this instrument's output
     const instSynth = synths[this.instrument];
@@ -7321,7 +7327,7 @@ class AudioTrack {
         duration: audioBuffer.duration, // This is the ACTUAL recorded duration
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime: this.recordStartTime, // When we STARTED recording (transport time)
+        startTime: this.recordStartTime, // Uses the GLOBAL start time
         recordedAt: Date.now()
       };
       
@@ -7329,7 +7335,7 @@ class AudioTrack {
       this.selectedTakeIndex = this.takes.length - 1;
       
       console.log(`✅ Take ${this.takes.length} created:`);
-      console.log(`   - Recorded from: ${take.startTime.toFixed(3)}s (transport)`);
+      console.log(`   - Using GLOBAL start: ${take.startTime.toFixed(3)}s (transport)`);
       console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
       console.log(`   - Ends at: ${(take.startTime + take.duration).toFixed(3)}s (transport)`);
       console.log(`   - Channels: ${audioBuffer.numberOfChannels}`);
@@ -7836,6 +7842,7 @@ async function toggleRecordAllArmed() {
   if (recordingTracks.length > 0) {
     // Stop all recording tracks
     recordingTracks.forEach(track => track.stopRecording());
+    multitrack.globalRecordStartTime = null; // RESET global start time
     showToast(`⏹️ Stopped recording ${recordingTracks.length} track(s)`, 'info');
     renderMultitrack();
     return;
@@ -7854,12 +7861,16 @@ async function toggleRecordAllArmed() {
   
   await Tone.start();
   
-  // Start ALL armed tracks - no sync needed, instrument output is inherently synced
+  // SET GLOBAL RECORD START TIME - all tracks use this same zero point
+  multitrack.globalRecordStartTime = Tone.Transport.seconds;
+  console.log(`🎬 GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
+  
+  // Start ALL armed tracks with the same global start time
   for (const track of armedTracks) {
     await track.startRecording();
   }
   
-  console.log(`🎙️ Recording ${armedTracks.length} instrument output(s)`);
+  console.log(`🎙️ Recording ${armedTracks.length} tracks from global time ${multitrack.globalRecordStartTime.toFixed(3)}s`);
   showToast(`🎙️ Recording ${armedTracks.length} track(s)`, 'success');
   renderMultitrack();
 }
