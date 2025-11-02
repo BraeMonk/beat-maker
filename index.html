@@ -6936,6 +6936,7 @@ class AudioTrack {
     this.soloed = false;
     this.volume = 0;
     this.pan = 0;
+    this.recordStartTime = null;
     
     // Audio routing - create dedicated channel for this track
     this.channel = new Tone.Channel({ volume: 0, pan: 0 }).connect(master.fxIn);
@@ -7182,7 +7183,10 @@ class AudioTrack {
     
     await Tone.start();
     
-    console.log(`🎙️ Recording ${this.instrument} on track ${this.id}`);
+    // CRITICAL: Capture transport position when we START recording
+    this.recordStartTime = Tone.Transport.seconds;
+    
+    console.log(`🎙️ Recording ${this.instrument} on track ${this.id} starting at ${this.recordStartTime.toFixed(2)}s`);
     
     // IMMEDIATE UI UPDATE
     this.recording = true;
@@ -7280,13 +7284,16 @@ class AudioTrack {
         blob: blob,
         duration: audioBuffer.duration,
         timestamp: new Date().toISOString(),
-        muted: false
+        muted: false,
+        // CRITICAL: Store when recording started relative to transport
+        startTime: this.recordStartTime || 0,
+        recordedAt: Date.now()
       };
       
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
       
-      console.log(`✅ Take ${this.takes.length} created: ${take.duration.toFixed(1)}s, ${audioBuffer.numberOfChannels}ch`);
+      console.log(`✅ Take ${this.takes.length} created: ${take.duration.toFixed(1)}s at ${take.startTime.toFixed(2)}s, ${audioBuffer.numberOfChannels}ch`);
       
       renderMultitrack();
       showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
@@ -7298,6 +7305,7 @@ class AudioTrack {
     
     this.recordedChunks = [];
     this.recorder = null;
+    this.recordStartTime = null;
   }
   
   selectTake(index) {
@@ -7802,18 +7810,23 @@ async function toggleRecordAllArmed() {
   // Start transport if not playing
   if (!state.isPlaying) {
     await togglePlay();
+    // Wait a moment for transport to stabilize
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
   
   await Tone.start();
   
-  // Start ALL armed tracks at exact same time
-  const startTime = Tone.now() + 0.1; // Small delay for sync
+  // CRITICAL: Capture EXACT same start time for all tracks
+  const syncStartTime = Tone.Transport.seconds;
   
+  // Start ALL armed tracks with the SAME timestamp
   for (const track of armedTracks) {
+    track.recordStartTime = syncStartTime; // Set before starting
     await track.startRecording();
   }
   
-  showToast(`🎙️ Recording ${armedTracks.length} track(s) simultaneously`, 'success');
+  console.log(`🎙️ All tracks synced to start time: ${syncStartTime.toFixed(3)}s`);
+  showToast(`🎙️ Recording ${armedTracks.length} track(s) in sync`, 'success');
   renderMultitrack();
 }
 
@@ -8290,7 +8303,6 @@ function showAddTrackDialog() {
   document.addEventListener('keydown', escHandler);
 }
 
-// Bounce all tracks to a single file
 async function bounceAllTracks() {
   const activeTracks = multitrack.tracks.filter(t => 
     t.selectedTakeIndex >= 0 && !t.muted
@@ -8301,59 +8313,92 @@ async function bounceAllTracks() {
     return;
   }
   
-  // Find longest duration
-  let maxDuration = 0;
+  showToast('🎵 Bouncing tracks...', 'info');
+  
+  // Find the earliest start time and latest end time
+  let minStartTime = Infinity;
+  let maxEndTime = 0;
+  
   activeTracks.forEach(track => {
     const take = track.takes[track.selectedTakeIndex];
-    if (take && take.duration > maxDuration) {
-      maxDuration = take.duration;
-    }
+    if (!take || take.muted) return;
+    
+    const startTime = take.startTime || 0;
+    const endTime = startTime + take.duration;
+    
+    if (startTime < minStartTime) minStartTime = startTime;
+    if (endTime > maxEndTime) maxEndTime = endTime;
+    
+    console.log(`📊 ${track.name}: ${startTime.toFixed(2)}s → ${endTime.toFixed(2)}s (${take.duration.toFixed(2)}s)`);
   });
   
+  // Use earliest start as reference point
+  const totalDuration = maxEndTime - minStartTime;
+  
+  console.log(`📏 Bounce range: ${minStartTime.toFixed(2)}s → ${maxEndTime.toFixed(2)}s (${totalDuration.toFixed(2)}s total)`);
+  
   const sampleRate = Tone.context.sampleRate;
-  const numFrames = Math.ceil(maxDuration * sampleRate);
+  const numFrames = Math.ceil(totalDuration * sampleRate);
   
   // Create offline context for rendering
   const offlineContext = new OfflineAudioContext(2, numFrames, sampleRate);
   
-  // Render each track
+  // Render each track at its proper offset
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted) continue;
     
-    const source = offlineContext.createBufferSource();
-    source.buffer = take.buffer;
+    // Calculate offset relative to earliest start
+    const offsetSeconds = (take.startTime || 0) - minStartTime;
+    const offsetSamples = Math.floor(offsetSeconds * sampleRate);
     
-    const gainNode = offlineContext.createGain();
-    gainNode.gain.value = Math.pow(10, track.volume / 20);
+    console.log(`🎚️ ${track.name}: offset ${offsetSeconds.toFixed(2)}s (${offsetSamples} samples)`);
     
-    const panNode = offlineContext.createStereoPanner();
-    panNode.pan.value = track.pan / 100;
-    
-    source.connect(gainNode);
-    gainNode.connect(panNode);
-    panNode.connect(offlineContext.destination);
-    
-    source.start(0);
+    try {
+      const source = offlineContext.createBufferSource();
+      source.buffer = take.buffer;
+      
+      const gainNode = offlineContext.createGain();
+      gainNode.gain.value = Math.pow(10, track.volume / 20);
+      
+      const panNode = offlineContext.createStereoPanner();
+      panNode.pan.value = track.pan / 100;
+      
+      source.connect(gainNode);
+      gainNode.connect(panNode);
+      panNode.connect(offlineContext.destination);
+      
+      // Start at the correct offset
+      source.start(offsetSeconds);
+      
+    } catch (err) {
+      console.error(`❌ Failed to render ${track.name}:`, err);
+    }
   }
   
-  // Render
-  const renderedBuffer = await offlineContext.startRendering();
-  
-  // Convert to WAV
-  const wavData = bufferToWav(renderedBuffer);
-  const blob = new Blob([wavData], { type: 'audio/wav' });
-  
-  // Download
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `bounce_${Date.now()}.wav`;
-  a.click();
-  
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-  
-  showToast('✅ Bounce complete!', 'success');
+  try {
+    // Render
+    const renderedBuffer = await offlineContext.startRendering();
+    
+    // Convert to WAV
+    const wavData = bufferToWavImproved(renderedBuffer);
+    const blob = new Blob([wavData], { type: 'audio/wav' });
+    
+    // Download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bounce_${Date.now()}.wav`;
+    a.click();
+    
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    
+    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
+    
+  } catch (err) {
+    console.error('❌ Bounce failed:', err);
+    showToast(`❌ Bounce failed: ${err.message}`, 'error');
+  }
 }
 
 async function previewMultitrack() {
