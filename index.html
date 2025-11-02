@@ -7125,21 +7125,6 @@ function createTrack(instrument) {
     instrument
   );
   
-  // CRITICAL: Route the instrument through this track's channel
-  const instData = instruments[instrument];
-  const instSynth = synths[instrument];
-  
-  if (instSynth && instData) {
-    // Disconnect from master
-    instSynth.disconnect();
-    
-    // Route: synth → track channel → master
-    instSynth.connect(track.channel);
-    track.channel.connect(master.fxIn);
-    
-    console.log(`🔌 Routed ${instrument} through track ${track.id}`);
-  }
-  
   multitrack.tracks.push(track);
   renderMultitrack();
   
