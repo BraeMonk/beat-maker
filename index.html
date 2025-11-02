@@ -7241,6 +7241,7 @@ class AudioTrack {
       console.warn('⚠️ No audio data recorded');
       this.recorder = null;
       renderMultitrack();
+      showToast('⚠️ Recording was empty', 'warning');
       return;
     }
     
@@ -7250,9 +7251,28 @@ class AudioTrack {
     
     console.log(`💾 Processing ${blob.size} bytes`);
     
+    if (blob.size < 1000) {
+      console.error('❌ Recording too small, likely corrupted');
+      showToast('❌ Recording failed - file too small', 'error');
+      this.recordedChunks = [];
+      this.recorder = null;
+      renderMultitrack();
+      return;
+    }
+    
     try {
       const arrayBuffer = await blob.arrayBuffer();
+      
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error('ArrayBuffer is empty');
+      }
+      
       const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+      
+      // Validate decoded buffer
+      if (!audioBuffer || audioBuffer.length === 0 || audioBuffer.numberOfChannels === 0) {
+        throw new Error('Decoded buffer is invalid');
+      }
       
       const take = {
         id: Date.now(),
@@ -7266,13 +7286,14 @@ class AudioTrack {
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
       
-      console.log(`✅ Take ${this.takes.length} created: ${take.duration.toFixed(1)}s`);
+      console.log(`✅ Take ${this.takes.length} created: ${take.duration.toFixed(1)}s, ${audioBuffer.numberOfChannels}ch`);
       
       renderMultitrack();
       showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
+      
     } catch (err) {
       console.error('❌ Failed to decode audio:', err);
-      showToast('❌ Recording failed to decode', 'error');
+      showToast(`❌ Recording failed: ${err.message}`, 'error');
     }
     
     this.recordedChunks = [];
@@ -7314,45 +7335,98 @@ class AudioTrack {
     
     // Stop any existing playback on this track
     if (this.currentPlayer) {
-      this.currentPlayer.stop();
-      this.currentPlayer.dispose();
+      try {
+        if (this.currentPlayer.state === 'started') {
+          this.currentPlayer.stop();
+        }
+        this.currentPlayer.dispose();
+      } catch (err) {
+        console.warn('Error stopping previous player:', err);
+      }
     }
     
-    // Create player from buffer
-    this.currentPlayer = new Tone.Player({
-      buffer: take.buffer,
-      onload: () => {
-        console.log('✅ Take ready to play');
-      }
-    }).connect(this.channel);
+    // CRITICAL: Check if buffer is valid
+    if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
+      console.error(`❌ ${this.name}: Invalid or empty buffer`);
+      showToast(`❌ ${this.name}: Take corrupted, cannot play`, 'error');
+      return;
+    }
     
-    await Tone.start();
-    this.currentPlayer.start();
-    
-    // Visual feedback - highlight playing take
-    const takeRegions = document.querySelectorAll('.take-region');
-    takeRegions.forEach((region, idx) => {
-      if (idx === index) {
-        region.style.borderColor = 'var(--warning)';
-        region.style.boxShadow = '0 0 20px var(--warning)';
-      }
-    });
-    
-    showToast(`▶️ Playing ${this.name} - Take ${index + 1}`, 'info');
-    
-    // Auto-cleanup when done
-    setTimeout(() => {
+    try {
+      // Create player from buffer
+      this.currentPlayer = new Tone.Player({
+        buffer: take.buffer,
+        fadeOut: 0.01
+      }).connect(this.channel);
+      
+      // WAIT for buffer to be ready
+      await new Promise((resolve, reject) => {
+        let attempts = 0;
+        const checkReady = setInterval(() => {
+          attempts++;
+          
+          if (this.currentPlayer.loaded) {
+            clearInterval(checkReady);
+            resolve();
+          } else if (attempts > 50) { // 5 second timeout
+            clearInterval(checkReady);
+            reject(new Error('Buffer load timeout'));
+          }
+        }, 100);
+        
+        // Also resolve if onload fires
+        this.currentPlayer.onsuccess = () => {
+          clearInterval(checkReady);
+          resolve();
+        };
+      });
+      
+      await Tone.start();
+      
+      // NOW it's safe to start
+      this.currentPlayer.start();
+      
+      // Visual feedback - highlight playing take
+      const takeRegions = document.querySelectorAll('.take-region');
+      takeRegions.forEach((region, idx) => {
+        if (idx === index) {
+          region.style.borderColor = 'var(--warning)';
+          region.style.boxShadow = '0 0 20px var(--warning)';
+        }
+      });
+      
+      showToast(`▶️ Playing ${this.name} - Take ${index + 1}`, 'info');
+      
+      // Auto-cleanup when done
+      setTimeout(() => {
+        if (this.currentPlayer) {
+          try {
+            if (this.currentPlayer.state === 'started') {
+              this.currentPlayer.stop();
+            }
+            this.currentPlayer.dispose();
+          } catch (err) {
+            console.warn('Cleanup error:', err);
+          }
+          this.currentPlayer = null;
+        }
+        
+        // Remove visual feedback
+        takeRegions.forEach(region => {
+          region.style.borderColor = '';
+          region.style.boxShadow = '';
+        });
+      }, take.duration * 1000 + 500);
+      
+    } catch (err) {
+      console.error(`❌ Failed to play ${this.name}:`, err);
+      showToast(`❌ Playback failed: ${err.message}`, 'error');
+      
       if (this.currentPlayer) {
         this.currentPlayer.dispose();
         this.currentPlayer = null;
       }
-      
-      // Remove visual feedback
-      takeRegions.forEach(region => {
-        region.style.borderColor = '';
-        region.style.boxShadow = '';
-      });
-    }, take.duration * 1000 + 500);
+    }
   }
   
   stopTake() {
@@ -8282,7 +8356,6 @@ async function bounceAllTracks() {
   showToast('✅ Bounce complete!', 'success');
 }
 
-// Play all selected takes together (preview before bounce)
 async function previewMultitrack() {
   const activeTracks = multitrack.tracks.filter(t => 
     t.selectedTakeIndex >= 0 && !t.muted
@@ -8306,64 +8379,98 @@ async function previewMultitrack() {
   // Create players for each track's selected take
   multitrack.previewPlayers = [];
   let maxDuration = 0;
+  let loadedCount = 0;
   
-  activeTracks.forEach(track => {
+  showToast('⏳ Loading takes...', 'info');
+  
+  // Load all players first
+  const playerPromises = activeTracks.map(async (track) => {
     const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted) return;
+    if (!take || take.muted) return null;
     
     try {
       // CRITICAL FIX: Check if buffer exists and is valid
       if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
         console.error(`❌ ${track.name}: Invalid or empty buffer`);
         showToast(`❌ ${track.name}: Cannot preview - buffer corrupted`, 'error');
-        return;
+        return null;
       }
       
       const player = new Tone.Player({
         buffer: take.buffer,
-        fadeOut: 0.01,
-        onload: () => {
-          console.log(`✅ Preview player loaded for ${track.name}`);
-        }
+        fadeOut: 0.01
       }).connect(track.channel);
       
-      // Wait a moment for buffer to be ready
-      setTimeout(() => {
-        try {
-          player.start('+0.1'); // Small delay for sync
-          multitrack.previewPlayers.push(player);
+      // Wait for buffer to be loaded
+      await new Promise((resolve, reject) => {
+        let attempts = 0;
+        const checkReady = setInterval(() => {
+          attempts++;
           
-          if (take.duration > maxDuration) {
-            maxDuration = take.duration;
+          if (player.loaded) {
+            clearInterval(checkReady);
+            loadedCount++;
+            resolve();
+          } else if (attempts > 50) { // 5 second timeout
+            clearInterval(checkReady);
+            reject(new Error('Buffer load timeout'));
           }
-          
-          console.log(`▶️ Playing ${track.name} - Take ${track.selectedTakeIndex + 1}`);
-        } catch (err) {
-          console.error(`❌ Failed to start ${track.name}:`, err);
-          player.dispose();
-        }
-      }, 50);
+        }, 100);
+        
+        player.onsuccess = () => {
+          clearInterval(checkReady);
+          loadedCount++;
+          resolve();
+        };
+      });
+      
+      if (take.duration > maxDuration) {
+        maxDuration = take.duration;
+      }
+      
+      console.log(`✅ Loaded ${track.name} - Take ${track.selectedTakeIndex + 1}`);
+      
+      return { player, track };
       
     } catch (err) {
-      console.error(`❌ Failed to preview ${track.name}:`, err);
+      console.error(`❌ Failed to load ${track.name}:`, err);
+      return null;
     }
   });
   
-  if (multitrack.previewPlayers.length === 0) {
+  // Wait for all to load
+  const loadedPlayers = (await Promise.all(playerPromises)).filter(p => p !== null);
+  
+  if (loadedPlayers.length === 0) {
+    showToast('❌ No takes could be loaded', 'error');
+    return;
+  }
+  
+  // NOW start all players synchronously
+  const startTime = Tone.now() + 0.1;
+  
+  loadedPlayers.forEach(({ player, track }) => {
+    try {
+      player.start(startTime);
+      multitrack.previewPlayers.push(player);
+      console.log(`▶️ Playing ${track.name} - Take ${track.selectedTakeIndex + 1}`);
+    } catch (err) {
+      console.error(`❌ Failed to start ${track.name}:`, err);
+      player.dispose();
+    }
+  });
+  
+  if (multitrack.previewPlayers.length > 0) {
+    showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
+    
+    // Auto-cleanup when done
     setTimeout(() => {
-      if (multitrack.previewPlayers.length === 0) {
-        showToast('❌ No takes could be previewed', 'error');
-      } else {
-        showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
-        
-        // Auto-cleanup when done
-        setTimeout(() => {
-          stopMultitrackPreview();
-          const btn = document.getElementById('previewMultitrackBtn');
-          if (btn) btn.textContent = '▶️ Preview Mix';
-        }, maxDuration * 1000 + 500);
-      }
-    }, 100);
+      stopMultitrackPreview();
+      const btn = document.getElementById('previewMultitrackBtn');
+      if (btn) btn.textContent = '▶️ Preview Mix';
+    }, maxDuration * 1000 + 500);
+  } else {
+    showToast('❌ No takes could be previewed', 'error');
   }
 }
 
