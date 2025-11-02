@@ -7613,7 +7613,6 @@ function openFxChainEditor(trackId) {
   setupMultitrackListeners();
 }
 
-// Render FX chain slots
 function renderFxChain(track) {
   const slots = document.getElementById('fxSlots');
   if (!slots) return;
@@ -7675,38 +7674,43 @@ function renderFxChain(track) {
     slots.appendChild(fxSlot);
   });
   
-  // Attach listeners
-  slots.querySelectorAll('.fx-toggle').forEach(toggle => {
-    toggle.addEventListener('click', () => {
-      const fxId = parseFloat(toggle.dataset.fxId);
-      track.toggleFx(fxId);
-      renderFxChain(track);
-    });
-  });
-  
-  slots.querySelectorAll('[data-action="remove-fx"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fxId = parseFloat(btn.dataset.fxId);
-      if (confirm('Remove this effect?')) {
-        track.removeFx(fxId);
+  // Attach listeners AFTER all DOM is ready
+  setTimeout(() => {
+    // Toggle switches
+    slots.querySelectorAll('.fx-toggle').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        const fxId = parseFloat(toggle.dataset.fxId);
+        track.toggleFx(fxId);
         renderFxChain(track);
-      }
+      });
     });
-  });
-  
-  slots.querySelectorAll('.fx-param-slider').forEach(slider => {
-    slider.addEventListener('input', (e) => {
-      const fxId = parseFloat(e.target.dataset.fxId);
-      const param = e.target.dataset.param;
-      const raw = parseInt(e.target.value, 10);
-      const value = mapFxParam(param, raw);
-      
-      track.updateFxParam(fxId, param, value);
-      
-      const label = e.target.closest('.param-control').querySelector('.param-value');
-      label.textContent = formatFxDisplay(param, value);
+    
+    // Remove buttons
+    slots.querySelectorAll('[data-action="remove-fx"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fxId = parseFloat(btn.dataset.fxId);
+        if (confirm('Remove this effect?')) {
+          track.removeFx(fxId);
+          renderFxChain(track);
+        }
+      });
     });
-  });
+    
+    // Parameter sliders
+    slots.querySelectorAll('.fx-param-slider').forEach(slider => {
+      slider.addEventListener('input', (e) => {
+        const fxId = parseFloat(e.target.dataset.fxId);
+        const param = e.target.dataset.param;
+        const raw = parseInt(e.target.value, 10);
+        const value = mapFxParam(param, raw);
+        
+        track.updateFxParam(fxId, param, value);
+        
+        const label = e.target.closest('.param-control').querySelector('.param-value');
+        label.textContent = formatFxDisplay(param, value);
+      });
+    });
+  }, 0);
 }
 
 // Open take editor for a track
@@ -8025,45 +8029,64 @@ function stopMultitrackPreview() {
   }
 }
   
-// Setup multitrack event listeners
 function setupMultitrackListeners() {
   const addTrackBtn = document.getElementById('addTrackBtn');
   if (addTrackBtn) {
-    addTrackBtn.addEventListener('click', () => {
+    // Remove old listener
+    const newBtn = addTrackBtn.cloneNode(true);
+    addTrackBtn.parentNode.replaceChild(newBtn, addTrackBtn);
+    
+    newBtn.addEventListener('click', () => {
       showAddTrackDialog();
     });
   }
-
+  
   const previewBtn = document.getElementById('previewMultitrackBtn');
   if (previewBtn) {
-    previewBtn.addEventListener('click', () => {
+    // Remove old listener
+    const newBtn = previewBtn.cloneNode(true);
+    previewBtn.parentNode.replaceChild(newBtn, previewBtn);
+    
+    newBtn.addEventListener('click', () => {
       if (multitrack.previewPlayers) {
         stopMultitrackPreview();
-        previewBtn.textContent = '▶️ Preview Mix';
+        newBtn.textContent = '▶️ Preview Mix';
       } else {
         previewMultitrack();
-        previewBtn.textContent = '⏹️ Stop Preview';
+        newBtn.textContent = '⏹️ Stop Preview';
       }
     });
   }
   
   const recordArmedBtn = document.getElementById('recordArmedBtn');
   if (recordArmedBtn) {
-    recordArmedBtn.addEventListener('click', async () => {
+    // Remove old listener
+    const newBtn = recordArmedBtn.cloneNode(true);
+    recordArmedBtn.parentNode.replaceChild(newBtn, recordArmedBtn);
+    
+    newBtn.addEventListener('click', async () => {
       await toggleRecordAllArmed();
     });
   }
   
   const bounceBtn = document.getElementById('bounceAllBtn');
   if (bounceBtn) {
-    bounceBtn.addEventListener('click', () => {
+    // Remove old listener
+    const newBtn = bounceBtn.cloneNode(true);
+    bounceBtn.parentNode.replaceChild(newBtn, bounceBtn);
+    
+    newBtn.addEventListener('click', () => {
       bounceAllTracks();
     });
   }
   
   const clearBtn = document.getElementById('clearAllTracksBtn');
   if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
+    // Remove old listener
+    const newBtn = clearBtn.cloneNode(true);
+    clearBtn.parentNode.replaceChild(newBtn, clearBtn);
+    
+    newBtn.addEventListener('click', () => {
       if (confirm('Delete all tracks? This cannot be undone.')) {
         multitrack.tracks.forEach(track => track.dispose());
         multitrack.tracks = [];
@@ -8076,58 +8099,67 @@ function setupMultitrackListeners() {
   // FX chain panel controls
   const closeFxBtn = document.getElementById('closeFxChainBtn');
   if (closeFxBtn) {
-    closeFxBtn.addEventListener('click', () => {
+    // Remove old listener
+    const newBtn = closeFxBtn.cloneNode(true);
+    closeFxBtn.parentNode.replaceChild(newBtn, closeFxBtn);
+    
+    newBtn.addEventListener('click', () => {
       document.getElementById('fxChainPanel').style.display = 'none';
     });
   }
   
-  // Setup FX add menu (must happen on every render)
-  setTimeout(() => {
-    const addFxBtn = document.getElementById('addFxBtn');
-    const fxAddMenu = document.getElementById('fxAddMenu');
+  // Setup FX add menu
+  const addFxBtn = document.getElementById('addFxBtn');
+  const fxAddMenu = document.getElementById('fxAddMenu');
+  
+  if (addFxBtn && fxAddMenu) {
+    // Remove old listeners by cloning
+    const newAddFxBtn = addFxBtn.cloneNode(true);
+    addFxBtn.parentNode.replaceChild(newAddFxBtn, addFxBtn);
     
-    if (addFxBtn && fxAddMenu) {
-      // Remove old listeners
-      const newAddFxBtn = addFxBtn.cloneNode(true);
-      addFxBtn.parentNode.replaceChild(newAddFxBtn, addFxBtn);
-      
-      newAddFxBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
+    newAddFxBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const menu = document.getElementById('fxAddMenu');
+      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    });
+    
+    // Close menu when clicking outside
+    const closeMenuHandler = (e) => {
+      const dropdown = document.getElementById('fxAddDropdown');
+      if (dropdown && !dropdown.contains(e.target)) {
         const menu = document.getElementById('fxAddMenu');
-        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-      });
+        if (menu) menu.style.display = 'none';
+      }
+    };
+    
+    // Remove old handler and add new one
+    document.removeEventListener('click', closeMenuHandler);
+    document.addEventListener('click', closeMenuHandler);
+    
+    // Add FX items
+    fxAddMenu.querySelectorAll('.fx-add-item').forEach(item => {
+      const newItem = item.cloneNode(true);
+      item.parentNode.replaceChild(newItem, item);
       
-      // Close menu when clicking outside
-      document.addEventListener('click', (e) => {
-        const dropdown = document.getElementById('fxAddDropdown');
-        if (dropdown && !dropdown.contains(e.target)) {
-          document.getElementById('fxAddMenu').style.display = 'none';
-        }
-      });
-      
-      // Add FX items
-      fxAddMenu.querySelectorAll('.fx-add-item').forEach(item => {
-        const newItem = item.cloneNode(true);
-        item.parentNode.replaceChild(newItem, item);
+      newItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const fxType = newItem.dataset.fxType;
+        const trackId = multitrack.currentFxTrackId;
+        const track = multitrack.tracks.find(t => t.id === trackId);
         
-        newItem.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const fxType = newItem.dataset.fxType;
-          const trackId = multitrack.currentFxTrackId;
-          const track = multitrack.tracks.find(t => t.id === trackId);
-          
-          if (track) {
-            console.log('Adding FX:', fxType, 'to track:', trackId);
-            track.addFx(fxType);
-            renderFxChain(track);
-            showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
-          }
-          
-          document.getElementById('fxAddMenu').style.display = 'none';
-        });
+        if (track) {
+          console.log('✅ Adding FX:', fxType, 'to track:', trackId);
+          track.addFx(fxType);
+          renderFxChain(track);
+          showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
+        } else {
+          console.error('❌ Track not found:', trackId);
+        }
+        
+        document.getElementById('fxAddMenu').style.display = 'none';
       });
-    }
-  }, 100);
+    });
+  }
 }
   
 // -------------------- Preset System --------------------
