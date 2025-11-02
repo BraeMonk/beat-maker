@@ -3550,6 +3550,7 @@
         </div>
         
         <div class="toolbar-section" style="margin-left: auto; border-right: none;">
+          <button class="btn btn-success" id="previewMultitrackBtn">▶️ Preview Mix</button>
           <button class="btn btn-primary" id="addTrackBtn">➕ Add Track</button>
           <button class="btn btn-secondary" id="bounceAllBtn">🔽 Bounce All</button>
           <button class="btn btn-ghost" id="clearAllTracksBtn">🗑️ Clear All</button>
@@ -7155,6 +7156,51 @@ class AudioTrack {
     
     renderMultitrack();
   }
+
+  async playTake(index) {
+    if (index < 0 || index >= this.takes.length) return;
+    
+    const take = this.takes[index];
+    if (take.muted) {
+      showToast('❌ Take is muted', 'warning');
+      return;
+    }
+    
+    // Stop any existing playback on this track
+    if (this.currentPlayer) {
+      this.currentPlayer.stop();
+      this.currentPlayer.dispose();
+    }
+    
+    // Create player from buffer
+    this.currentPlayer = new Tone.Player({
+      buffer: take.buffer,
+      onload: () => {
+        console.log('✅ Take ready to play');
+      }
+    }).connect(this.channel);
+    
+    await Tone.start();
+    this.currentPlayer.start();
+    
+    showToast(`▶️ Playing ${this.name} - Take ${index + 1}`, 'info');
+    
+    // Auto-cleanup when done
+    setTimeout(() => {
+      if (this.currentPlayer) {
+        this.currentPlayer.dispose();
+        this.currentPlayer = null;
+      }
+    }, take.duration * 1000 + 500);
+  }
+  
+  stopTake() {
+    if (this.currentPlayer) {
+      this.currentPlayer.stop();
+      this.currentPlayer.dispose();
+      this.currentPlayer = null;
+    }
+  }
   
   async exportTake(index) {
     if (index < 0 || index >= this.takes.length) return;
@@ -7171,6 +7217,9 @@ class AudioTrack {
   
   dispose() {
     console.log('🗑️ Disposing track:', this.id);
+    
+    // Stop any playing take
+    this.stopTake();
     
     if (this.recorder && this.recording) {
       this.stopRecording();
@@ -7382,7 +7431,6 @@ function createTrackStrip(track) {
   return strip;
 }
 
-// Render takes for a track
 function renderTakes(track) {
   let html = '<div style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">';
   
@@ -7398,6 +7446,9 @@ function renderTakes(track) {
           </div>
         </div>
         <div style="display: flex; gap: var(--space-1);">
+          <button class="region-action-btn" data-action="play" data-take-index="${idx}" title="Play take">
+            ▶️
+          </button>
           <button class="region-action-btn" data-action="select" data-take-index="${idx}">
             ${isSelected ? '✓' : '○'}
           </button>
@@ -7422,7 +7473,9 @@ function renderTakes(track) {
         
         if (!track) return;
         
-        if (action === 'select') {
+        if (action === 'play') {
+          track.playTake(takeIndex);
+        } else if (action === 'select') {
           track.selectTake(takeIndex);
         } else if (action === 'export') {
           track.exportTake(takeIndex);
@@ -7691,6 +7744,9 @@ function openTakeEditor(trackId) {
             </div>
           </div>
           <div style="display: flex; gap: var(--space-2);">
+            <button class="btn btn-secondary btn-sm" data-action="play-take" data-index="${idx}">
+              ▶️ Play
+            </button>
             <button class="btn btn-secondary btn-sm" data-action="select-take" data-index="${idx}">
               ${isSelected ? '✓ Active' : 'Set Active'}
             </button>
@@ -7747,7 +7803,9 @@ function openTakeEditor(trackId) {
       const action = btn.dataset.action;
       const index = parseInt(btn.dataset.index);
       
-      if (action === 'select-take') {
+      if (action === 'play-take') {
+        track.playTake(index);
+      } else if (action === 'select-take') {
         track.selectTake(index);
         close();
       } else if (action === 'toggle-mute-take') {
@@ -7912,12 +7970,80 @@ async function bounceAllTracks() {
   showToast('✅ Bounce complete!', 'success');
 }
 
+// Play all selected takes together (preview before bounce)
+async function previewMultitrack() {
+  const activeTracks = multitrack.tracks.filter(t => 
+    t.selectedTakeIndex >= 0 && !t.muted
+  );
+  
+  if (activeTracks.length === 0) {
+    showToast('❌ No active takes to preview', 'error');
+    return;
+  }
+  
+  // Stop any existing previews
+  stopMultitrackPreview();
+  
+  await Tone.start();
+  
+  // Create players for each track's selected take
+  multitrack.previewPlayers = [];
+  
+  activeTracks.forEach(track => {
+    const take = track.takes[track.selectedTakeIndex];
+    if (!take || take.muted) return;
+    
+    const player = new Tone.Player({
+      buffer: take.buffer
+    }).connect(track.channel);
+    
+    player.start();
+    multitrack.previewPlayers.push(player);
+  });
+  
+  showToast(`▶️ Previewing ${activeTracks.length} track(s)`, 'success');
+  
+  // Find longest duration for auto-stop
+  const maxDuration = Math.max(...activeTracks.map(t => {
+    const take = t.takes[t.selectedTakeIndex];
+    return take ? take.duration : 0;
+  }));
+  
+  // Auto-cleanup when done
+  setTimeout(() => {
+    stopMultitrackPreview();
+  }, maxDuration * 1000 + 500);
+}
+
+function stopMultitrackPreview() {
+  if (multitrack.previewPlayers) {
+    multitrack.previewPlayers.forEach(player => {
+      player.stop();
+      player.dispose();
+    });
+    multitrack.previewPlayers = null;
+  }
+}
+  
 // Setup multitrack event listeners
 function setupMultitrackListeners() {
   const addTrackBtn = document.getElementById('addTrackBtn');
   if (addTrackBtn) {
     addTrackBtn.addEventListener('click', () => {
       showAddTrackDialog();
+    });
+  }
+
+  const previewBtn = document.getElementById('previewMultitrackBtn');
+  if (previewBtn) {
+    previewBtn.addEventListener('click', () => {
+      if (multitrack.previewPlayers) {
+        stopMultitrackPreview();
+        previewBtn.textContent = '▶️ Preview Mix';
+      } else {
+        previewMultitrack();
+        previewBtn.textContent = '⏹️ Stop Preview';
+      }
     });
   }
   
