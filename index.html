@@ -3731,7 +3731,7 @@ Object.keys(instruments).forEach(inst => {
 // -------------------- Genre Presets --------------------
 const genrePresets = {
   lofi: {
-    name: 'Lo-Fi Hip-Hop', icon: '😌', bpm: 85, swing: 15,
+    name: 'Lo-Fi Hip-Hop', icon: '😌', bpm: 85, swing: 0,
     patterns: {
       kick:    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,1,0,0],
       snare:   [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0],
@@ -3771,7 +3771,7 @@ const genrePresets = {
   },
   
   postpunk: {
-    name: 'Post-Punk', icon: '🖤', bpm: 128, swing: 0,
+    name: 'Post-Punk', icon: '🖤', bpm: 100, swing: 0,
     patterns: {
       kick:    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0],
       snare:   [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1],
@@ -3830,7 +3830,7 @@ const genrePresets = {
   },
 
   dazecore: {
-    name: 'Dazecore', icon: '☀️', bpm: 95, swing: 20,
+    name: 'Dazecore', icon: '☀️', bpm: 95, swing: 0,
     patterns: {
       // Warm, inviting kick - but the timing is slightly off
       kick:    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0],
@@ -7018,34 +7018,53 @@ class AudioTrack {
     fx.params[param] = value;
     const node = fx.node;
     
-    if (param === 'wet' && node.wet) {
-      node.wet.rampTo(value, 0.1);
-    } else if (param === 'decay' && node.decay !== undefined) {
-      node.decay = value;
-    } else if (param === 'time' && node.delayTime) {
-      node.delayTime.value = Tone.Time(value);
-    } else if (param === 'feedback' && node.feedback) {
-      node.feedback.rampTo(value, 0.1);
-    } else if (param === 'frequency' && node.frequency) {
-      node.frequency.rampTo(value, 0.1);
-    } else if (param === 'depth' && node.depth !== undefined) {
-      node.depth = value;
-    } else if (param === 'amount' && node.distortion !== undefined) {
-      node.distortion = value;
-    } else if (param === 'threshold' && node.threshold) {
-      node.threshold.rampTo(value, 0.1);
-    } else if (param === 'ratio' && node.ratio) {
-      node.ratio.rampTo(value, 0.1);
-    } else if (param === 'low' && node.low) {
-      node.low.rampTo(value, 0.1);
-    } else if (param === 'mid' && node.mid) {
-      node.mid.rampTo(value, 0.1);
-    } else if (param === 'high' && node.high) {
-      node.high.rampTo(value, 0.1);
-    } else if (param === 'bits' && node.bits !== undefined) {
-      node.bits = value;
-    } else if (param === 'q' && node.Q) {
-      node.Q.rampTo(value, 0.1);
+    // Use ramp for smooth parameter changes
+    const rampTime = 0.05;
+    
+    try {
+      if (param === 'wet' && node.wet) {
+        node.wet.rampTo(value, rampTime);
+      } else if (param === 'decay' && node.decay !== undefined) {
+        node.decay = value;
+      } else if (param === 'time' && node.delayTime) {
+        node.delayTime.value = Tone.Time(value);
+      } else if (param === 'feedback' && node.feedback) {
+        node.feedback.rampTo(value, rampTime);
+      } else if (param === 'frequency') {
+        if (node.frequency) {
+          node.frequency.rampTo(value, rampTime);
+        }
+      } else if (param === 'delayTime' && node.delayTime && fx.type === 'chorus') {
+        node.delayTime = value;
+      } else if (param === 'depth' && node.depth !== undefined) {
+        node.depth = value;
+      } else if (param === 'amount' && node.distortion !== undefined) {
+        node.distortion = value;
+      } else if (param === 'threshold' && node.threshold) {
+        node.threshold.rampTo(value, rampTime);
+      } else if (param === 'ratio' && node.ratio) {
+        node.ratio.rampTo(value, rampTime);
+      } else if (param === 'attack' && node.attack) {
+        node.attack.rampTo(value, rampTime);
+      } else if (param === 'release' && node.release) {
+        node.release.rampTo(value, rampTime);
+      } else if (param === 'low' && node.low) {
+        node.low.rampTo(value, rampTime);
+      } else if (param === 'mid' && node.mid) {
+        node.mid.rampTo(value, rampTime);
+      } else if (param === 'high' && node.high) {
+        node.high.rampTo(value, rampTime);
+      } else if (param === 'bits' && node.bits !== undefined) {
+        node.bits = Math.round(value);
+      } else if (param === 'q' && node.Q) {
+        node.Q.rampTo(value, rampTime);
+      } else if (param === 'type' && node.type !== undefined) {
+        node.type = value;
+      }
+      
+      console.log(`🎛️ ${fx.type}.${param} = ${value}`);
+    } catch (err) {
+      console.warn(`⚠️ Could not update ${param}:`, err);
     }
   }
   
@@ -7519,9 +7538,23 @@ function renderTakes(track) {
 // Helper to find track ID from a button deep in the DOM
 function findTrackIdFromTakeButton(btn) {
   const strip = btn.closest('.track-strip');
-  if (!strip) return null;
+  if (!strip || !strip.parentElement) {
+    console.warn('Cannot find track strip from button');
+    return null;
+  }
   
-  const index = Array.from(strip.parentElement.children).indexOf(strip);
+  const grid = document.getElementById('multitrackGrid');
+  if (!grid) {
+    console.warn('Cannot find multitrack grid');
+    return null;
+  }
+  
+  const index = Array.from(grid.children).indexOf(strip);
+  if (index === -1 || index >= multitrack.tracks.length) {
+    console.warn(`Invalid track index: ${index}`);
+    return null;
+  }
+  
   return multitrack.tracks[index]?.id;
 }
 
@@ -7661,26 +7694,79 @@ function renderFxChain(track) {
     fxSlot.style.opacity = fx.enabled ? '1' : '0.5';
     
     let paramsHTML = '';
+    
+    // Define parameter ranges for each FX type
+    const paramConfig = {
+      reverb: {
+        decay: { min: 0.1, max: 10, default: 1.5, format: (v) => v.toFixed(1) + 's' },
+        wet: { min: 0, max: 1, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
+      },
+      delay: {
+        time: { min: 0, max: 3, options: ['16n', '8n', '4n', '2n', '1n'], default: '8n', format: (v) => v },
+        feedback: { min: 0, max: 0.9, default: 0.3, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
+      },
+      chorus: {
+        frequency: { min: 0.1, max: 10, default: 1.5, format: (v) => v.toFixed(1) + 'Hz' },
+        delayTime: { min: 2, max: 20, default: 3.5, format: (v) => v.toFixed(1) + 'ms' },
+        depth: { min: 0, max: 1, default: 0.7, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
+      },
+      distortion: {
+        amount: { min: 0, max: 1, default: 0.4, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
+      },
+      filter: {
+        type: { options: ['lowpass', 'highpass', 'bandpass'], default: 'lowpass', format: (v) => v },
+        frequency: { min: 20, max: 20000, default: 5000, format: (v) => Math.round(v) + 'Hz' },
+        q: { min: 0.1, max: 10, default: 1, format: (v) => v.toFixed(1) }
+      },
+      compressor: {
+        threshold: { min: -60, max: 0, default: -24, format: (v) => Math.round(v) + 'dB' },
+        ratio: { min: 1, max: 20, default: 4, format: (v) => v.toFixed(1) + ':1' },
+        attack: { min: 0.001, max: 1, default: 0.003, format: (v) => (v * 1000).toFixed(1) + 'ms' },
+        release: { min: 0.01, max: 1, default: 0.25, format: (v) => (v * 1000).toFixed(0) + 'ms' }
+      },
+      eq: {
+        low: { min: -24, max: 24, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
+        mid: { min: -24, max: 24, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
+        high: { min: -24, max: 24, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' }
+      },
+      bitcrusher: {
+        bits: { min: 1, max: 16, default: 4, format: (v) => Math.round(v) + ' bits' }
+      }
+    };
+    
+    const typeConfig = paramConfig[fx.type] || {};
+    
     Object.entries(fx.params).forEach(([param, value]) => {
-      const display = formatFxDisplay(param, value);
-      let sliderVal = 50;
+      const config = typeConfig[param] || { min: 0, max: 100, default: 50, format: (v) => v };
       
-      if (param === 'decay') {
-        sliderVal = clamp(Math.round(value * 20), 0, 100);
-      } else if (['wet', 'feedback', 'depth', 'amount'].includes(param)) {
-        sliderVal = Math.round(value * 100);
-      } else if (param === 'frequency') {
-        sliderVal = Math.round((value - 100) / 79);
+      let sliderVal = 50;
+      let displayVal = value;
+      
+      // Handle special cases
+      if (config.options) {
+        // Discrete options (like delay time or filter type)
+        const optIndex = config.options.indexOf(value);
+        sliderVal = optIndex >= 0 ? (optIndex / (config.options.length - 1)) * 100 : 50;
+      } else {
+        // Continuous values
+        sliderVal = ((value - config.min) / (config.max - config.min)) * 100;
+        sliderVal = Math.max(0, Math.min(100, sliderVal));
       }
       
       paramsHTML += `
         <div class="param-control">
           <div class="param-label">
             <span>${param}</span>
-            <span class="param-value">${display}</span>
+            <span class="param-value" data-fx-id="${fx.id}" data-param="${param}">${config.format(value)}</span>
           </div>
           <input type="range" min="0" max="100" value="${sliderVal}" 
-                 data-fx-id="${fx.id}" data-param="${param}" class="fx-param-slider">
+                 data-fx-id="${fx.id}" 
+                 data-param="${param}"
+                 data-fx-type="${fx.type}"
+                 class="fx-param-slider">
         </div>
       `;
     });
@@ -7721,18 +7807,98 @@ function renderFxChain(track) {
       });
     });
     
-    // Parameter sliders
+    // Parameter sliders with proper mapping
     slots.querySelectorAll('.fx-param-slider').forEach(slider => {
       slider.addEventListener('input', (e) => {
         const fxId = parseFloat(e.target.dataset.fxId);
         const param = e.target.dataset.param;
-        const raw = parseInt(e.target.value, 10);
-        const value = mapFxParam(param, raw);
+        const fxType = e.target.dataset.fxType;
+        const sliderPercent = parseInt(e.target.value, 10);
+        
+        const fx = track.fxChain.find(f => f.id === fxId);
+        if (!fx) return;
+        
+        const typeConfig = {
+          reverb: {
+            decay: { min: 0.1, max: 10 },
+            wet: { min: 0, max: 1 }
+          },
+          delay: {
+            time: { options: ['16n', '8n', '4n', '2n', '1n'] },
+            feedback: { min: 0, max: 0.9 },
+            wet: { min: 0, max: 1 }
+          },
+          chorus: {
+            frequency: { min: 0.1, max: 10 },
+            delayTime: { min: 2, max: 20 },
+            depth: { min: 0, max: 1 },
+            wet: { min: 0, max: 1 }
+          },
+          distortion: {
+            amount: { min: 0, max: 1 },
+            wet: { min: 0, max: 1 }
+          },
+          filter: {
+            type: { options: ['lowpass', 'highpass', 'bandpass'] },
+            frequency: { min: 20, max: 20000 },
+            q: { min: 0.1, max: 10 }
+          },
+          compressor: {
+            threshold: { min: -60, max: 0 },
+            ratio: { min: 1, max: 20 },
+            attack: { min: 0.001, max: 1 },
+            release: { min: 0.01, max: 1 }
+          },
+          eq: {
+            low: { min: -24, max: 24 },
+            mid: { min: -24, max: 24 },
+            high: { min: -24, max: 24 }
+          },
+          bitcrusher: {
+            bits: { min: 1, max: 16 }
+          }
+        };
+        
+        const config = typeConfig[fxType]?.[param];
+        if (!config) return;
+        
+        let value;
+        
+        if (config.options) {
+          // Discrete options
+          const index = Math.round((sliderPercent / 100) * (config.options.length - 1));
+          value = config.options[index];
+        } else {
+          // Continuous value
+          value = config.min + (sliderPercent / 100) * (config.max - config.min);
+        }
         
         track.updateFxParam(fxId, param, value);
         
+        // Update display
         const label = e.target.closest('.param-control').querySelector('.param-value');
-        label.textContent = formatFxDisplay(param, value);
+        if (label) {
+          if (param === 'decay' || param === 'frequency' || param === 'delayTime') {
+            label.textContent = typeof value === 'number' ? value.toFixed(1) : value;
+            if (param === 'decay') label.textContent += 's';
+            if (param === 'frequency') label.textContent += 'Hz';
+            if (param === 'delayTime') label.textContent += 'ms';
+          } else if (param === 'wet' || param === 'feedback' || param === 'depth' || param === 'amount') {
+            label.textContent = Math.round(value * 100) + '%';
+          } else if (param === 'threshold' || param === 'low' || param === 'mid' || param === 'high') {
+            label.textContent = (value > 0 ? '+' : '') + Math.round(value) + 'dB';
+          } else if (param === 'ratio') {
+            label.textContent = value.toFixed(1) + ':1';
+          } else if (param === 'attack' || param === 'release') {
+            label.textContent = (value * 1000).toFixed(param === 'attack' ? 1 : 0) + 'ms';
+          } else if (param === 'bits') {
+            label.textContent = Math.round(value) + ' bits';
+          } else if (param === 'q') {
+            label.textContent = value.toFixed(1);
+          } else {
+            label.textContent = value.toString();
+          }
+        }
       });
     });
   }, 0);
@@ -8029,40 +8195,59 @@ async function previewMultitrack() {
     if (!take || take.muted) return;
     
     try {
+      // CRITICAL FIX: Check if buffer exists and is valid
+      if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
+        console.error(`❌ ${track.name}: Invalid or empty buffer`);
+        showToast(`❌ ${track.name}: Cannot preview - buffer corrupted`, 'error');
+        return;
+      }
+      
       const player = new Tone.Player({
         buffer: take.buffer,
+        fadeOut: 0.01,
         onload: () => {
           console.log(`✅ Preview player loaded for ${track.name}`);
         }
       }).connect(track.channel);
       
-      // Start immediately
-      player.start('+0.1'); // Small delay for sync
-      multitrack.previewPlayers.push(player);
+      // Wait a moment for buffer to be ready
+      setTimeout(() => {
+        try {
+          player.start('+0.1'); // Small delay for sync
+          multitrack.previewPlayers.push(player);
+          
+          if (take.duration > maxDuration) {
+            maxDuration = take.duration;
+          }
+          
+          console.log(`▶️ Playing ${track.name} - Take ${track.selectedTakeIndex + 1}`);
+        } catch (err) {
+          console.error(`❌ Failed to start ${track.name}:`, err);
+          player.dispose();
+        }
+      }, 50);
       
-      if (take.duration > maxDuration) {
-        maxDuration = take.duration;
-      }
-      
-      console.log(`▶️ Playing ${track.name} - Take ${track.selectedTakeIndex + 1}`);
     } catch (err) {
       console.error(`❌ Failed to preview ${track.name}:`, err);
     }
   });
   
   if (multitrack.previewPlayers.length === 0) {
-    showToast('❌ No takes could be previewed', 'error');
-    return;
+    setTimeout(() => {
+      if (multitrack.previewPlayers.length === 0) {
+        showToast('❌ No takes could be previewed', 'error');
+      } else {
+        showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
+        
+        // Auto-cleanup when done
+        setTimeout(() => {
+          stopMultitrackPreview();
+          const btn = document.getElementById('previewMultitrackBtn');
+          if (btn) btn.textContent = '▶️ Preview Mix';
+        }, maxDuration * 1000 + 500);
+      }
+    }, 100);
   }
-  
-  showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
-  
-  // Auto-cleanup when done
-  setTimeout(() => {
-    stopMultitrackPreview();
-    const btn = document.getElementById('previewMultitrackBtn');
-    if (btn) btn.textContent = '▶️ Preview Mix';
-  }, maxDuration * 1000 + 500);
 }
 
 function stopMultitrackPreview() {
@@ -8713,35 +8898,418 @@ function bufferToWav(audioBuffer) {
 }
 
 async function exportAudio() {
+  // Check if we should use offline rendering or live recording
+  const useOffline = confirm('Export Method:\n\nOK = Offline Render (Higher Quality, Slower)\nCancel = Live Record (Real-time)');
+  
+  if (useOffline) {
+    await exportOfflineRender();
+  } else {
+    await exportLiveRecording();
+  }
+}
+
+// NEW: High-quality offline render
+async function exportOfflineRender() {
+  const hasActive = Object.keys(patterns).some(inst => 
+    patterns[inst].some(s => s.active)
+  );
+  
+  if (!hasActive) {
+    alert('No active notes to export!');
+    return;
+  }
+  
+  showToast('🎵 Rendering audio offline...', 'info');
+  
+  // Calculate total duration
+  const durationSeconds = state.duration * 60;
+  const sampleRate = 48000;
+  const numFrames = Math.ceil(durationSeconds * sampleRate);
+  
+  // Create offline context
+  const offlineContext = new OfflineAudioContext({
+    numberOfChannels: 2,
+    length: numFrames,
+    sampleRate: sampleRate
+  });
+  
+  // Set transport settings
+  const offlineTransport = new Tone.Transport({
+    context: new Tone.Context(offlineContext)
+  });
+  offlineTransport.bpm.value = state.bpm;
+  offlineTransport.swing = state.swing / 100;
+  offlineTransport.swingSubdivision = '8n';
+  
+  // Create offline master chain with better headroom
+  const offlineMaster = {
+    gain: new Tone.Gain(0.7, { context: offlineContext }),
+    limiter: new Tone.Limiter(-0.5, { context: offlineContext }),
+    comp: new Tone.Compressor({
+      threshold: -18,
+      ratio: 4,
+      attack: 0.003,
+      release: 0.15,
+      context: offlineContext
+    })
+  };
+  
+  offlineMaster.gain.chain(
+    offlineMaster.comp,
+    offlineMaster.limiter
+  );
+  offlineMaster.limiter.connect(offlineContext.destination);
+  
+  // Create offline instruments with proper routing
+  const offlineSynths = {};
+  const offlineChannels = {};
+  
+  Object.keys(instruments).forEach(inst => {
+    const instData = instruments[inst];
+    
+    // Create channel with proper gain staging
+    const channel = new Tone.Channel({
+      volume: instData.volume,
+      pan: instData.pan / 100,
+      context: offlineContext
+    }).connect(offlineMaster.gain);
+    
+    offlineChannels[inst] = channel;
+    
+    // Create synth
+    if (instData.type === 'drum') {
+      offlineSynths[inst] = createOfflineDrumSynth(inst, offlineContext, channel);
+    } else if (instData.type === 'melodic') {
+      offlineSynths[inst] = createOfflineMelodicSynth(inst, offlineContext, channel);
+    } else {
+      offlineSynths[inst] = createOfflineDrumSynth(inst, offlineContext, channel);
+    }
+  });
+  
+  // Schedule all notes
+  const stepsPerBar = state.sequenceLength;
+  const barsToRender = Math.ceil(durationSeconds / (60 / state.bpm * 4));
+  const stepDuration = Tone.Time(state.resolution).toSeconds();
+  
+  for (let bar = 0; bar < barsToRender; bar++) {
+    for (let step = 0; step < stepsPerBar; step++) {
+      const time = bar * stepsPerBar * stepDuration + step * stepDuration;
+      
+      Object.keys(instruments).forEach(inst => {
+        const stepData = patterns[inst][step];
+        if (!stepData || !stepData.active) return;
+        
+        const instData = instruments[inst];
+        if (instData.mute) return;
+        
+        const anySolo = Object.values(instruments).some(i => i.solo);
+        if (anySolo && !instData.solo) return;
+        
+        if (Math.random() * 100 > stepData.probability) return;
+        
+        const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
+        const velocity = stepData.velocity * 0.9;
+        
+        try {
+          if (instData.type === 'drum' || instData.type === 'atmospheric') {
+            offlineSynths[inst].triggerAttackRelease(
+              'C2',
+              '8n',
+              time + humanize,
+              velocity
+            );
+          } else {
+            const note = stepData.note || instData.note || 'C4';
+            const duration = stepData.duration || '8n';
+            offlineSynths[inst].triggerAttackRelease(
+              note,
+              duration,
+              time + humanize,
+              velocity
+            );
+          }
+        } catch (err) {
+          console.warn(`Failed to schedule ${inst}:`, err);
+        }
+      });
+    }
+  }
+  
+  try {
+    // Render
+    showToast('⏳ Rendering (this may take a moment)...', 'info');
+    const renderedBuffer = await offlineContext.startRendering();
+    
+    // Convert to WAV with proper normalization
+    const wavData = bufferToWavImproved(renderedBuffer);
+    const blob = new Blob([wavData], { type: 'audio/wav' });
+    
+    // Download
+    const name = (document.getElementById('projectName')?.value || 'export')
+      .replace(/\s+/g, '_') + `_${Date.now()}`;
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}.wav`;
+    a.click();
+    
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    
+    showToast('✅ Export complete!', 'success');
+    
+    // Cleanup
+    Object.values(offlineSynths).forEach(synth => {
+      if (synth.dispose) synth.dispose();
+    });
+    Object.values(offlineChannels).forEach(ch => {
+      if (ch.dispose) ch.dispose();
+    });
+    
+  } catch (err) {
+    console.error('Export error:', err);
+    showToast('❌ Export failed: ' + err.message, 'error');
+  }
+}
+
+// Create offline drum synth
+function createOfflineDrumSynth(inst, context, channel) {
+  let synth;
+  
+  switch(inst) {
+    case 'kick':
+      synth = new Tone.MembraneSynth({
+        pitchDecay: 0.05,
+        octaves: 6,
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 },
+        context: context
+      });
+      break;
+      
+    case 'snare':
+      synth = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.001, decay: 0.2, sustain: 0 },
+        context: context
+      });
+      break;
+      
+    case 'hihat':
+      synth = new Tone.MetalSynth({
+        frequency: 200,
+        envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+        harmonicity: 5.1,
+        modulationIndex: 32,
+        resonance: 4000,
+        octaves: 1.5,
+        context: context
+      });
+      break;
+      
+    case 'clap':
+      // Layered clap
+      const clap1 = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.001, decay: 0.05, sustain: 0 },
+        context: context
+      });
+      const clap2 = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.015, decay: 0.03, sustain: 0 },
+        context: context
+      });
+      const clapGain = new Tone.Gain(0.8, { context: context }).connect(channel);
+      clap1.connect(clapGain);
+      clap2.connect(clapGain);
+      
+      return {
+        triggerAttackRelease: (note, dur, time, vel) => {
+          clap1.triggerAttackRelease(dur, time, vel);
+          clap2.triggerAttackRelease(dur, time + 0.015, vel * 0.7);
+        },
+        dispose: () => {
+          clap1.dispose();
+          clap2.dispose();
+          clapGain.dispose();
+        }
+      };
+      
+    case 'rimshot':
+      synth = new Tone.NoiseSynth({
+        noise: { type: 'pink' },
+        envelope: { attack: 0.001, decay: 0.05, sustain: 0 },
+        context: context
+      });
+      break;
+      
+    case 'tom':
+      synth = new Tone.MembraneSynth({
+        pitchDecay: 0.08,
+        octaves: 4,
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.001, decay: 0.3, sustain: 0.1, release: 0.8 },
+        context: context
+      });
+      break;
+      
+    case 'crash':
+      synth = new Tone.MetalSynth({
+        frequency: 100,
+        envelope: { attack: 0.001, decay: 1.4, release: 2 },
+        harmonicity: 5.1,
+        modulationIndex: 32,
+        resonance: 4000,
+        octaves: 1.5,
+        context: context
+      });
+      break;
+      
+    case 'ride':
+      synth = new Tone.MetalSynth({
+        frequency: 150,
+        envelope: { attack: 0.001, decay: 0.8, release: 0.5 },
+        harmonicity: 5.1,
+        modulationIndex: 32,
+        resonance: 4000,
+        octaves: 1.5,
+        context: context
+      });
+      break;
+      
+    default:
+      synth = new Tone.MembraneSynth({ context: context });
+  }
+  
+  synth.connect(channel);
+  return synth;
+}
+
+// Create offline melodic synth
+function createOfflineMelodicSynth(inst, context, channel) {
+  const synth = new Tone.PolySynth(Tone.Synth, {
+    maxPolyphony: 8,
+    oscillator: { type: 'sine' },
+    envelope: {
+      attack: 0.005,
+      decay: 0.1,
+      sustain: 0.3,
+      release: 1
+    },
+    context: context
+  });
+  
+  synth.connect(channel);
+  return synth;
+}
+
+// Improved WAV converter with peak normalization
+function bufferToWavImproved(audioBuffer) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const numFrames = audioBuffer.length;
+  const bytesPerSample = 2;
+  
+  // Find peak for normalization
+  let peak = 0;
+  for (let c = 0; c < numChannels; c++) {
+    const channelData = audioBuffer.getChannelData(c);
+    for (let i = 0; i < numFrames; i++) {
+      const abs = Math.abs(channelData[i]);
+      if (abs > peak) peak = abs;
+    }
+  }
+  
+  // Calculate normalization factor (leave 1dB headroom)
+  const targetPeak = 0.891; // -1dB
+  const normFactor = peak > 0 ? Math.min(targetPeak / peak, 1) : 1;
+  
+  console.log(`🎚️ Normalizing: peak=${peak.toFixed(3)}, factor=${normFactor.toFixed(3)}`);
+  
+  const dataSize = numFrames * numChannels * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  
+  let offset = 0;
+  
+  function writeString(str) {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset++, str.charCodeAt(i));
+    }
+  }
+  
+  function writeUint32(val) {
+    view.setUint32(offset, val, true);
+    offset += 4;
+  }
+  
+  function writeUint16(val) {
+    view.setUint16(offset, val, true);
+    offset += 2;
+  }
+  
+  // WAV header
+  writeString('RIFF');
+  writeUint32(36 + dataSize);
+  writeString('WAVE');
+  
+  // fmt chunk
+  writeString('fmt ');
+  writeUint32(16);
+  writeUint16(1); // PCM
+  writeUint16(numChannels);
+  writeUint32(sampleRate);
+  writeUint32(sampleRate * numChannels * bytesPerSample);
+  writeUint16(numChannels * bytesPerSample);
+  writeUint16(16);
+  
+  // data chunk
+  writeString('data');
+  writeUint32(dataSize);
+  
+  // Interleave samples with normalization
+  const channels = [];
+  for (let c = 0; c < numChannels; c++) {
+    channels.push(audioBuffer.getChannelData(c));
+  }
+  
+  for (let i = 0; i < numFrames; i++) {
+    for (let c = 0; c < numChannels; c++) {
+      let sample = channels[c][i] * normFactor;
+      sample = Math.max(-1, Math.min(1, sample)); // Hard clip
+      sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+      view.setInt16(offset, sample, true);
+      offset += 2;
+    }
+  }
+  
+  return new Uint8Array(buffer);
+}
+
+// Live recording (original method, kept for real-time recording)
+async function exportLiveRecording() {
   // if we're already recording, this call means "stop & download"
   if (master.mediaRecorder && master.mediaRecorder.state === 'recording') {
     master.mediaRecorder.stop();
     return;
   }
 
-  // ====== START RECORDING ======
-  await Tone.start(); // make sure audio is unlocked
+  await Tone.start();
 
   const stream = master.mediaDest?.stream;
   if (!stream) {
-    alert('❌ No recording stream available. Did initAudio() run?');
+    alert('❌ No recording stream available.');
     return;
   }
 
-  // pick a mime the browser likes
   let mimeType = '';
   if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
     mimeType = 'audio/webm;codecs=opus';
   } else if (MediaRecorder.isTypeSupported('audio/webm')) {
     mimeType = 'audio/webm';
-  } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-    mimeType = 'audio/ogg';
-  } else {
-    mimeType = ''; // let browser pick
   }
 
   master.recordedChunks = [];
-
   const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
   master.mediaRecorder = rec;
 
@@ -8752,16 +9320,13 @@ async function exportAudio() {
   };
 
   rec.onstop = () => {
-    // build final blob
     const blob = new Blob(master.recordedChunks, {
       type: rec.mimeType || 'audio/webm'
     });
 
-    const name =
-      (document.getElementById('projectName')?.value || 'live_take')
-        .replace(/\s+/g, '_') + `_${Date.now()}`;
+    const name = (document.getElementById('projectName')?.value || 'live_take')
+      .replace(/\s+/g, '_') + `_${Date.now()}`;
 
-    // figure out extension from mime
     let ext = 'webm';
     if ((rec.mimeType || '').includes('ogg')) ext = 'ogg';
 
@@ -8772,33 +9337,16 @@ async function exportAudio() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
 
-    // restore button text if exists
     const btn = document.getElementById('exportBtn');
-    if (btn) btn.textContent = '⬇️ Export (live)';
+    if (btn) btn.textContent = '💾 Export';
   };
 
-  // Handle punch in/out if specified
-  if (this.punchIn !== null) {
-    setTimeout(() => {
-      if (rec.state === 'inactive') rec.start();
-    }, this.punchIn * 1000);
-   }
-    
-   if (this.punchOut !== null) {
-    setTimeout(() => {
-      if (rec.state === 'recording') this.stopRecording();
-    }, this.punchOut * 1000);
-  }
-  
-  // start recording real-time audio
   rec.start();
 
-  // update UI so user knows we're hot
   const btn = document.getElementById('exportBtn');
-  if (btn) btn.textContent = '⏹️ Stop & Save';
-
-  // optional toast:
-  // alert('🎙️ Recording LIVE output now. Hit Export again to stop.');
+  if (btn) btn.textContent = '⏹️ Stop Recording';
+  
+  showToast('🎙️ Recording live output...', 'info');
 }
   
 // -------------------- PWA Installation --------------------
