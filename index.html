@@ -3541,6 +3541,13 @@
           <button class="btn btn-secondary btn-sm" id="loopBtn">🔁 Loop</button>
           <button class="btn btn-secondary btn-sm" id="clickBtn">🥁 Click</button>
         </div>
+
+        <div class="toolbar-section">
+          <button class="btn btn-primary" id="recordArmedBtn">⏺️ Record Armed</button>
+          <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
+            Arm tracks → Click here
+          </div>
+        </div>
         
         <div class="toolbar-section" style="margin-left: auto; border-right: none;">
           <button class="btn btn-primary" id="addTrackBtn">➕ Add Track</button>
@@ -3567,7 +3574,7 @@
           <div class="flex">
             <div class="fx-add-dropdown" id="fxAddDropdown">
               <button class="btn btn-primary btn-sm" id="addFxBtn">➕ Add Effect</button>
-              <div class="fx-add-menu" id="fxAddMenu">
+              <div class="fx-add-menu" id="fxAddMenu" style="display: none;">
                 <div class="fx-add-item" data-fx-type="reverb">🌊 Reverb</div>
                 <div class="fx-add-item" data-fx-type="delay">🔁 Delay</div>
                 <div class="fx-add-item" data-fx-type="chorus">🎵 Chorus</div>
@@ -7281,7 +7288,7 @@ function createTrackStrip(track) {
         ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
       </div>
       
-      <div class="track-controls-grid" style="margin-top: var(--space-3);">
+      <div class="track-controls-grid" style="margin-top: var(--space-3); grid-template-columns: repeat(3, 1fr);">
         <button class="track-mini-btn arm ${track.armed ? 'active' : ''}" data-action="arm">
           ${track.armed ? '🔴' : '⚪'} Arm
         </button>
@@ -7291,11 +7298,14 @@ function createTrackStrip(track) {
         <button class="track-mini-btn solo ${track.soloed ? 'active' : ''}" data-action="solo">
           S
         </button>
-        <button class="track-mini-btn" data-action="fx" style="grid-column: span 1;">
+        <button class="track-mini-btn" data-action="fx">
           🎛️ FX
         </button>
-        <button class="track-mini-btn" data-action="edit" style="grid-column: span 2;">
-          ✂️ Edit Takes
+        <button class="track-mini-btn" data-action="edit">
+          ✂️ Edit
+        </button>
+        <button class="track-mini-btn" data-action="delete">
+          🗑️
         </button>
       </div>
       
@@ -7545,6 +7555,9 @@ function openFxChainEditor(trackId) {
   
   panel.style.display = 'block';
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  
+  // Re-setup listeners after panel is shown
+  setupMultitrackListeners();
 }
 
 // Render FX chain slots
@@ -7942,37 +7955,53 @@ function setupMultitrackListeners() {
     });
   }
   
-  const addFxBtn = document.getElementById('addFxBtn');
-  const fxAddMenu = document.getElementById('fxAddMenu');
-  
-  if (addFxBtn && fxAddMenu) {
-    addFxBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      fxAddMenu.style.display = fxAddMenu.style.display === 'block' ? 'none' : 'block';
-    });
+  // Setup FX add menu (must happen on every render)
+  setTimeout(() => {
+    const addFxBtn = document.getElementById('addFxBtn');
+    const fxAddMenu = document.getElementById('fxAddMenu');
     
-    // Close menu when clicking outside
-    document.addEventListener('click', () => {
-      fxAddMenu.style.display = 'none';
-    });
-    
-    // Add FX
-    fxAddMenu.querySelectorAll('.fx-add-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const fxType = item.dataset.fxType;
-        const trackId = multitrack.currentFxTrackId;
-        const track = multitrack.tracks.find(t => t.id === trackId);
-        
-        if (track) {
-          track.addFx(fxType);
-          renderFxChain(track);
-          showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
-        }
-        
-        fxAddMenu.style.display = 'none';
+    if (addFxBtn && fxAddMenu) {
+      // Remove old listeners
+      const newAddFxBtn = addFxBtn.cloneNode(true);
+      addFxBtn.parentNode.replaceChild(newAddFxBtn, addFxBtn);
+      
+      newAddFxBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = document.getElementById('fxAddMenu');
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
       });
-    });
-  }
+      
+      // Close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        const dropdown = document.getElementById('fxAddDropdown');
+        if (dropdown && !dropdown.contains(e.target)) {
+          document.getElementById('fxAddMenu').style.display = 'none';
+        }
+      });
+      
+      // Add FX items
+      fxAddMenu.querySelectorAll('.fx-add-item').forEach(item => {
+        const newItem = item.cloneNode(true);
+        item.parentNode.replaceChild(newItem, item);
+        
+        newItem.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const fxType = newItem.dataset.fxType;
+          const trackId = multitrack.currentFxTrackId;
+          const track = multitrack.tracks.find(t => t.id === trackId);
+          
+          if (track) {
+            console.log('Adding FX:', fxType, 'to track:', trackId);
+            track.addFx(fxType);
+            renderFxChain(track);
+            showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
+          }
+          
+          document.getElementById('fxAddMenu').style.display = 'none';
+        });
+      });
+    }
+  }, 100);
 }
   
 // -------------------- Preset System --------------------
