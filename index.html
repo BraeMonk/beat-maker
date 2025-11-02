@@ -6787,9 +6787,19 @@ class AudioTrack {
     // Store original channel for cleanup
     this.originalChannel = instData.channel;
     
-    // Route synth through this track's channel
-    instSynth.disconnect();
-    instSynth.connect(this.channel);
+    // Check if synth has disconnect method (could be wrapped Player or custom synth)
+    if (typeof instSynth.disconnect === 'function') {
+      // Route synth through this track's channel
+      instSynth.disconnect();
+      instSynth.connect(this.channel);
+    } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+      // It's a wrapped Player with .gain property
+      instSynth.gain.disconnect();
+      instSynth.gain.connect(this.channel);
+    } else {
+      console.warn(`${this.instrument} synth has no disconnect method - skipping routing`);
+      return;
+    }
     
     console.log(`✅ ${this.instrument} → Track ${this.id}`);
   }
