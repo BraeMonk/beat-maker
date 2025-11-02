@@ -8388,45 +8388,32 @@ async function bounceAllTracks() {
   
   showToast('🎵 Preparing bounce...', 'info');
   
-  // CRITICAL FIX: Align ALL takes to bar boundaries
-  // Takes should start at their bar position, not random times
-  let minStart = Infinity;
-  let maxEnd = 0;
+  // CRITICAL: All takes were recorded starting at the SAME time
+  // So they should all start at position 0 in the bounce
+  const globalStartTime = multitrack.globalRecordStartTime || 0;
+  
+  // Find the longest take to determine bounce duration
+  let maxDuration = 0;
   
   activeTracks.forEach(track => {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer) return;
     
-    // Quantize start time to nearest bar (4 beats at current BPM)
-    const beatsPerBar = 4;
-    const secondsPerBeat = 60 / state.bpm;
-    const secondsPerBar = beatsPerBar * secondsPerBeat;
-    
-    // Round to nearest bar
-    const quantizedStart = Math.floor(take.startTime / secondsPerBar) * secondsPerBar;
-    const endTime = quantizedStart + take.buffer.duration; // Use BUFFER duration, not recorded duration
+    // Use the buffer's actual duration
+    const bufferDuration = take.buffer.duration;
     
     console.log(`📊 ${track.name}:`);
-    console.log(`   - Original start: ${take.startTime.toFixed(6)}s`);
-    console.log(`   - Quantized start: ${quantizedStart.toFixed(6)}s`);
-    console.log(`   - Buffer duration: ${take.buffer.duration.toFixed(6)}s`);
-    console.log(`   - End: ${endTime.toFixed(6)}s`);
+    console.log(`   - Buffer duration: ${bufferDuration.toFixed(6)}s`);
+    console.log(`   - Start offset: ${(take.startTime - globalStartTime).toFixed(6)}s`);
     
-    if (quantizedStart < minStart) minStart = quantizedStart;
-    if (endTime > maxEnd) maxEnd = endTime;
+    if (bufferDuration > maxDuration) maxDuration = bufferDuration;
   });
   
-  if (minStart === Infinity) minStart = 0;
-  const totalDuration = maxEnd - minStart;
+  console.log(`🎬 Bounce duration: ${maxDuration.toFixed(6)}s`);
   
-  console.log(`🎬 Bounce setup:`);
-  console.log(`   - Earliest: ${minStart.toFixed(6)}s`);
-  console.log(`   - Latest: ${maxEnd.toFixed(6)}s`);
-  console.log(`   - Duration: ${totalDuration.toFixed(6)}s`);
-  
-  // Create offline context
+  // Create offline context with enough length for all takes
   const sampleRate = 48000;
-  const numFrames = Math.ceil(totalDuration * sampleRate);
+  const numFrames = Math.ceil(maxDuration * sampleRate);
   
   const offlineContext = new OfflineAudioContext({
     numberOfChannels: 2,
@@ -8441,27 +8428,20 @@ async function bounceAllTracks() {
   offlineMaster.connect(offlineLimiter);
   offlineLimiter.connect(offlineContext.destination);
   
-  // CRITICAL FIX: Schedule each take using BUFFER timing, not recorded timing
+  // Schedule each take - they all start at 0 since they were recorded simultaneously
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
     
     try {
-      // Quantize to bar boundaries
-      const beatsPerBar = 4;
-      const secondsPerBeat = 60 / state.bpm;
-      const secondsPerBar = beatsPerBar * secondsPerBeat;
-      const quantizedStart = Math.floor(take.startTime / secondsPerBar) * secondsPerBar;
-      
-      // Calculate position relative to earliest take
-      const relativeStartTime = quantizedStart - minStart;
+      // All takes start at 0 (they were recorded at the same time)
+      const startPosition = 0;
       
       console.log(`🎵 ${track.name}:`);
-      console.log(`   - Quantized start: ${quantizedStart.toFixed(6)}s`);
-      console.log(`   - Bounce position: ${relativeStartTime.toFixed(6)}s`);
-      console.log(`   - Buffer duration: ${take.buffer.duration.toFixed(6)}s`);
+      console.log(`   - Position: ${startPosition}s`);
+      console.log(`   - Duration: ${take.buffer.duration.toFixed(6)}s`);
       
-      // Create offline player with the buffer
+      // Create offline player
       const player = new Tone.Player({
         url: take.buffer,
         context: offlineContext
@@ -8477,10 +8457,10 @@ async function bounceAllTracks() {
       player.connect(channel);
       channel.connect(offlineMaster);
       
-      // Start at quantized position
-      player.start(relativeStartTime);
+      // Start immediately (position 0)
+      player.start(startPosition);
       
-      console.log(`   ✅ Scheduled at ${relativeStartTime.toFixed(6)}s`);
+      console.log(`   ✅ Scheduled at ${startPosition}s`);
       
     } catch (err) {
       console.error(`❌ Failed to schedule ${track.name}:`, err);
@@ -8510,7 +8490,7 @@ async function bounceAllTracks() {
     
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     
-    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
+    showToast(`✅ Bounce complete! ${maxDuration.toFixed(1)}s`, 'success');
     
   } catch (err) {
     console.error('❌ Bounce failed:', err);
@@ -8537,34 +8517,15 @@ async function previewMultitrack() {
   }
   
   multitrack.previewPlayers = [];
-  let minStartTime = Infinity;
-  let maxEndTime = 0;
   
   showToast('⏳ Loading takes...', 'info');
   
-  // Find the time range using EXACT transport times
-  activeTracks.forEach(track => {
-    const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted) return;
-    
-    // Quantize start time to nearest bar
-    const beatsPerBar = 4;
-    const secondsPerBeat = 60 / state.bpm;
-    const secondsPerBar = beatsPerBar * secondsPerBeat;
-    const quantizedStart = Math.floor(take.startTime / secondsPerBar) * secondsPerBar;
-    const endTime = quantizedStart + take.buffer.duration; // Use buffer duration
-    
-    if (quantizedStart < minStartTime) minStartTime = quantizedStart;
-    if (endTime > maxEndTime) maxEndTime = endTime;
-  });
+  // CRITICAL: All takes were recorded at the same time
+  // So they should all start playing at the same time
+  const globalStartTime = multitrack.globalRecordStartTime || 0;
   
-  if (minStartTime === Infinity) minStartTime = 0;
-  const totalDuration = maxEndTime - minStartTime;
-  
-  console.log(`▶️ Preview setup:`);
-  console.log(`   - Earliest: ${minStartTime.toFixed(6)}s`);
-  console.log(`   - Latest: ${maxEndTime.toFixed(6)}s`);
-  console.log(`   - Duration: ${totalDuration.toFixed(6)}s`);
+  // Find longest duration for auto-stop
+  let maxDuration = 0;
   
   // Load all players
   for (const track of activeTracks) {
@@ -8599,16 +8560,16 @@ async function previewMultitrack() {
         }
       });
       
-      // CRITICAL FIX: Calculate EXACT relative position
-      const relativeStart = take.startTime - minStartTime;
-      
       multitrack.previewPlayers.push({ 
         player, 
-        track,
-        relativeStart: relativeStart
+        track
       });
       
-      console.log(`✅ ${track.name} ready (starts at +${relativeStart.toFixed(6)}s)`);
+      if (take.buffer.duration > maxDuration) {
+        maxDuration = take.buffer.duration;
+      }
+      
+      console.log(`✅ ${track.name} ready (${take.buffer.duration.toFixed(3)}s)`);
       
     } catch (err) {
       console.error(`❌ ${track.name} failed:`, err);
@@ -8622,22 +8583,13 @@ async function previewMultitrack() {
   
   console.log(`▶️ Starting preview with ${multitrack.previewPlayers.length} tracks`);
   
-  // CRITICAL FIX: Start all players at their EXACT relative positions
+  // Start all players at the SAME TIME (they were recorded together)
   const now = Tone.now() + 0.1;
   
-  multitrack.previewPlayers.forEach(({ player, track, relativeStart }) => {
+  multitrack.previewPlayers.forEach(({ player, track }) => {
     try {
-      // Quantize relative start
-      const beatsPerBar = 4;
-      const secondsPerBeat = 60 / state.bpm;
-      const secondsPerBar = beatsPerBar * secondsPerBeat;
-      
-      const take = track.takes[track.selectedTakeIndex];
-      const quantizedStart = Math.floor(take.startTime / secondsPerBar) * secondsPerBar;
-      const quantizedRelative = quantizedStart - minStartTime;
-      
-      player.start(now + quantizedRelative);
-      console.log(`▶️ ${track.name} at +${quantizedRelative.toFixed(6)}s (quantized)`);
+      player.start(now);
+      console.log(`▶️ ${track.name} starting now`);
     } catch (err) {
       console.error(`❌ Failed to start ${track.name}:`, err);
     }
@@ -8645,12 +8597,12 @@ async function previewMultitrack() {
   
   showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
   
-  // Auto-stop after duration
+  // Auto-stop after longest take finishes
   multitrack.previewTimeout = setTimeout(() => {
     stopMultitrackPreview();
     const btn = document.getElementById('previewMultitrackBtn');
     if (btn) btn.textContent = '▶️ Preview Mix';
-  }, (totalDuration + 0.5) * 1000);
+  }, (maxDuration + 0.5) * 1000);
 }
   
 function stopMultitrackPreview() {
