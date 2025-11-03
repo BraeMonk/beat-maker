@@ -7768,6 +7768,45 @@ function removeTrack(trackId) {
   multitrack.tracks.splice(index, 1);
   renderMultitrack();
 }
+
+function renderTakes(track) {
+  if (!track.takes || track.takes.length === 0) return '';
+  
+  let html = '<div style="display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2);">';
+  
+  track.takes.forEach((take, idx) => {
+    const isSelected = idx === track.selectedTakeIndex;
+    const isMuted = take.muted;
+    
+    html += `
+      <div class="take-region ${isSelected ? 'selected' : ''} ${isMuted ? 'muted' : ''}" 
+           data-track-id="${track.id}" data-take-index="${idx}"
+           style="cursor: pointer; position: relative;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2);">
+          <div style="flex: 1;">
+            <div style="font-size: var(--text-xs); font-weight: 700;">
+              Take ${idx + 1} ${isSelected ? '★' : ''}
+            </div>
+            <div style="font-size: var(--text-xs); color: var(--text-tertiary);">
+              ${take.duration.toFixed(1)}s
+            </div>
+          </div>
+          <div style="display: flex; gap: var(--space-1);">
+            <button class="region-action-btn" data-action="play-take" title="Play">▶️</button>
+            <button class="region-action-btn" data-action="toggle-mute-take" title="Mute/Unmute">
+              ${isMuted ? '🔇' : '🔊'}
+            </button>
+            <button class="region-action-btn" data-action="delete-take" title="Delete">🗑️</button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  
+  return html;
+}
   
 // Enhanced track strip rendering
 function createTrackStrip(track) {
@@ -7912,6 +7951,35 @@ function createTrackStrip(track) {
         label.textContent = (value > 0 ? 'R' : value < 0 ? 'L' : 'C') + Math.abs(value);
       }
     });
+  });
+
+  // Add take interaction listeners
+  strip.addEventListener('click', (e) => {
+    const takeRegion = e.target.closest('.take-region');
+    if (takeRegion) {
+      const trackId = parseInt(takeRegion.dataset.trackId);
+      const takeIndex = parseInt(takeRegion.dataset.takeIndex);
+      const action = e.target.closest('.region-action-btn')?.dataset.action;
+      
+      if (action === 'play-take') {
+        e.stopPropagation();
+        track.playTake(takeIndex);
+      } else if (action === 'toggle-mute-take') {
+        e.stopPropagation();
+        track.toggleTakeMute(takeIndex);
+        renderMultitrack();
+      } else if (action === 'delete-take') {
+        e.stopPropagation();
+        if (confirm('Delete this take?')) {
+          track.deleteTake(takeIndex);
+          renderMultitrack();
+        }
+      } else {
+        // Click on region itself = select take
+        track.selectTake(takeIndex);
+        renderMultitrack();
+      }
+    }
   });
   
   // Start meter animation for external audio tracks
