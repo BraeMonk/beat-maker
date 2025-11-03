@@ -8423,37 +8423,38 @@ async function bounceAllTracks() {
   }
   
   try {
-  showToast('⏳ Rendering...', 'info');
-  
-  const renderedBuffer = await offlineContext.startRendering();
-  
-  console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
-  
-  // CRITICAL: Actually convert to WAV
-  const wavData = bufferToWavImproved(renderedBuffer);
-  const blob = new Blob([wavData], { type: 'audio/wav' });
-  
-  // CRITICAL: Actually download the file
-  const projectName = document.getElementById('projectName')?.value || 'mix';
-  const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
-  
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a); // MUST append to body for Firefox
-  a.click();
-  document.body.removeChild(a); // Clean up
-  
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-  
-  showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
-  
-} catch (err) {
-  console.error('❌ Bounce failed:', err);
-  showToast(`❌ Bounce failed: ${err.message}`, 'error');
+    showToast('⏳ Rendering...', 'info');
+    
+    const renderedBuffer = await offlineContext.startRendering();
+    
+    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
+    
+    // CRITICAL: Actually convert to WAV
+    const wavData = bufferToWavImproved(renderedBuffer);
+    const blob = new Blob([wavData], { type: 'audio/wav' });
+    
+    // CRITICAL: Actually download the file
+    const projectName = document.getElementById('projectName')?.value || 'mix';
+    const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a); // MUST append to body for Firefox
+    a.click();
+    document.body.removeChild(a); // Clean up
+    
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    
+    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
+    
+  } catch (err) {
+    console.error('❌ Bounce failed:', err);
+    showToast(`❌ Bounce failed: ${err.message}`, 'error');
+  }
 }
-
+  
 // Enhanced record ALL armed tracks function
 async function toggleRecordAllArmed() {
   const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
