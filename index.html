@@ -6938,6 +6938,12 @@ class AudioTrack {
     this.pan = 0;
     this.recordStartTime = null;
     
+    // NEW: Recording source tracking
+    this.recordSource = 'microphone'; // 'microphone' or 'instrument:kick', etc.
+    this.instrumentName = null;
+    this.recordDest = null;
+    this.inputStream = null;
+    
     // Audio routing - just tap the master output
     this.channel = new Tone.Channel({ volume: 0, pan: 0 }).connect(master.fxIn);
     this.recorder = null;
@@ -7129,11 +7135,19 @@ class AudioTrack {
   }
   
   async startRecording() {
-    if (this.recording) return;
+    if (this.recording) {
+      console.warn('⚠️ Already recording');
+      return;
+    }
     
     await Tone.start();
     
-    console.log(`🎙️ Recording INPUT to track ${this.id}`);
+    if (Tone.context.state !== 'running') {
+      await Tone.context.resume();
+    }
+    
+    console.log(`🎙️ Recording to track ${this.id} (${this.name})`);
+    console.log(`   Source: ${this.recordSource}`);
     
     this.recording = true;
     renderMultitrack();
@@ -7143,44 +7157,107 @@ class AudioTrack {
     
     console.log(`⏱️ Track ${this.id} start: ${exactStartTime.toFixed(6)}s`);
     
-    // PROPER MULTITRACK: Record from a dedicated INPUT source, not master output
-    // Option 1: Record from microphone/line input
-    let inputStream;
+    let recordStream = null;
     
     try {
-      // Request microphone access
-      inputStream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 48000
-        } 
-      });
-      
-      console.log(`🎤 Got audio input for track ${this.id}`);
+      // Determine recording source
+      if (this.recordSource === 'microphone') {
+        // Record from microphone/line input
+        try {
+          this.inputStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              sampleRate: 48000,
+              channelCount: 2
+            } 
+          });
+          
+          recordStream = this.inputStream;
+          console.log(`🎤 Recording from microphone`);
+          
+        } catch (err) {
+          console.error('❌ Microphone access denied:', err);
+          this.recording = false;
+          renderMultitrack();
+          showToast(`❌ ${this.name}: Microphone access denied. Check browser permissions.`, 'error');
+          return;
+        }
+        
+      } else if (this.recordSource && this.recordSource.startsWith('instrument:')) {
+        // Record from a specific virtual instrument
+        const instName = this.recordSource.replace('instrument:', '');
+        const inst = instruments[instName];
+        
+        if (!inst || !inst.channel) {
+          console.error(`❌ Instrument ${instName} not found or has no channel`);
+          this.recording = false;
+          renderMultitrack();
+          showToast(`❌ ${this.name}: Instrument ${instName} not available`, 'error');
+          return;
+        }
+        
+        // Create a MediaStreamDestination from the instrument's channel
+        const ctx = Tone.context.rawContext;
+        this.recordDest = ctx.createMediaStreamDestination();
+        
+        // Connect instrument channel to recorder
+        // IMPORTANT: We need to tap AFTER the channel but BEFORE master
+        inst.channel.connect(this.recordDest);
+        
+        recordStream = this.recordDest.stream;
+        console.log(`🎵 Recording from instrument: ${instName}`);
+        
+      } else {
+        console.error(`❌ Unknown record source: ${this.recordSource}`);
+        this.recording = false;
+        renderMultitrack();
+        showToast(`❌ ${this.name}: Invalid recording source`, 'error');
+        return;
+      }
       
     } catch (err) {
-      console.error('❌ Microphone access denied:', err);
+      console.error('❌ Failed to setup recording source:', err);
       this.recording = false;
       renderMultitrack();
-      showToast(`❌ ${this.name}: Microphone access denied`, 'error');
+      showToast(`❌ ${this.name}: Failed to start recording`, 'error');
       return;
     }
     
+    if (!recordStream) {
+      console.error('❌ No record stream available');
+      this.recording = false;
+      renderMultitrack();
+      showToast(`❌ ${this.name}: No audio stream available`, 'error');
+      return;
+    }
+    
+    // Setup MediaRecorder
     let mimeType = '';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
       mimeType = 'audio/webm;codecs=opus';
     } else if (MediaRecorder.isTypeSupported('audio/webm')) {
       mimeType = 'audio/webm';
+    } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+      mimeType = 'audio/ogg;codecs=opus';
     }
     
     this.recordedChunks = [];
-    this.recorder = new MediaRecorder(inputStream, mimeType ? { mimeType } : undefined);
+    
+    try {
+      this.recorder = new MediaRecorder(recordStream, mimeType ? { mimeType } : undefined);
+    } catch (err) {
+      console.error('❌ Failed to create MediaRecorder:', err);
+      this.cleanup();
+      showToast(`❌ ${this.name}: Browser doesn't support recording`, 'error');
+      return;
+    }
     
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
         this.recordedChunks.push(e.data);
+        console.log(`📦 Chunk ${this.recordedChunks.length}: ${e.data.size} bytes`);
       }
     };
     
@@ -7189,31 +7266,37 @@ class AudioTrack {
       const exactDuration = exactStopTime - this.recordStartTime;
       
       console.log(`⏹️ Track ${this.id} duration: ${exactDuration.toFixed(6)}s`);
+      console.log(`   Total chunks: ${this.recordedChunks.length}`);
       
       this.recordStopTime = exactStopTime;
       this.recordDuration = exactDuration;
       
-      // Stop the input stream
-      if (inputStream) {
-        inputStream.getTracks().forEach(track => track.stop());
-      }
-      
+      this.cleanup();
       this.finishRecording();
     };
     
     this.recorder.onerror = (e) => {
       console.error('❌ Recorder error:', e);
-      if (inputStream) {
-        inputStream.getTracks().forEach(track => track.stop());
-      }
+      this.cleanup();
+      this.recording = false;
+      renderMultitrack();
+      showToast(`❌ ${this.name}: Recording failed`, 'error');
     };
     
-    this.recorder.start(100);
-    
-    console.log(`▶️ Recording microphone input to track ${this.id}`);
-    showToast(`🎤 Recording live input to ${this.name}`, 'success');
+    // Start recording
+    try {
+      this.recorder.start(100); // Capture in 100ms chunks
+      console.log(`▶️ MediaRecorder started`);
+      
+      const sourceType = this.recordSource === 'microphone' ? 'microphone' : this.instrumentName;
+      showToast(`🎙️ Recording ${sourceType} to ${this.name}`, 'success');
+      
+    } catch (err) {
+      console.error('❌ Failed to start MediaRecorder:', err);
+      this.cleanup();
+      showToast(`❌ ${this.name}: Failed to start recording`, 'error');
+    }
   }
-
   // Add this NEW method to AudioTrack class for recording specific instruments
   async startInstrumentRecording(instrumentName) {
     if (this.recording) return;
@@ -7287,11 +7370,22 @@ class AudioTrack {
   }
   
   stopRecording() {
-    if (!this.recording || !this.recorder) return;
+    if (!this.recording || !this.recorder) {
+      console.warn('⚠️ Not recording');
+      return;
+    }
     
-    this.recorder.stop();
+    console.log(`⏹️ Stopping recording on track ${this.id}`);
+    
+    try {
+      if (this.recorder.state === 'recording') {
+        this.recorder.stop();
+      }
+    } catch (err) {
+      console.error('❌ Error stopping recorder:', err);
+    }
+    
     this.recording = false;
-    
     multitrack.recordingTracks.delete(this.id);
   }
   
@@ -7486,6 +7580,31 @@ class AudioTrack {
     
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
+
+  cleanup() {
+    // Stop and disconnect input stream (microphone)
+    if (this.inputStream) {
+      this.inputStream.getTracks().forEach(track => {
+        track.stop();
+        console.log(`🛑 Stopped input track: ${track.kind}`);
+      });
+      this.inputStream = null;
+    }
+    
+    // Disconnect instrument recording destination
+    if (this.recordDest && this.instrumentName) {
+      const inst = instruments[this.instrumentName];
+      if (inst && inst.channel) {
+        try {
+          inst.channel.disconnect(this.recordDest);
+          console.log(`🔌 Disconnected ${this.instrumentName} from recorder`);
+        } catch (e) {
+          // Already disconnected, ignore
+        }
+      }
+      this.recordDest = null;
+    }
+  }
   
   dispose() {
     this.stopTake();
@@ -7493,6 +7612,9 @@ class AudioTrack {
     if (this.recorder && this.recording) {
       this.stopRecording();
     }
+    
+    // NEW: Cleanup recording resources
+    this.cleanup();
     
     this.fxChain.forEach(fx => {
       if (fx.node && typeof fx.node.dispose === 'function') {
@@ -7523,6 +7645,10 @@ function createTrack() {
     multitrack.nextTrackId++,
     `Track ${multitrack.tracks.length + 1}`
   );
+  
+  // Default to microphone
+  track.recordSource = 'microphone';
+  track.instrumentName = null;
   
   multitrack.tracks.push(track);
   renderMultitrack();
@@ -7578,11 +7704,22 @@ function createTrackStrip(track) {
     track.takes[track.selectedTakeIndex].duration.toFixed(1) + 's' : 
     '0.0s';
   
+  // NEW: Show recording source
+  let sourceDisplay = '🎤 Mic';
+  if (track.recordSource && track.recordSource.startsWith('instrument:')) {
+    const instName = track.recordSource.replace('instrument:', '');
+    const inst = instruments[instName];
+    sourceDisplay = inst ? `${inst.icon} ${inst.name}` : instName;
+  }
+  
   strip.innerHTML = `
     <div class="track-header">
       <div class="track-header-top">
         <div class="track-name">
           🎵 ${track.name}
+        </div>
+        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
+          ${sourceDisplay} • ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
         </div>
       </div>
       <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
