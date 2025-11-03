@@ -3547,7 +3547,10 @@
         </div>
 
         <div class="toolbar-section">
-          <button class="btn btn-primary" id="recordTrackBtn">⏺️ Record Track</button>
+          <button class="btn btn-primary" id="recordArmedBtn">⏺️ Record Armed</button>
+          <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
+            Arm tracks → Click here
+          </div>
         </div>
         
         <div class="toolbar-section" style="margin-left: auto; border-right: none;">
@@ -6926,11 +6929,13 @@ const multitrack = {
 
 // Track class definition
 class AudioTrack {
-  constructor(id, name) {
+  constructor(id, name, instrument) {
     this.id = id;
     this.name = name;
+    this.instrument = instrument;
     this.takes = [];
     this.selectedTakeIndex = -1;
+    this.armed = false;
     this.recording = false;
     this.muted = false;
     this.soloed = false;
@@ -6938,24 +6943,50 @@ class AudioTrack {
     this.pan = 0;
     this.recordStartTime = null;
     
-    // NEW: Recording source tracking
-    this.recordSource = 'microphone'; // 'microphone' or 'instrument:kick', etc.
-    this.instrumentName = null;
-    this.recordDest = null;
-    this.inputStream = null;
-    
-    // Audio routing - just tap the master output
+    // Audio routing - create dedicated channel for this track
     this.channel = new Tone.Channel({ volume: 0, pan: 0 }).connect(master.fxIn);
     this.recorder = null;
     this.recordedChunks = [];
     this.fxChain = [];
     
+    // Meter for visual feedback
     this.meter = new Tone.Meter();
     this.channel.connect(this.meter);
+    
+    // CRITICAL: Route instrument through this track immediately
+    this.routeInstrument();
+  }
+  
+  routeInstrument() {
+    const instSynth = synths[this.instrument];
+    const instData = instruments[this.instrument];
+    
+    if (!instSynth || !instData) {
+      console.warn(`Cannot route ${this.instrument} - synth not ready`);
+      return;
+    }
+    
+    // Store original channel for cleanup
+    this.originalChannel = instData.channel;
+    
+    // Check if synth has disconnect method (could be wrapped Player or custom synth)
+    if (typeof instSynth.disconnect === 'function') {
+      // Route synth through this track's channel
+      instSynth.disconnect();
+      instSynth.connect(this.channel);
+    } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+      // It's a wrapped Player with .gain property
+      instSynth.gain.disconnect();
+      instSynth.gain.connect(this.channel);
+    } else {
+      console.warn(`${this.instrument} synth has no disconnect method - skipping routing`);
+      return;
+    }
+    
+    console.log(`✅ ${this.instrument} → Track ${this.id}`);
   }
   
   addFx(type, params = {}) {
-    // Keep existing addFx code - it works fine
     let fx;
     
     switch(type) {
@@ -7041,35 +7072,50 @@ class AudioTrack {
   }
   
   reconnectFxChain() {
-    // Disconnect player if exists
-    if (this.currentPlayer) {
-      try {
-        this.currentPlayer.disconnect();
-      } catch (e) {}
-    }
+    const instSynth = synths[this.instrument];
+    if (!instSynth) return;
     
-    // Disconnect all FX
+    // Disconnect FX chain first
     this.fxChain.forEach(fx => {
       if (fx.node && typeof fx.node.disconnect === 'function') {
-        try {
-          fx.node.disconnect();
-        } catch (e) {}
+        fx.node.disconnect();
       }
     });
     
-    // If we have a current player, reconnect through FX chain
-    if (this.currentPlayer) {
-      let lastNode = this.currentPlayer;
-      
-      this.fxChain.forEach(fx => {
-        if (fx.enabled && fx.node) {
-          lastNode.connect(fx.node);
-          lastNode = fx.node;
-        }
-      });
-      
-      lastNode.connect(this.channel);
+    // Disconnect synth safely - handle different types
+    let sourceNode = null;
+    
+    if (typeof instSynth.disconnect === 'function') {
+      // Standard Tone.js synth
+      instSynth.disconnect();
+      sourceNode = instSynth;
+    } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+      // Wrapped Player with .gain property
+      instSynth.gain.disconnect();
+      sourceNode = instSynth.gain;
+    } else if (instSynth.player && typeof instSynth.player.disconnect === 'function') {
+      // Custom wrapped synth with .player property
+      instSynth.player.disconnect();
+      sourceNode = instSynth.player;
+    } else {
+      console.warn(`Cannot reconnect FX for ${this.instrument} - unknown synth type`);
+      return;
     }
+    
+    // Chain enabled FX in order
+    let lastNode = sourceNode;
+    
+    this.fxChain.forEach(fx => {
+      if (fx.enabled && fx.node) {
+        lastNode.connect(fx.node);
+        lastNode = fx.node;
+      }
+    });
+    
+    // Connect final node to channel
+    lastNode.connect(this.channel);
+    
+    console.log(`🔗 Reconnected FX chain for ${this.instrument}: ${this.fxChain.filter(f => f.enabled).length} active effects`);
   }
   
   updateFxParam(fxId, param, value) {
@@ -7079,6 +7125,7 @@ class AudioTrack {
     fx.params[param] = value;
     const node = fx.node;
     
+    // Use ramp for smooth parameter changes
     const rampTime = 0.05;
     
     try {
@@ -7121,6 +7168,8 @@ class AudioTrack {
       } else if (param === 'type' && node.type !== undefined) {
         node.type = value;
       }
+      
+      console.log(`🎛️ ${fx.type}.${param} = ${value}`);
     } catch (err) {
       console.warn(`⚠️ Could not update ${param}:`, err);
     }
@@ -7134,196 +7183,50 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  async startRecording() {
-    if (this.recording) {
-      console.warn('⚠️ Already recording');
-      return;
-    }
-    
-    await Tone.start();
-    
-    if (Tone.context.state !== 'running') {
-      await Tone.context.resume();
-    }
-    
-    console.log(`🎙️ Recording to track ${this.id} (${this.name})`);
-    console.log(`   Source: ${this.recordSource}`);
-    
-    this.recording = true;
-    renderMultitrack();
-    
-    const exactStartTime = Tone.Transport.seconds;
-    this.recordStartTime = exactStartTime;
-    
-    console.log(`⏱️ Track ${this.id} start: ${exactStartTime.toFixed(6)}s`);
-    
-    let recordStream = null;
-    
-    try {
-      // Determine recording source
-      if (this.recordSource === 'microphone') {
-        // Record from microphone/line input
-        try {
-          this.inputStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-              sampleRate: 48000,
-              channelCount: 2
-            } 
-          });
-          
-          recordStream = this.inputStream;
-          console.log(`🎤 Recording from microphone`);
-          
-        } catch (err) {
-          console.error('❌ Microphone access denied:', err);
-          this.recording = false;
-          renderMultitrack();
-          showToast(`❌ ${this.name}: Microphone access denied. Check browser permissions.`, 'error');
-          return;
-        }
-        
-      } else if (this.recordSource && this.recordSource.startsWith('instrument:')) {
-        // Record from a specific virtual instrument
-        const instName = this.recordSource.replace('instrument:', '');
-        const inst = instruments[instName];
-        
-        if (!inst || !inst.channel) {
-          console.error(`❌ Instrument ${instName} not found or has no channel`);
-          this.recording = false;
-          renderMultitrack();
-          showToast(`❌ ${this.name}: Instrument ${instName} not available`, 'error');
-          return;
-        }
-        
-        // Create a MediaStreamDestination from the instrument's channel
-        const ctx = Tone.context.rawContext;
-        this.recordDest = ctx.createMediaStreamDestination();
-        
-        // Connect instrument channel to recorder
-        // IMPORTANT: We need to tap AFTER the channel but BEFORE master
-        inst.channel.connect(this.recordDest);
-        
-        recordStream = this.recordDest.stream;
-        console.log(`🎵 Recording from instrument: ${instName}`);
-        
-      } else {
-        console.error(`❌ Unknown record source: ${this.recordSource}`);
-        this.recording = false;
-        renderMultitrack();
-        showToast(`❌ ${this.name}: Invalid recording source`, 'error');
-        return;
-      }
-      
-    } catch (err) {
-      console.error('❌ Failed to setup recording source:', err);
-      this.recording = false;
-      renderMultitrack();
-      showToast(`❌ ${this.name}: Failed to start recording`, 'error');
-      return;
-    }
-    
-    if (!recordStream) {
-      console.error('❌ No record stream available');
-      this.recording = false;
-      renderMultitrack();
-      showToast(`❌ ${this.name}: No audio stream available`, 'error');
-      return;
-    }
-    
-    // Setup MediaRecorder
-    let mimeType = '';
-    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-      mimeType = 'audio/webm;codecs=opus';
-    } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-      mimeType = 'audio/webm';
-    } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
-      mimeType = 'audio/ogg;codecs=opus';
-    }
-    
-    this.recordedChunks = [];
-    
-    try {
-      this.recorder = new MediaRecorder(recordStream, mimeType ? { mimeType } : undefined);
-    } catch (err) {
-      console.error('❌ Failed to create MediaRecorder:', err);
-      this.cleanup();
-      showToast(`❌ ${this.name}: Browser doesn't support recording`, 'error');
-      return;
-    }
-    
-    this.recorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) {
-        this.recordedChunks.push(e.data);
-        console.log(`📦 Chunk ${this.recordedChunks.length}: ${e.data.size} bytes`);
-      }
-    };
-    
-    this.recorder.onstop = () => {
-      const exactStopTime = Tone.Transport.seconds;
-      const exactDuration = exactStopTime - this.recordStartTime;
-      
-      console.log(`⏹️ Track ${this.id} duration: ${exactDuration.toFixed(6)}s`);
-      console.log(`   Total chunks: ${this.recordedChunks.length}`);
-      
-      this.recordStopTime = exactStopTime;
-      this.recordDuration = exactDuration;
-      
-      this.cleanup();
-      this.finishRecording();
-    };
-    
-    this.recorder.onerror = (e) => {
-      console.error('❌ Recorder error:', e);
-      this.cleanup();
-      this.recording = false;
-      renderMultitrack();
-      showToast(`❌ ${this.name}: Recording failed`, 'error');
-    };
-    
-    // Start recording
-    try {
-      this.recorder.start(100); // Capture in 100ms chunks
-      console.log(`▶️ MediaRecorder started`);
-      
-      const sourceType = this.recordSource === 'microphone' ? 'microphone' : this.instrumentName;
-      showToast(`🎙️ Recording ${sourceType} to ${this.name}`, 'success');
-      
-    } catch (err) {
-      console.error('❌ Failed to start MediaRecorder:', err);
-      this.cleanup();
-      showToast(`❌ ${this.name}: Failed to start recording`, 'error');
-    }
-  }
-  // Add this NEW method to AudioTrack class for recording specific instruments
-  async startInstrumentRecording(instrumentName) {
+  async startRecording(punchIn = null, punchOut = null) {
     if (this.recording) return;
     
     await Tone.start();
     
-    console.log(`🎵 Recording ${instrumentName} to track ${this.id}`);
+    console.log(`🎙️ Recording ${this.instrument} output on track ${this.id}`);
     
+    // IMMEDIATE UI UPDATE
     this.recording = true;
-    this.recordingInstrument = instrumentName;
+    this.armed = false;
+    multitrack.recordingTracks.add(this.id);
     renderMultitrack();
     
-    const exactStartTime = Tone.Transport.seconds;
-    this.recordStartTime = exactStartTime;
+    // CRITICAL: Use GLOBAL record start time if available, otherwise create one
+    if (multitrack.globalRecordStartTime === null) {
+      multitrack.globalRecordStartTime = Tone.Transport.seconds;
+      console.log(`🎬 NEW GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
+    }
     
-    // Create a dedicated recorder for this instrument
-    const inst = instruments[instrumentName];
-    if (!inst || !inst.channel) {
-      console.error(`❌ Instrument ${instrumentName} not found`);
+    this.recordStartTime = multitrack.globalRecordStartTime;
+    console.log(`⏱️ ${this.instrument} using global start time: ${this.recordStartTime.toFixed(3)}s`);
+    
+    // Create recording destination that taps ONLY this instrument's output
+    const instSynth = synths[this.instrument];
+    if (!instSynth) {
+      console.error(`❌ No synth found for ${this.instrument}`);
       this.recording = false;
       renderMultitrack();
       return;
     }
     
-    // Tap THIS instrument's channel output (before it goes to master)
-    const recordDest = inst.channel.context.rawContext.createMediaStreamDestination();
-    inst.channel.connect(recordDest);
+    const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
+    
+    // Connect instrument directly to recording destination
+    if (instSynth.gain && typeof instSynth.gain.connect === 'function') {
+      instSynth.gain.connect(recordDest);
+    } else if (typeof instSynth.connect === 'function') {
+      instSynth.connect(recordDest);
+    } else {
+      console.error(`❌ Cannot connect ${this.instrument} for recording`);
+      this.recording = false;
+      renderMultitrack();
+      return;
+    }
     
     let mimeType = '';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -7334,7 +7237,6 @@ class AudioTrack {
     
     this.recordedChunks = [];
     this.recorder = new MediaRecorder(recordDest.stream, mimeType ? { mimeType } : undefined);
-    this.recordDest = recordDest; // Keep reference for cleanup
     
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
@@ -7343,49 +7245,33 @@ class AudioTrack {
     };
     
     this.recorder.onstop = () => {
-      const exactStopTime = Tone.Transport.seconds;
-      const exactDuration = exactStopTime - this.recordStartTime;
-      
-      console.log(`⏹️ Track ${this.id} (${instrumentName}) duration: ${exactDuration.toFixed(6)}s`);
-      
-      this.recordStopTime = exactStopTime;
-      this.recordDuration = exactDuration;
-      
-      // Disconnect from instrument
-      try {
-        inst.channel.disconnect(recordDest);
-      } catch (e) {}
-      
+      console.log(`⏹️ Stopped recording, ${this.recordedChunks.length} chunks`);
       this.finishRecording();
+      
+      // Disconnect recording tap from instrument
+      if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+        try { instSynth.gain.disconnect(recordDest); } catch (e) {}
+      } else if (typeof instSynth.disconnect === 'function') {
+        try { instSynth.disconnect(recordDest); } catch (e) {}
+      }
     };
     
     this.recorder.onerror = (e) => {
       console.error('❌ Recorder error:', e);
     };
     
+    // Start recording with small chunks for reliability
     this.recorder.start(100);
     
-    console.log(`▶️ Recording ${instrumentName} to track ${this.id}`);
-    showToast(`🎵 Recording ${instrumentName} to ${this.name}`, 'success');
+    console.log(`▶️ Recording started`);
   }
   
   stopRecording() {
-    if (!this.recording || !this.recorder) {
-      console.warn('⚠️ Not recording');
-      return;
-    }
+    if (!this.recording || !this.recorder) return;
     
-    console.log(`⏹️ Stopping recording on track ${this.id}`);
-    
-    try {
-      if (this.recorder.state === 'recording') {
-        this.recorder.stop();
-      }
-    } catch (err) {
-      console.error('❌ Error stopping recorder:', err);
-    }
-    
+    this.recorder.stop();
     this.recording = false;
+    
     multitrack.recordingTracks.delete(this.id);
   }
   
@@ -7394,9 +7280,16 @@ class AudioTrack {
       console.warn('⚠️ No audio data recorded');
       this.recorder = null;
       renderMultitrack();
-      showToast(`⚠️ ${this.name}: No audio captured`, 'warning');
+      showToast('⚠️ Recording was empty', 'warning');
       return;
     }
+    
+    // CRITICAL: Capture the EXACT time we stopped recording
+    const recordEndTime = Tone.Transport.seconds;
+    const recordDuration = recordEndTime - this.recordStartTime;
+    
+    console.log(`⏱️ Recording stopped at transport time: ${recordEndTime.toFixed(3)}s`);
+    console.log(`⏱️ Real recording duration: ${recordDuration.toFixed(3)}s`);
     
     const blob = new Blob(this.recordedChunks, {
       type: this.recorder.mimeType || 'audio/webm'
@@ -7404,9 +7297,9 @@ class AudioTrack {
     
     console.log(`💾 Processing ${blob.size} bytes`);
     
-    if (blob.size < 100) {
-      console.error('❌ Recording too small');
-      showToast(`❌ ${this.name}: Recording failed`, 'error');
+    if (blob.size < 1000) {
+      console.error('❌ Recording too small, likely corrupted');
+      showToast('❌ Recording failed - file too small', 'error');
       this.recordedChunks = [];
       this.recorder = null;
       renderMultitrack();
@@ -7415,34 +7308,49 @@ class AudioTrack {
     
     try {
       const arrayBuffer = await blob.arrayBuffer();
+      
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error('ArrayBuffer is empty');
+      }
+      
       const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+      
+      // Validate decoded buffer
+      if (!audioBuffer || audioBuffer.length === 0 || audioBuffer.numberOfChannels === 0) {
+        throw new Error('Decoded buffer is invalid');
+      }
       
       const take = {
         id: Date.now(),
         buffer: audioBuffer,
         blob: blob,
-        duration: this.recordDuration,
+        duration: audioBuffer.duration, // This is the ACTUAL recorded duration
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime: this.recordStartTime,
+        startTime: this.recordStartTime, // Uses the GLOBAL start time
         recordedAt: Date.now()
       };
       
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
       
-      console.log(`✅ Take ${this.takes.length} created: ${take.duration.toFixed(3)}s`);
+      console.log(`✅ Take ${this.takes.length} created:`);
+      console.log(`   - Using GLOBAL start: ${take.startTime.toFixed(3)}s (transport)`);
+      console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
+      console.log(`   - Ends at: ${(take.startTime + take.duration).toFixed(3)}s (transport)`);
+      console.log(`   - Channels: ${audioBuffer.numberOfChannels}`);
       
       renderMultitrack();
-      showToast(`✅ ${this.name}: Recorded ${take.duration.toFixed(1)}s`, 'success');
+      showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
       
     } catch (err) {
       console.error('❌ Failed to decode audio:', err);
-      showToast(`❌ ${this.name}: Recording failed`, 'error');
+      showToast(`❌ Recording failed: ${err.message}`, 'error');
     }
     
     this.recordedChunks = [];
     this.recorder = null;
+    this.recordStartTime = null;
   }
   
   selectTake(index) {
@@ -7478,39 +7386,33 @@ class AudioTrack {
       return;
     }
     
+    // Stop any existing playback on this track
     if (this.currentPlayer) {
       try {
         if (this.currentPlayer.state === 'started') {
           this.currentPlayer.stop();
         }
         this.currentPlayer.dispose();
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Error stopping previous player:', err);
+      }
     }
     
+    // CRITICAL: Check if buffer is valid
     if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
-      console.error(`❌ Invalid buffer`);
-      showToast(`❌ Take corrupted`, 'error');
+      console.error(`❌ ${this.name}: Invalid or empty buffer`);
+      showToast(`❌ ${this.name}: Take corrupted, cannot play`, 'error');
       return;
     }
     
     try {
+      // Create player from buffer
       this.currentPlayer = new Tone.Player({
         buffer: take.buffer,
         fadeOut: 0.01
-      });
+      }).connect(this.channel);
       
-      // Connect through FX chain
-      let lastNode = this.currentPlayer;
-      
-      this.fxChain.forEach(fx => {
-        if (fx.enabled && fx.node) {
-          lastNode.connect(fx.node);
-          lastNode = fx.node;
-        }
-      });
-      
-      lastNode.connect(this.channel);
-      
+      // WAIT for buffer to be ready
       await new Promise((resolve, reject) => {
         let attempts = 0;
         const checkReady = setInterval(() => {
@@ -7519,12 +7421,13 @@ class AudioTrack {
           if (this.currentPlayer.loaded) {
             clearInterval(checkReady);
             resolve();
-          } else if (attempts > 50) {
+          } else if (attempts > 50) { // 5 second timeout
             clearInterval(checkReady);
             reject(new Error('Buffer load timeout'));
           }
         }, 100);
         
+        // Also resolve if onload fires
         this.currentPlayer.onsuccess = () => {
           clearInterval(checkReady);
           resolve();
@@ -7533,10 +7436,21 @@ class AudioTrack {
       
       await Tone.start();
       
+      // NOW it's safe to start
       this.currentPlayer.start();
+      
+      // Visual feedback - highlight playing take
+      const takeRegions = document.querySelectorAll('.take-region');
+      takeRegions.forEach((region, idx) => {
+        if (idx === index) {
+          region.style.borderColor = 'var(--warning)';
+          region.style.boxShadow = '0 0 20px var(--warning)';
+        }
+      });
       
       showToast(`▶️ Playing ${this.name} - Take ${index + 1}`, 'info');
       
+      // Auto-cleanup when done
       setTimeout(() => {
         if (this.currentPlayer) {
           try {
@@ -7544,14 +7458,22 @@ class AudioTrack {
               this.currentPlayer.stop();
             }
             this.currentPlayer.dispose();
-          } catch (err) {}
+          } catch (err) {
+            console.warn('Cleanup error:', err);
+          }
           this.currentPlayer = null;
         }
+        
+        // Remove visual feedback
+        takeRegions.forEach(region => {
+          region.style.borderColor = '';
+          region.style.boxShadow = '';
+        });
       }, take.duration * 1000 + 500);
       
     } catch (err) {
-      console.error(`❌ Failed to play:`, err);
-      showToast(`❌ Playback failed`, 'error');
+      console.error(`❌ Failed to play ${this.name}:`, err);
+      showToast(`❌ Playback failed: ${err.message}`, 'error');
       
       if (this.currentPlayer) {
         this.currentPlayer.dispose();
@@ -7580,75 +7502,61 @@ class AudioTrack {
     
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
-
-  cleanup() {
-    // Stop and disconnect input stream (microphone)
-    if (this.inputStream) {
-      this.inputStream.getTracks().forEach(track => {
-        track.stop();
-        console.log(`🛑 Stopped input track: ${track.kind}`);
-      });
-      this.inputStream = null;
-    }
-    
-    // Disconnect instrument recording destination
-    if (this.recordDest && this.instrumentName) {
-      const inst = instruments[this.instrumentName];
-      if (inst && inst.channel) {
-        try {
-          inst.channel.disconnect(this.recordDest);
-          console.log(`🔌 Disconnected ${this.instrumentName} from recorder`);
-        } catch (e) {
-          // Already disconnected, ignore
-        }
-      }
-      this.recordDest = null;
-    }
-  }
   
   dispose() {
+    console.log('🗑️ Disposing track:', this.id);
+    
+    // Stop any playing take
     this.stopTake();
     
     if (this.recorder && this.recording) {
       this.stopRecording();
     }
     
-    // NEW: Cleanup recording resources
-    this.cleanup();
+    // Restore original routing
+    const instSynth = synths[this.instrument];
+    if (instSynth && this.originalChannel) {
+      // Safe disconnect - handle different synth types
+      if (typeof instSynth.disconnect === 'function') {
+        instSynth.disconnect();
+        instSynth.connect(this.originalChannel);
+      } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+        // Wrapped Player with .gain
+        instSynth.gain.disconnect();
+        instSynth.gain.connect(this.originalChannel);
+      } else {
+        console.warn(`Cannot restore routing for ${this.instrument} - no disconnect method`);
+      }
+    }
     
+    // Dispose FX chain
     this.fxChain.forEach(fx => {
       if (fx.node && typeof fx.node.dispose === 'function') {
-        try {
-          fx.node.disconnect();
-          fx.node.dispose();
-        } catch (e) {}
+        fx.node.disconnect();
+        fx.node.dispose();
       }
     });
     
+    // Dispose audio nodes
     if (this.meter && typeof this.meter.dispose === 'function') {
-      try {
-        this.meter.dispose();
-      } catch (e) {}
+      this.meter.dispose();
     }
     
     if (this.channel && typeof this.channel.dispose === 'function') {
-      try {
-        this.channel.disconnect();
-        this.channel.dispose();
-      } catch (e) {}
+      this.channel.disconnect();
+      this.channel.dispose();
     }
+    
+    console.log('✅ Track disposed:', this.id);
   }
 }
   
-function createTrack() {
+function createTrack(instrument) {
   const track = new AudioTrack(
     multitrack.nextTrackId++,
-    `Track ${multitrack.tracks.length + 1}`
+    `${instruments[instrument]?.name || instrument} ${multitrack.tracks.length + 1}`,
+    instrument
   );
-  
-  // Default to microphone
-  track.recordSource = 'microphone';
-  track.instrumentName = null;
   
   multitrack.tracks.push(track);
   renderMultitrack();
@@ -7698,35 +7606,29 @@ function createTrackStrip(track) {
   const strip = document.createElement('div');
   strip.className = 'track-strip';
   if (track.recording) strip.classList.add('recording');
+  if (track.armed) strip.classList.add('armed');
   
+  const instData = instruments[track.instrument];
   const takesCount = track.takes.length;
   const duration = track.selectedTakeIndex >= 0 ? 
     track.takes[track.selectedTakeIndex].duration.toFixed(1) + 's' : 
     '0.0s';
   
-  // NEW: Show recording source
-  let sourceDisplay = '🎤 Mic';
-  if (track.recordSource && track.recordSource.startsWith('instrument:')) {
-    const instName = track.recordSource.replace('instrument:', '');
-    const inst = instruments[instName];
-    sourceDisplay = inst ? `${inst.icon} ${inst.name}` : instName;
-  }
-  
   strip.innerHTML = `
     <div class="track-header">
       <div class="track-header-top">
         <div class="track-name">
-          🎵 ${track.name}
-        </div>
-        <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
-          ${sourceDisplay} • ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
+          ${instData?.icon || '🎵'} ${track.name}
         </div>
       </div>
       <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
         ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
       </div>
       
-      <div class="track-controls-grid" style="margin-top: var(--space-3); grid-template-columns: repeat(2, 1fr);">
+      <div class="track-controls-grid" style="margin-top: var(--space-3); grid-template-columns: repeat(3, 1fr);">
+        <button class="track-mini-btn arm ${track.armed ? 'active' : ''}" data-action="arm">
+          ${track.armed ? '🔴' : '⚪'} Arm
+        </button>
         <button class="track-mini-btn mute ${track.muted ? 'active' : ''}" data-action="mute">
           M
         </button>
@@ -7735,6 +7637,9 @@ function createTrackStrip(track) {
         </button>
         <button class="track-mini-btn" data-action="fx">
           🎛️ FX
+        </button>
+        <button class="track-mini-btn" data-action="edit">
+          ✂️ Edit
         </button>
         <button class="track-mini-btn" data-action="delete">
           🗑️
@@ -7765,7 +7670,7 @@ function createTrackStrip(track) {
       ${track.takes.length === 0 && !track.recording ? `
         <div class="track-empty-state">
           <div class="track-empty-state-icon">🎙️</div>
-          <div>Click record to capture live performance</div>
+          <div>Arm and record to create takes</div>
         </div>
       ` : ''}
       ${track.recording ? `
@@ -7778,6 +7683,7 @@ function createTrackStrip(track) {
     </div>
   `;
   
+  // Attach event listeners
   const controlsGrid = strip.querySelector('.track-controls-grid');
   controlsGrid.addEventListener('click', (e) => {
     const btn = e.target.closest('.track-mini-btn');
@@ -7787,6 +7693,7 @@ function createTrackStrip(track) {
     handleTrackAction(track, action);
   });
   
+  // Volume/pan sliders
   strip.querySelectorAll('.track-volume-slider').forEach(slider => {
     slider.addEventListener('input', (e) => {
       const param = e.target.dataset.param;
@@ -7897,13 +7804,19 @@ function findTrackIdFromTakeButton(btn) {
 
 // Handle track actions
 async function handleTrackAction(track, action) {
-  if (action === 'mute') {
+  if (action === 'arm') {
+    track.armed = !track.armed;
+    renderMultitrack();
+  } else if (action === 'rec') {
+    await toggleRecordTrack(track.id);
+  } else if (action === 'mute') {
     track.muted = !track.muted;
     track.channel.mute = track.muted;
     renderMultitrack();
   } else if (action === 'solo') {
     track.soloed = !track.soloed;
     
+    // Handle solo logic
     const anySolo = multitrack.tracks.some(t => t.soloed);
     multitrack.tracks.forEach(t => {
       t.channel.mute = anySolo && !t.soloed;
@@ -7912,6 +7825,8 @@ async function handleTrackAction(track, action) {
     renderMultitrack();
   } else if (action === 'fx') {
     openFxChainEditor(track.id);
+  } else if (action === 'edit') {
+    openTakeEditor(track.id);
   } else if (action === 'delete') {
     if (confirm(`Delete track "${track.name}"?`)) {
       removeTrack(track.id);
@@ -7925,12 +7840,9 @@ async function toggleRecordAllArmed() {
   const recordingTracks = multitrack.tracks.filter(t => t.recording);
   
   if (recordingTracks.length > 0) {
-    // CRITICAL FIX: Stop all at the EXACT same transport time
-    const stopTime = Tone.Transport.seconds;
-    console.log(`🛑 Stopping all recordings at transport ${stopTime.toFixed(6)}s`);
-    
+    // Stop all recording tracks
     recordingTracks.forEach(track => track.stopRecording());
-    multitrack.globalRecordStartTime = null;
+    multitrack.globalRecordStartTime = null; // RESET global start time
     showToast(`⏹️ Stopped recording ${recordingTracks.length} track(s)`, 'info');
     renderMultitrack();
     return;
@@ -7944,23 +7856,21 @@ async function toggleRecordAllArmed() {
   // Start transport if not playing
   if (!state.isPlaying) {
     await togglePlay();
-    // CRITICAL FIX: Wait for transport to actually start
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
   
   await Tone.start();
   
-  // CRITICAL FIX: Capture ONE global start time BEFORE starting any recorders
-  const globalStartTime = Tone.Transport.seconds;
-  multitrack.globalRecordStartTime = globalStartTime;
+  // SET GLOBAL RECORD START TIME - all tracks use this same zero point
+  multitrack.globalRecordStartTime = Tone.Transport.seconds;
+  console.log(`🎬 GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
   
-  console.log(`🎬 GLOBAL RECORD START: ${globalStartTime.toFixed(6)}s (transport)`);
+  // Start ALL armed tracks with the same global start time
+  for (const track of armedTracks) {
+    await track.startRecording();
+  }
   
-  // CRITICAL FIX: Start ALL recorders synchronously in one batch
-  const startPromises = armedTracks.map(track => track.startRecording());
-  await Promise.all(startPromises);
-  
-  console.log(`🎙️ Recording ${armedTracks.length} tracks from ${globalStartTime.toFixed(6)}s`);
+  console.log(`🎙️ Recording ${armedTracks.length} tracks from global time ${multitrack.globalRecordStartTime.toFixed(3)}s`);
   showToast(`🎙️ Recording ${armedTracks.length} track(s)`, 'success');
   renderMultitrack();
 }
@@ -8037,87 +7947,75 @@ function renderFxChain(track) {
     // Define parameter ranges for each FX type
     const paramConfig = {
       reverb: {
-        decay: { min: 0.1, max: 10, step: 0.1, default: 1.5, format: (v) => v.toFixed(1) + 's' },
-        wet: { min: 0, max: 1, step: 0.01, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
+        decay: { min: 0.1, max: 10, default: 1.5, format: (v) => v.toFixed(1) + 's' },
+        wet: { min: 0, max: 1, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
       },
       delay: {
-        time: { options: ['16n', '8n', '4n', '2n', '1n'], default: '8n', format: (v) => v },
-        feedback: { min: 0, max: 0.9, step: 0.01, default: 0.3, format: (v) => Math.round(v * 100) + '%' },
-        wet: { min: 0, max: 1, step: 0.01, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
+        time: { min: 0, max: 3, options: ['16n', '8n', '4n', '2n', '1n'], default: '8n', format: (v) => v },
+        feedback: { min: 0, max: 0.9, default: 0.3, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
       },
       chorus: {
-        frequency: { min: 0.1, max: 10, step: 0.1, default: 1.5, format: (v) => v.toFixed(1) + 'Hz' },
-        delayTime: { min: 2, max: 20, step: 0.5, default: 3.5, format: (v) => v.toFixed(1) + 'ms' },
-        depth: { min: 0, max: 1, step: 0.01, default: 0.7, format: (v) => Math.round(v * 100) + '%' },
-        wet: { min: 0, max: 1, step: 0.01, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
+        frequency: { min: 0.1, max: 10, default: 1.5, format: (v) => v.toFixed(1) + 'Hz' },
+        delayTime: { min: 2, max: 20, default: 3.5, format: (v) => v.toFixed(1) + 'ms' },
+        depth: { min: 0, max: 1, default: 0.7, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
       },
       distortion: {
-        amount: { min: 0, max: 1, step: 0.01, default: 0.4, format: (v) => Math.round(v * 100) + '%' },
-        wet: { min: 0, max: 1, step: 0.01, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
+        amount: { min: 0, max: 1, default: 0.4, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
       },
       filter: {
         type: { options: ['lowpass', 'highpass', 'bandpass'], default: 'lowpass', format: (v) => v },
-        frequency: { min: 20, max: 20000, step: 10, default: 5000, format: (v) => Math.round(v) + 'Hz' },
-        q: { min: 0.1, max: 10, step: 0.1, default: 1, format: (v) => v.toFixed(1) }
+        frequency: { min: 20, max: 20000, default: 5000, format: (v) => Math.round(v) + 'Hz' },
+        q: { min: 0.1, max: 10, default: 1, format: (v) => v.toFixed(1) }
       },
       compressor: {
-        threshold: { min: -60, max: 0, step: 1, default: -24, format: (v) => Math.round(v) + 'dB' },
-        ratio: { min: 1, max: 20, step: 0.5, default: 4, format: (v) => v.toFixed(1) + ':1' },
-        attack: { min: 0.001, max: 1, step: 0.001, default: 0.003, format: (v) => (v * 1000).toFixed(1) + 'ms' },
-        release: { min: 0.01, max: 1, step: 0.01, default: 0.25, format: (v) => (v * 1000).toFixed(0) + 'ms' }
+        threshold: { min: -60, max: 0, default: -24, format: (v) => Math.round(v) + 'dB' },
+        ratio: { min: 1, max: 20, default: 4, format: (v) => v.toFixed(1) + ':1' },
+        attack: { min: 0.001, max: 1, default: 0.003, format: (v) => (v * 1000).toFixed(1) + 'ms' },
+        release: { min: 0.01, max: 1, default: 0.25, format: (v) => (v * 1000).toFixed(0) + 'ms' }
       },
       eq: {
-        low: { min: -24, max: 24, step: 1, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
-        mid: { min: -24, max: 24, step: 1, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
-        high: { min: -24, max: 24, step: 1, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' }
+        low: { min: -24, max: 24, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
+        mid: { min: -24, max: 24, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
+        high: { min: -24, max: 24, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' }
       },
       bitcrusher: {
-        bits: { min: 1, max: 16, step: 1, default: 4, format: (v) => Math.round(v) + ' bits' }
+        bits: { min: 1, max: 16, default: 4, format: (v) => Math.round(v) + ' bits' }
       }
     };
     
     const typeConfig = paramConfig[fx.type] || {};
     
     Object.entries(fx.params).forEach(([param, value]) => {
-      const config = typeConfig[param];
-      if (!config) return;
+      const config = typeConfig[param] || { min: 0, max: 100, default: 50, format: (v) => v };
       
-      let controlHTML = '';
+      let sliderVal = 50;
+      let displayVal = value;
       
+      // Handle special cases
       if (config.options) {
-        // Dropdown for discrete options
-        controlHTML = `
-          <select class="fx-param-select" data-fx-id="${fx.id}" data-param="${param}" 
-                  style="width: 100%; padding: var(--space-2) var(--space-3); 
-                         background: var(--glass-bg); border: 1px solid var(--glass-border); 
-                         border-radius: var(--radius-sm); color: var(--text-primary); 
-                         font: inherit; cursor: pointer;">
-            ${config.options.map(opt => 
-              `<option value="${opt}" ${opt === value ? 'selected' : ''}>${opt}</option>`
-            ).join('')}
-          </select>
-        `;
+        // Discrete options (like delay time or filter type)
+        const optIndex = config.options.indexOf(value);
+        sliderVal = optIndex >= 0 ? (optIndex / (config.options.length - 1)) * 100 : 50;
       } else {
-        // Slider for continuous values
-        controlHTML = `
-          <input type="range" 
-                 min="${config.min}" 
-                 max="${config.max}" 
-                 step="${config.step}" 
-                 value="${value}" 
-                 data-fx-id="${fx.id}" 
-                 data-param="${param}"
-                 class="fx-param-slider">
-        `;
+        // Continuous values
+        sliderVal = ((value - config.min) / (config.max - config.min)) * 100;
+        sliderVal = Math.max(0, Math.min(100, sliderVal));
       }
       
       paramsHTML += `
         <div class="param-control">
           <div class="param-label">
-            <span style="text-transform: capitalize;">${param}</span>
+            <span>${param}</span>
             <span class="param-value" data-fx-id="${fx.id}" data-param="${param}">${config.format(value)}</span>
           </div>
-          ${controlHTML}
+          <input type="range" min="0" max="100" value="${sliderVal}" 
+                 data-fx-id="${fx.id}" 
+                 data-param="${param}"
+                 data-fx-type="${fx.type}"
+                 class="fx-param-slider">
         </div>
       `;
     });
@@ -8158,49 +8056,103 @@ function renderFxChain(track) {
       });
     });
     
-    // Parameter sliders
+    // Parameter sliders with proper mapping
     slots.querySelectorAll('.fx-param-slider').forEach(slider => {
       slider.addEventListener('input', (e) => {
         const fxId = parseFloat(e.target.dataset.fxId);
         const param = e.target.dataset.param;
-        const value = parseFloat(e.target.value);
+        const fxType = e.target.dataset.fxType;
+        const sliderPercent = parseInt(e.target.value, 10);
         
-        track.updateFxParam(fxId, param, value);
+        const fx = track.fxChain.find(f => f.id === fxId);
+        if (!fx) return;
         
-        // Update display
-        const label = slots.querySelector(`.param-value[data-fx-id="${fxId}"][data-param="${param}"]`);
-        if (label) {
-          const fx = track.fxChain.find(f => f.id === fxId);
-          if (fx) {
-            const typeConfig = paramConfig[fx.type];
-            const config = typeConfig?.[param];
-            if (config && config.format) {
-              label.textContent = config.format(value);
-            }
+        const typeConfig = {
+          reverb: {
+            decay: { min: 0.1, max: 10 },
+            wet: { min: 0, max: 1 }
+          },
+          delay: {
+            time: { options: ['16n', '8n', '4n', '2n', '1n'] },
+            feedback: { min: 0, max: 0.9 },
+            wet: { min: 0, max: 1 }
+          },
+          chorus: {
+            frequency: { min: 0.1, max: 10 },
+            delayTime: { min: 2, max: 20 },
+            depth: { min: 0, max: 1 },
+            wet: { min: 0, max: 1 }
+          },
+          distortion: {
+            amount: { min: 0, max: 1 },
+            wet: { min: 0, max: 1 }
+          },
+          filter: {
+            type: { options: ['lowpass', 'highpass', 'bandpass'] },
+            frequency: { min: 20, max: 20000 },
+            q: { min: 0.1, max: 10 }
+          },
+          compressor: {
+            threshold: { min: -60, max: 0 },
+            ratio: { min: 1, max: 20 },
+            attack: { min: 0.001, max: 1 },
+            release: { min: 0.01, max: 1 }
+          },
+          eq: {
+            low: { min: -24, max: 24 },
+            mid: { min: -24, max: 24 },
+            high: { min: -24, max: 24 }
+          },
+          bitcrusher: {
+            bits: { min: 1, max: 16 }
           }
+        };
+        
+        const config = typeConfig[fxType]?.[param];
+        if (!config) return;
+        
+        let value;
+        
+        if (config.options) {
+          // Discrete options
+          const index = Math.round((sliderPercent / 100) * (config.options.length - 1));
+          value = config.options[index];
+        } else {
+          // Continuous value
+          value = config.min + (sliderPercent / 100) * (config.max - config.min);
         }
-      });
-    });
-    
-    // Parameter dropdowns
-    slots.querySelectorAll('.fx-param-select').forEach(select => {
-      select.addEventListener('change', (e) => {
-        const fxId = parseFloat(e.target.dataset.fxId);
-        const param = e.target.dataset.param;
-        const value = e.target.value;
         
         track.updateFxParam(fxId, param, value);
         
         // Update display
-        const label = slots.querySelector(`.param-value[data-fx-id="${fxId}"][data-param="${param}"]`);
+        const label = e.target.closest('.param-control').querySelector('.param-value');
         if (label) {
-          label.textContent = value;
+          if (param === 'decay' || param === 'frequency' || param === 'delayTime') {
+            label.textContent = typeof value === 'number' ? value.toFixed(1) : value;
+            if (param === 'decay') label.textContent += 's';
+            if (param === 'frequency') label.textContent += 'Hz';
+            if (param === 'delayTime') label.textContent += 'ms';
+          } else if (param === 'wet' || param === 'feedback' || param === 'depth' || param === 'amount') {
+            label.textContent = Math.round(value * 100) + '%';
+          } else if (param === 'threshold' || param === 'low' || param === 'mid' || param === 'high') {
+            label.textContent = (value > 0 ? '+' : '') + Math.round(value) + 'dB';
+          } else if (param === 'ratio') {
+            label.textContent = value.toFixed(1) + ':1';
+          } else if (param === 'attack' || param === 'release') {
+            label.textContent = (value * 1000).toFixed(param === 'attack' ? 1 : 0) + 'ms';
+          } else if (param === 'bits') {
+            label.textContent = Math.round(value) + ' bits';
+          } else if (param === 'q') {
+            label.textContent = value.toFixed(1);
+          } else {
+            label.textContent = value.toString();
+          }
         }
       });
     });
   }, 0);
 }
-  
+
 // Open take editor for a track
 function openTakeEditor(trackId) {
   const track = multitrack.tracks.find(t => t.id === trackId);
@@ -8321,6 +8273,7 @@ function openTakeEditor(trackId) {
   
 // Show add track dialog - FIXED VERSION
 function showAddTrackDialog() {
+  // Remove any existing modals
   document.querySelectorAll('.modal-backdrop').forEach(m => m.remove());
   
   const backdrop = document.createElement('div');
@@ -8329,7 +8282,12 @@ function showAddTrackDialog() {
   
   const modal = document.createElement('div');
   modal.className = 'modal';
-  modal.style.maxWidth = '600px';
+  modal.style.maxWidth = '500px';
+  
+  const instrumentOptions = Object.keys(instruments).map(key => {
+    const inst = instruments[key];
+    return `<option value="${key}">${inst.icon} ${inst.name}</option>`;
+  }).join('');
   
   modal.innerHTML = `
     <div class="modal-header">
@@ -8337,72 +8295,57 @@ function showAddTrackDialog() {
       <button class="modal-close">✕</button>
     </div>
     <div class="modal-body">
-      <div style="margin-bottom: var(--space-4);">
-        <label style="display: block; font-weight: 700; margin-bottom: var(--space-2);">Track Name</label>
-        <input type="text" id="newTrackName" value="Track ${multitrack.tracks.length + 1}" 
-               style="width: 100%; padding: var(--space-3); background: var(--glass-bg); 
-                      border: 1px solid var(--glass-border); border-radius: var(--radius-sm); 
-                      color: var(--text-primary); font: inherit;">
-      </div>
-      
-      <div style="margin-bottom: var(--space-4);">
-        <label style="display: block; font-weight: 700; margin-bottom: var(--space-2);">Record Source</label>
-        <select id="trackRecordSource" 
-                style="width: 100%; padding: var(--space-3); background: var(--glass-bg); 
-                       border: 1px solid var(--glass-border); border-radius: var(--radius-sm); 
-                       color: var(--text-primary); font: inherit; cursor: pointer;">
-          <option value="microphone">🎤 Microphone / Line Input</option>
-          <optgroup label="🥁 Virtual Instruments">
-            ${Object.keys(instruments).map(inst => 
-              `<option value="instrument:${inst}">${instruments[inst].icon} ${instruments[inst].name}</option>`
-            ).join('')}
-          </optgroup>
+      <div class="param-control">
+        <label style="font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); display: block;">
+          Select Instrument
+        </label>
+        <select class="instrument-select" style="font-size: var(--text-base); padding: var(--space-3); width: 100%;">
+          ${instrumentOptions}
         </select>
-      </div>
-      
-      <div style="padding: var(--space-3); background: var(--glass-bg); border-radius: var(--radius-md); 
-                  font-size: var(--text-sm); color: var(--text-secondary);">
-        <strong>Microphone:</strong> Records external audio (vocals, guitar, etc.)<br>
-        <strong>Virtual Instrument:</strong> Records that specific drum/synth from the sequencer
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" id="cancelAddTrack">Cancel</button>
-      <button class="btn btn-primary" id="confirmAddTrack">Add Track</button>
+      <button class="btn btn-secondary cancel-btn">Cancel</button>
+      <button class="btn btn-primary confirm-btn">Add Track</button>
     </div>
   `;
   
   backdrop.appendChild(modal);
   document.body.appendChild(backdrop);
   
-  const close = () => backdrop.remove();
+  // Close function
+  const close = () => {
+    backdrop.remove();
+  };
   
-  modal.querySelector('.modal-close').onclick = close;
-  document.getElementById('cancelAddTrack').onclick = close;
+  // Attach listeners using querySelector on modal (no IDs needed)
+  const closeBtn = modal.querySelector('.modal-close');
+  const cancelBtn = modal.querySelector('.cancel-btn');
+  const confirmBtn = modal.querySelector('.confirm-btn');
+  const instrumentSelect = modal.querySelector('.instrument-select');
+  
+  closeBtn.onclick = close;
+  cancelBtn.onclick = close;
+  
+  confirmBtn.onclick = () => {
+    const instrument = instrumentSelect.value;
+    createTrack(instrument);
+    close();
+    showToast('✅ Track added!', 'success');
+  };
+  
   backdrop.onclick = (e) => {
     if (e.target === backdrop) close();
   };
   
-  document.getElementById('confirmAddTrack').onclick = () => {
-    const name = document.getElementById('newTrackName').value || `Track ${multitrack.tracks.length + 1}`;
-    const source = document.getElementById('trackRecordSource').value;
-    
-    const track = createTrack();
-    track.name = name;
-    
-    if (source.startsWith('instrument:')) {
-      track.recordSource = source;
-      track.instrumentName = source.replace('instrument:', '');
-    } else {
-      track.recordSource = 'microphone';
+  // ESC key handler
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      close();
+      document.removeEventListener('keydown', escHandler);
     }
-    
-    renderMultitrack();
-    close();
-    showToast(`✅ Added ${name}`, 'success');
   };
-  
-  setTimeout(() => document.getElementById('newTrackName').focus(), 100);
+  document.addEventListener('keydown', escHandler);
 }
 
 async function bounceAllTracks() {
@@ -8417,30 +8360,31 @@ async function bounceAllTracks() {
   
   showToast('🎵 Preparing bounce...', 'info');
   
-  // Find the longest take to determine bounce duration
-  let maxDuration = 0;
+  // Find the earliest start time and latest end time
+  let minStart = Infinity;
+  let maxEnd = 0;
   
   activeTracks.forEach(track => {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer) return;
     
-    const bufferDuration = take.buffer.duration;
+    const startTime = take.startTime || 0;
+    const endTime = startTime + take.duration;
     
-    console.log(`📊 ${track.name}: ${bufferDuration.toFixed(6)}s`);
-    
-    if (bufferDuration > maxDuration) maxDuration = bufferDuration;
+    if (startTime < minStart) minStart = startTime;
+    if (endTime > maxEnd) maxEnd = endTime;
   });
   
-  if (maxDuration === 0) {
-    showToast('❌ No valid audio buffers found', 'error');
-    return;
-  }
+  if (minStart === Infinity) minStart = 0;
+  const totalDuration = maxEnd - minStart;
   
-  console.log(`🎬 Total bounce duration: ${maxDuration.toFixed(6)}s`);
+  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
+  console.log(`   - Earliest take starts: ${minStart.toFixed(2)}s`);
+  console.log(`   - Latest take ends: ${maxEnd.toFixed(2)}s`);
   
   // Create offline context
   const sampleRate = 48000;
-  const numFrames = Math.ceil(maxDuration * sampleRate) + sampleRate; // Add 1s padding
+  const numFrames = Math.ceil(totalDuration * sampleRate);
   
   const offlineContext = new OfflineAudioContext({
     numberOfChannels: 2,
@@ -8448,52 +8392,45 @@ async function bounceAllTracks() {
     sampleRate: sampleRate
   });
   
-  // Create master chain matching live playback
-  const offlineMaster = new Tone.Gain(0.8, { context: offlineContext });
-  const offlineComp = new Tone.Compressor({
-    threshold: -18,
-    ratio: 4,
-    attack: 0.003,
-    release: 0.15,
-    context: offlineContext
-  });
-  const offlineLimiter = new Tone.Limiter(-1, { context: offlineContext });
+  // Create master output chain
+  const offlineMaster = new Tone.Gain(0.7, { context: offlineContext });
+  const offlineLimiter = new Tone.Limiter(-0.5, { context: offlineContext });
   
-  offlineMaster.chain(offlineComp, offlineLimiter);
+  offlineMaster.connect(offlineLimiter);
   offlineLimiter.connect(offlineContext.destination);
   
-  // Schedule each track's take - ALL START AT TIME 0
+  // Create players for each take
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
     
     try {
-      // CRITICAL: All takes start at position 0 (they were recorded simultaneously)
-      const startTime = 0;
-      
-      console.log(`🎵 Scheduling ${track.name} at ${startTime}s`);
-      
-      // Create player from buffer
+      // Create offline player
       const player = new Tone.Player({
         url: take.buffer,
         context: offlineContext
       });
       
-      // Create channel matching track settings
+      // Create offline channel with track settings
       const channel = new Tone.Channel({
         volume: track.volume,
         pan: track.pan / 100,
         context: offlineContext
       });
       
-      // Connect player -> channel -> master
       player.connect(channel);
       channel.connect(offlineMaster);
       
-      // Start at time 0
-      player.start(startTime);
+      // CRITICAL: Start time is RELATIVE to the earliest take
+      // This preserves timing including all silences
+      const relativeStartTime = (take.startTime || 0) - minStart;
       
-      console.log(`   ✅ Scheduled at ${startTime}s, duration ${take.buffer.duration.toFixed(3)}s`);
+      player.start(relativeStartTime);
+      
+      console.log(`✅ ${track.name}:`);
+      console.log(`   - Recorded at: ${take.startTime.toFixed(3)}s (transport)`);
+      console.log(`   - Renders at: ${relativeStartTime.toFixed(3)}s (bounce)`);
+      console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
       
     } catch (err) {
       console.error(`❌ Failed to schedule ${track.name}:`, err);
@@ -8505,7 +8442,7 @@ async function bounceAllTracks() {
     
     const renderedBuffer = await offlineContext.startRendering();
     
-    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(6)}s`);
+    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
     
     // Convert to WAV
     const wavData = bufferToWavImproved(renderedBuffer);
@@ -8523,7 +8460,7 @@ async function bounceAllTracks() {
     
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     
-    showToast(`✅ Bounce complete! ${maxDuration.toFixed(1)}s`, 'success');
+    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
     
   } catch (err) {
     console.error('❌ Bounce failed:', err);
@@ -8550,11 +8487,10 @@ async function previewMultitrack() {
   }
   
   multitrack.previewPlayers = [];
+  let minStartTime = Infinity;
+  let maxEndTime = 0;
   
   showToast('⏳ Loading takes...', 'info');
-  
-  // Find longest duration for auto-stop
-  let maxDuration = 0;
   
   // Load all players
   for (const track of activeTracks) {
@@ -8567,16 +8503,11 @@ async function previewMultitrack() {
     }
     
     try {
-      // Create player from buffer
       const player = new Tone.Player({
         url: take.buffer,
         fadeOut: 0.01
-      });
+      }).connect(track.channel);
       
-      // CRITICAL: Connect to track's channel (includes FX and mixing)
-      player.connect(track.channel);
-      
-      // Wait for buffer to load
       await new Promise((resolve, reject) => {
         if (player.loaded) {
           resolve();
@@ -8593,16 +8524,19 @@ async function previewMultitrack() {
         }
       });
       
+      const startTime = take.startTime || 0;
+      const endTime = startTime + take.duration;
+      
+      if (startTime < minStartTime) minStartTime = startTime;
+      if (endTime > maxEndTime) maxEndTime = endTime;
+      
       multitrack.previewPlayers.push({ 
         player, 
-        track
+        track, 
+        startTime: startTime
       });
       
-      if (take.buffer.duration > maxDuration) {
-        maxDuration = take.buffer.duration;
-      }
-      
-      console.log(`✅ ${track.name} ready (${take.buffer.duration.toFixed(3)}s)`);
+      console.log(`✅ ${track.name} ready (starts at ${startTime.toFixed(3)}s)`);
       
     } catch (err) {
       console.error(`❌ ${track.name} failed:`, err);
@@ -8614,15 +8548,24 @@ async function previewMultitrack() {
     return;
   }
   
-  console.log(`▶️ Starting preview with ${multitrack.previewPlayers.length} tracks`);
+  // Find earliest take to use as time zero
+  if (minStartTime === Infinity) minStartTime = 0;
+  const totalDuration = maxEndTime - minStartTime;
   
-  // Start all players at the SAME TIME (they were recorded together)
+  console.log(`▶️ Preview:`);
+  console.log(`   - Total duration: ${totalDuration.toFixed(3)}s`);
+  console.log(`   - Earliest start: ${minStartTime.toFixed(3)}s`);
+  console.log(`   - Latest end: ${maxEndTime.toFixed(3)}s`);
+  
+  // Start all players with RELATIVE timing
   const now = Tone.now() + 0.1;
   
-  multitrack.previewPlayers.forEach(({ player, track }) => {
+  multitrack.previewPlayers.forEach(({ player, track, startTime }) => {
     try {
-      player.start(now);
-      console.log(`▶️ ${track.name} starting now`);
+      // Play relative to the earliest take - preserves all timing/silences
+      const relativeStart = startTime - minStartTime;
+      player.start(now + relativeStart);
+      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
     } catch (err) {
       console.error(`❌ Failed to start ${track.name}:`, err);
     }
@@ -8630,12 +8573,12 @@ async function previewMultitrack() {
   
   showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
   
-  // Auto-stop after longest take finishes
+  // Auto-stop after duration
   multitrack.previewTimeout = setTimeout(() => {
     stopMultitrackPreview();
     const btn = document.getElementById('previewMultitrackBtn');
     if (btn) btn.textContent = '▶️ Preview Mix';
-  }, (maxDuration + 0.5) * 1000);
+  }, (totalDuration + 0.5) * 1000);
 }
   
 function stopMultitrackPreview() {
@@ -8691,38 +8634,16 @@ function setupMultitrackListeners() {
     });
   }
   
-  // In setupMultitrackListeners, replace the recordTrackBtn handler:
-  newBtn.addEventListener('click', async () => {
-    let targetTrack = multitrack.tracks.find(t => t.selectedTakeIndex >= 0) || multitrack.tracks[0];
+  const recordArmedBtn = document.getElementById('recordArmedBtn');
+  if (recordArmedBtn) {
+    // Remove old listener
+    const newBtn = recordArmedBtn.cloneNode(true);
+    recordArmedBtn.parentNode.replaceChild(newBtn, recordArmedBtn);
     
-    if (!targetTrack) {
-      showToast('❌ No tracks available - add a track first', 'error');
-      return;
-    }
-    
-    if (targetTrack.recording) {
-      targetTrack.stopRecording();
-      newBtn.textContent = '⏺️ Record Track';
-      showToast('⏹️ Recording stopped', 'info');
-    } else {
-      // Start playback if not playing
-      if (!state.isPlaying) {
-        await togglePlay();
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      
-      // Use appropriate recording method based on track source
-      if (targetTrack.recordSource === 'microphone') {
-        await targetTrack.startRecording();
-      } else if (targetTrack.instrumentName) {
-        await targetTrack.startInstrumentRecording(targetTrack.instrumentName);
-      } else {
-        await targetTrack.startRecording(); // Default to mic
-      }
-      
-      newBtn.textContent = '⏹️ Stop Recording';
-    }
-  });
+    newBtn.addEventListener('click', async () => {
+      await toggleRecordAllArmed();
+    });
+  }
   
   const bounceBtn = document.getElementById('bounceAllBtn');
   if (bounceBtn) {
