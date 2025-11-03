@@ -4783,6 +4783,13 @@ function playAtmosphericNote(inst, time, stepData) {
 }
   
 // -------------------- Vibe System --------------------
+function nextVibe() {
+  const currentVibe = document.body.getAttribute('data-vibe') || 'moon';
+  const currentIndex = VIBES.indexOf(currentVibe);
+  const nextIndex = (currentIndex + 1) % VIBES.length;
+  return VIBES[nextIndex];
+}
+
 function applyVibe(vibe) {
   document.body.setAttribute('data-vibe', vibe);
   try {
@@ -4809,6 +4816,17 @@ function loadSavedVibe() {
   } catch (e) {
     console.warn('Could not load vibe:', e);
     applyVibe('moon');
+  }
+}
+
+function setupVibeSelector() {
+  const vibeBtn = document.getElementById('vibeBtn');
+  if (vibeBtn) {
+    vibeBtn.addEventListener('click', () => {
+      const next = nextVibe();
+      applyVibe(next);
+      console.log('🌈 Switched to:', next);
+    });
   }
 }
 
