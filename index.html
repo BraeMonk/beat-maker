@@ -7803,75 +7803,87 @@ function renderFxChain(track) {
     // Define parameter ranges for each FX type
     const paramConfig = {
       reverb: {
-        decay: { min: 0.1, max: 10, default: 1.5, format: (v) => v.toFixed(1) + 's' },
-        wet: { min: 0, max: 1, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
+        decay: { min: 0.1, max: 10, step: 0.1, default: 1.5, format: (v) => v.toFixed(1) + 's' },
+        wet: { min: 0, max: 1, step: 0.01, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
       },
       delay: {
-        time: { min: 0, max: 3, options: ['16n', '8n', '4n', '2n', '1n'], default: '8n', format: (v) => v },
-        feedback: { min: 0, max: 0.9, default: 0.3, format: (v) => Math.round(v * 100) + '%' },
-        wet: { min: 0, max: 1, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
+        time: { options: ['16n', '8n', '4n', '2n', '1n'], default: '8n', format: (v) => v },
+        feedback: { min: 0, max: 0.9, step: 0.01, default: 0.3, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, step: 0.01, default: 0.3, format: (v) => Math.round(v * 100) + '%' }
       },
       chorus: {
-        frequency: { min: 0.1, max: 10, default: 1.5, format: (v) => v.toFixed(1) + 'Hz' },
-        delayTime: { min: 2, max: 20, default: 3.5, format: (v) => v.toFixed(1) + 'ms' },
-        depth: { min: 0, max: 1, default: 0.7, format: (v) => Math.round(v * 100) + '%' },
-        wet: { min: 0, max: 1, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
+        frequency: { min: 0.1, max: 10, step: 0.1, default: 1.5, format: (v) => v.toFixed(1) + 'Hz' },
+        delayTime: { min: 2, max: 20, step: 0.5, default: 3.5, format: (v) => v.toFixed(1) + 'ms' },
+        depth: { min: 0, max: 1, step: 0.01, default: 0.7, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, step: 0.01, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
       },
       distortion: {
-        amount: { min: 0, max: 1, default: 0.4, format: (v) => Math.round(v * 100) + '%' },
-        wet: { min: 0, max: 1, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
+        amount: { min: 0, max: 1, step: 0.01, default: 0.4, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, step: 0.01, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
       },
       filter: {
         type: { options: ['lowpass', 'highpass', 'bandpass'], default: 'lowpass', format: (v) => v },
-        frequency: { min: 20, max: 20000, default: 5000, format: (v) => Math.round(v) + 'Hz' },
-        q: { min: 0.1, max: 10, default: 1, format: (v) => v.toFixed(1) }
+        frequency: { min: 20, max: 20000, step: 10, default: 5000, format: (v) => Math.round(v) + 'Hz' },
+        q: { min: 0.1, max: 10, step: 0.1, default: 1, format: (v) => v.toFixed(1) }
       },
       compressor: {
-        threshold: { min: -60, max: 0, default: -24, format: (v) => Math.round(v) + 'dB' },
-        ratio: { min: 1, max: 20, default: 4, format: (v) => v.toFixed(1) + ':1' },
-        attack: { min: 0.001, max: 1, default: 0.003, format: (v) => (v * 1000).toFixed(1) + 'ms' },
-        release: { min: 0.01, max: 1, default: 0.25, format: (v) => (v * 1000).toFixed(0) + 'ms' }
+        threshold: { min: -60, max: 0, step: 1, default: -24, format: (v) => Math.round(v) + 'dB' },
+        ratio: { min: 1, max: 20, step: 0.5, default: 4, format: (v) => v.toFixed(1) + ':1' },
+        attack: { min: 0.001, max: 1, step: 0.001, default: 0.003, format: (v) => (v * 1000).toFixed(1) + 'ms' },
+        release: { min: 0.01, max: 1, step: 0.01, default: 0.25, format: (v) => (v * 1000).toFixed(0) + 'ms' }
       },
       eq: {
-        low: { min: -24, max: 24, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
-        mid: { min: -24, max: 24, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
-        high: { min: -24, max: 24, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' }
+        low: { min: -24, max: 24, step: 1, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
+        mid: { min: -24, max: 24, step: 1, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' },
+        high: { min: -24, max: 24, step: 1, default: 0, format: (v) => (v > 0 ? '+' : '') + Math.round(v) + 'dB' }
       },
       bitcrusher: {
-        bits: { min: 1, max: 16, default: 4, format: (v) => Math.round(v) + ' bits' }
+        bits: { min: 1, max: 16, step: 1, default: 4, format: (v) => Math.round(v) + ' bits' }
       }
     };
     
     const typeConfig = paramConfig[fx.type] || {};
     
     Object.entries(fx.params).forEach(([param, value]) => {
-      const config = typeConfig[param] || { min: 0, max: 100, default: 50, format: (v) => v };
+      const config = typeConfig[param];
+      if (!config) return;
       
-      let sliderVal = 50;
-      let displayVal = value;
+      let controlHTML = '';
       
-      // Handle special cases
       if (config.options) {
-        // Discrete options (like delay time or filter type)
-        const optIndex = config.options.indexOf(value);
-        sliderVal = optIndex >= 0 ? (optIndex / (config.options.length - 1)) * 100 : 50;
+        // Dropdown for discrete options
+        controlHTML = `
+          <select class="fx-param-select" data-fx-id="${fx.id}" data-param="${param}" 
+                  style="width: 100%; padding: var(--space-2) var(--space-3); 
+                         background: var(--glass-bg); border: 1px solid var(--glass-border); 
+                         border-radius: var(--radius-sm); color: var(--text-primary); 
+                         font: inherit; cursor: pointer;">
+            ${config.options.map(opt => 
+              `<option value="${opt}" ${opt === value ? 'selected' : ''}>${opt}</option>`
+            ).join('')}
+          </select>
+        `;
       } else {
-        // Continuous values
-        sliderVal = ((value - config.min) / (config.max - config.min)) * 100;
-        sliderVal = Math.max(0, Math.min(100, sliderVal));
+        // Slider for continuous values
+        controlHTML = `
+          <input type="range" 
+                 min="${config.min}" 
+                 max="${config.max}" 
+                 step="${config.step}" 
+                 value="${value}" 
+                 data-fx-id="${fx.id}" 
+                 data-param="${param}"
+                 class="fx-param-slider">
+        `;
       }
       
       paramsHTML += `
         <div class="param-control">
           <div class="param-label">
-            <span>${param}</span>
+            <span style="text-transform: capitalize;">${param}</span>
             <span class="param-value" data-fx-id="${fx.id}" data-param="${param}">${config.format(value)}</span>
           </div>
-          <input type="range" min="0" max="100" value="${sliderVal}" 
-                 data-fx-id="${fx.id}" 
-                 data-param="${param}"
-                 data-fx-type="${fx.type}"
-                 class="fx-param-slider">
+          ${controlHTML}
         </div>
       `;
     });
@@ -7912,103 +7924,49 @@ function renderFxChain(track) {
       });
     });
     
-    // Parameter sliders with proper mapping
+    // Parameter sliders
     slots.querySelectorAll('.fx-param-slider').forEach(slider => {
       slider.addEventListener('input', (e) => {
         const fxId = parseFloat(e.target.dataset.fxId);
         const param = e.target.dataset.param;
-        const fxType = e.target.dataset.fxType;
-        const sliderPercent = parseInt(e.target.value, 10);
-        
-        const fx = track.fxChain.find(f => f.id === fxId);
-        if (!fx) return;
-        
-        const typeConfig = {
-          reverb: {
-            decay: { min: 0.1, max: 10 },
-            wet: { min: 0, max: 1 }
-          },
-          delay: {
-            time: { options: ['16n', '8n', '4n', '2n', '1n'] },
-            feedback: { min: 0, max: 0.9 },
-            wet: { min: 0, max: 1 }
-          },
-          chorus: {
-            frequency: { min: 0.1, max: 10 },
-            delayTime: { min: 2, max: 20 },
-            depth: { min: 0, max: 1 },
-            wet: { min: 0, max: 1 }
-          },
-          distortion: {
-            amount: { min: 0, max: 1 },
-            wet: { min: 0, max: 1 }
-          },
-          filter: {
-            type: { options: ['lowpass', 'highpass', 'bandpass'] },
-            frequency: { min: 20, max: 20000 },
-            q: { min: 0.1, max: 10 }
-          },
-          compressor: {
-            threshold: { min: -60, max: 0 },
-            ratio: { min: 1, max: 20 },
-            attack: { min: 0.001, max: 1 },
-            release: { min: 0.01, max: 1 }
-          },
-          eq: {
-            low: { min: -24, max: 24 },
-            mid: { min: -24, max: 24 },
-            high: { min: -24, max: 24 }
-          },
-          bitcrusher: {
-            bits: { min: 1, max: 16 }
-          }
-        };
-        
-        const config = typeConfig[fxType]?.[param];
-        if (!config) return;
-        
-        let value;
-        
-        if (config.options) {
-          // Discrete options
-          const index = Math.round((sliderPercent / 100) * (config.options.length - 1));
-          value = config.options[index];
-        } else {
-          // Continuous value
-          value = config.min + (sliderPercent / 100) * (config.max - config.min);
-        }
+        const value = parseFloat(e.target.value);
         
         track.updateFxParam(fxId, param, value);
         
         // Update display
-        const label = e.target.closest('.param-control').querySelector('.param-value');
+        const label = slots.querySelector(`.param-value[data-fx-id="${fxId}"][data-param="${param}"]`);
         if (label) {
-          if (param === 'decay' || param === 'frequency' || param === 'delayTime') {
-            label.textContent = typeof value === 'number' ? value.toFixed(1) : value;
-            if (param === 'decay') label.textContent += 's';
-            if (param === 'frequency') label.textContent += 'Hz';
-            if (param === 'delayTime') label.textContent += 'ms';
-          } else if (param === 'wet' || param === 'feedback' || param === 'depth' || param === 'amount') {
-            label.textContent = Math.round(value * 100) + '%';
-          } else if (param === 'threshold' || param === 'low' || param === 'mid' || param === 'high') {
-            label.textContent = (value > 0 ? '+' : '') + Math.round(value) + 'dB';
-          } else if (param === 'ratio') {
-            label.textContent = value.toFixed(1) + ':1';
-          } else if (param === 'attack' || param === 'release') {
-            label.textContent = (value * 1000).toFixed(param === 'attack' ? 1 : 0) + 'ms';
-          } else if (param === 'bits') {
-            label.textContent = Math.round(value) + ' bits';
-          } else if (param === 'q') {
-            label.textContent = value.toFixed(1);
-          } else {
-            label.textContent = value.toString();
+          const fx = track.fxChain.find(f => f.id === fxId);
+          if (fx) {
+            const typeConfig = paramConfig[fx.type];
+            const config = typeConfig?.[param];
+            if (config && config.format) {
+              label.textContent = config.format(value);
+            }
           }
+        }
+      });
+    });
+    
+    // Parameter dropdowns
+    slots.querySelectorAll('.fx-param-select').forEach(select => {
+      select.addEventListener('change', (e) => {
+        const fxId = parseFloat(e.target.dataset.fxId);
+        const param = e.target.dataset.param;
+        const value = e.target.value;
+        
+        track.updateFxParam(fxId, param, value);
+        
+        // Update display
+        const label = slots.querySelector(`.param-value[data-fx-id="${fxId}"][data-param="${param}"]`);
+        if (label) {
+          label.textContent = value;
         }
       });
     });
   }, 0);
 }
-
+  
 // Open take editor for a track
 function openTakeEditor(trackId) {
   const track = multitrack.tracks.find(t => t.id === trackId);
