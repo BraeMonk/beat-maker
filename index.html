@@ -7475,11 +7475,14 @@ class AudioTrack {
 
     // Actual transport time when THIS track starts recording
     const nowTransport = Tone.Transport.seconds;
+    const nowContext = Tone.now(); // actual audio context time
+
     const recordStart = (typeof forcedStartTime === 'number')
       ? forcedStartTime
       : nowTransport;
 
     this.recordStartTime = recordStart;
+    this.contextStartTime = nowContext; // 🔥 new field
 
     console.log(
       `⏱️ ${this.isExternalAudio ? 'External' : this.instrument} track ${this.id} start time: ${this.recordStartTime.toFixed(3)}s (transport)`
@@ -7579,6 +7582,25 @@ class AudioTrack {
       if (!audioBuffer || audioBuffer.length === 0 || audioBuffer.numberOfChannels === 0) {
         throw new Error('Decoded buffer is invalid');
       }
+
+      // Right before saving take.buffer
+      if (this.contextStartTime && multitrack.globalRecordStartTime) {
+        const offsetSec = this.contextStartTime - multitrack.globalRecordStartTime;
+        if (offsetSec > 0) {
+          const silentFrames = Math.floor(offsetSec * buffer.sampleRate);
+          const padded = Tone.context.createBuffer(
+            buffer.numberOfChannels,
+            buffer.length + silentFrames,
+            buffer.sampleRate
+          );
+          for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+            const src = buffer.getChannelData(ch);
+            const dst = padded.getChannelData(ch);
+            dst.set(src, silentFrames);
+          }
+          buffer = padded;
+        }
+      }
       
       const take = {
         id: Date.now(),
@@ -7588,6 +7610,7 @@ class AudioTrack {
         timestamp: new Date().toISOString(),
         muted: false,
         startTime: this.recordStartTime,
+        contextStart: this.contextStartTime || 0,
         recordedAt: Date.now()
       };
       
@@ -8323,7 +8346,7 @@ async function previewMultitrack() {
         }
       });
       
-      const startTime = take.startTime || 0;
+      const startTime = take.contextStart || take.startTime || 0;
       const endTime = startTime + take.duration;
       
       if (startTime < minStartTime) minStartTime = startTime;
@@ -8359,7 +8382,7 @@ async function previewMultitrack() {
   
   multitrack.previewPlayers.forEach(({ player, track, startTime }) => {
     try {
-      const relativeStart = startTime - minStartTime;
+      const relativeStartTime = (take.contextStart || take.startTime || 0) - minStart;
       player.start(now + relativeStart);
       console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
     } catch (err) {
@@ -8617,7 +8640,7 @@ async function bounceAllTracks() {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer) return;
 
-    const startTime = take.startTime || 0;
+    const startTime = take.contextStart || take.startTime || 0;
     const endTime = startTime + take.duration;
 
     if (startTime < minStart) minStart = startTime;
@@ -8682,7 +8705,7 @@ async function bounceAllTracks() {
       channel.connect(offlineMaster);
 
       // Start time is RELATIVE to earliest take
-      const relativeStartTime = (take.startTime || 0) - minStart;
+      const relativeStartTime = (take.contextStart || take.startTime || 0) - minStart;
 
       player.start(relativeStartTime);
 
