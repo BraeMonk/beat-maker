@@ -9848,7 +9848,7 @@ async function exportOfflineRender() {
       masterGain.chain(comp, limiter);
       limiter.toDestination();
       
-      // --- Instruments ---
+      // --- Instruments with REAL samples ---
       const offlineSynths = {};
       const offlineChannels = {};
       
@@ -9863,84 +9863,92 @@ async function exportOfflineRender() {
         
         offlineChannels[inst] = channel;
         
-        if (instData.type === 'drum' || instData.type === 'atmospheric') {
-          offlineSynths[inst] = new Tone.MembraneSynth({
-            pitchDecay: 0.05,
-            octaves: 6,
-            oscillator: { type: 'sine' },
-            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
-          }).connect(channel);
+        if (instData.type === 'drum') {
+          // Use real drum samples
+          const sampleUrl = DRUM_SAMPLES[inst];
+          if (sampleUrl) {
+            offlineSynths[inst] = new Tone.Player({
+              url: sampleUrl,
+              fadeOut: 0.01
+            }).connect(channel);
+          } else {
+            // Fallback synth
+            offlineSynths[inst] = createOfflineDrumSynth(inst, channel);
+          }
+        } else if (instData.type === 'atmospheric') {
+          offlineSynths[inst] = createOfflineAtmospheric(inst, channel);
         } else {
-          // Use PolySynth for melodic instruments (can play chords)
-          offlineSynths[inst] = new Tone.PolySynth(Tone.Synth, {
-            maxPolyphony: 8,
-            oscillator: { type: 'sine' },
-            envelope: {
-              attack: 0.005,
-              decay: 0.1,
-              sustain: 0.3,
-              release: 1
-            }
-          }).connect(channel);
+          // Melodic - use sampled instruments
+          const samples = MELODIC_SAMPLES[inst];
+          if (samples) {
+            offlineSynths[inst] = new Tone.Sampler({
+              urls: samples,
+              release: 2
+            }).connect(channel);
+          } else {
+            // Fallback PolySynth for chords
+            offlineSynths[inst] = new Tone.PolySynth(Tone.Synth, {
+              maxPolyphony: 8,
+              oscillator: { type: 'sine' },
+              envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 }
+            }).connect(channel);
+          }
         }
       });
       
-      // --- Schedule all steps ---
-      for (let bar = 0; bar < barsToRender; bar++) {
-        for (let step = 0; step < stepsPerBar; step++) {
-          const time = bar * stepsPerBar * stepDuration + step * stepDuration;
-          
-          Object.keys(instruments).forEach(inst => {
-            const instData = instruments[inst];
-            const pattern = patterns[inst];
-            if (!instData || !pattern) return;
+      // Wait for samples to load
+      return Tone.loaded().then(() => {
+        // --- Schedule all steps ---
+        for (let bar = 0; bar < barsToRender; bar++) {
+          for (let step = 0; step < stepsPerBar; step++) {
+            const time = bar * stepsPerBar * stepDuration + step * stepDuration;
             
-            const stepData = pattern[step];
-            if (!stepData || !stepData.active) return;
-            
-            if (instData.mute) return;
-            const anySolo = Object.values(instruments).some(i => i.solo);
-            if (anySolo && !instData.solo) return;
-            
-            const prob = stepData.probability ?? 100;
-            if (Math.random() * 100 > prob) return;
-            
-            const synth = offlineSynths[inst];
-            if (!synth) return;
-            
-            // FIX: Ensure humanize doesn't create negative times
-            const humanizeMs = (state.humanize || 0) / 1000;
-            const humanize = (Math.random() - 0.5) * humanizeMs;
-            const scheduledTime = Math.max(0, time + humanize); // Never negative
-            
-            const velocity = (stepData.velocity ?? 0.9) * 0.9;
-            
-            try {
-              if (instData.type === 'drum' || instData.type === 'atmospheric') {
-                synth.triggerAttackRelease(
-                  'C2',
-                  stepData.duration || '8n',
-                  scheduledTime,
-                  velocity
-                );
-              } else {
-                const note = stepData.note || instData.note || 'C4';
-                const dur = stepData.duration || '8n';
-                
-                // PolySynth handles both single notes and arrays
-                synth.triggerAttackRelease(
-                  note,
-                  dur,
-                  scheduledTime,
-                  velocity
-                );
+            Object.keys(instruments).forEach(inst => {
+              const instData = instruments[inst];
+              const pattern = patterns[inst];
+              if (!instData || !pattern) return;
+              
+              const stepData = pattern[step];
+              if (!stepData || !stepData.active) return;
+              
+              if (instData.mute) return;
+              const anySolo = Object.values(instruments).some(i => i.solo);
+              if (anySolo && !instData.solo) return;
+              
+              const prob = stepData.probability ?? 100;
+              if (Math.random() * 100 > prob) return;
+              
+              const synth = offlineSynths[inst];
+              if (!synth) return;
+              
+              // FIX: Ensure positive time
+              const humanizeMs = (state.humanize || 0) / 1000;
+              const humanize = (Math.random() - 0.5) * humanizeMs;
+              const scheduledTime = Math.max(0.001, time + humanize);
+              
+              const velocity = (stepData.velocity ?? 0.9) * 0.9;
+              
+              try {
+                if (instData.type === 'drum' || instData.type === 'atmospheric') {
+                  if (synth.start) {
+                    // It's a Player
+                    synth.start(scheduledTime);
+                  } else {
+                    // It's a synth
+                    synth.triggerAttackRelease('C2', '8n', scheduledTime, velocity);
+                  }
+                } else {
+                  const note = stepData.note || instData.note || 'C4';
+                  const dur = stepData.duration || '8n';
+                  synth.triggerAttackRelease(note, dur, scheduledTime, velocity);
+                }
+              } catch (err) {
+                console.warn(`Failed to schedule ${inst}:`, err);
               }
-            } catch (err) {
-              console.warn(`Failed to schedule ${inst}:`, err);
-            }
-          });
+            });
+          }
         }
-      }
+      });
       
     }, durationSeconds);
     
@@ -9969,117 +9977,63 @@ async function exportOfflineRender() {
   }
 }
 
-// Create offline drum synth
-function createOfflineDrumSynth(inst, context, channel) {
-  let synth;
-  
+// Helper for atmospheric synths
+function createOfflineAtmospheric(inst, channel) {
+  if (inst === 'fx') {
+    return new Tone.MetalSynth({
+      frequency: 200,
+      envelope: { attack: 0.001, decay: 0.05, release: 0.01 },
+      harmonicity: 12,
+      modulationIndex: 50,
+      resonance: 2000,
+      octaves: 0.5
+    }).connect(channel);
+  } else if (inst === 'riser') {
+    return new Tone.FMSynth({
+      harmonicity: 3,
+      modulationIndex: 10,
+      oscillator: { type: 'sawtooth' },
+      envelope: { attack: 2, decay: 0.1, sustain: 0.1, release: 0.5 }
+    }).connect(channel);
+  } else if (inst === 'ambience') {
+    const poly = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'sine' },
+      envelope: { attack: 1, decay: 1, sustain: 0.5, release: 2 }
+    }).connect(channel);
+    return poly;
+  }
+}
+
+// Helper for offline drum synths
+function createOfflineDrumSynth(inst, channel) {
   switch(inst) {
     case 'kick':
-      synth = new Tone.MembraneSynth({
+      return new Tone.MembraneSynth({
         pitchDecay: 0.05,
         octaves: 6,
         oscillator: { type: 'sine' },
-        envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 },
-        context: context
-      });
-      break;
+        envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+      }).connect(channel);
       
     case 'snare':
-      synth = new Tone.NoiseSynth({
+      return new Tone.NoiseSynth({
         noise: { type: 'white' },
-        envelope: { attack: 0.001, decay: 0.2, sustain: 0 },
-        context: context
-      });
-      break;
+        envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
+      }).connect(channel);
       
     case 'hihat':
-      synth = new Tone.MetalSynth({
+      return new Tone.MetalSynth({
         frequency: 200,
         envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
         harmonicity: 5.1,
         modulationIndex: 32,
         resonance: 4000,
-        octaves: 1.5,
-        context: context
-      });
-      break;
-      
-    case 'clap':
-      // Layered clap
-      const clap1 = new Tone.NoiseSynth({
-        noise: { type: 'white' },
-        envelope: { attack: 0.001, decay: 0.05, sustain: 0 },
-        context: context
-      });
-      const clap2 = new Tone.NoiseSynth({
-        noise: { type: 'white' },
-        envelope: { attack: 0.015, decay: 0.03, sustain: 0 },
-        context: context
-      });
-      const clapGain = new Tone.Gain(0.8, { context: context }).connect(channel);
-      clap1.connect(clapGain);
-      clap2.connect(clapGain);
-      
-      return {
-        triggerAttackRelease: (note, dur, time, vel) => {
-          clap1.triggerAttackRelease(dur, time, vel);
-          clap2.triggerAttackRelease(dur, time + 0.015, vel * 0.7);
-        },
-        dispose: () => {
-          clap1.dispose();
-          clap2.dispose();
-          clapGain.dispose();
-        }
-      };
-      
-    case 'rimshot':
-      synth = new Tone.NoiseSynth({
-        noise: { type: 'pink' },
-        envelope: { attack: 0.001, decay: 0.05, sustain: 0 },
-        context: context
-      });
-      break;
-      
-    case 'tom':
-      synth = new Tone.MembraneSynth({
-        pitchDecay: 0.08,
-        octaves: 4,
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.001, decay: 0.3, sustain: 0.1, release: 0.8 },
-        context: context
-      });
-      break;
-      
-    case 'crash':
-      synth = new Tone.MetalSynth({
-        frequency: 100,
-        envelope: { attack: 0.001, decay: 1.4, release: 2 },
-        harmonicity: 5.1,
-        modulationIndex: 32,
-        resonance: 4000,
-        octaves: 1.5,
-        context: context
-      });
-      break;
-      
-    case 'ride':
-      synth = new Tone.MetalSynth({
-        frequency: 150,
-        envelope: { attack: 0.001, decay: 0.8, release: 0.5 },
-        harmonicity: 5.1,
-        modulationIndex: 32,
-        resonance: 4000,
-        octaves: 1.5,
-        context: context
-      });
-      break;
+        octaves: 1.5
+      }).connect(channel);
       
     default:
-      synth = new Tone.MembraneSynth({ context: context });
+      return new Tone.MembraneSynth().connect(channel);
   }
-  
-  synth.connect(channel);
-  return synth;
 }
 
 // Create offline melodic synth
