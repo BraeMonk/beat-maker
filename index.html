@@ -7454,81 +7454,90 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  // Per-track recording, with optional forced start time for group-record
+  // Per-track recording - RECORDS ACTUAL AUDIO OUTPUT
   async startRecording(options = {}) {
     const {
       punchIn = null,
       punchOut = null,
       forcedStartTime = null
     } = options || {};
-
+  
     if (this.recording) return;
-
+  
     await Tone.start();
-
-    console.log(`🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} output on track ${this.id}`);
-
+  
+    console.log(`🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} AUDIO OUTPUT on track ${this.id}`);
+  
     this.recording = true;
     this.armed = false;
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
-
+  
     // Actual transport time when THIS track starts recording
     const nowTransport = Tone.Transport.seconds;
     const nowContext = Tone.now(); // actual audio context time
-
+  
     const recordStart = (typeof forcedStartTime === 'number')
       ? forcedStartTime
       : nowTransport;
-
+  
     this.recordStartTime = recordStart;
-    this.contextStartTime = nowContext; // 🔥 new field
-
+    this.contextStartTime = nowContext;
+  
     console.log(
-      `⏱️ ${this.isExternalAudio ? 'External' : this.instrument} track ${this.id} start time: ${this.recordStartTime.toFixed(3)}s (transport)`
+      `⏱️ Track ${this.id} recording start: ${this.recordStartTime.toFixed(3)}s (transport), ${nowContext.toFixed(3)}s (context)`
     );
-
-    // Create recording destination
+  
+    // 🔥 KEY FIX: Create a MediaStreamDestination from the track's CHANNEL OUTPUT
+    // This captures the actual mixed audio signal, not MIDI events
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
-
-    // Connect channel output to recording destination
+  
+    // Connect the track's channel (which has the instrument/external audio + FX) to the recorder
     this.channel.connect(recordDest);
-
+    
+    // Store the destination so we can disconnect it later
+    this.recordDest = recordDest;
+  
     let mimeType = '';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
       mimeType = 'audio/webm;codecs=opus';
     } else if (MediaRecorder.isTypeSupported('audio/webm')) {
       mimeType = 'audio/webm';
     }
-
+  
     this.recordedChunks = [];
     this.recorder = new MediaRecorder(recordDest.stream, mimeType ? { mimeType } : undefined);
-
+  
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
         this.recordedChunks.push(e.data);
+        console.log(`📦 Chunk ${this.recordedChunks.length}: ${(e.data.size / 1024).toFixed(1)}KB`);
       }
     };
-
+  
     this.recorder.onstop = () => {
-      console.log(`⏹️ Stopped recording, ${this.recordedChunks.length} chunks`);
+      console.log(`⏹️ Recording stopped: ${this.recordedChunks.length} chunks, ${(this.recordedChunks.reduce((sum, c) => sum + c.size, 0) / 1024).toFixed(1)}KB total`);
       this.finishRecording();
-
+  
       // Disconnect recording tap
       try {
         this.channel.disconnect(recordDest);
+        this.recordDest = null;
       } catch (e) {
         console.warn('Disconnect error:', e);
       }
     };
-
+  
     this.recorder.onerror = (e) => {
       console.error('❌ Recorder error:', e);
+      showToast('❌ Recording error: ' + e.error, 'error');
     };
-
+  
+    // Start recording with small timeslices for better responsiveness
     this.recorder.start(100);
-
-    console.log(`▶️ Recording started on track ${this.id}`);
+  
+    console.log(`▶️ Recording AUDIO OUTPUT from track ${this.id} channel`);
+    console.log(`   - Capturing: ${this.isExternalAudio ? 'External Input' : 'Instrument'} → FX Chain → Channel Output`);
   }
   
   stopRecording() {
