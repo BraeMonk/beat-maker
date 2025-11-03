@@ -9871,7 +9871,9 @@ async function exportOfflineRender() {
             envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
           }).connect(channel);
         } else {
-          offlineSynths[inst] = new Tone.Synth({
+          // Use PolySynth for melodic instruments (can play chords)
+          offlineSynths[inst] = new Tone.PolySynth(Tone.Synth, {
+            maxPolyphony: 8,
             oscillator: { type: 'sine' },
             envelope: {
               attack: 0.005,
@@ -9906,7 +9908,11 @@ async function exportOfflineRender() {
             const synth = offlineSynths[inst];
             if (!synth) return;
             
-            const humanize = ((Math.random() - 0.5) * (state.humanize || 0)) / 1000;
+            // FIX: Ensure humanize doesn't create negative times
+            const humanizeMs = (state.humanize || 0) / 1000;
+            const humanize = (Math.random() - 0.5) * humanizeMs;
+            const scheduledTime = Math.max(0, time + humanize); // Never negative
+            
             const velocity = (stepData.velocity ?? 0.9) * 0.9;
             
             try {
@@ -9914,16 +9920,18 @@ async function exportOfflineRender() {
                 synth.triggerAttackRelease(
                   'C2',
                   stepData.duration || '8n',
-                  time + humanize,
+                  scheduledTime,
                   velocity
                 );
               } else {
                 const note = stepData.note || instData.note || 'C4';
                 const dur = stepData.duration || '8n';
+                
+                // PolySynth handles both single notes and arrays
                 synth.triggerAttackRelease(
                   note,
                   dur,
-                  time + humanize,
+                  scheduledTime,
                   velocity
                 );
               }
