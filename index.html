@@ -2365,6 +2365,111 @@
       border-left: 3px solid var(--warning);
     }
     
+    /* External audio track styling */
+    .track-strip.external-audio {
+      border-left: 3px solid var(--info);
+    }
+    
+    .track-strip.external-audio .track-header {
+      background: linear-gradient(90deg, 
+        color-mix(in oklab, var(--info) 10%, transparent),
+        transparent);
+    }
+    
+    /* Input monitoring indicator */
+    .track-mini-btn.mon {
+      position: relative;
+    }
+    
+    .track-mini-btn.mon.active {
+      background: var(--info);
+      animation: monitorPulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes monitorPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    /* Enhanced meter styling */
+    .track-meters {
+      display: flex;
+      gap: var(--space-1);
+      height: 60px;
+      background: rgba(0,0,0,0.3);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .track-meter {
+      flex: 1;
+      background: rgba(0,0,0,0.5);
+      border-radius: var(--radius-xs);
+      overflow: hidden;
+      position: relative;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .track-meter-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, 
+        var(--success) 0%,
+        var(--success) 60%,
+        var(--warning) 75%,
+        var(--error) 90%);
+      transition: height 50ms linear;
+      box-shadow: 0 0 10px currentColor;
+    }
+    
+    /* Peak indicators on meters */
+    .track-meters::before {
+      content: '';
+      position: absolute;
+      top: 10%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--error);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    
+    .track-meters::after {
+      content: '-6dB';
+      position: absolute;
+      top: 35%;
+      right: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      pointer-events: none;
+    }
+    
+    /* Recording with external audio visual feedback */
+    .track-strip.external-audio.recording {
+      box-shadow: 
+        0 0 30px color-mix(in oklab, var(--info) 30%, transparent),
+        inset 0 0 0 2px var(--info);
+      animation: externalRecPulse 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes externalRecPulse {
+      0%, 100% { 
+        box-shadow: 
+          0 0 20px color-mix(in oklab, var(--info) 20%, transparent),
+          inset 0 0 0 2px var(--info);
+      }
+      50% { 
+        box-shadow: 
+          0 0 40px color-mix(in oklab, var(--info) 40%, transparent),
+          inset 0 0 0 2px var(--info);
+      }
+    }
     /* Track header (left side panel) */
     .track-header {
       display: flex;
@@ -3694,6 +3799,29 @@ const metronome = {
   loop: null
 };
 
+async function checkAudioPermissions() {
+  try {
+    const permissions = await navigator.permissions.query({ name: 'microphone' });
+    
+    if (permissions.state === 'denied') {
+      console.warn('⚠️ Microphone permission denied');
+      showToast('⚠️ Microphone access denied. External audio tracks will not work.', 'warning');
+    } else if (permissions.state === 'prompt') {
+      console.log('ℹ️ Microphone permission will be requested when adding external audio track');
+    } else {
+      console.log('✅ Microphone permission granted');
+    }
+    
+    permissions.addEventListener('change', () => {
+      console.log('🔄 Microphone permission changed:', permissions.state);
+    });
+    
+  } catch (err) {
+    // Permissions API not supported or microphone not in query list
+    console.log('ℹ️ Cannot query microphone permissions, will request on demand');
+  }
+}
+  
 // -------------------- Data Structures --------------------
 const instruments = {
   kick: { name: 'Kick', icon: '🥁', mute: false, solo: false, volume: 0, pan: 0, type: 'drum' },
@@ -3937,7 +4065,6 @@ const throttle = (fn, ms) => {
 
 const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
-// -------------------- Audio Context Setup --------------------
 // -------------------- Audio Context Setup --------------------
 function initAudioContext() {
   if (Tone.getContext && Tone.getContext().rawContext) return;
@@ -6928,11 +7055,14 @@ const multitrack = {
 };
 
 // Track class definition
+// ==================== ENHANCED MULTITRACK WITH EXTERNAL AUDIO ====================
+
 class AudioTrack {
-  constructor(id, name, instrument) {
+  constructor(id, name, instrument, isExternalAudio = false) {
     this.id = id;
     this.name = name;
     this.instrument = instrument;
+    this.isExternalAudio = isExternalAudio;
     this.takes = [];
     this.selectedTakeIndex = -1;
     this.armed = false;
@@ -6942,8 +7072,9 @@ class AudioTrack {
     this.volume = 0;
     this.pan = 0;
     this.recordStartTime = null;
+    this.inputMonitoring = false;
     
-    // Audio routing - create dedicated channel for this track
+    // Audio routing
     this.channel = new Tone.Channel({ volume: 0, pan: 0 }).connect(master.fxIn);
     this.recorder = null;
     this.recordedChunks = [];
@@ -6953,8 +7084,60 @@ class AudioTrack {
     this.meter = new Tone.Meter();
     this.channel.connect(this.meter);
     
-    // CRITICAL: Route instrument through this track immediately
-    this.routeInstrument();
+    // External audio setup
+    this.mediaStream = null;
+    this.mediaStreamSource = null;
+    this.externalInput = null;
+    
+    if (isExternalAudio) {
+      this.setupExternalAudio();
+    } else {
+      this.routeInstrument();
+    }
+  }
+  
+  async setupExternalAudio() {
+    try {
+      // Request microphone access
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          sampleRate: 48000
+        }
+      });
+      
+      console.log(`🎤 Microphone access granted for track ${this.id}`);
+      
+      // Create Web Audio nodes
+      const audioContext = Tone.context.rawContext;
+      this.mediaStreamSource = audioContext.createMediaStreamSource(this.mediaStream);
+      
+      // Convert to Tone.js node
+      this.externalInput = new Tone.Gain(1);
+      this.mediaStreamSource.connect(this.externalInput.input);
+      
+      // Route through channel (initially muted until monitoring enabled)
+      this.externalInput.connect(this.channel);
+      this.externalInput.gain.value = this.inputMonitoring ? 1 : 0;
+      
+      console.log(`✅ External audio routed for track ${this.id}`);
+      
+    } catch (err) {
+      console.error(`❌ Failed to access microphone for track ${this.id}:`, err);
+      showToast(`❌ Microphone access denied: ${err.message}`, 'error');
+    }
+  }
+  
+  toggleInputMonitoring() {
+    if (!this.isExternalAudio || !this.externalInput) return;
+    
+    this.inputMonitoring = !this.inputMonitoring;
+    this.externalInput.gain.rampTo(this.inputMonitoring ? 1 : 0, 0.05);
+    
+    console.log(`🔊 Input monitoring ${this.inputMonitoring ? 'ON' : 'OFF'} for ${this.name}`);
+    renderMultitrack();
   }
   
   routeInstrument() {
@@ -6966,16 +7149,12 @@ class AudioTrack {
       return;
     }
     
-    // Store original channel for cleanup
     this.originalChannel = instData.channel;
     
-    // Check if synth has disconnect method (could be wrapped Player or custom synth)
     if (typeof instSynth.disconnect === 'function') {
-      // Route synth through this track's channel
       instSynth.disconnect();
       instSynth.connect(this.channel);
     } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-      // It's a wrapped Player with .gain property
       instSynth.gain.disconnect();
       instSynth.gain.connect(this.channel);
     } else {
@@ -7072,50 +7251,69 @@ class AudioTrack {
   }
   
   reconnectFxChain() {
-    const instSynth = synths[this.instrument];
-    if (!instSynth) return;
-    
-    // Disconnect FX chain first
-    this.fxChain.forEach(fx => {
-      if (fx.node && typeof fx.node.disconnect === 'function') {
-        fx.node.disconnect();
-      }
-    });
-    
-    // Disconnect synth safely - handle different types
-    let sourceNode = null;
-    
-    if (typeof instSynth.disconnect === 'function') {
-      // Standard Tone.js synth
-      instSynth.disconnect();
-      sourceNode = instSynth;
-    } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-      // Wrapped Player with .gain property
-      instSynth.gain.disconnect();
-      sourceNode = instSynth.gain;
-    } else if (instSynth.player && typeof instSynth.player.disconnect === 'function') {
-      // Custom wrapped synth with .player property
-      instSynth.player.disconnect();
-      sourceNode = instSynth.player;
+    if (this.isExternalAudio && this.externalInput) {
+      // External audio routing
+      this.fxChain.forEach(fx => {
+        if (fx.node && typeof fx.node.disconnect === 'function') {
+          fx.node.disconnect();
+        }
+      });
+      
+      this.externalInput.disconnect();
+      
+      let lastNode = this.externalInput;
+      
+      this.fxChain.forEach(fx => {
+        if (fx.enabled && fx.node) {
+          lastNode.connect(fx.node);
+          lastNode = fx.node;
+        }
+      });
+      
+      lastNode.connect(this.channel);
+      
+      console.log(`🔗 Reconnected FX chain for external audio: ${this.fxChain.filter(f => f.enabled).length} active effects`);
+      
     } else {
-      console.warn(`Cannot reconnect FX for ${this.instrument} - unknown synth type`);
-      return;
-    }
-    
-    // Chain enabled FX in order
-    let lastNode = sourceNode;
-    
-    this.fxChain.forEach(fx => {
-      if (fx.enabled && fx.node) {
-        lastNode.connect(fx.node);
-        lastNode = fx.node;
+      // Instrument routing
+      const instSynth = synths[this.instrument];
+      if (!instSynth) return;
+      
+      this.fxChain.forEach(fx => {
+        if (fx.node && typeof fx.node.disconnect === 'function') {
+          fx.node.disconnect();
+        }
+      });
+      
+      let sourceNode = null;
+      
+      if (typeof instSynth.disconnect === 'function') {
+        instSynth.disconnect();
+        sourceNode = instSynth;
+      } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+        instSynth.gain.disconnect();
+        sourceNode = instSynth.gain;
+      } else if (instSynth.player && typeof instSynth.player.disconnect === 'function') {
+        instSynth.player.disconnect();
+        sourceNode = instSynth.player;
+      } else {
+        console.warn(`Cannot reconnect FX for ${this.instrument} - unknown synth type`);
+        return;
       }
-    });
-    
-    // Connect final node to channel
-    lastNode.connect(this.channel);
-    
-    console.log(`🔗 Reconnected FX chain for ${this.instrument}: ${this.fxChain.filter(f => f.enabled).length} active effects`);
+      
+      let lastNode = sourceNode;
+      
+      this.fxChain.forEach(fx => {
+        if (fx.enabled && fx.node) {
+          lastNode.connect(fx.node);
+          lastNode = fx.node;
+        }
+      });
+      
+      lastNode.connect(this.channel);
+      
+      console.log(`🔗 Reconnected FX chain for ${this.instrument}: ${this.fxChain.filter(f => f.enabled).length} active effects`);
+    }
   }
   
   updateFxParam(fxId, param, value) {
@@ -7125,7 +7323,6 @@ class AudioTrack {
     fx.params[param] = value;
     const node = fx.node;
     
-    // Use ramp for smooth parameter changes
     const rampTime = 0.05;
     
     try {
@@ -7188,45 +7385,26 @@ class AudioTrack {
     
     await Tone.start();
     
-    console.log(`🎙️ Recording ${this.instrument} output on track ${this.id}`);
+    console.log(`🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} output on track ${this.id}`);
     
-    // IMMEDIATE UI UPDATE
     this.recording = true;
     this.armed = false;
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
     
-    // CRITICAL: Use GLOBAL record start time if available, otherwise create one
     if (multitrack.globalRecordStartTime === null) {
       multitrack.globalRecordStartTime = Tone.Transport.seconds;
       console.log(`🎬 NEW GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
     }
     
     this.recordStartTime = multitrack.globalRecordStartTime;
-    console.log(`⏱️ ${this.instrument} using global start time: ${this.recordStartTime.toFixed(3)}s`);
+    console.log(`⏱️ ${this.isExternalAudio ? 'External' : this.instrument} using global start time: ${this.recordStartTime.toFixed(3)}s`);
     
-    // Create recording destination that taps ONLY this instrument's output
-    const instSynth = synths[this.instrument];
-    if (!instSynth) {
-      console.error(`❌ No synth found for ${this.instrument}`);
-      this.recording = false;
-      renderMultitrack();
-      return;
-    }
-    
+    // Create recording destination
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
     
-    // Connect instrument directly to recording destination
-    if (instSynth.gain && typeof instSynth.gain.connect === 'function') {
-      instSynth.gain.connect(recordDest);
-    } else if (typeof instSynth.connect === 'function') {
-      instSynth.connect(recordDest);
-    } else {
-      console.error(`❌ Cannot connect ${this.instrument} for recording`);
-      this.recording = false;
-      renderMultitrack();
-      return;
-    }
+    // Connect channel output to recording destination
+    this.channel.connect(recordDest);
     
     let mimeType = '';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -7248,11 +7426,11 @@ class AudioTrack {
       console.log(`⏹️ Stopped recording, ${this.recordedChunks.length} chunks`);
       this.finishRecording();
       
-      // Disconnect recording tap from instrument
-      if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-        try { instSynth.gain.disconnect(recordDest); } catch (e) {}
-      } else if (typeof instSynth.disconnect === 'function') {
-        try { instSynth.disconnect(recordDest); } catch (e) {}
+      // Disconnect recording tap
+      try { 
+        this.channel.disconnect(recordDest); 
+      } catch (e) {
+        console.warn('Disconnect error:', e);
       }
     };
     
@@ -7260,7 +7438,6 @@ class AudioTrack {
       console.error('❌ Recorder error:', e);
     };
     
-    // Start recording with small chunks for reliability
     this.recorder.start(100);
     
     console.log(`▶️ Recording started`);
@@ -7284,7 +7461,6 @@ class AudioTrack {
       return;
     }
     
-    // CRITICAL: Capture the EXACT time we stopped recording
     const recordEndTime = Tone.Transport.seconds;
     const recordDuration = recordEndTime - this.recordStartTime;
     
@@ -7315,7 +7491,6 @@ class AudioTrack {
       
       const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
       
-      // Validate decoded buffer
       if (!audioBuffer || audioBuffer.length === 0 || audioBuffer.numberOfChannels === 0) {
         throw new Error('Decoded buffer is invalid');
       }
@@ -7324,10 +7499,10 @@ class AudioTrack {
         id: Date.now(),
         buffer: audioBuffer,
         blob: blob,
-        duration: audioBuffer.duration, // This is the ACTUAL recorded duration
+        duration: audioBuffer.duration,
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime: this.recordStartTime, // Uses the GLOBAL start time
+        startTime: this.recordStartTime,
         recordedAt: Date.now()
       };
       
@@ -7386,7 +7561,6 @@ class AudioTrack {
       return;
     }
     
-    // Stop any existing playback on this track
     if (this.currentPlayer) {
       try {
         if (this.currentPlayer.state === 'started') {
@@ -7398,7 +7572,6 @@ class AudioTrack {
       }
     }
     
-    // CRITICAL: Check if buffer is valid
     if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
       console.error(`❌ ${this.name}: Invalid or empty buffer`);
       showToast(`❌ ${this.name}: Take corrupted, cannot play`, 'error');
@@ -7406,13 +7579,11 @@ class AudioTrack {
     }
     
     try {
-      // Create player from buffer
       this.currentPlayer = new Tone.Player({
         buffer: take.buffer,
         fadeOut: 0.01
       }).connect(this.channel);
       
-      // WAIT for buffer to be ready
       await new Promise((resolve, reject) => {
         let attempts = 0;
         const checkReady = setInterval(() => {
@@ -7421,13 +7592,12 @@ class AudioTrack {
           if (this.currentPlayer.loaded) {
             clearInterval(checkReady);
             resolve();
-          } else if (attempts > 50) { // 5 second timeout
+          } else if (attempts > 50) {
             clearInterval(checkReady);
             reject(new Error('Buffer load timeout'));
           }
         }, 100);
         
-        // Also resolve if onload fires
         this.currentPlayer.onsuccess = () => {
           clearInterval(checkReady);
           resolve();
@@ -7436,10 +7606,8 @@ class AudioTrack {
       
       await Tone.start();
       
-      // NOW it's safe to start
       this.currentPlayer.start();
       
-      // Visual feedback - highlight playing take
       const takeRegions = document.querySelectorAll('.take-region');
       takeRegions.forEach((region, idx) => {
         if (idx === index) {
@@ -7450,7 +7618,6 @@ class AudioTrack {
       
       showToast(`▶️ Playing ${this.name} - Take ${index + 1}`, 'info');
       
-      // Auto-cleanup when done
       setTimeout(() => {
         if (this.currentPlayer) {
           try {
@@ -7464,7 +7631,6 @@ class AudioTrack {
           this.currentPlayer = null;
         }
         
-        // Remove visual feedback
         takeRegions.forEach(region => {
           region.style.borderColor = '';
           region.style.boxShadow = '';
@@ -7506,30 +7672,43 @@ class AudioTrack {
   dispose() {
     console.log('🗑️ Disposing track:', this.id);
     
-    // Stop any playing take
     this.stopTake();
     
     if (this.recorder && this.recording) {
       this.stopRecording();
     }
     
-    // Restore original routing
-    const instSynth = synths[this.instrument];
-    if (instSynth && this.originalChannel) {
-      // Safe disconnect - handle different synth types
-      if (typeof instSynth.disconnect === 'function') {
-        instSynth.disconnect();
-        instSynth.connect(this.originalChannel);
-      } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-        // Wrapped Player with .gain
-        instSynth.gain.disconnect();
-        instSynth.gain.connect(this.originalChannel);
-      } else {
-        console.warn(`Cannot restore routing for ${this.instrument} - no disconnect method`);
+    // Stop external audio
+    if (this.isExternalAudio) {
+      if (this.mediaStreamSource) {
+        this.mediaStreamSource.disconnect();
+        this.mediaStreamSource = null;
+      }
+      
+      if (this.mediaStream) {
+        this.mediaStream.getTracks().forEach(track => track.stop());
+        this.mediaStream = null;
+      }
+      
+      if (this.externalInput) {
+        this.externalInput.disconnect();
+        this.externalInput.dispose();
+        this.externalInput = null;
+      }
+    } else {
+      // Restore original routing for instruments
+      const instSynth = synths[this.instrument];
+      if (instSynth && this.originalChannel) {
+        if (typeof instSynth.disconnect === 'function') {
+          instSynth.disconnect();
+          instSynth.connect(this.originalChannel);
+        } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
+          instSynth.gain.disconnect();
+          instSynth.gain.connect(this.originalChannel);
+        }
       }
     }
     
-    // Dispose FX chain
     this.fxChain.forEach(fx => {
       if (fx.node && typeof fx.node.dispose === 'function') {
         fx.node.disconnect();
@@ -7537,7 +7716,6 @@ class AudioTrack {
       }
     });
     
-    // Dispose audio nodes
     if (this.meter && typeof this.meter.dispose === 'function') {
       this.meter.dispose();
     }
@@ -7550,12 +7728,18 @@ class AudioTrack {
     console.log('✅ Track disposed:', this.id);
   }
 }
+
+// Create track with external audio support
+function createTrack(instrument, isExternalAudio = false) {
+  const trackName = isExternalAudio ? 
+    `Mic/Ext ${multitrack.tracks.filter(t => t.isExternalAudio).length + 1}` :
+    `${instruments[instrument]?.name || instrument} ${multitrack.tracks.length + 1}`;
   
-function createTrack(instrument) {
   const track = new AudioTrack(
     multitrack.nextTrackId++,
-    `${instruments[instrument]?.name || instrument} ${multitrack.tracks.length + 1}`,
-    instrument
+    trackName,
+    instrument,
+    isExternalAudio
   );
   
   multitrack.tracks.push(track);
@@ -7564,51 +7748,17 @@ function createTrack(instrument) {
   return track;
 }
 
-// Remove a track
-function removeTrack(trackId) {
-  const index = multitrack.tracks.findIndex(t => t.id === trackId);
-  if (index === -1) return;
-  
-  const track = multitrack.tracks[index];
-  track.dispose();
-  
-  multitrack.tracks.splice(index, 1);
-  renderMultitrack();
-}
-
-// Render multitrack UI
-function renderMultitrack() {
-  const grid = document.getElementById('multitrackGrid');
-  if (!grid) return;
-  
-  // Clear existing content
-  grid.innerHTML = '';
-  
-  if (multitrack.tracks.length === 0) {
-    grid.innerHTML = `
-      <div style="padding: var(--space-8); text-align: center; color: var(--text-tertiary);">
-        <div style="font-size: var(--text-2xl); margin-bottom: var(--space-3);">🎙️</div>
-        <div style="font-size: var(--text-lg); font-weight: 700; margin-bottom: var(--space-2);">No tracks yet</div>
-        <div style="font-size: var(--text-sm);">Click "Add Track" to start recording</div>
-      </div>
-    `;
-    return;
-  }
-  
-  multitrack.tracks.forEach(track => {
-    const strip = createTrackStrip(track);
-    grid.appendChild(strip);
-  });
-}
-
-// Create track strip element
+// Enhanced track strip rendering
 function createTrackStrip(track) {
   const strip = document.createElement('div');
   strip.className = 'track-strip';
   if (track.recording) strip.classList.add('recording');
   if (track.armed) strip.classList.add('armed');
   
-  const instData = instruments[track.instrument];
+  const instData = track.isExternalAudio ? 
+    { icon: '🎤', name: 'External' } : 
+    instruments[track.instrument];
+  
   const takesCount = track.takes.length;
   const duration = track.selectedTakeIndex >= 0 ? 
     track.takes[track.selectedTakeIndex].duration.toFixed(1) + 's' : 
@@ -7622,16 +7772,22 @@ function createTrackStrip(track) {
         </div>
       </div>
       <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
-        ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
+        ${track.isExternalAudio ? '🎤 External Input' : instData?.name || track.instrument} • ${takesCount} take${takesCount !== 1 ? 's' : ''} • ${duration}
       </div>
       
       <div class="track-controls-grid" style="margin-top: var(--space-3); grid-template-columns: repeat(3, 1fr);">
         <button class="track-mini-btn arm ${track.armed ? 'active' : ''}" data-action="arm">
           ${track.armed ? '🔴' : '⚪'} Arm
         </button>
-        <button class="track-mini-btn mute ${track.muted ? 'active' : ''}" data-action="mute">
-          M
-        </button>
+        ${track.isExternalAudio ? `
+          <button class="track-mini-btn mon ${track.inputMonitoring ? 'active' : ''}" data-action="monitor">
+            ${track.inputMonitoring ? '🔊' : '🔇'} Mon
+          </button>
+        ` : `
+          <button class="track-mini-btn mute ${track.muted ? 'active' : ''}" data-action="mute">
+            M
+          </button>
+        `}
         <button class="track-mini-btn solo ${track.soloed ? 'active' : ''}" data-action="solo">
           S
         </button>
@@ -7645,6 +7801,14 @@ function createTrackStrip(track) {
           🗑️
         </button>
       </div>
+      
+      ${!track.isExternalAudio ? `
+        <div class="track-controls-grid" style="margin-top: var(--space-2); grid-template-columns: 1fr;">
+          <button class="track-mini-btn mute ${track.muted ? 'active' : ''}" data-action="mute">
+            ${track.muted ? '🔇 Unmuted' : '🔊 Muted'}
+          </button>
+        </div>
+      ` : ''}
       
       <div style="display: grid; gap: var(--space-2); margin-top: var(--space-3);">
         <div class="param-control">
@@ -7664,13 +7828,24 @@ function createTrackStrip(track) {
                  class="track-volume-slider" data-param="pan">
         </div>
       </div>
+      
+      ${track.isExternalAudio && track.meter ? `
+        <div style="margin-top: var(--space-3);">
+          <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: var(--space-1);">Input Level</div>
+          <div class="track-meters">
+            <div class="track-meter">
+              <div class="track-meter-fill" style="height: 0%;" data-meter-track="${track.id}"></div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
     </div>
     
     <div class="track-canvas-area">
       ${track.takes.length === 0 && !track.recording ? `
         <div class="track-empty-state">
           <div class="track-empty-state-icon">🎙️</div>
-          <div>Arm and record to create takes</div>
+          <div>${track.isExternalAudio ? 'Arm and record external audio' : 'Arm and record to create takes'}</div>
         </div>
       ` : ''}
       ${track.recording ? `
@@ -7680,17 +7855,19 @@ function createTrackStrip(track) {
         </div>
       ` : ''}
       ${track.takes.length > 0 ? renderTakes(track) : ''}
-    </div>
+      </div>
   `;
   
   // Attach event listeners
-  const controlsGrid = strip.querySelector('.track-controls-grid');
-  controlsGrid.addEventListener('click', (e) => {
-    const btn = e.target.closest('.track-mini-btn');
-    if (!btn || btn.disabled) return;
-    
-    const action = btn.dataset.action;
-    handleTrackAction(track, action);
+  const controlsGrid = strip.querySelectorAll('.track-controls-grid');
+  controlsGrid.forEach(grid => {
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.track-mini-btn');
+      if (!btn || btn.disabled) return;
+      
+      const action = btn.dataset.action;
+      handleTrackAction(track, action);
+    });
   });
   
   // Volume/pan sliders
@@ -7716,97 +7893,38 @@ function createTrackStrip(track) {
     });
   });
   
+  // Start meter animation for external audio tracks
+  if (track.isExternalAudio && track.meter) {
+    const updateMeter = () => {
+      const meterFill = strip.querySelector(`[data-meter-track="${track.id}"]`);
+      if (!meterFill || !track.meter) return;
+      
+      const value = track.meter.getValue();
+      const db = typeof value === 'number' ? value : (value[0] + value[1]) / 2;
+      const normalized = Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+      
+      meterFill.style.height = normalized + '%';
+      
+      if (strip.isConnected) {
+        requestAnimationFrame(updateMeter);
+      }
+    };
+    
+    requestAnimationFrame(updateMeter);
+  }
+  
   return strip;
 }
 
-function renderTakes(track) {
-  let html = '<div style="padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">';
-  
-  track.takes.forEach((take, idx) => {
-    const isSelected = idx === track.selectedTakeIndex;
-    html += `
-      <div class="take-region ${isSelected ? 'selected' : ''} ${take.muted ? 'muted' : ''}" 
-           data-take-index="${idx}">
-        <div style="flex: 1; display: flex; flex-direction: column; gap: var(--space-1);">
-          <div style="font-weight: 800; font-size: var(--text-sm);">Take ${idx + 1}</div>
-          <div style="font-size: var(--text-xs); color: var(--text-tertiary);">
-            ${take.duration.toFixed(2)}s • ${new Date(take.timestamp).toLocaleTimeString()}
-          </div>
-        </div>
-        <div style="display: flex; gap: var(--space-1);">
-          <button class="region-action-btn" data-action="play" data-take-index="${idx}" title="Play take">
-            ▶️
-          </button>
-          <button class="region-action-btn" data-action="select" data-take-index="${idx}">
-            ${isSelected ? '✓' : '○'}
-          </button>
-          <button class="region-action-btn" data-action="export" data-take-index="${idx}">💾</button>
-          <button class="region-action-btn" data-action="delete" data-take-index="${idx}">🗑️</button>
-        </div>
-      </div>
-    `;
-  });
-  
-  html += '</div>';
-  
-  // Need to attach listeners after rendering
-  setTimeout(() => {
-    document.querySelectorAll('.region-action-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const action = btn.dataset.action;
-        const takeIndex = parseInt(btn.dataset.takeIndex);
-        const trackId = findTrackIdFromTakeButton(btn);
-        const track = multitrack.tracks.find(t => t.id === trackId);
-        
-        if (!track) return;
-        
-        if (action === 'play') {
-          track.playTake(takeIndex);
-        } else if (action === 'select') {
-          track.selectTake(takeIndex);
-        } else if (action === 'export') {
-          track.exportTake(takeIndex);
-        } else if (action === 'delete') {
-          if (confirm('Delete this take?')) {
-            track.deleteTake(takeIndex);
-          }
-        }
-      });
-    });
-  }, 0);
-  
-  return html;
-}
-
-// Helper to find track ID from a button deep in the DOM
-function findTrackIdFromTakeButton(btn) {
-  const strip = btn.closest('.track-strip');
-  if (!strip || !strip.parentElement) {
-    console.warn('Cannot find track strip from button');
-    return null;
-  }
-  
-  const grid = document.getElementById('multitrackGrid');
-  if (!grid) {
-    console.warn('Cannot find multitrack grid');
-    return null;
-  }
-  
-  const index = Array.from(grid.children).indexOf(strip);
-  if (index === -1 || index >= multitrack.tracks.length) {
-    console.warn(`Invalid track index: ${index}`);
-    return null;
-  }
-  
-  return multitrack.tracks[index]?.id;
-}
-
-// Handle track actions
+// Enhanced track action handler
 async function handleTrackAction(track, action) {
   if (action === 'arm') {
     track.armed = !track.armed;
     renderMultitrack();
+  } else if (action === 'monitor') {
+    if (track.isExternalAudio) {
+      track.toggleInputMonitoring();
+    }
   } else if (action === 'rec') {
     await toggleRecordTrack(track.id);
   } else if (action === 'mute') {
@@ -7816,7 +7934,6 @@ async function handleTrackAction(track, action) {
   } else if (action === 'solo') {
     track.soloed = !track.soloed;
     
-    // Handle solo logic
     const anySolo = multitrack.tracks.some(t => t.soloed);
     multitrack.tracks.forEach(t => {
       t.channel.mute = anySolo && !t.soloed;
@@ -7834,15 +7951,382 @@ async function handleTrackAction(track, action) {
   }
 }
 
-// Toggle recording for ALL armed tracks (synchronized)
+// Enhanced add track dialog with external audio option
+function showAddTrackDialog() {
+  document.querySelectorAll('.modal-backdrop').forEach(m => m.remove());
+  
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.style.zIndex = '9999';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '600px';
+  
+  const instrumentOptions = Object.keys(instruments).map(key => {
+    const inst = instruments[key];
+    return `<option value="${key}">${inst.icon} ${inst.name}</option>`;
+  }).join('');
+  
+  modal.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">➕ Add Track</div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display: grid; gap: var(--space-4);">
+        <div class="param-control">
+          <label style="font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); display: block;">
+            Track Type
+          </label>
+          <select class="track-type-select" style="font-size: var(--text-base); padding: var(--space-3); width: 100%;">
+            <option value="instrument">🎹 Instrument Track</option>
+            <option value="external">🎤 External Audio (Mic/Line In)</option>
+          </select>
+        </div>
+        
+        <div class="instrument-selector">
+          <label style="font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); display: block;">
+            Select Instrument
+          </label>
+          <select class="instrument-select" style="font-size: var(--text-base); padding: var(--space-3); width: 100%;">
+            ${instrumentOptions}
+          </select>
+        </div>
+        
+        <div class="external-info" style="display: none; padding: var(--space-4); background: var(--glass-bg); border-radius: var(--radius-md); border: 1px solid var(--glass-border);">
+          <div style="font-weight: 700; margin-bottom: var(--space-2); color: var(--text-primary);">🎤 External Audio Input</div>
+          <div style="font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6;">
+            <p style="margin-bottom: var(--space-2);">This will create a track that records from your microphone or audio interface.</p>
+            <p style="margin-bottom: var(--space-2);"><strong>Features:</strong></p>
+            <ul style="margin-left: var(--space-5); margin-bottom: var(--space-2);">
+              <li>Real-time monitoring with effects</li>
+              <li>Record vocals, guitar, or any external source</li>
+              <li>Syncs perfectly with instrument tracks</li>
+            </ul>
+            <p style="font-size: var(--text-xs); color: var(--text-tertiary);">
+              ⚠️ Your browser will request microphone access
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary cancel-btn">Cancel</button>
+      <button class="btn btn-primary confirm-btn">Add Track</button>
+    </div>
+  `;
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  
+  const close = () => {
+    backdrop.remove();
+  };
+  
+  const closeBtn = modal.querySelector('.modal-close');
+  const cancelBtn = modal.querySelector('.cancel-btn');
+  const confirmBtn = modal.querySelector('.confirm-btn');
+  const trackTypeSelect = modal.querySelector('.track-type-select');
+  const instrumentSelector = modal.querySelector('.instrument-selector');
+  const externalInfo = modal.querySelector('.external-info');
+  const instrumentSelect = modal.querySelector('.instrument-select');
+  
+  closeBtn.onclick = close;
+  cancelBtn.onclick = close;
+  
+  trackTypeSelect.addEventListener('change', () => {
+    const isExternal = trackTypeSelect.value === 'external';
+    instrumentSelector.style.display = isExternal ? 'none' : 'block';
+    externalInfo.style.display = isExternal ? 'block' : 'none';
+  });
+  
+  confirmBtn.onclick = async () => {
+    const isExternal = trackTypeSelect.value === 'external';
+    
+    if (isExternal) {
+      // Create external audio track
+      const track = createTrack('external', true);
+      
+      if (!track.mediaStream) {
+        showToast('❌ Failed to access microphone', 'error');
+        removeTrack(track.id);
+      } else {
+        showToast('✅ External audio track added!', 'success');
+      }
+    } else {
+      // Create instrument track
+      const instrument = instrumentSelect.value;
+      createTrack(instrument, false);
+      showToast('✅ Instrument track added!', 'success');
+    }
+    
+    close();
+  };
+  
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) close();
+  };
+  
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      close();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
+// Enhanced preview with ALL takes from ALL tracks
+async function previewMultitrack() {
+  const activeTracks = multitrack.tracks.filter(t => 
+    t.selectedTakeIndex >= 0 && !t.muted
+  );
+  
+  if (activeTracks.length === 0) {
+    showToast('❌ No active takes to preview', 'error');
+    return;
+  }
+  
+  stopMultitrackPreview();
+  
+  await Tone.start();
+  
+  if (Tone.context.state !== 'running') {
+    await Tone.context.resume();
+  }
+  
+  multitrack.previewPlayers = [];
+  let minStartTime = Infinity;
+  let maxEndTime = 0;
+  
+  showToast('⏳ Loading takes...', 'info');
+  
+  for (const track of activeTracks) {
+    const take = track.takes[track.selectedTakeIndex];
+    if (!take || take.muted) continue;
+    
+    if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
+      console.error(`❌ ${track.name}: Invalid buffer`);
+      continue;
+    }
+    
+    try {
+      const player = new Tone.Player({
+        url: take.buffer,
+        fadeOut: 0.01
+      }).connect(track.channel);
+      
+      await new Promise((resolve, reject) => {
+        if (player.loaded) {
+          resolve();
+        } else {
+          const timeout = setTimeout(() => reject(new Error('Load timeout')), 5000);
+          player.onsuccess = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
+          player.onerror = (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          };
+        }
+      });
+      
+      const startTime = take.startTime || 0;
+      const endTime = startTime + take.duration;
+      
+      if (startTime < minStartTime) minStartTime = startTime;
+      if (endTime > maxEndTime) maxEndTime = endTime;
+      
+      multitrack.previewPlayers.push({ 
+        player, 
+        track, 
+        startTime: startTime
+      });
+      
+      console.log(`✅ ${track.name} ready (starts at ${startTime.toFixed(3)}s)`);
+      
+    } catch (err) {
+      console.error(`❌ ${track.name} failed:`, err);
+    }
+  }
+  
+  if (multitrack.previewPlayers.length === 0) {
+    showToast('❌ No takes could be loaded', 'error');
+    return;
+  }
+  
+  if (minStartTime === Infinity) minStartTime = 0;
+  const totalDuration = maxEndTime - minStartTime;
+  
+  console.log(`▶️ Preview:`);
+  console.log(`   - Total duration: ${totalDuration.toFixed(3)}s`);
+  console.log(`   - Earliest start: ${minStartTime.toFixed(3)}s`);
+  console.log(`   - Latest end: ${maxEndTime.toFixed(3)}s`);
+  
+  const now = Tone.now() + 0.1;
+  
+  multitrack.previewPlayers.forEach(({ player, track, startTime }) => {
+    try {
+      const relativeStart = startTime - minStartTime;
+      player.start(now + relativeStart);
+      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
+    } catch (err) {
+      console.error(`❌ Failed to start ${track.name}:`, err);
+    }
+  });
+  
+  showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
+  
+  multitrack.previewTimeout = setTimeout(() => {
+    stopMultitrackPreview();
+    const btn = document.getElementById('previewMultitrackBtn');
+    if (btn) btn.textContent = '▶️ Preview Mix';
+  }, (totalDuration + 0.5) * 1000);
+}
+
+function stopMultitrackPreview() {
+  if (multitrack.previewPlayers) {
+    multitrack.previewPlayers.forEach(({ player }) => {
+      try {
+        if (player.state === 'started') {
+          player.stop();
+        }
+        player.dispose();
+      } catch (err) {
+        console.warn('Error stopping preview player:', err);
+      }
+    });
+    multitrack.previewPlayers = null;
+    console.log('⏹️ Preview stopped');
+  }
+  
+  if (multitrack.previewTimeout) {
+    clearTimeout(multitrack.previewTimeout);
+    multitrack.previewTimeout = null;
+  }
+}
+
+// Enhanced bounce with ALL takes from ALL tracks
+async function bounceAllTracks() {
+  const activeTracks = multitrack.tracks.filter(t => 
+    t.selectedTakeIndex >= 0 && !t.muted
+  );
+  
+  if (activeTracks.length === 0) {
+    showToast('❌ No tracks to bounce!', 'error');
+    return;
+  }
+  
+  showToast('🎵 Preparing bounce...', 'info');
+  
+  let minStart = Infinity;
+  let maxEnd = 0;
+  
+  activeTracks.forEach(track => {
+    const take = track.takes[track.selectedTakeIndex];
+    if (!take || take.muted || !take.buffer) return;
+    
+    const startTime = take.startTime || 0;
+    const endTime = startTime + take.duration;
+    
+    if (startTime < minStart) minStart = startTime;
+    if (endTime > maxEnd) maxEnd = endTime;
+  });
+  
+  if (minStart === Infinity) minStart = 0;
+  const totalDuration = maxEnd - minStart;
+  
+  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
+  console.log(`   - Earliest take starts: ${minStart.toFixed(2)}s`);
+  console.log(`   - Latest take ends: ${maxEnd.toFixed(2)}s`);
+  
+  const sampleRate = 48000;
+  const numFrames = Math.ceil(totalDuration * sampleRate);
+  
+  const offlineContext = new OfflineAudioContext({
+    numberOfChannels: 2,
+    length: numFrames,
+    sampleRate: sampleRate
+  });
+  
+  const offlineMaster = new Tone.Gain(0.7, { context: offlineContext });
+  const offlineLimiter = new Tone.Limiter(-0.5, { context: offlineContext });
+  
+  offlineMaster.connect(offlineLimiter);
+  offlineLimiter.connect(offlineContext.destination);
+  
+  for (const track of activeTracks) {
+    const take = track.takes[track.selectedTakeIndex];
+    if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
+    
+    try {
+      const player = new Tone.Player({
+        url: take.buffer,
+        context: offlineContext
+      });
+      
+      const channel = new Tone.Channel({
+        volume: track.volume,
+        pan: track.pan / 100,
+        context: offlineContext
+      });
+      
+      player.connect(channel);
+      channel.connect(offlineMaster);
+      
+      const relativeStartTime = (take.startTime || 0) - minStart;
+      
+      player.start(relativeStartTime);
+      
+      console.log(`✅ ${track.name}:`);
+      console.log(`   - Recorded at: ${take.startTime.toFixed(3)}s (transport)`);
+      console.log(`   - Renders at: ${relativeStartTime.toFixed(3)}s (bounce)`);
+      console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
+      
+    } catch (err) {
+      console.error(`❌ Failed to schedule ${track.name}:`, err);
+    }
+  }
+  
+  try {
+    showToast('⏳ Rendering...', 'info');
+    
+    const renderedBuffer = await offlineContext.startRendering();
+    
+    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
+    
+    const wavData = bufferToWavImproved(renderedBuffer);
+    const blob = new Blob([wavData], { type: 'audio/wav' });
+    
+    const projectName = document.getElementById('projectName')?.value || 'mix';
+    const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    
+    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
+    
+  } catch (err) {
+    console.error('❌ Bounce failed:', err);
+    showToast(`❌ Bounce failed: ${err.message}`, 'error');
+  }
+}
+
+// Enhanced record ALL armed tracks function
 async function toggleRecordAllArmed() {
   const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
   const recordingTracks = multitrack.tracks.filter(t => t.recording);
   
   if (recordingTracks.length > 0) {
-    // Stop all recording tracks
     recordingTracks.forEach(track => track.stopRecording());
-    multitrack.globalRecordStartTime = null; // RESET global start time
+    multitrack.globalRecordStartTime = null;
     showToast(`⏹️ Stopped recording ${recordingTracks.length} track(s)`, 'info');
     renderMultitrack();
     return;
@@ -7853,7 +8337,27 @@ async function toggleRecordAllArmed() {
     return;
   }
   
-  // Start transport if not playing
+  // Check if any external audio tracks need monitoring
+  const externalTracks = armedTracks.filter(t => t.isExternalAudio);
+  if (externalTracks.length > 0) {
+    const needsMonitoring = externalTracks.some(t => !t.inputMonitoring);
+    if (needsMonitoring) {
+      const enableMonitoring = confirm(
+        `${needsMonitoring} external audio track(s) have monitoring disabled.\n\n` +
+        `Enable monitoring to hear input while recording?\n\n` +
+        `(You can toggle monitoring with the MON button)`
+      );
+      
+      if (enableMonitoring) {
+        externalTracks.forEach(t => {
+          if (!t.inputMonitoring) {
+            t.toggleInputMonitoring();
+          }
+        });
+      }
+    }
+  }
+  
   if (!state.isPlaying) {
     await togglePlay();
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -7861,16 +8365,15 @@ async function toggleRecordAllArmed() {
   
   await Tone.start();
   
-  // SET GLOBAL RECORD START TIME - all tracks use this same zero point
   multitrack.globalRecordStartTime = Tone.Transport.seconds;
   console.log(`🎬 GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
   
-  // Start ALL armed tracks with the same global start time
   for (const track of armedTracks) {
     await track.startRecording();
   }
   
-  console.log(`🎙️ Recording ${armedTracks.length} tracks from global time ${multitrack.globalRecordStartTime.toFixed(3)}s`);
+  const trackList = armedTracks.map(t => t.name).join(', ');
+  console.log(`🎙️ Recording ${armedTracks.length} tracks: ${trackList}`);
   showToast(`🎙️ Recording ${armedTracks.length} track(s)`, 'success');
   renderMultitrack();
 }
@@ -9774,7 +10277,7 @@ function init() {
   updateAllDisplays();
   initVisualizerOnce();
   unlockAudioOnce();
-
+  checkAudioPermissions();
   checkSamplesLoaded();
   
   // Apply saved vibe
