@@ -7118,7 +7118,10 @@ class AudioTrack {
     this.mediaStreamSource = null;
     this.externalInput = null;
     
-    if (isExternalAudio) {
+    // IMPORTANT:
+    // - Instrument tracks should route their synth into this.channel
+    // - External tracks use setupExternalAudio instead and do NOT use routeInstrument
+    if (!isExternalAudio && instrument !== 'external') {
       this.routeInstrument();
     }
   }
@@ -7194,63 +7197,106 @@ class AudioTrack {
   
   addFx(type, params = {}) {
     let fx;
-    
-    switch(type) {
-      case 'reverb':
-        fx = new Tone.Reverb({ decay: params.decay || 1.5, wet: params.wet || 0.3 });
+
+    // We always clone params so we can safely mutate defaults
+    params = { ...params };
+
+    switch (type) {
+      case 'reverb': {
+        const decay = params.decay ?? 1.5;
+        const wet = params.wet ?? 0.3;
+        fx = new Tone.Reverb({ decay, wet });
+        params = { decay, wet };
         break;
-      case 'delay':
+      }
+
+      case 'delay': {
+        const time = params.time ?? '8n';
+        const feedback = params.feedback ?? 0.3;
+        const wet = params.wet ?? 0.3;
         fx = new Tone.FeedbackDelay({
-          delayTime: params.time || '8n',
-          feedback: params.feedback || 0.3,
-          wet: params.wet || 0.3
+          delayTime: time,
+          feedback,
+          wet
         });
+        params = { time, feedback, wet };
         break;
-      case 'chorus':
+      }
+
+      case 'chorus': {
+        const frequency = params.frequency ?? 1.5;
+        const delayTime = params.delayTime ?? 3.5;
+        const depth = params.depth ?? 0.7;
+        const wet = params.wet ?? 0.5;
         fx = new Tone.Chorus({
-          frequency: params.frequency || 1.5,
-          delayTime: params.delayTime || 3.5,
-          depth: params.depth || 0.7,
-          wet: params.wet || 0.5
+          frequency,
+          delayTime,
+          depth,
+          wet
         }).start();
+        params = { frequency, delayTime, depth, wet };
         break;
-      case 'distortion':
+      }
+
+      case 'distortion': {
+        const amount = params.amount ?? 0.4;
+        const wet = params.wet ?? 0.5;
         fx = new Tone.Distortion({
-          distortion: params.amount || 0.4,
-          wet: params.wet || 0.5
+          distortion: amount,
+          wet
         });
+        params = { amount, wet };
         break;
-      case 'filter':
+      }
+
+      case 'filter': {
+        const typeOpt = params.type ?? 'lowpass';
+        const frequency = params.frequency ?? 5000;
+        const q = params.q ?? 1;
         fx = new Tone.Filter({
-          type: params.type || 'lowpass',
-          frequency: params.frequency || 5000,
-          Q: params.q || 1
+          type: typeOpt,
+          frequency,
+          Q: q
         });
+        params = { type: typeOpt, frequency, q };
         break;
-      case 'compressor':
+      }
+
+      case 'compressor': {
+        const threshold = params.threshold ?? -24;
+        const ratio = params.ratio ?? 4;
+        const attack = params.attack ?? 0.003;
+        const release = params.release ?? 0.25;
         fx = new Tone.Compressor({
-          threshold: params.threshold || -24,
-          ratio: params.ratio || 4,
-          attack: params.attack || 0.003,
-          release: params.release || 0.25
+          threshold,
+          ratio,
+          attack,
+          release
         });
+        params = { threshold, ratio, attack, release };
         break;
-      case 'eq':
-        fx = new Tone.EQ3({
-          low: params.low || 0,
-          mid: params.mid || 0,
-          high: params.high || 0
-        });
+      }
+
+      case 'eq': {
+        const low = params.low ?? 0;
+        const mid = params.mid ?? 0;
+        const high = params.high ?? 0;
+        fx = new Tone.EQ3({ low, mid, high });
+        params = { low, mid, high };
         break;
-      case 'bitcrusher':
-        fx = new Tone.BitCrusher({
-          bits: params.bits || 4
-        });
+      }
+
+      case 'bitcrusher': {
+        const bits = params.bits ?? 4;
+        fx = new Tone.BitCrusher({ bits });
+        params = { bits };
         break;
+      }
+
       default:
         return null;
     }
-    
+
     const fxObj = {
       id: Date.now() + Math.random(),
       type,
@@ -7258,12 +7304,13 @@ class AudioTrack {
       params,
       enabled: true
     };
-    
+
     this.fxChain.push(fxObj);
     this.reconnectFxChain();
-    
+
     return fxObj;
   }
+
   
   removeFx(fxId) {
     const index = this.fxChain.findIndex(fx => fx.id === fxId);
@@ -9762,10 +9809,10 @@ async function exportAudio() {
   }
 }
 
-// NEW: High-quality offline render
+// NEW: High-quality offline render using Tone.Offline
 async function exportOfflineRender() {
-  const hasActive = Object.keys(patterns).some(inst => 
-    patterns[inst].some(s => s.active)
+  const hasActive = Object.keys(patterns).some(inst =>
+    patterns[inst]?.some(s => s.active)
   );
   
   if (!hasActive) {
@@ -9773,132 +9820,136 @@ async function exportOfflineRender() {
     return;
   }
   
+  const durationSeconds = state.duration * 60;
   showToast('🎵 Rendering audio offline...', 'info');
   
-  // Calculate total duration
-  const durationSeconds = state.duration * 60;
-  const sampleRate = 48000;
-  const numFrames = Math.ceil(durationSeconds * sampleRate);
-  
-  // Create offline context
-  const offlineContext = new OfflineAudioContext({
-    numberOfChannels: 2,
-    length: numFrames,
-    sampleRate: sampleRate
-  });
-  
-  // Set transport settings
-  const offlineTransport = new Tone.Transport({
-    context: new Tone.Context(offlineContext)
-  });
-  offlineTransport.bpm.value = state.bpm;
-  offlineTransport.swing = state.swing / 100;
-  offlineTransport.swingSubdivision = '8n';
-  
-  // Create offline master chain with better headroom
-  const offlineMaster = {
-    gain: new Tone.Gain(0.7, { context: offlineContext }),
-    limiter: new Tone.Limiter(-0.5, { context: offlineContext }),
-    comp: new Tone.Compressor({
-      threshold: -18,
-      ratio: 4,
-      attack: 0.003,
-      release: 0.15,
-      context: offlineContext
-    })
-  };
-  
-  offlineMaster.gain.chain(
-    offlineMaster.comp,
-    offlineMaster.limiter
-  );
-  offlineMaster.limiter.connect(offlineContext.destination);
-  
-  // Create offline instruments with proper routing
-  const offlineSynths = {};
-  const offlineChannels = {};
-  
-  Object.keys(instruments).forEach(inst => {
-    const instData = instruments[inst];
-    
-    // Create channel with proper gain staging
-    const channel = new Tone.Channel({
-      volume: instData.volume,
-      pan: instData.pan / 100,
-      context: offlineContext
-    }).connect(offlineMaster.gain);
-    
-    offlineChannels[inst] = channel;
-    
-    // Create synth
-    if (instData.type === 'drum') {
-      offlineSynths[inst] = createOfflineDrumSynth(inst, offlineContext, channel);
-    } else if (instData.type === 'melodic') {
-      offlineSynths[inst] = createOfflineMelodicSynth(inst, offlineContext, channel);
-    } else {
-      offlineSynths[inst] = createOfflineDrumSynth(inst, offlineContext, channel);
-    }
-  });
-  
-  // Schedule all notes
-  const stepsPerBar = state.sequenceLength;
-  const barsToRender = Math.ceil(durationSeconds / (60 / state.bpm * 4));
-  const stepDuration = Tone.Time(state.resolution).toSeconds();
-  
-  for (let bar = 0; bar < barsToRender; bar++) {
-    for (let step = 0; step < stepsPerBar; step++) {
-      const time = bar * stepsPerBar * stepDuration + step * stepDuration;
+  try {
+    const renderedBuffer = await Tone.Offline(() => {
+      // Inside this callback, Tone swaps to an offline context automatically
+      
+      // --- Transport-like timing (we’ll just use seconds) ---
+      const bpm = state.bpm || 80;
+      const secondsPerBeat = 60 / bpm;
+      
+      const resolution = state.resolution || '16n';
+      let beatsPerStep = 0.25; // 16n
+      if (resolution === '4n') beatsPerStep = 1;
+      else if (resolution === '8n') beatsPerStep = 0.5;
+      else if (resolution === '2n') beatsPerStep = 2;
+      
+      const stepDuration = secondsPerBeat * beatsPerStep;
+      const stepsPerBar = state.sequenceLength || 16;
+      const barsToRender = Math.ceil(durationSeconds / (stepsPerBar * stepDuration));
+      
+      // --- Master chain (offline) ---
+      const masterGain = new Tone.Gain(0.7);
+      const comp = new Tone.Compressor({
+        threshold: -18,
+        ratio: 4,
+        attack: 0.003,
+        release: 0.15
+      });
+      const limiter = new Tone.Limiter(-0.5);
+      
+      masterGain.chain(comp, limiter, Tone.Destination);
+      
+      // --- Instruments (offline synths + channels) ---
+      const offlineSynths = {};
+      const offlineChannels = {};
       
       Object.keys(instruments).forEach(inst => {
-        const stepData = patterns[inst][step];
-        if (!stepData || !stepData.active) return;
-        
         const instData = instruments[inst];
-        if (instData.mute) return;
+        if (!instData) return;
         
-        const anySolo = Object.values(instruments).some(i => i.solo);
-        if (anySolo && !instData.solo) return;
+        const channel = new Tone.Channel({
+          volume: instData.volume ?? 0,
+          pan: (instData.pan ?? 0) / 100
+        }).connect(masterGain);
         
-        if (Math.random() * 100 > stepData.probability) return;
+        offlineChannels[inst] = channel;
         
-        const humanize = (Math.random() - 0.5) * (state.humanize / 1000);
-        const velocity = stepData.velocity * 0.9;
-        
-        try {
-          if (instData.type === 'drum' || instData.type === 'atmospheric') {
-            offlineSynths[inst].triggerAttackRelease(
-              'C2',
-              '8n',
-              time + humanize,
-              velocity
-            );
-          } else {
-            const note = stepData.note || instData.note || 'C4';
-            const duration = stepData.duration || '8n';
-            offlineSynths[inst].triggerAttackRelease(
-              note,
-              duration,
-              time + humanize,
-              velocity
-            );
-          }
-        } catch (err) {
-          console.warn(`Failed to schedule ${inst}:`, err);
+        // Simple but musical voices; you can tweak these to taste
+        if (instData.type === 'drum' || instData.type === 'atmospheric') {
+          // Kick / snare / hats etc
+          offlineSynths[inst] = new Tone.MembraneSynth({
+            pitchDecay: 0.05,
+            octaves: 6,
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+          }).connect(channel);
+        } else {
+          // Melodic voices
+          offlineSynths[inst] = new Tone.Synth({
+            oscillator: { type: 'sine' },
+            envelope: {
+              attack: 0.005,
+              decay: 0.1,
+              sustain: 0.3,
+              release: 1
+            }
+          }).connect(channel);
         }
       });
-    }
-  }
-  
-  try {
-    // Render
-    showToast('⏳ Rendering (this may take a moment)...', 'info');
-    const renderedBuffer = await offlineContext.startRendering();
+      
+      // --- Schedule all steps into the offline context ---
+      for (let bar = 0; bar < barsToRender; bar++) {
+        for (let step = 0; step < stepsPerBar; step++) {
+          const time = bar * stepsPerBar * stepDuration + step * stepDuration;
+          
+          Object.keys(instruments).forEach(inst => {
+            const instData = instruments[inst];
+            const pattern = patterns[inst];
+            if (!instData || !pattern) return;
+            
+            const stepData = pattern[step];
+            if (!stepData || !stepData.active) return;
+            
+            // Respect mute / solo
+            if (instData.mute) return;
+            const anySolo = Object.values(instruments).some(i => i.solo);
+            if (anySolo && !instData.solo) return;
+            
+            // Probability
+            const prob = stepData.probability ?? 100;
+            if (Math.random() * 100 > prob) return;
+            
+            const synth = offlineSynths[inst];
+            if (!synth) return;
+            
+            const humanize = ((Math.random() - 0.5) * (state.humanize || 0)) / 1000;
+            const velocity = (stepData.velocity ?? 0.9) * 0.9;
+            
+            try {
+              if (instData.type === 'drum' || instData.type === 'atmospheric') {
+                synth.triggerAttackRelease(
+                  'C2',
+                  stepData.duration || '8n',
+                  time + humanize,
+                  velocity
+                );
+              } else {
+                const note = stepData.note || instData.note || 'C4';
+                const dur = stepData.duration || '8n';
+                synth.triggerAttackRelease(
+                  note,
+                  dur,
+                  time + humanize,
+                  velocity
+                );
+              }
+            } catch (err) {
+              console.warn(`Failed to schedule ${inst}:`, err);
+            }
+          });
+        }
+      }
+      
+    }, durationSeconds);
     
-    // Convert to WAV with proper normalization
+    // Convert rendered buffer → WAV → download
     const wavData = bufferToWavImproved(renderedBuffer);
     const blob = new Blob([wavData], { type: 'audio/wav' });
     
-    // Download
     const name = (document.getElementById('projectName')?.value || 'export')
       .replace(/\s+/g, '_') + `_${Date.now()}`;
     
@@ -9906,25 +9957,20 @@ async function exportOfflineRender() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${name}.wav`;
+    document.body.appendChild(a);      // Firefox needs it in the DOM
     a.click();
+    document.body.removeChild(a);
     
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     
     showToast('✅ Export complete!', 'success');
-    
-    // Cleanup
-    Object.values(offlineSynths).forEach(synth => {
-      if (synth.dispose) synth.dispose();
-    });
-    Object.values(offlineChannels).forEach(ch => {
-      if (ch.dispose) ch.dispose();
-    });
     
   } catch (err) {
     console.error('Export error:', err);
     showToast('❌ Export failed: ' + err.message, 'error');
   }
 }
+
 
 // Create offline drum synth
 function createOfflineDrumSynth(inst, context, channel) {
