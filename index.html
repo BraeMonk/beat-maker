@@ -8387,7 +8387,91 @@ function stopMultitrackPreview() {
   }
 }
 
-// Helper: recreate a single FX node in the offline context
+// Helper: create offline master chain that mirrors the live master bus
+function createOfflineMasterChain(offlineContext) {
+  const cfg = (typeof fxConfig !== 'undefined') ? fxConfig : {};
+
+  const filterCfg = cfg.filter || {};
+  const distCfg = cfg.distortion || {};
+  const chorusCfg = cfg.chorus || {};
+  const phaserCfg = cfg.phaser || {};
+  const delayCfg = cfg.delay || {};
+  const reverbCfg = cfg.reverb || {};
+
+  // This is the "fxIn" equivalent of your live chain
+  const masterIn = new Tone.Gain(0.7, { context: offlineContext });
+
+  const filter = new Tone.Filter({
+    type: filterCfg.type || 'lowpass',
+    frequency: filterCfg.frequency || 12000,
+    Q: filterCfg.Q || 1,
+    context: offlineContext
+  });
+
+  const distortion = new Tone.Distortion({
+    distortion: distCfg.amount ?? 0,
+    wet: distCfg.wet ?? 0,
+    context: offlineContext
+  });
+
+  const chorus = new Tone.Chorus({
+    frequency: chorusCfg.frequency ?? 1.5,
+    delayTime: chorusCfg.delayTime ?? 3.5,
+    depth: chorusCfg.depth ?? 0,
+    wet: chorusCfg.wet ?? 0,
+    context: offlineContext
+  }).start();
+
+  const phaser = new Tone.Phaser({
+    frequency: phaserCfg.frequency ?? 0.5,
+    octaves: phaserCfg.octaves ?? 3,
+    baseFrequency: phaserCfg.baseFrequency ?? 350,
+    wet: phaserCfg.wet ?? 0,
+    context: offlineContext
+  });
+
+  const delay = new Tone.FeedbackDelay({
+    delayTime: delayCfg.time ?? '8n',
+    feedback: delayCfg.feedback ?? 0,
+    wet: delayCfg.wet ?? 0,
+    context: offlineContext
+  });
+
+  const reverb = new Tone.Reverb({
+    decay: reverbCfg.decay ?? 1.5,
+    preDelay: reverbCfg.preDelay ?? 0.01,
+    wet: reverbCfg.wet ?? 0,
+    context: offlineContext
+  });
+
+  // Match your live master.comp / master.limiter as closely as possible
+  const comp = new Tone.Compressor({
+    threshold: -18,
+    ratio: 3,
+    attack: 0.003,
+    release: 0.25,
+    context: offlineContext
+  });
+
+  const limiter = new Tone.Limiter(-1, { context: offlineContext });
+
+  masterIn.chain(
+    filter,
+    distortion,
+    chorus,
+    phaser,
+    delay,
+    reverb,
+    comp,
+    limiter
+  );
+
+  limiter.connect(offlineContext.destination);
+
+  return { masterIn, limiter };
+}
+
+// Helper: recreate a single FX node (per-track FX) in the offline context
 function createOfflineFxNode(fxDef, offlineContext) {
   const type = fxDef.type;
   const params = fxDef.params || {};
@@ -8406,7 +8490,7 @@ function createOfflineFxNode(fxDef, offlineContext) {
     }
 
     case 'delay': {
-      const time = params.time ?? '8n';           // musical or seconds
+      const time = params.time ?? '8n';
       const feedback = params.feedback ?? 0.3;
       const wet = params.wet ?? 0.3;
       node = new Tone.FeedbackDelay({
@@ -8501,7 +8585,7 @@ function createOfflineFxNode(fxDef, offlineContext) {
   return node;
 }
 
-// Enhanced bounce with ALL takes from ALL tracks + per-track FX
+// Enhanced bounce with ALL takes from ALL tracks + per-track FX + master FX
 async function bounceAllTracks() {
   const activeTracks = multitrack.tracks.filter(t =>
     t.selectedTakeIndex >= 0 && !t.muted
@@ -8546,12 +8630,9 @@ async function bounceAllTracks() {
     sampleRate: sampleRate
   });
 
-  // Master chain in offline context
-  const offlineMaster = new Tone.Gain(0.7, { context: offlineContext });
-  const offlineLimiter = new Tone.Limiter(-0.5, { context: offlineContext });
-
-  offlineMaster.connect(offlineLimiter);
-  offlineLimiter.connect(offlineContext.destination);
+  // Build master chain that mirrors your live master bus
+  const { masterIn: offlineMaster, limiter: offlineLimiter } =
+    createOfflineMasterChain(offlineContext);
 
   // Build a full offline signal path for each active track
   for (const track of activeTracks) {
@@ -8598,7 +8679,7 @@ async function bounceAllTracks() {
       console.log(`   - Recorded at: ${take.startTime.toFixed(3)}s (transport)`);
       console.log(`   - Renders at: ${relativeStartTime.toFixed(3)}s (bounce)`);
       console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
-      console.log(`   - FX in offline bounce: ${enabledFx.length}`);
+      console.log(`   - Track FX in offline bounce: ${enabledFx.length}`);
 
     } catch (err) {
       console.error(`❌ Failed to schedule ${track.name}:`, err);
