@@ -7591,11 +7591,17 @@ class AudioTrack {
         timestamp: new Date().toISOString(),
         muted: false,
 
-        // This is the ONLY timing anchor we use later
-        startTime: this.recordStartTime,
+        // 🔑 Use audio-context time for alignment across tracks
+        // (this.contextStartTime was set in startRecording())
+        startTime: this.contextStartTime ?? Tone.now(),
+
+        // Optional: keep for debugging only (not used for alignment)
+        transportStartTime: this.recordStartTime,
 
         recordedAt: Date.now()
       };
+
+      this.contextStartTime = null;
 
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
@@ -8621,7 +8627,7 @@ async function bounceAllTracks() {
 
   showToast('🎵 Preparing bounce...', 'info');
 
-  // Find earliest start & latest end (using transport-aligned startTime)
+  // Find earliest start & latest end on the *audio context* timeline
   let minStart = Infinity;
   let maxEnd = 0;
 
@@ -8629,6 +8635,7 @@ async function bounceAllTracks() {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer) return;
 
+    // 🔑 this is now audio-context time (set in finishRecording)
     const startTime = take.startTime || 0;
     const endTime = startTime + take.duration;
 
@@ -8640,7 +8647,7 @@ async function bounceAllTracks() {
   const totalDuration = maxEnd - minStart;
 
   console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
-  console.log(`   - Earliest take starts: ${minStart.toFixed(2)}s`);
+  console.log(`   - Earliest take starts: ${minStart.toFixed(2)}s (context time)`);
   console.log(`   - Latest take ends: ${maxEnd.toFixed(2)}s`);
 
   // Offline context
@@ -8692,15 +8699,15 @@ async function bounceAllTracks() {
       lastNode.connect(channel);
       channel.connect(offlineMaster);
 
-      // Start time is RELATIVE to earliest take
-      const absoluteStartTime = take.startTime || 0;
-      const relativeStartTime = absoluteStartTime - minStart;
+      // 🔑 Start time is relative to earliest *context* start
+      const startTime = take.startTime || 0;
+      const relativeStartTime = startTime - minStart;
 
       player.start(relativeStartTime);
 
       console.log(`✅ ${track.name}:`);
-      console.log(`   - Recorded at: ${absoluteStartTime.toFixed(3)}s (transport)`);
-      console.log(`   - Renders at: ${relativeStartTime.toFixed(3)}s (bounce)`);
+      console.log(`   - Context start: ${startTime.toFixed(3)}s`);
+      console.log(`   - Renders at: ${relativeStartTime.toFixed(3)}s (offline)`);
       console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
       console.log(`   - Track FX in offline bounce: ${enabledFx.length}`);
 
@@ -8728,7 +8735,6 @@ async function bounceAllTracks() {
     a.href = url;
     a.download = filename;
 
-    // Firefox needs the link in the DOM
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -8742,6 +8748,7 @@ async function bounceAllTracks() {
     showToast(`❌ Bounce failed: ${err.message}`, 'error');
   }
 }
+
   
 // Enhanced record ALL armed tracks function
 async function toggleRecordAllArmed() {
