@@ -9806,7 +9806,6 @@ async function exportAudio() {
   }
 }
 
-// NEW: High-quality offline render using Tone.Offline
 async function exportOfflineRender() {
   const hasActive = Object.keys(patterns).some(inst =>
     patterns[inst]?.some(s => s.active)
@@ -9821,15 +9820,13 @@ async function exportOfflineRender() {
   showToast('🎵 Rendering audio offline...', 'info');
   
   try {
-    const renderedBuffer = await Tone.Offline(() => {
-      // Inside this callback, Tone swaps to an offline context automatically
-      
-      // --- Transport-like timing (we’ll just use seconds) ---
+    const renderedBuffer = await Tone.Offline(({ transport, destination }) => {
+      // --- Transport-like timing ---
       const bpm = state.bpm || 80;
       const secondsPerBeat = 60 / bpm;
       
       const resolution = state.resolution || '16n';
-      let beatsPerStep = 0.25; // 16n
+      let beatsPerStep = 0.25;
       if (resolution === '4n') beatsPerStep = 1;
       else if (resolution === '8n') beatsPerStep = 0.5;
       else if (resolution === '2n') beatsPerStep = 2;
@@ -9838,7 +9835,7 @@ async function exportOfflineRender() {
       const stepsPerBar = state.sequenceLength || 16;
       const barsToRender = Math.ceil(durationSeconds / (stepsPerBar * stepDuration));
       
-      // --- Master chain (offline) ---
+      // --- Master chain ---
       const masterGain = new Tone.Gain(0.7);
       const comp = new Tone.Compressor({
         threshold: -18,
@@ -9848,9 +9845,10 @@ async function exportOfflineRender() {
       });
       const limiter = new Tone.Limiter(-0.5);
       
-      masterGain.chain(comp, limiter, Tone.Destination);
+      masterGain.chain(comp, limiter);
+      limiter.toDestination();
       
-      // --- Instruments (offline synths + channels) ---
+      // --- Instruments ---
       const offlineSynths = {};
       const offlineChannels = {};
       
@@ -9865,9 +9863,7 @@ async function exportOfflineRender() {
         
         offlineChannels[inst] = channel;
         
-        // Simple but musical voices; you can tweak these to taste
         if (instData.type === 'drum' || instData.type === 'atmospheric') {
-          // Kick / snare / hats etc
           offlineSynths[inst] = new Tone.MembraneSynth({
             pitchDecay: 0.05,
             octaves: 6,
@@ -9875,7 +9871,6 @@ async function exportOfflineRender() {
             envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
           }).connect(channel);
         } else {
-          // Melodic voices
           offlineSynths[inst] = new Tone.Synth({
             oscillator: { type: 'sine' },
             envelope: {
@@ -9888,7 +9883,7 @@ async function exportOfflineRender() {
         }
       });
       
-      // --- Schedule all steps into the offline context ---
+      // --- Schedule all steps ---
       for (let bar = 0; bar < barsToRender; bar++) {
         for (let step = 0; step < stepsPerBar; step++) {
           const time = bar * stepsPerBar * stepDuration + step * stepDuration;
@@ -9901,12 +9896,10 @@ async function exportOfflineRender() {
             const stepData = pattern[step];
             if (!stepData || !stepData.active) return;
             
-            // Respect mute / solo
             if (instData.mute) return;
             const anySolo = Object.values(instruments).some(i => i.solo);
             if (anySolo && !instData.solo) return;
             
-            // Probability
             const prob = stepData.probability ?? 100;
             if (Math.random() * 100 > prob) return;
             
@@ -9943,7 +9936,7 @@ async function exportOfflineRender() {
       
     }, durationSeconds);
     
-    // Convert rendered buffer → WAV → download
+    // Convert to WAV and download
     const wavData = bufferToWavImproved(renderedBuffer);
     const blob = new Blob([wavData], { type: 'audio/wav' });
     
@@ -9954,7 +9947,7 @@ async function exportOfflineRender() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${name}.wav`;
-    document.body.appendChild(a);      // Firefox needs it in the DOM
+    document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     
@@ -9967,7 +9960,6 @@ async function exportOfflineRender() {
     showToast('❌ Export failed: ' + err.message, 'error');
   }
 }
-
 
 // Create offline drum synth
 function createOfflineDrumSynth(inst, context, channel) {
