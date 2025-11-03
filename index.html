@@ -7454,67 +7454,78 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  async startRecording(punchIn = null, punchOut = null) {
+  // Per-track recording, with optional forced start time for group-record
+  async startRecording(options = {}) {
+    const {
+      punchIn = null,
+      punchOut = null,
+      forcedStartTime = null
+    } = options || {};
+
     if (this.recording) return;
-    
+
     await Tone.start();
-    
+
     console.log(`🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} output on track ${this.id}`);
-    
+
     this.recording = true;
     this.armed = false;
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
-    
-    if (multitrack.globalRecordStartTime === null) {
-      multitrack.globalRecordStartTime = Tone.Transport.seconds;
-      console.log(`🎬 NEW GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
-    }
-    
-    this.recordStartTime = multitrack.globalRecordStartTime;
-    console.log(`⏱️ ${this.isExternalAudio ? 'External' : this.instrument} using global start time: ${this.recordStartTime.toFixed(3)}s`);
-    
+
+    // Actual transport time when THIS track starts recording
+    const nowTransport = Tone.Transport.seconds;
+    const recordStart = (typeof forcedStartTime === 'number')
+      ? forcedStartTime
+      : nowTransport;
+
+    this.recordStartTime = recordStart;
+
+    console.log(
+      `⏱️ ${this.isExternalAudio ? 'External' : this.instrument} track ${this.id} start time: ${this.recordStartTime.toFixed(3)}s (transport)`
+    );
+
     // Create recording destination
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
-    
+
     // Connect channel output to recording destination
     this.channel.connect(recordDest);
-    
+
     let mimeType = '';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
       mimeType = 'audio/webm;codecs=opus';
     } else if (MediaRecorder.isTypeSupported('audio/webm')) {
       mimeType = 'audio/webm';
     }
-    
+
     this.recordedChunks = [];
     this.recorder = new MediaRecorder(recordDest.stream, mimeType ? { mimeType } : undefined);
-    
+
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
         this.recordedChunks.push(e.data);
       }
     };
-    
+
     this.recorder.onstop = () => {
       console.log(`⏹️ Stopped recording, ${this.recordedChunks.length} chunks`);
       this.finishRecording();
-      
+
       // Disconnect recording tap
-      try { 
-        this.channel.disconnect(recordDest); 
+      try {
+        this.channel.disconnect(recordDest);
       } catch (e) {
         console.warn('Disconnect error:', e);
       }
     };
-    
+
     this.recorder.onerror = (e) => {
       console.error('❌ Recorder error:', e);
     };
-    
+
     this.recorder.start(100);
-    
-    console.log(`▶️ Recording started`);
+
+    console.log(`▶️ Recording started on track ${this.id}`);
   }
   
   stopRecording() {
@@ -8724,20 +8735,21 @@ async function bounceAllTracks() {
 async function toggleRecordAllArmed() {
   const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
   const recordingTracks = multitrack.tracks.filter(t => t.recording);
-  
+
+  // If anything is already recording, stop them all
   if (recordingTracks.length > 0) {
     recordingTracks.forEach(track => track.stopRecording());
-    multitrack.globalRecordStartTime = null;
+    multitrack.globalRecordStartTime = null; // kept for backwards compatibility/logging
     showToast(`⏹️ Stopped recording ${recordingTracks.length} track(s)`, 'info');
     renderMultitrack();
     return;
   }
-  
+
   if (armedTracks.length === 0) {
     showToast('❌ No armed tracks to record', 'error');
     return;
   }
-  
+
   // Check if any external audio tracks need monitoring
   const externalTracks = armedTracks.filter(t => t.isExternalAudio);
   if (externalTracks.length > 0) {
@@ -8748,7 +8760,7 @@ async function toggleRecordAllArmed() {
         `Enable monitoring to hear input while recording?\n\n` +
         `(You can toggle monitoring with the MON button)`
       );
-      
+
       if (enableMonitoring) {
         externalTracks.forEach(t => {
           if (!t.inputMonitoring) {
@@ -8758,21 +8770,25 @@ async function toggleRecordAllArmed() {
       }
     }
   }
-  
+
+  // Make sure transport is running
   if (!state.isPlaying) {
     await togglePlay();
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  
+
   await Tone.start();
-  
-  multitrack.globalRecordStartTime = Tone.Transport.seconds;
-  console.log(`🎬 GLOBAL RECORD START: ${multitrack.globalRecordStartTime.toFixed(3)}s`);
-  
+
+  // Single shared start time for this record pass
+  const globalStart = Tone.Transport.seconds;
+  multitrack.globalRecordStartTime = globalStart;
+  console.log(`🎬 GLOBAL RECORD START (all armed): ${globalStart.toFixed(3)}s`);
+
+  // Start each armed track with the SAME start time
   for (const track of armedTracks) {
-    await track.startRecording();
+    await track.startRecording({ forcedStartTime: globalStart });
   }
-  
+
   const trackList = armedTracks.map(t => t.name).join(', ');
   console.log(`🎙️ Recording ${armedTracks.length} tracks: ${trackList}`);
   showToast(`🎙️ Recording ${armedTracks.length} track(s)`, 'success');
