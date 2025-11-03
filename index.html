@@ -7119,8 +7119,6 @@ class AudioTrack {
     this.externalInput = null;
     
     if (isExternalAudio) {
-      this.setupExternalAudio();
-    } else {
       this.routeInstrument();
     }
   }
@@ -7759,7 +7757,7 @@ class AudioTrack {
 }
 
 // Create track with external audio support
-function createTrack(instrument, isExternalAudio = false) {
+async function createTrack(instrument, isExternalAudio = false) {
   const trackName = isExternalAudio ? 
     `Mic/Ext ${multitrack.tracks.filter(t => t.isExternalAudio).length + 1}` :
     `${instruments[instrument]?.name || instrument} ${multitrack.tracks.length + 1}`;
@@ -7770,6 +7768,21 @@ function createTrack(instrument, isExternalAudio = false) {
     instrument,
     isExternalAudio
   );
+  
+  // CRITICAL: Wait for external audio setup before adding to tracks
+  if (isExternalAudio) {
+    try {
+      await track.setupExternalAudio();
+      if (!track.mediaStream) {
+        throw new Error('Failed to initialize audio stream');
+      }
+    } catch (err) {
+      console.error('❌ External audio setup failed:', err);
+      track.dispose();
+      showToast(`❌ Microphone access failed: ${err.message}`, 'error');
+      return null;
+    }
+  }
   
   multitrack.tracks.push(track);
   renderMultitrack();
@@ -8147,17 +8160,21 @@ function showAddTrackDialog() {
   confirmBtn.onclick = async () => {
     const isExternal = trackTypeSelect.value === 'external';
     
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = isExternal ? 'Requesting access...' : 'Adding...';
+    
     if (isExternal) {
-      const track = createTrack('external', true);
-      if (!track.mediaStream) {
-        showToast('❌ Failed to access microphone', 'error');
-        removeTrack(track.id);
-      } else {
-        showToast('✅ External audio track added!', 'success');
+      const track = await createTrack('external', true);
+      if (!track) {
+        // Error already shown by createTrack
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Add Track';
+        return;
       }
+      showToast('✅ External audio track added!', 'success');
     } else {
       const instrument = instrumentSelect.value;
-      createTrack(instrument, false);
+      await createTrack(instrument, false);
       showToast('✅ Instrument track added!', 'success');
     }
     
@@ -8406,32 +8423,35 @@ async function bounceAllTracks() {
   }
   
   try {
-    showToast('⏳ Rendering...', 'info');
-    
-    const renderedBuffer = await offlineContext.startRendering();
-    
-    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
-    
-    const wavData = bufferToWavImproved(renderedBuffer);
-    const blob = new Blob([wavData], { type: 'audio/wav' });
-    
-    const projectName = document.getElementById('projectName')?.value || 'mix';
-    const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
-    
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    
-    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
-    
-  } catch (err) {
-    console.error('❌ Bounce failed:', err);
-    showToast(`❌ Bounce failed: ${err.message}`, 'error');
-  }
+  showToast('⏳ Rendering...', 'info');
+  
+  const renderedBuffer = await offlineContext.startRendering();
+  
+  console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
+  
+  // CRITICAL: Actually convert to WAV
+  const wavData = bufferToWavImproved(renderedBuffer);
+  const blob = new Blob([wavData], { type: 'audio/wav' });
+  
+  // CRITICAL: Actually download the file
+  const projectName = document.getElementById('projectName')?.value || 'mix';
+  const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
+  
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a); // MUST append to body for Firefox
+  a.click();
+  document.body.removeChild(a); // Clean up
+  
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  
+  showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
+  
+} catch (err) {
+  console.error('❌ Bounce failed:', err);
+  showToast(`❌ Bounce failed: ${err.message}`, 'error');
 }
 
 // Enhanced record ALL armed tracks function
