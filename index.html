@@ -8387,115 +8387,252 @@ function stopMultitrackPreview() {
   }
 }
 
-// Enhanced bounce with ALL takes from ALL tracks
+// Helper: recreate a single FX node in the offline context
+function createOfflineFxNode(fxDef, offlineContext) {
+  const type = fxDef.type;
+  const params = fxDef.params || {};
+  let node = null;
+
+  switch (type) {
+    case 'reverb': {
+      const decay = params.decay ?? 1.5;
+      const wet = params.wet ?? 0.3;
+      node = new Tone.Reverb({
+        decay,
+        wet,
+        context: offlineContext
+      });
+      break;
+    }
+
+    case 'delay': {
+      const time = params.time ?? '8n';           // musical or seconds
+      const feedback = params.feedback ?? 0.3;
+      const wet = params.wet ?? 0.3;
+      node = new Tone.FeedbackDelay({
+        delayTime: time,
+        feedback,
+        wet,
+        context: offlineContext
+      });
+      break;
+    }
+
+    case 'chorus': {
+      const frequency = params.frequency ?? 1.5;
+      const delayTime = params.delayTime ?? 3.5;
+      const depth = params.depth ?? 0.7;
+      const wet = params.wet ?? 0.5;
+      node = new Tone.Chorus({
+        frequency,
+        delayTime,
+        depth,
+        wet,
+        context: offlineContext
+      }).start();
+      break;
+    }
+
+    case 'distortion': {
+      const amount = params.amount ?? 0.4;
+      const wet = params.wet ?? 0.5;
+      node = new Tone.Distortion({
+        distortion: amount,
+        wet,
+        context: offlineContext
+      });
+      break;
+    }
+
+    case 'filter': {
+      const typeOpt = params.type ?? 'lowpass';
+      const frequency = params.frequency ?? 5000;
+      const q = params.q ?? 1;
+      node = new Tone.Filter({
+        type: typeOpt,
+        frequency,
+        Q: q,
+        context: offlineContext
+      });
+      break;
+    }
+
+    case 'compressor': {
+      const threshold = params.threshold ?? -24;
+      const ratio = params.ratio ?? 4;
+      const attack = params.attack ?? 0.003;
+      const release = params.release ?? 0.25;
+      node = new Tone.Compressor({
+        threshold,
+        ratio,
+        attack,
+        release,
+        context: offlineContext
+      });
+      break;
+    }
+
+    case 'eq': {
+      const low = params.low ?? 0;
+      const mid = params.mid ?? 0;
+      const high = params.high ?? 0;
+      node = new Tone.EQ3({
+        low,
+        mid,
+        high,
+        context: offlineContext
+      });
+      break;
+    }
+
+    case 'bitcrusher': {
+      const bits = params.bits ?? 4;
+      node = new Tone.BitCrusher({
+        bits,
+        context: offlineContext
+      });
+      break;
+    }
+
+    default:
+      console.warn('Unknown FX type for offline bounce:', type);
+  }
+
+  return node;
+}
+
+// Enhanced bounce with ALL takes from ALL tracks + per-track FX
 async function bounceAllTracks() {
-  const activeTracks = multitrack.tracks.filter(t => 
+  const activeTracks = multitrack.tracks.filter(t =>
     t.selectedTakeIndex >= 0 && !t.muted
   );
-  
+
   if (activeTracks.length === 0) {
     showToast('❌ No tracks to bounce!', 'error');
     return;
   }
-  
+
   showToast('🎵 Preparing bounce...', 'info');
-  
+
+  // Find earliest start & latest end
   let minStart = Infinity;
   let maxEnd = 0;
-  
+
   activeTracks.forEach(track => {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer) return;
-    
+
     const startTime = take.startTime || 0;
     const endTime = startTime + take.duration;
-    
+
     if (startTime < minStart) minStart = startTime;
     if (endTime > maxEnd) maxEnd = endTime;
   });
-  
+
   if (minStart === Infinity) minStart = 0;
   const totalDuration = maxEnd - minStart;
-  
+
   console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
   console.log(`   - Earliest take starts: ${minStart.toFixed(2)}s`);
   console.log(`   - Latest take ends: ${maxEnd.toFixed(2)}s`);
-  
+
+  // Offline context
   const sampleRate = 48000;
   const numFrames = Math.ceil(totalDuration * sampleRate);
-  
+
   const offlineContext = new OfflineAudioContext({
     numberOfChannels: 2,
     length: numFrames,
     sampleRate: sampleRate
   });
-  
+
+  // Master chain in offline context
   const offlineMaster = new Tone.Gain(0.7, { context: offlineContext });
   const offlineLimiter = new Tone.Limiter(-0.5, { context: offlineContext });
-  
+
   offlineMaster.connect(offlineLimiter);
   offlineLimiter.connect(offlineContext.destination);
-  
+
+  // Build a full offline signal path for each active track
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
-    
+
     try {
+      // Source player for this track's selected take
       const player = new Tone.Player({
         url: take.buffer,
+        loop: false,
         context: offlineContext
       });
-      
+
+      let lastNode = player;
+
+      // Rebuild this track's FX chain in the offline context
+      const enabledFx = (track.fxChain || []).filter(fx => fx.enabled);
+
+      enabledFx.forEach(fxDef => {
+        const offlineFx = createOfflineFxNode(fxDef, offlineContext);
+        if (!offlineFx) return;
+
+        lastNode.connect(offlineFx);
+        lastNode = offlineFx;
+      });
+
+      // Track-level channel (volume & pan) after FX
       const channel = new Tone.Channel({
         volume: track.volume,
         pan: track.pan / 100,
         context: offlineContext
       });
-      
-      player.connect(channel);
+
+      lastNode.connect(channel);
       channel.connect(offlineMaster);
-      
+
+      // Start time is RELATIVE to earliest take
       const relativeStartTime = (take.startTime || 0) - minStart;
-      
+
       player.start(relativeStartTime);
-      
+
       console.log(`✅ ${track.name}:`);
       console.log(`   - Recorded at: ${take.startTime.toFixed(3)}s (transport)`);
       console.log(`   - Renders at: ${relativeStartTime.toFixed(3)}s (bounce)`);
       console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
-      
+      console.log(`   - FX in offline bounce: ${enabledFx.length}`);
+
     } catch (err) {
       console.error(`❌ Failed to schedule ${track.name}:`, err);
     }
   }
-  
+
   try {
     showToast('⏳ Rendering...', 'info');
-    
+
     const renderedBuffer = await offlineContext.startRendering();
-    
+
     console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
-    
-    // CRITICAL: Actually convert to WAV
+
+    // WAV conversion with your existing helper
     const wavData = bufferToWavImproved(renderedBuffer);
     const blob = new Blob([wavData], { type: 'audio/wav' });
-    
-    // CRITICAL: Actually download the file
+
     const projectName = document.getElementById('projectName')?.value || 'mix';
     const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
-    
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
-    document.body.appendChild(a); // MUST append to body for Firefox
+
+    // Firefox needs the link in the DOM
+    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a); // Clean up
-    
+    document.body.removeChild(a);
+
     setTimeout(() => URL.revokeObjectURL(url), 5000);
-    
+
     showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
-    
+
   } catch (err) {
     console.error('❌ Bounce failed:', err);
     showToast(`❌ Bounce failed: ${err.message}`, 'error');
@@ -8955,126 +9092,6 @@ function openTakeEditor(trackId) {
       }
     });
   });
-}
-
-async function bounceAllTracks() {
-  const activeTracks = multitrack.tracks.filter(t => 
-    t.selectedTakeIndex >= 0 && !t.muted
-  );
-  
-  if (activeTracks.length === 0) {
-    showToast('❌ No tracks to bounce!', 'error');
-    return;
-  }
-  
-  showToast('🎵 Preparing bounce...', 'info');
-  
-  // Find the earliest start time and latest end time
-  let minStart = Infinity;
-  let maxEnd = 0;
-  
-  activeTracks.forEach(track => {
-    const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted || !take.buffer) return;
-    
-    const startTime = take.startTime || 0;
-    const endTime = startTime + take.duration;
-    
-    if (startTime < minStart) minStart = startTime;
-    if (endTime > maxEnd) maxEnd = endTime;
-  });
-  
-  if (minStart === Infinity) minStart = 0;
-  const totalDuration = maxEnd - minStart;
-  
-  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
-  console.log(`   - Earliest take starts: ${minStart.toFixed(2)}s`);
-  console.log(`   - Latest take ends: ${maxEnd.toFixed(2)}s`);
-  
-  // Create offline context
-  const sampleRate = 48000;
-  const numFrames = Math.ceil(totalDuration * sampleRate);
-  
-  const offlineContext = new OfflineAudioContext({
-    numberOfChannels: 2,
-    length: numFrames,
-    sampleRate: sampleRate
-  });
-  
-  // Create master output chain
-  const offlineMaster = new Tone.Gain(0.7, { context: offlineContext });
-  const offlineLimiter = new Tone.Limiter(-0.5, { context: offlineContext });
-  
-  offlineMaster.connect(offlineLimiter);
-  offlineLimiter.connect(offlineContext.destination);
-  
-  // Create players for each take
-  for (const track of activeTracks) {
-    const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
-    
-    try {
-      // Create offline player
-      const player = new Tone.Player({
-        url: take.buffer,
-        context: offlineContext
-      });
-      
-      // Create offline channel with track settings
-      const channel = new Tone.Channel({
-        volume: track.volume,
-        pan: track.pan / 100,
-        context: offlineContext
-      });
-      
-      player.connect(channel);
-      channel.connect(offlineMaster);
-      
-      // CRITICAL: Start time is RELATIVE to the earliest take
-      // This preserves timing including all silences
-      const relativeStartTime = (take.startTime || 0) - minStart;
-      
-      player.start(relativeStartTime);
-      
-      console.log(`✅ ${track.name}:`);
-      console.log(`   - Recorded at: ${take.startTime.toFixed(3)}s (transport)`);
-      console.log(`   - Renders at: ${relativeStartTime.toFixed(3)}s (bounce)`);
-      console.log(`   - Duration: ${take.duration.toFixed(3)}s`);
-      
-    } catch (err) {
-      console.error(`❌ Failed to schedule ${track.name}:`, err);
-    }
-  }
-  
-  try {
-    showToast('⏳ Rendering...', 'info');
-    
-    const renderedBuffer = await offlineContext.startRendering();
-    
-    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
-    
-    // Convert to WAV
-    const wavData = bufferToWavImproved(renderedBuffer);
-    const blob = new Blob([wavData], { type: 'audio/wav' });
-    
-    // Download
-    const projectName = document.getElementById('projectName')?.value || 'mix';
-    const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
-    
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    
-    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
-    
-  } catch (err) {
-    console.error('❌ Bounce failed:', err);
-    showToast(`❌ Bounce failed: ${err.message}`, 'error');
-  }
 }
   
 async function previewMultitrack() {
