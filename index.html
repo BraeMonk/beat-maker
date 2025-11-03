@@ -4781,13 +4781,15 @@ function playAtmosphericNote(inst, time, stepData) {
     synths[inst].triggerAttackRelease(notes, duration, time, velocity * 0.4);
   }
 }
+  
 // -------------------- Vibe System --------------------
 function applyVibe(vibe) {
   document.body.setAttribute('data-vibe', vibe);
   try {
     localStorage.setItem(CONFIG.STORAGE_KEY, vibe);
+    console.log('💾 Saved vibe:', vibe);
   } catch (e) {
-    console.warn('localStorage unavailable');
+    console.warn('localStorage unavailable:', e);
   }
   
   const label = vibe.charAt(0).toUpperCase() + vibe.slice(1);
@@ -4795,10 +4797,19 @@ function applyVibe(vibe) {
   if (btn) btn.textContent = `🌈 Vibe: ${label}`;
 }
 
-function nextVibe() {
-  const current = document.body.getAttribute('data-vibe') || 'moon';
-  const index = VIBES.indexOf(current);
-  return VIBES[(index + 1) % VIBES.length];
+function loadSavedVibe() {
+  try {
+    const savedVibe = localStorage.getItem(CONFIG.STORAGE_KEY);
+    if (savedVibe && VIBES.includes(savedVibe)) {
+      applyVibe(savedVibe);
+      console.log('✅ Loaded saved vibe:', savedVibe);
+    } else {
+      applyVibe('moon');
+    }
+  } catch (e) {
+    console.warn('Could not load vibe:', e);
+    applyVibe('moon');
+  }
 }
 
 // -------------------- Pattern Management --------------------
@@ -7748,6 +7759,16 @@ function createTrack(instrument, isExternalAudio = false) {
   return track;
 }
 
+function removeTrack(trackId) {
+  const index = multitrack.tracks.findIndex(t => t.id === trackId);
+  if (index === -1) return;
+  
+  const track = multitrack.tracks[index];
+  track.dispose();
+  multitrack.tracks.splice(index, 1);
+  renderMultitrack();
+}
+  
 // Enhanced track strip rendering
 function createTrackStrip(track) {
   const strip = document.createElement('div');
@@ -8020,34 +8041,28 @@ function showAddTrackDialog() {
   backdrop.appendChild(modal);
   document.body.appendChild(backdrop);
   
-  const close = () => {
-    backdrop.remove();
-  };
+  const close = () => backdrop.remove();
   
-  const closeBtn = modal.querySelector('.modal-close');
-  const cancelBtn = modal.querySelector('.cancel-btn');
-  const confirmBtn = modal.querySelector('.confirm-btn');
+  modal.querySelector('.modal-close').onclick = close;
+  modal.querySelector('.cancel-btn').onclick = close;
+  
   const trackTypeSelect = modal.querySelector('.track-type-select');
   const instrumentSelector = modal.querySelector('.instrument-selector');
   const externalInfo = modal.querySelector('.external-info');
   const instrumentSelect = modal.querySelector('.instrument-select');
+  const confirmBtn = modal.querySelector('.confirm-btn');
   
-  closeBtn.onclick = close;
-  cancelBtn.onclick = close;
-  
-  trackTypeSelect.addEventListener('change', () => {
+  trackTypeSelect.onchange = () => {
     const isExternal = trackTypeSelect.value === 'external';
     instrumentSelector.style.display = isExternal ? 'none' : 'block';
     externalInfo.style.display = isExternal ? 'block' : 'none';
-  });
+  };
   
   confirmBtn.onclick = async () => {
     const isExternal = trackTypeSelect.value === 'external';
     
     if (isExternal) {
-      // Create external audio track
       const track = createTrack('external', true);
-      
       if (!track.mediaStream) {
         showToast('❌ Failed to access microphone', 'error');
         removeTrack(track.id);
@@ -8055,7 +8070,6 @@ function showAddTrackDialog() {
         showToast('✅ External audio track added!', 'success');
       }
     } else {
-      // Create instrument track
       const instrument = instrumentSelect.value;
       createTrack(instrument, false);
       showToast('✅ Instrument track added!', 'success');
@@ -8067,16 +8081,31 @@ function showAddTrackDialog() {
   backdrop.onclick = (e) => {
     if (e.target === backdrop) close();
   };
-  
-  const escHandler = (e) => {
-    if (e.key === 'Escape') {
-      close();
-      document.removeEventListener('keydown', escHandler);
-    }
-  };
-  document.addEventListener('keydown', escHandler);
 }
 
+function renderMultitrack() {
+  const grid = document.getElementById('multitrackGrid');
+  if (!grid) return;
+  
+  grid.innerHTML = '';
+  
+  if (multitrack.tracks.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: var(--space-8); text-align: center; color: var(--text-tertiary);">
+        <div style="font-size: var(--text-3xl); margin-bottom: var(--space-3);">🎙️</div>
+        <div style="font-size: var(--text-lg); margin-bottom: var(--space-2);">No tracks yet</div>
+        <div style="font-size: var(--text-sm);">Click "Add Track" to get started</div>
+      </div>
+    `;
+    return;
+  }
+  
+  multitrack.tracks.forEach(track => {
+    const strip = createTrackStrip(track);
+    grid.appendChild(strip);
+  });
+}
+  
 // Enhanced preview with ALL takes from ALL tracks
 async function previewMultitrack() {
   const activeTracks = multitrack.tracks.filter(t => 
@@ -9110,133 +9139,82 @@ function stopMultitrackPreview() {
 function setupMultitrackListeners() {
   const addTrackBtn = document.getElementById('addTrackBtn');
   if (addTrackBtn) {
-    // Remove old listener
-    const newBtn = addTrackBtn.cloneNode(true);
-    addTrackBtn.parentNode.replaceChild(newBtn, addTrackBtn);
-    
-    newBtn.addEventListener('click', () => {
-      showAddTrackDialog();
-    });
+    addTrackBtn.onclick = () => showAddTrackDialog();
   }
   
   const previewBtn = document.getElementById('previewMultitrackBtn');
   if (previewBtn) {
-    // Remove old listener
-    const newBtn = previewBtn.cloneNode(true);
-    previewBtn.parentNode.replaceChild(newBtn, previewBtn);
-    
-    newBtn.addEventListener('click', async () => {
-      // Check if ANY players exist (even if disposed)
-      if (newBtn.textContent.includes('Stop')) {
+    previewBtn.onclick = async () => {
+      if (previewBtn.textContent.includes('Stop')) {
         stopMultitrackPreview();
-        newBtn.textContent = '▶️ Preview Mix';
+        previewBtn.textContent = '▶️ Preview Mix';
       } else {
         await previewMultitrack();
-        newBtn.textContent = '⏹️ Stop Preview';
+        previewBtn.textContent = '⏹️ Stop Preview';
       }
-    });
+    };
   }
   
   const recordArmedBtn = document.getElementById('recordArmedBtn');
   if (recordArmedBtn) {
-    // Remove old listener
-    const newBtn = recordArmedBtn.cloneNode(true);
-    recordArmedBtn.parentNode.replaceChild(newBtn, recordArmedBtn);
-    
-    newBtn.addEventListener('click', async () => {
-      await toggleRecordAllArmed();
-    });
+    recordArmedBtn.onclick = async () => await toggleRecordAllArmed();
   }
   
   const bounceBtn = document.getElementById('bounceAllBtn');
   if (bounceBtn) {
-    // Remove old listener
-    const newBtn = bounceBtn.cloneNode(true);
-    bounceBtn.parentNode.replaceChild(newBtn, bounceBtn);
-    
-    newBtn.addEventListener('click', () => {
-      bounceAllTracks();
-    });
+    bounceBtn.onclick = () => bounceAllTracks();
   }
   
   const clearBtn = document.getElementById('clearAllTracksBtn');
   if (clearBtn) {
-    // Remove old listener
-    const newBtn = clearBtn.cloneNode(true);
-    clearBtn.parentNode.replaceChild(newBtn, clearBtn);
-    
-    newBtn.addEventListener('click', () => {
+    clearBtn.onclick = () => {
       if (confirm('Delete all tracks? This cannot be undone.')) {
         multitrack.tracks.forEach(track => track.dispose());
         multitrack.tracks = [];
         multitrack.nextTrackId = 1;
         renderMultitrack();
       }
-    });
+    };
   }
   
-  // FX chain panel controls
   const closeFxBtn = document.getElementById('closeFxChainBtn');
   if (closeFxBtn) {
-    // Remove old listener
-    const newBtn = closeFxBtn.cloneNode(true);
-    closeFxBtn.parentNode.replaceChild(newBtn, closeFxBtn);
-    
-    newBtn.addEventListener('click', () => {
+    closeFxBtn.onclick = () => {
       document.getElementById('fxChainPanel').style.display = 'none';
-    });
+    };
   }
   
-  // Setup FX add menu
   const addFxBtn = document.getElementById('addFxBtn');
   const fxAddMenu = document.getElementById('fxAddMenu');
   
   if (addFxBtn && fxAddMenu) {
-    // Remove old listeners by cloning
-    const newAddFxBtn = addFxBtn.cloneNode(true);
-    addFxBtn.parentNode.replaceChild(newAddFxBtn, addFxBtn);
-    
-    newAddFxBtn.addEventListener('click', (e) => {
+    addFxBtn.onclick = (e) => {
       e.stopPropagation();
-      const menu = document.getElementById('fxAddMenu');
-      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    });
+      fxAddMenu.style.display = fxAddMenu.style.display === 'block' ? 'none' : 'block';
+    };
     
-    // Close menu when clicking outside
-    const closeMenuHandler = (e) => {
+    document.onclick = (e) => {
       const dropdown = document.getElementById('fxAddDropdown');
       if (dropdown && !dropdown.contains(e.target)) {
-        const menu = document.getElementById('fxAddMenu');
-        if (menu) menu.style.display = 'none';
+        fxAddMenu.style.display = 'none';
       }
     };
     
-    // Remove old handler and add new one
-    document.removeEventListener('click', closeMenuHandler);
-    document.addEventListener('click', closeMenuHandler);
-    
-    // Add FX items
     fxAddMenu.querySelectorAll('.fx-add-item').forEach(item => {
-      const newItem = item.cloneNode(true);
-      item.parentNode.replaceChild(newItem, item);
-      
-      newItem.addEventListener('click', (e) => {
+      item.onclick = (e) => {
         e.stopPropagation();
-        const fxType = newItem.dataset.fxType;
+        const fxType = item.dataset.fxType;
         const trackId = multitrack.currentFxTrackId;
         const track = multitrack.tracks.find(t => t.id === trackId);
         
         if (track) {
-          console.log('✅ Adding FX:', fxType, 'to track:', trackId);
           track.addFx(fxType);
           renderFxChain(track);
           showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
-        } else {
-          console.error('❌ Track not found:', trackId);
         }
         
-        document.getElementById('fxAddMenu').style.display = 'none';
-      });
+        fxAddMenu.style.display = 'none';
+      };
     });
   }
 }
@@ -10279,14 +10257,7 @@ function init() {
   unlockAudioOnce();
   checkAudioPermissions();
   checkSamplesLoaded();
-  
-  // Apply saved vibe
-  try {
-    const savedVibe = localStorage.getItem(CONFIG.STORAGE_KEY) || 'moon';
-    applyVibe(savedVibe);
-  } catch (e) {
-    applyVibe('moon');
-  }
+  loadSavedVibe();
 }
   
 // -------------------- Entry Point --------------------
