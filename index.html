@@ -7096,7 +7096,6 @@ const multitrack = {
   globalRecordStartTime: null
 };
 
-// Track class definition
 // ==================== ENHANCED MULTITRACK WITH EXTERNAL AUDIO ====================
 
 class AudioTrack {
@@ -7114,6 +7113,8 @@ class AudioTrack {
     this.volume = 0;
     this.pan = 0;
     this.inputMonitoring = false;
+
+    this.recordStartTime = null;
     
     // Audio routing
     this.channel = new Tone.Channel({ volume: 0, pan: 0 }).connect(master.fxIn);
@@ -7439,13 +7440,32 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  // 🔥 FIXED: Pure real-time recording - captures EXACTLY what plays
-  async startRecording() {
+  // 🔥 FIXED: real-time recording with proper timeline alignment
+  async startRecording(options = {}) {
     if (this.recording) return;
   
     await Tone.start();
   
-    console.log(`🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} on track ${this.id}`);
+    const forcedStartTime = options.forcedStartTime ?? null;
+  
+    // Capture the REAL moment this track begins recording
+    const now = Tone.now();
+    this.recordStartTime = now;
+  
+    // If a global start was provided and we don't have one yet, keep it
+    if (forcedStartTime != null && !multitrack.globalRecordStartTime) {
+      multitrack.globalRecordStartTime = forcedStartTime;
+    }
+  
+    console.log(
+      `🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} on track ${
+        this.id
+      } (trackStart=${this.recordStartTime.toFixed(3)}, global=${
+        multitrack.globalRecordStartTime
+          ? multitrack.globalRecordStartTime.toFixed(3)
+          : 'none'
+      })`
+    );
   
     this.recording = true;
     this.armed = false;
@@ -7465,7 +7485,10 @@ class AudioTrack {
     }
   
     this.recordedChunks = [];
-    this.recorder = new MediaRecorder(recordDest.stream, mimeType ? { mimeType } : undefined);
+    this.recorder = new MediaRecorder(
+      recordDest.stream,
+      mimeType ? { mimeType } : undefined
+    );
   
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
@@ -7490,6 +7513,7 @@ class AudioTrack {
       showToast('❌ Recording error: ' + e.error, 'error');
     };
   
+    // Chunk every 100ms so the recorder flushes data
     this.recorder.start(100);
   
     console.log(`▶️ Recording track ${this.id} channel output`);
@@ -7508,6 +7532,7 @@ class AudioTrack {
     if (this.recordedChunks.length === 0) {
       console.warn('⚠️ No audio data recorded');
       this.recorder = null;
+      this.recordStartTime = null;
       renderMultitrack();
       showToast('⚠️ Recording was empty', 'warning'); 
       return;
@@ -7524,6 +7549,7 @@ class AudioTrack {
       showToast('❌ Recording failed - file too small', 'error');
       this.recordedChunks = [];
       this.recorder = null;
+      this.recordStartTime = null;
       renderMultitrack();
       return;
     }
@@ -7541,6 +7567,15 @@ class AudioTrack {
   
       const duration = audioBuffer.duration;
   
+      // 🔥 NEW: compute this take's offset in the global record timeline
+      let startTime = 0;
+      if (multitrack.globalRecordStartTime != null && this.recordStartTime != null) {
+        startTime = Math.max(
+          0,
+          this.recordStartTime - multitrack.globalRecordStartTime
+        );
+      }
+  
       const take = {
         id: Date.now(),
         buffer: audioBuffer,
@@ -7548,25 +7583,29 @@ class AudioTrack {
         duration,
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime: 0,  // No alignment - just raw audio
+        startTime,  // <-- CRITICAL FOR ALIGNMENT
         recordedAt: Date.now()
       };
   
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
   
-      console.log(`✅ Take ${this.takes.length} created: ${take.duration.toFixed(3)}s`);
+      console.log(
+        `✅ Take ${this.takes.length} created: ${take.duration.toFixed(
+          3
+        )}s (start=${startTime.toFixed(3)}s)`
+      );
   
       renderMultitrack();
       showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
-  
     } catch (err) {
       console.error('❌ Failed to decode audio:', err);
       showToast(`❌ Recording failed: ${err.message}`, 'error');
+    } finally {
+      this.recordedChunks = [];
+      this.recorder = null;
+      this.recordStartTime = null;
     }
-  
-    this.recordedChunks = [];
-    this.recorder = null;
   }
   
   selectTake(index) {
