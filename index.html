@@ -8504,8 +8504,8 @@ function createOfflineFxNode(fxDef, offlineContext) {
 }
   
 async function bounceAllTracks() {
-  const activeTracks = multitrack.tracks.filter(t =>
-    t.selectedTakeIndex >= 0 && !t.muted
+  const activeTracks = multitrack.tracks.filter(
+    t => t.selectedTakeIndex >= 0 && !t.muted
   );
 
   if (activeTracks.length === 0) {
@@ -8517,26 +8517,24 @@ async function bounceAllTracks() {
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.style.zIndex = '10000';
-  
+
   const modal = document.createElement('div');
   modal.className = 'modal';
   modal.style.maxWidth = '500px';
-  
   modal.innerHTML = `
     <div class="modal-header">
       <div class="modal-title">🎵 Bouncing Mix</div>
     </div>
     <div class="modal-body">
       <div style="margin-bottom: var(--space-4);">
-        <div id="bounceStatus" style="font-weight: 700; margin-bottom: var(--space-2);">Preparing...</div>
+        <div id="bounceStatus" style="font-weight:700;margin-bottom:var(--space-2);">Preparing...</div>
         <div class="progress">
-          <div class="progress-value" id="bounceProgress" style="width: 0%; transition: width 0.3s;"></div>
+          <div class="progress-value" id="bounceProgress" style="width:0%;transition:width 0.3s;"></div>
         </div>
-        <div id="bounceDetails" style="font-size: var(--text-sm); color: var(--text-tertiary); margin-top: var(--space-2);"></div>
+        <div id="bounceDetails" style="font-size:var(--text-sm);color:var(--text-tertiary);margin-top:var(--space-2);"></div>
       </div>
     </div>
   `;
-  
   backdrop.appendChild(modal);
   document.body.appendChild(backdrop);
 
@@ -8555,17 +8553,16 @@ async function bounceAllTracks() {
     let minStart = Infinity;
     let maxEnd = 0;
 
-    activeTracks.forEach(track => {
+    for (const track of activeTracks) {
       const take = track.takes[track.selectedTakeIndex];
-      if (!take || take.muted || !take.buffer) return;
+      if (!take || take.muted || !take.buffer) continue;
 
-      const startTime = take.startTime || 0;
-      const duration = take.duration || take.buffer.duration || 0;
-      const endTime = startTime + duration;
-
-      if (startTime < minStart) minStart = startTime;
-      if (endTime > maxEnd) maxEnd = endTime;
-    });
+      const start = take.startTime || 0;
+      const dur = take.duration || take.buffer.duration || 0;
+      const end = start + dur;
+      if (start < minStart) minStart = start;
+      if (end > maxEnd) maxEnd = end;
+    }
 
     if (minStart === Infinity || maxEnd <= minStart) {
       backdrop.remove();
@@ -8574,78 +8571,57 @@ async function bounceAllTracks() {
     }
 
     const totalDuration = maxEnd - minStart;
-    updateProgress(20, 'Setting up renderer...', `Duration: ${totalDuration.toFixed(1)}s`);
-
-    console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
-    console.log(`   - Earliest start (context): ${minStart.toFixed(2)}s`);
-    console.log(`   - Latest end   (context):   ${maxEnd.toFixed(2)}s`);
+    updateProgress(20, 'Setting up renderer...', `${totalDuration.toFixed(1)}s total`);
 
     const sampleRate = Tone.context.sampleRate || 48000;
     const numFrames = Math.ceil(totalDuration * sampleRate);
+    const offlineContext = new OfflineAudioContext(2, numFrames, sampleRate);
 
-    const offlineContext = new OfflineAudioContext({
-      numberOfChannels: 2,
-      length: numFrames,
-      sampleRate
-    });
+    updateProgress(30, 'Building master chain...', '');
 
-    updateProgress(30, 'Creating audio chain...', 'Building master effects');
+    const { masterIn: offlineMaster } = createOfflineMasterChain(offlineContext);
 
-    const { masterIn: offlineMaster, toneOffline } = createOfflineMasterChain(offlineContext);
-
-    updateProgress(40, 'Scheduling tracks...', `Processing ${activeTracks.length} tracks`);
+    updateProgress(40, 'Scheduling tracks...', '');
 
     for (const track of activeTracks) {
       const take = track.takes[track.selectedTakeIndex];
       if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
 
       try {
-        const player = new Tone.Player({
-          context: toneOffline,
-          loop: false
-        });
-        player.buffer = take.buffer;
-        
-        const channel = new Tone.Channel({
-          volume: track.volume,
-          pan: track.pan / 100,
-          context: toneOffline
-        });
+        const src = offlineContext.createBufferSource();
+        src.buffer = take.buffer;
 
-        player.connect(channel);
-        channel.connect(offlineMaster);
+        const gain = offlineContext.createGain();
+        gain.gain.value = Tone.dbToGain(track.volume);
+
+        const pan = offlineContext.createStereoPanner();
+        pan.pan.value = track.pan / 100;
+
+        src.connect(gain);
+        gain.connect(pan);
+        pan.connect(offlineMaster);
 
         const startTime = take.startTime || 0;
-        const relativeStartTime = startTime - minStart;
+        const relStart = startTime - minStart;
+        src.start(relStart);
 
-        player.start(relativeStartTime);
-
-        console.log(`✅ ${track.name}:`);
-        console.log(`   - Context start: ${startTime.toFixed(3)}s`);
-        console.log(`   - Renders at:    ${relativeStartTime.toFixed(3)}s (offline)`);
-        console.log(`   - Duration:      ${take.duration.toFixed(3)}s`);
-
+        console.log(`✅ ${track.name} scheduled @${relStart.toFixed(3)}s`);
       } catch (err) {
-        console.error(`❌ Failed to schedule ${track.name}:`, err);
+        console.error(`❌ Failed ${track.name}:`, err);
       }
     }
 
     updateProgress(50, 'Rendering audio...', 'This may take a moment');
 
-    // Simulate progress during rendering
     const progressInterval = setInterval(() => {
-      const currentProg = parseFloat(document.getElementById('bounceProgress')?.style.width) || 50;
-      if (currentProg < 90) {
-        updateProgress(currentProg + 2, 'Rendering audio...', `${Math.round(currentProg - 50)}% complete`);
-      }
-    }, 200);
+      const current = parseFloat(document.getElementById('bounceProgress')?.style.width) || 50;
+      if (current < 90) updateProgress(current + 2, 'Rendering audio...', '');
+    }, 250);
 
     const renderedBuffer = await offlineContext.startRendering();
-    
+
     clearInterval(progressInterval);
     updateProgress(95, 'Converting to WAV...', 'Almost done');
-
-    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
 
     const wavData = bufferToWavImproved(renderedBuffer);
     const blob = new Blob([wavData], { type: 'audio/wav' });
@@ -8659,20 +8635,17 @@ async function bounceAllTracks() {
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
-
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
 
     console.log(`✅ Bounce complete: ${filename}`);
-    
+
     setTimeout(() => {
       backdrop.remove();
       showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s exported`, 'success');
-    }, 1000);
-
+    }, 800);
   } catch (err) {
     console.error('❌ Bounce failed:', err);
     backdrop.remove();
