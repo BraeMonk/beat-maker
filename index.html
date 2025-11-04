@@ -7450,10 +7450,23 @@ class AudioTrack {
   async startRecording() {
     if (this.recording) return;
     await Tone.start();
-  
+    if (Tone.context.state !== 'running') await Tone.context.resume();
+
+    // 🩹 Ensure external inputs are open and audible
+    if (this.isExternalAudio) {
+      if (!this.mediaStreamSource) await this.setupExternalAudio();
+      this.inputMonitoring = true;
+      if (this.externalInput) this.externalInput.gain.value = 1;
+    }
+    
     const ctx = Tone.getContext().rawContext;
     const dest = ctx.createMediaStreamDestination();
-  
+
+    // 🩹 For internal tracks, tap the live Tone master bus
+    if (!this.isExternalAudio) {
+      master.fxIn.connect(dest);
+    }
+
     // Tap the actual audible channel
     this.channel.connect(dest);
     this.recordDest = dest;
@@ -7476,6 +7489,10 @@ class AudioTrack {
     if (this.recording && this.recorder) {
       this.recorder.stop();
       this.recording = false;
+      if (this.isExternalAudio && this.externalInput) {
+        // Keep live monitoring on stop for feedback continuity
+        this.externalInput.gain.value = this.inputMonitoring ? 1 : 0;
+      }
     }
   }
   
