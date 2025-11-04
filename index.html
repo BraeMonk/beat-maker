@@ -8831,18 +8831,31 @@ async function toggleRecordAllArmed() {
     }
   }
 
-  // Make sure transport is running
+  // 🔥 CRITICAL: Start transport FIRST so patterns play
   if (!state.isPlaying) {
-    await togglePlay();
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await togglePlay(); // This starts the sequencer loop
+    await new Promise(resolve => setTimeout(resolve, 200)); // Give it time to stabilize
   }
 
   await Tone.start();
 
+  // 🎯 WAIT FOR NEXT BAR BOUNDARY for perfect timing
+  const currentBar = Math.floor(Tone.Transport.position.split(':')[0]);
+  const nextBar = currentBar + 1;
+  const nextBarTime = Tone.Time(`${nextBar}:0:0`).toSeconds();
+  const now = Tone.now();
+  const waitTime = Math.max(0, nextBarTime - Tone.Transport.seconds);
+  
+  console.log(`⏱️ Waiting ${(waitTime * 1000).toFixed(0)}ms for bar ${nextBar}...`);
+  showToast(`⏱️ Recording starts at bar ${nextBar}... (${(waitTime * 1000).toFixed(0)}ms)`, 'info');
+  
+  // Schedule recording to start at next bar
+  await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+
   // Single shared start time for this record pass
   const globalStart = Tone.Transport.seconds;
   multitrack.globalRecordStartTime = globalStart;
-  console.log(`🎬 GLOBAL RECORD START (all armed): ${globalStart.toFixed(3)}s`);
+  console.log(`🎬 GLOBAL RECORD START at bar ${nextBar}: ${globalStart.toFixed(3)}s`);
 
   // Start each armed track with the SAME start time
   for (const track of armedTracks) {
