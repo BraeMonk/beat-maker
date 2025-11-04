@@ -7099,10 +7099,10 @@ const multitrack = {
 // ==================== ENHANCED MULTITRACK WITH EXTERNAL AUDIO ====================
 
 class AudioTrack {
-  constructor(id, name, instrument, isExternalAudio = false) {
+  constructor(id, name = `Track ${id}`, instrument = null, isExternalAudio = false) {
     this.id = id;
     this.name = name;
-    this.instrument = instrument;
+    this.instrument = instrument || 'internal';
     this.isExternalAudio = isExternalAudio;
     this.takes = [];
     this.selectedTakeIndex = -1;
@@ -7113,9 +7113,8 @@ class AudioTrack {
     this.volume = 0;
     this.pan = 0;
     this.inputMonitoring = false;
-
     this.recordStartTime = null;
-    
+
     // Audio routing
     this.channel = new Tone.Channel({ volume: 0, pan: 0 }).connect(master.fxIn);
     this.recorder = null;
@@ -7133,6 +7132,12 @@ class AudioTrack {
     
     if (!isExternalAudio && instrument !== 'external') {
       this.routeInstrument();
+    }
+
+    rename(newName) {
+      this.name = newName.trim() || `Track ${this.id}`;
+      showToast(`✏️ Renamed to "${this.name}"`, 'info');
+      renderMultitrack();
     }
   }
   
@@ -7167,6 +7172,8 @@ class AudioTrack {
   }
   
   toggleInputMonitoring() {
+    if (!this.mediaStreamSource) return showToast('⚠️ No input available', 'warning');
+
     if (!this.isExternalAudio || !this.externalInput) return;
     
     this.inputMonitoring = !this.inputMonitoring;
@@ -7177,29 +7184,11 @@ class AudioTrack {
   }
   
   routeInstrument() {
-    const instSynth = synths[this.instrument];
-    const instData = instruments[this.instrument];
-    
-    if (!instSynth || !instData) {
-      console.warn(`Cannot route ${this.instrument} - synth not ready`);
-      return;
-    }
-    
-    this.originalChannel = instData.channel;
-    
-    if (typeof instSynth.disconnect === 'function') {
-      instSynth.disconnect();
-      instSynth.connect(this.channel);
-    } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-      instSynth.gain.disconnect();
-      instSynth.gain.connect(this.channel);
-    } else {
-      console.warn(`${this.instrument} synth has no disconnect method - skipping routing`);
-      return;
-    }
-    
-    console.log(`✅ ${this.instrument} → Track ${this.id}`);
+    // Internal audio tracks no longer route from a fixed instrument.
+    // They simply exist as live audio buses (Tone.Channel → master).
+    console.log(`🎚️ ${this.name} ready as internal track`);
   }
+
   
   addFx(type, params = {}) {
     let fx;
@@ -7440,92 +7429,36 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  // FIXED: Pure real-time recording with proper timeline alignment
-  async startRecording(options = {}) {
+  async startRecording() {
     if (this.recording) return;
-  
     await Tone.start();
   
-    const forcedStartTime = options.forcedStartTime ?? null;
-    const now = Tone.now();
+    const ctx = Tone.getContext().rawContext;
+    const dest = ctx.createMediaStreamDestination();
   
-    // Use the shared global time if provided, otherwise current time
-    this.recordStartTime = forcedStartTime ?? now;
-  
-    // If we got a forced start and no global record time yet, set it
-    if (forcedStartTime != null && !multitrack.globalRecordStartTime) {
-      multitrack.globalRecordStartTime = forcedStartTime;
-    }
-  
-    console.log(
-      `🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} on track ${
-        this.id
-      } (trackStart=${this.recordStartTime.toFixed(3)}, global=${
-        multitrack.globalRecordStartTime
-          ? multitrack.globalRecordStartTime.toFixed(3)
-          : 'none'
-      })`
-    );
-  
-    this.recording = true;
-    this.armed = false;
-    multitrack.recordingTracks.add(this.id);
-    renderMultitrack();
-  
-    // Tap the track channel output - this is the ACTUAL audio being heard
-    const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
-    this.channel.connect(recordDest);
-    this.recordDest = recordDest;
-  
-    let mimeType = '';
-    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-      mimeType = 'audio/webm;codecs=opus';
-    } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-      mimeType = 'audio/webm';
-    }
-  
+    // Tap the actual audible channel
+    this.channel.connect(dest);
+    this.recordDest = dest;
     this.recordedChunks = [];
-    this.recorder = new MediaRecorder(
-      recordDest.stream,
-      mimeType ? { mimeType } : undefined
-    );
   
-    this.recorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) {
-        this.recordedChunks.push(e.data);
-      }
-    };
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : 'audio/webm';
   
-    this.recorder.onstop = () => {
-      console.log(`⏹️ Recording stopped: ${this.recordedChunks.length} chunks`);
-      this.finishRecording();
-  
-      try {
-        this.channel.disconnect(recordDest);
-        this.recordDest = null;
-      } catch (e) {
-        console.warn('Disconnect error:', e);
-      }
-    };
-  
-    this.recorder.onerror = (e) => {
-      console.error('❌ Recorder error:', e);
-      showToast('❌ Recording error: ' + e.error, 'error');
-    };
+    this.recorder = new MediaRecorder(dest.stream, { mimeType });
+    this.recorder.ondataavailable = e => e.data.size && this.recordedChunks.push(e.data);
+    this.recorder.onstop = () => this.finishRecording();
   
     this.recorder.start(100);
-  
-    console.log(`▶️ Recording track ${this.id} channel output`);
+    this.recording = true;
+    showToast(`🎧 Recording ${this.name}`, 'success');
   }
-
   
   stopRecording() {
-    if (!this.recording || !this.recorder) return;
-    
-    this.recorder.stop();
-    this.recording = false;
-    
-    multitrack.recordingTracks.delete(this.id);
+    if (this.recording && this.recorder) {
+      this.recorder.stop();
+      this.recording = false;
+    }
   }
   
   async finishRecording() {
@@ -7807,38 +7740,27 @@ class AudioTrack {
   }
 }
 
-async function createTrack(instrument, isExternalAudio = false) {
-  const trackName = isExternalAudio ? 
-    `Mic/Ext ${multitrack.tracks.filter(t => t.isExternalAudio).length + 1}` :
-    `${instruments[instrument]?.name || instrument} ${multitrack.tracks.filter(t => !t.isExternalAudio).length + 1}`;
-  
-  const track = new AudioTrack(
-    multitrack.nextTrackId++,
-    trackName,
-    instrument,
-    isExternalAudio
-  );
-  
-  // CRITICAL: Wait for external audio setup before adding to tracks
+async function createTrack(instrument = null, isExternalAudio = false) {
+  const isInternal = !isExternalAudio;
+  const baseName = isExternalAudio
+    ? `Mic/Ext ${multitrack.tracks.filter(t => t.isExternalAudio).length + 1}`
+    : `Track ${multitrack.tracks.filter(t => !t.isExternalAudio).length + 1}`;
+
+  const track = new AudioTrack(multitrack.nextTrackId++, baseName, instrument, isExternalAudio);
+
   if (isExternalAudio) {
     try {
       await track.setupExternalAudio();
-      if (!track.mediaStream) {
-        throw new Error('Failed to initialize audio stream');
-      }
     } catch (err) {
       console.error('❌ External audio setup failed:', err);
-      track.dispose();
       showToast(`❌ Microphone access failed: ${err.message}`, 'error');
       return null;
     }
   }
-  
+
   multitrack.tracks.push(track);
   renderMultitrack();
-  
-  console.log(`✅ Track created: ${trackName}`);
-  
+  showToast(`✅ ${isExternalAudio ? 'External' : 'Internal'} track added`, 'success');
   return track;
 }
 
@@ -7913,6 +7835,9 @@ function renderTakes(track) {
             <button class="region-action-btn" data-action="toggle-mute-take" title="Mute/Unmute">
               ${isMuted ? '🔇' : '🔊'}
             </button>
+            <button class="track-mini-btn" data-action="rename">
+              ✏️ Rename
+            </button>
             <button class="region-action-btn" data-action="delete-take" title="Delete">🗑️</button>
           </div>
         </div>
@@ -7944,8 +7869,9 @@ function createTrackStrip(track) {
   strip.innerHTML = `
     <div class="track-header">
       <div class="track-header-top">
-        <div class="track-name">
-          ${instData?.icon || '🎵'} ${track.name}
+        <div class="track-name" contenteditable="true"
+             onblur="const newName=this.textContent; multitrack.tracks.find(t=>t.id===${track.id})?.rename(newName);">
+          ${track.name}
         </div>
       </div>
       <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
@@ -8148,6 +8074,9 @@ async function handleTrackAction(track, action) {
     renderMultitrack();
   } else if (action === 'fx') {
     openFxChainEditor(track.id);
+  } else if (action === 'rename') {
+    const newName = prompt('Rename track:', track.name);
+    if (newName !== null) track.rename(newName);
   } else if (action === 'edit') {
     openTakeEditor(track.id);
   } else if (action === 'delete') {
@@ -8186,7 +8115,7 @@ function showAddTrackDialog() {
             Track Type
           </label>
           <select class="track-type-select" style="font-size: var(--text-base); padding: var(--space-3); width: 100%;">
-            <option value="instrument">🎹 Instrument Track</option>
+            <option value="instrument">🎧 Internal Audio</option>
             <option value="external">🎤 External Audio (Mic/Line In)</option>
           </select>
         </div>
