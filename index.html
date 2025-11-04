@@ -8140,14 +8140,6 @@ function createTrackStrip(track) {
       }
     });
   });
-
-  // Use in renderTakes:
-  const canvas = document.createElement('canvas');
-  canvas.width = 120;
-  canvas.height = 40;
-  canvas.className = 'take-waveform-canvas';
-  drawTakeWaveform(canvas, take.buffer);
-  // append canvas to take region
   
   // Add take interaction listeners
   strip.addEventListener('click', (e) => {
