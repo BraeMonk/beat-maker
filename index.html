@@ -8086,7 +8086,6 @@ async function handleTrackAction(track, action) {
   }
 }
 
-// Add Track Dialog (with naming + internal/external options)
 function showAddTrackDialog() {
   document.querySelectorAll('.modal-backdrop').forEach(m => m.remove());
 
@@ -8114,7 +8113,9 @@ function showAddTrackDialog() {
           </label>
           <input type="text" class="track-name-input"
                  placeholder="e.g., Vocals, Guitar, Drums..."
-                 style="width:100%; padding:var(--space-3); font-size:var(--text-base); border-radius:var(--radius-sm); border:1px solid var(--glass-border); background:var(--glass-bg); color:var(--text-primary);">
+                 style="width:100%; padding:var(--space-3); font-size:var(--text-base);
+                        border-radius:var(--radius-sm); border:1px solid var(--glass-border);
+                        background:var(--glass-bg); color:var(--text-primary);">
         </div>
 
         <!-- 🎚️ Track Type -->
@@ -8129,10 +8130,16 @@ function showAddTrackDialog() {
         </div>
 
         <!-- 🎤 External Info -->
-        <div class="external-info" style="display:none; padding:var(--space-4); background:var(--glass-bg); border-radius:var(--radius-md); border:1px solid var(--glass-border);">
-          <div style="font-weight:700; margin-bottom:var(--space-2); color:var(--text-primary);">🎤 External Audio Input</div>
+        <div class="external-info" style="display:none; padding:var(--space-4);
+             background:var(--glass-bg); border-radius:var(--radius-md);
+             border:1px solid var(--glass-border);">
+          <div style="font-weight:700; margin-bottom:var(--space-2); color:var(--text-primary);">
+            🎤 External Audio Input
+          </div>
           <div style="font-size:var(--text-sm); color:var(--text-secondary); line-height:1.6;">
-            <p style="margin-bottom:var(--space-2);">This will create a track that records from your microphone or audio interface.</p>
+            <p style="margin-bottom:var(--space-2);">
+              This will create a track that records from your microphone or audio interface.
+            </p>
             <ul style="margin-left:var(--space-5); margin-bottom:var(--space-2);">
               <li>Real-time monitoring with effects</li>
               <li>Record vocals, guitar, or any external source</li>
@@ -8172,13 +8179,18 @@ function showAddTrackDialog() {
 
   confirmBtn.onclick = async () => {
     const isExternal = trackTypeSelect.value === 'external';
-    const name = nameInput.value.trim() || (isExternal ? 'Mic Track' : 'Audio Track');
+    const userName = nameInput.value.trim();
+
+    // 🧠 Smart default naming logic
+    const countInternal = multitrack.tracks.filter(t => !t.isExternalAudio).length + 1;
+    const countExternal = multitrack.tracks.filter(t => t.isExternalAudio).length + 1;
+    const defaultName = isExternal ? `Mic ${countExternal}` : `Track ${countInternal}`;
+    const name = userName || defaultName;
 
     confirmBtn.disabled = true;
     confirmBtn.textContent = isExternal ? 'Requesting access...' : 'Adding...';
 
     try {
-      // Pass name + external flag to createTrack
       const track = await createTrack(null, isExternal);
       if (track) {
         track.rename(name);
@@ -8196,9 +8208,7 @@ function showAddTrackDialog() {
     }
   };
 
-  backdrop.onclick = (e) => {
-    if (e.target === backdrop) close();
-  };
+  backdrop.onclick = e => { if (e.target === backdrop) close(); };
 }
 
 function renderMultitrack() {
