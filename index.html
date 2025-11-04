@@ -7492,7 +7492,7 @@ class AudioTrack {
   
     await Tone.start();
   
-    // 🔄 Drum sample readiness check (keep as you had it)
+    // 🔄 Drum sample readiness check
     if (!this.isExternalAudio && instruments[this.instrument]?.type === 'drum') {
       const synth = synths[this.instrument];
       if (synth && !synth.loaded) {
@@ -7518,14 +7518,23 @@ class AudioTrack {
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
   
-    // 🔑 Use a single shared audio-context start time for all tracks in this pass
+    // 🔑 CRITICAL FIX: Always use Transport.seconds as the reference point
+    // This ensures we capture from the beginning of the sequence, not just when sound starts
+    const transportTime = Tone.Transport.seconds;
     const contextNow = Tone.now();
+    
+    // If forcedStartTime provided (batch recording), use it
+    // Otherwise, use current transport position as the anchor
     const startTime = (typeof forcedStartTime === 'number') ? forcedStartTime : contextNow;
-  
+    
+    // Store BOTH times - transport time is our logical anchor
     this.recordStartTime = startTime;
     this.contextStartTime = startTime;
+    this.transportStartOffset = transportTime; // NEW: Remember where in the sequence we started
   
-    console.log(`⏱️ Track ${this.id} recording start (context): ${startTime.toFixed(3)}s`);
+    console.log(`⏱️ Track ${this.id} recording start:`);
+    console.log(`   - Context time: ${startTime.toFixed(3)}s`);
+    console.log(`   - Transport position: ${transportTime.toFixed(3)}s`);
   
     // 🎧 Tap the TRACK CHANNEL OUTPUT (what you actually hear) into a MediaStreamDestination
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
@@ -7620,8 +7629,11 @@ class AudioTrack {
       }
   
       const duration = audioBuffer.duration;
-      // All tracks in same pass share the same contextStartTime (given by toggleRecordAllArmed)
-      const startTime = this.contextStartTime ?? (Tone.now() - duration);
+      
+      // 🔑 CRITICAL FIX: Calculate startTime to include silence BEFORE first note
+      // Use the transport offset we stored when recording started
+      const transportOffset = this.transportStartOffset || 0;
+      const startTime = this.contextStartTime - transportOffset;
   
       const take = {
         id: Date.now(),
@@ -7630,17 +7642,18 @@ class AudioTrack {
         duration,
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime,             // 🔑 audio-context-based alignment anchor
+        startTime,             // 🔑 Now includes silence before first sound
         recordedAt: Date.now()
       };
   
       this.contextStartTime = null;
+      this.transportStartOffset = null; // Clear the offset
   
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
   
       console.log(`✅ Take ${this.takes.length} created:`);
-      console.log(`   - Start (context): ${take.startTime.toFixed(3)}s`);
+      console.log(`   - Start (context): ${take.startTime.toFixed(3)}s (includes pre-roll)`);
       console.log(`   - Duration:        ${take.duration.toFixed(3)}s`);
       console.log(`   - Ends at:         ${(take.startTime + take.duration).toFixed(3)}s`);
       console.log(`   - Channels:        ${audioBuffer.numberOfChannels}`);
@@ -8599,83 +8612,138 @@ async function bounceAllTracks() {
     return;
   }
 
-  showToast('🎵 Preparing bounce...', 'info');
+  // Create progress modal
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.style.zIndex = '10000';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '500px';
+  
+  modal.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">🎵 Bouncing Mix</div>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom: var(--space-4);">
+        <div id="bounceStatus" style="font-weight: 700; margin-bottom: var(--space-2);">Preparing...</div>
+        <div class="progress">
+          <div class="progress-value" id="bounceProgress" style="width: 0%; transition: width 0.3s;"></div>
+        </div>
+        <div id="bounceDetails" style="font-size: var(--text-sm); color: var(--text-tertiary); margin-top: var(--space-2);"></div>
+      </div>
+    </div>
+  `;
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
 
-  let minStart = Infinity;
-  let maxEnd = 0;
-
-  activeTracks.forEach(track => {
-    const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted || !take.buffer) return;
-
-    const startTime = take.startTime || 0;
-    const duration = take.duration || take.buffer.duration || 0;
-    const endTime = startTime + duration;
-
-    if (startTime < minStart) minStart = startTime;
-    if (endTime > maxEnd) maxEnd = endTime;
-  });
-
-  if (minStart === Infinity || maxEnd <= minStart) {
-    showToast('❌ Invalid take timing for bounce', 'error');
-    return;
-  }
-
-  const totalDuration = maxEnd - minStart;
-  console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
-  console.log(`   - Earliest start (context): ${minStart.toFixed(2)}s`);
-  console.log(`   - Latest end   (context):   ${maxEnd.toFixed(2)}s`);
-
-  const sampleRate = Tone.context.sampleRate || 48000;
-  const numFrames = Math.ceil(totalDuration * sampleRate);
-
-  const offlineContext = new OfflineAudioContext({
-    numberOfChannels: 2,
-    length: numFrames,
-    sampleRate
-  });
-
-  const { masterIn: offlineMaster } = createOfflineMasterChain(offlineContext);
-
-  for (const track of activeTracks) {
-    const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
-
-    try {
-      const player = new Tone.Player({
-        context: offlineContext,
-        loop: false
-      });
-      player.buffer = take.buffer;
-
-      const channel = new Tone.Channel({
-        volume: track.volume,
-        pan: track.pan / 100,
-        context: offlineContext
-      });
-
-      player.connect(channel);
-      channel.connect(offlineMaster);
-
-      const startTime = take.startTime || 0;
-      const relativeStartTime = startTime - minStart;
-
-      player.start(relativeStartTime);
-
-      console.log(`✅ ${track.name}:`);
-      console.log(`   - Context start: ${startTime.toFixed(3)}s`);
-      console.log(`   - Renders at:    ${relativeStartTime.toFixed(3)}s (offline)`);
-      console.log(`   - Duration:      ${take.duration.toFixed(3)}s`);
-
-    } catch (err) {
-      console.error(`❌ Failed to schedule ${track.name}:`, err);
-    }
-  }
+  const updateProgress = (percent, status, details = '') => {
+    const prog = document.getElementById('bounceProgress');
+    const stat = document.getElementById('bounceStatus');
+    const det = document.getElementById('bounceDetails');
+    if (prog) prog.style.width = percent + '%';
+    if (stat) stat.textContent = status;
+    if (det) det.textContent = details;
+  };
 
   try {
-    showToast('⏳ Rendering...', 'info');
+    updateProgress(10, 'Analyzing tracks...', `${activeTracks.length} tracks to bounce`);
+
+    let minStart = Infinity;
+    let maxEnd = 0;
+
+    activeTracks.forEach(track => {
+      const take = track.takes[track.selectedTakeIndex];
+      if (!take || take.muted || !take.buffer) return;
+
+      const startTime = take.startTime || 0;
+      const duration = take.duration || take.buffer.duration || 0;
+      const endTime = startTime + duration;
+
+      if (startTime < minStart) minStart = startTime;
+      if (endTime > maxEnd) maxEnd = endTime;
+    });
+
+    if (minStart === Infinity || maxEnd <= minStart) {
+      backdrop.remove();
+      showToast('❌ Invalid take timing for bounce', 'error');
+      return;
+    }
+
+    const totalDuration = maxEnd - minStart;
+    updateProgress(20, 'Setting up renderer...', `Duration: ${totalDuration.toFixed(1)}s`);
+
+    console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
+    console.log(`   - Earliest start (context): ${minStart.toFixed(2)}s`);
+    console.log(`   - Latest end   (context):   ${maxEnd.toFixed(2)}s`);
+
+    const sampleRate = Tone.context.sampleRate || 48000;
+    const numFrames = Math.ceil(totalDuration * sampleRate);
+
+    const offlineContext = new OfflineAudioContext({
+      numberOfChannels: 2,
+      length: numFrames,
+      sampleRate
+    });
+
+    updateProgress(30, 'Creating audio chain...', 'Building master effects');
+
+    const { masterIn: offlineMaster } = createOfflineMasterChain(offlineContext);
+
+    updateProgress(40, 'Scheduling tracks...', `Processing ${activeTracks.length} tracks`);
+
+    for (const track of activeTracks) {
+      const take = track.takes[track.selectedTakeIndex];
+      if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
+
+      try {
+        const player = new Tone.Player({
+          context: offlineContext,
+          loop: false
+        });
+        player.buffer = take.buffer;
+
+        const channel = new Tone.Channel({
+          volume: track.volume,
+          pan: track.pan / 100,
+          context: offlineContext
+        });
+
+        player.connect(channel);
+        channel.connect(offlineMaster);
+
+        const startTime = take.startTime || 0;
+        const relativeStartTime = startTime - minStart;
+
+        player.start(relativeStartTime);
+
+        console.log(`✅ ${track.name}:`);
+        console.log(`   - Context start: ${startTime.toFixed(3)}s`);
+        console.log(`   - Renders at:    ${relativeStartTime.toFixed(3)}s (offline)`);
+        console.log(`   - Duration:      ${take.duration.toFixed(3)}s`);
+
+      } catch (err) {
+        console.error(`❌ Failed to schedule ${track.name}:`, err);
+      }
+    }
+
+    updateProgress(50, 'Rendering audio...', 'This may take a moment');
+
+    // Simulate progress during rendering
+    const progressInterval = setInterval(() => {
+      const currentProg = parseFloat(document.getElementById('bounceProgress')?.style.width) || 50;
+      if (currentProg < 90) {
+        updateProgress(currentProg + 2, 'Rendering audio...', `${Math.round(currentProg - 50)}% complete`);
+      }
+    }, 200);
 
     const renderedBuffer = await offlineContext.startRendering();
+    
+    clearInterval(progressInterval);
+    updateProgress(95, 'Converting to WAV...', 'Almost done');
+
     console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
 
     const wavData = bufferToWavImproved(renderedBuffer);
@@ -8683,6 +8751,8 @@ async function bounceAllTracks() {
 
     const projectName = document.getElementById('projectName')?.value || 'mix';
     const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
+
+    updateProgress(100, 'Complete!', `Downloading ${filename}`);
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -8695,14 +8765,20 @@ async function bounceAllTracks() {
 
     setTimeout(() => URL.revokeObjectURL(url), 5000);
 
-    showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s`, 'success');
+    console.log(`✅ Bounce complete: ${filename}`);
+    
+    setTimeout(() => {
+      backdrop.remove();
+      showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s exported`, 'success');
+    }, 1000);
 
   } catch (err) {
     console.error('❌ Bounce failed:', err);
+    backdrop.remove();
     showToast(`❌ Bounce failed: ${err.message}`, 'error');
   }
 }
-
+  
 async function validateAllArmedTracks() {
   const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
   const errors = [];
