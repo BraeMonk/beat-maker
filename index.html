@@ -3353,7 +3353,7 @@
       <div class="transport-controls">
         <button class="btn btn-primary" id="playBtn">▶️ Play</button>
         <button class="btn btn-secondary" id="stopBtn">⏹️ Stop</button>
-        <button class="btn btn-secondary" id="exportBtn">💾 Export</button>
+        <button class="btn btn-secondary" id="exportBtn">🎧 DJ</button>
       </div>
       
       <div class="progress-area">
@@ -3734,7 +3734,7 @@
 
     <footer class="footer">
       <strong>8-Beat Studio</strong> • Fun With Noise • 
-      Shortcuts: <kbd>Space</kbd> Play/Pause • <kbd>S</kbd> Stop • <kbd>E</kbd> Record/Export • 
+      Shortcuts: <kbd>Space</kbd> Play/Pause • <kbd>S</kbd> Stop • <kbd>E</kbd> DJ • 
       Sequencer: <kbd>Alt</kbd> Accent Velocity • <kbd>Shift</kbd> Increase Probability
     </footer>
   </div>
@@ -8425,204 +8425,6 @@ function stopMultitrackPreview() {
   }
 }
 
-// Helper: create offline master chain that mirrors the live master bus
-function createOfflineMasterChain(offlineContext) {
-  const cfg = (typeof fxConfig !== 'undefined') ? fxConfig : {};
-
-  const filterCfg = cfg.filter || {};
-  const distCfg = cfg.distortion || {};
-  const chorusCfg = cfg.chorus || {};
-  const phaserCfg = cfg.phaser || {};
-  const delayCfg = cfg.delay || {};
-  const reverbCfg = cfg.reverb || {};
-
-  // This is the "fxIn" equivalent of your live chain
-  const masterIn = new Tone.Gain(0.7, { context: offlineContext });
-
-  const filter = new Tone.Filter({
-    type: filterCfg.type || 'lowpass',
-    frequency: filterCfg.frequency || 12000,
-    Q: filterCfg.Q || 1,
-    context: offlineContext
-  });
-
-  const distortion = new Tone.Distortion({
-    distortion: distCfg.amount ?? 0,
-    wet: distCfg.wet ?? 0,
-    context: offlineContext
-  });
-
-  const chorus = new Tone.Chorus({
-    frequency: chorusCfg.frequency ?? 1.5,
-    delayTime: chorusCfg.delayTime ?? 3.5,
-    depth: chorusCfg.depth ?? 0,
-    wet: chorusCfg.wet ?? 0,
-    context: offlineContext
-  }).start();
-
-  const phaser = new Tone.Phaser({
-    frequency: phaserCfg.frequency ?? 0.5,
-    octaves: phaserCfg.octaves ?? 3,
-    baseFrequency: phaserCfg.baseFrequency ?? 350,
-    wet: phaserCfg.wet ?? 0,
-    context: offlineContext
-  });
-
-  const delay = new Tone.FeedbackDelay({
-    delayTime: delayCfg.time ?? '8n',
-    feedback: delayCfg.feedback ?? 0,
-    wet: delayCfg.wet ?? 0,
-    context: offlineContext
-  });
-
-  const reverb = new Tone.Reverb({
-    decay: reverbCfg.decay ?? 1.5,
-    preDelay: reverbCfg.preDelay ?? 0.01,
-    wet: reverbCfg.wet ?? 0,
-    context: offlineContext
-  });
-
-  // Match your live master.comp / master.limiter as closely as possible
-  const comp = new Tone.Compressor({
-    threshold: -18,
-    ratio: 3,
-    attack: 0.003,
-    release: 0.25,
-    context: offlineContext
-  });
-
-  const limiter = new Tone.Limiter(-1, { context: offlineContext });
-
-  masterIn.chain(
-    filter,
-    distortion,
-    chorus,
-    phaser,
-    delay,
-    reverb,
-    comp,
-    limiter
-  );
-
-  limiter.connect(offlineContext.destination);
-
-  return { masterIn, limiter };
-}
-
-// Helper: recreate a single FX node (per-track FX) in the offline context
-function createOfflineFxNode(fxDef, offlineContext) {
-  const type = fxDef.type;
-  const params = fxDef.params || {};
-  let node = null;
-
-  switch (type) {
-    case 'reverb': {
-      const decay = params.decay ?? 1.5;
-      const wet = params.wet ?? 0.3;
-      node = new Tone.Reverb({
-        decay,
-        wet,
-        context: offlineContext
-      });
-      break;
-    }
-
-    case 'delay': {
-      const time = params.time ?? '8n';
-      const feedback = params.feedback ?? 0.3;
-      const wet = params.wet ?? 0.3;
-      node = new Tone.FeedbackDelay({
-        delayTime: time,
-        feedback,
-        wet,
-        context: offlineContext
-      });
-      break;
-    }
-
-    case 'chorus': {
-      const frequency = params.frequency ?? 1.5;
-      const delayTime = params.delayTime ?? 3.5;
-      const depth = params.depth ?? 0.7;
-      const wet = params.wet ?? 0.5;
-      node = new Tone.Chorus({
-        frequency,
-        delayTime,
-        depth,
-        wet,
-        context: offlineContext
-      }).start();
-      break;
-    }
-
-    case 'distortion': {
-      const amount = params.amount ?? 0.4;
-      const wet = params.wet ?? 0.5;
-      node = new Tone.Distortion({
-        distortion: amount,
-        wet,
-        context: offlineContext
-      });
-      break;
-    }
-
-    case 'filter': {
-      const typeOpt = params.type ?? 'lowpass';
-      const frequency = params.frequency ?? 5000;
-      const q = params.q ?? 1;
-      node = new Tone.Filter({
-        type: typeOpt,
-        frequency,
-        Q: q,
-        context: offlineContext
-      });
-      break;
-    }
-
-    case 'compressor': {
-      const threshold = params.threshold ?? -24;
-      const ratio = params.ratio ?? 4;
-      const attack = params.attack ?? 0.003;
-      const release = params.release ?? 0.25;
-      node = new Tone.Compressor({
-        threshold,
-        ratio,
-        attack,
-        release,
-        context: offlineContext
-      });
-      break;
-    }
-
-    case 'eq': {
-      const low = params.low ?? 0;
-      const mid = params.mid ?? 0;
-      const high = params.high ?? 0;
-      node = new Tone.EQ3({
-        low,
-        mid,
-        high,
-        context: offlineContext
-      });
-      break;
-    }
-
-    case 'bitcrusher': {
-      const bits = params.bits ?? 4;
-      node = new Tone.BitCrusher({
-        bits,
-        context: offlineContext
-      });
-      break;
-    }
-
-    default:
-      console.warn('Unknown FX type for offline bounce:', type);
-  }
-
-  return node;
-}
-
 // Enhanced bounce with ALL takes from ALL tracks + per-track FX + master FX
 async function bounceAllTracks() {
   const activeTracks = multitrack.tracks.filter(t =>
@@ -9512,8 +9314,10 @@ function getSerializableInstruments() {
   return cleaned;
 }
 
-function saveProject() {
+async function saveProject() {
   const projectName = document.getElementById('projectName').value || 'Untitled';
+  
+  showToast('💾 Saving project...', 'info');
   
   // Serialize patterns
   const plainPatterns = {};
@@ -9527,29 +9331,59 @@ function saveProject() {
     }));
   });
   
-  // Serialize multitrack (metadata only, no audio blobs)
+  // Serialize multitrack WITH AUDIO
   const multitrackData = {
-    tracks: multitrack.tracks.map(track => ({
+    tracks: [],
+    nextTrackId: multitrack.nextTrackId
+  };
+  
+  // Convert audio blobs to base64 for each track
+  for (const track of multitrack.tracks) {
+    const trackData = {
       id: track.id,
       name: track.name,
       instrument: track.instrument,
+      isExternalAudio: track.isExternalAudio,
       volume: track.volume,
       pan: track.pan,
       muted: track.muted,
       soloed: track.soloed,
       selectedTakeIndex: track.selectedTakeIndex,
-      takesCount: track.takes.length,
       fxChain: track.fxChain.map(fx => ({
         type: fx.type,
         params: fx.params,
         enabled: fx.enabled
-      }))
-    })),
-    nextTrackId: multitrack.nextTrackId
-  };
+      })),
+      takes: []
+    };
+    
+    // Convert each take's audio blob to base64
+    for (const take of track.takes) {
+      try {
+        // Convert blob to base64
+        const base64Audio = await blobToBase64(take.blob);
+        
+        trackData.takes.push({
+          id: take.id,
+          duration: take.duration,
+          timestamp: take.timestamp,
+          muted: take.muted,
+          startTime: take.startTime,
+          transportStartTime: take.transportStartTime,
+          recordedAt: take.recordedAt,
+          audioData: base64Audio, // Base64 encoded audio
+          mimeType: take.blob.type
+        });
+      } catch (err) {
+        console.error(`Failed to encode take ${take.id}:`, err);
+      }
+    }
+    
+    multitrackData.tracks.push(trackData);
+  }
   
   const project = {
-    version: '1.0',
+    version: '2.0', // Increment version for audio support
     name: projectName,
     state: {
       bpm: state.bpm,
@@ -9568,7 +9402,10 @@ function saveProject() {
       vinylNoise: state.vinylNoise,
       lowCut: state.lowCut,
       highCut: state.highCut,
-      compressor: state.compressor
+      compressor: state.compressor,
+      metronomeEnabled: state.metronomeEnabled,
+      metronomeVolume: state.metronomeVolume,
+      countInBars: state.countInBars
     },
     patterns: plainPatterns,
     instruments: getSerializableInstruments(),
@@ -9578,6 +9415,10 @@ function saveProject() {
   
   const json = JSON.stringify(project, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
+  
+  // Calculate file size
+  const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
+  
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -9586,8 +9427,35 @@ function saveProject() {
   
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   
-  console.log('💾 Project saved:', projectName);
-  showToast('✅ Project saved!', 'success');
+  console.log(`💾 Project saved: ${projectName} (${sizeMB}MB)`);
+  showToast(`✅ Project saved! (${sizeMB}MB)`, 'success');
+}
+
+// Helper function to convert Blob to Base64
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Helper function to convert Base64 back to Blob
+function base64ToBlob(base64, mimeType) {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
 }
 
 function applyLoadedInstruments(loaded) {
@@ -9608,21 +9476,23 @@ function applyLoadedInstruments(loaded) {
   });
 }
 
+// Replace the loadProject function (around line 3600):
 function loadProject() {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json,.8beat.json';
   
-  input.onchange = e => {
+  input.onchange = async e => {
     const file = e.target.files[0];
     if (!file) return;
     
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async ev => {
       try {
         const project = JSON.parse(ev.target.result);
         
         console.log('📂 Loading project:', project.name);
+        showToast('⏳ Loading project...', 'info');
         
         // Stop playback
         if (state.isPlaying) {
@@ -9652,18 +9522,20 @@ function loadProject() {
           multitrack.tracks.forEach(t => t.dispose());
           multitrack.tracks = [];
           
-          // Restore track metadata
-          project.multitrack.tracks.forEach(trackData => {
+          // Restore tracks with audio
+          for (const trackData of project.multitrack.tracks) {
             const track = new AudioTrack(
               trackData.id,
               trackData.name,
-              trackData.instrument
+              trackData.instrument,
+              trackData.isExternalAudio
             );
             
             track.volume = trackData.volume;
             track.pan = trackData.pan;
             track.muted = trackData.muted;
             track.soloed = trackData.soloed;
+            track.selectedTakeIndex = trackData.selectedTakeIndex;
             
             // Update channel settings
             track.channel.volume.value = track.volume;
@@ -9680,14 +9552,45 @@ function loadProject() {
               });
             }
             
+            // Restore takes with audio
+            if (trackData.takes && trackData.takes.length > 0) {
+              showToast(`🎵 Restoring ${trackData.takes.length} take(s) for ${track.name}...`, 'info');
+              
+              for (const takeData of trackData.takes) {
+                try {
+                  // Convert base64 back to blob
+                  const blob = base64ToBlob(takeData.audioData, takeData.mimeType);
+                  
+                  // Decode audio buffer
+                  const arrayBuffer = await blob.arrayBuffer();
+                  const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+                  
+                  // Recreate the take
+                  const take = {
+                    id: takeData.id,
+                    buffer: audioBuffer,
+                    blob: blob,
+                    duration: takeData.duration,
+                    timestamp: takeData.timestamp,
+                    muted: takeData.muted,
+                    startTime: takeData.startTime,
+                    transportStartTime: takeData.transportStartTime,
+                    recordedAt: takeData.recordedAt
+                  };
+                  
+                  track.takes.push(take);
+                  console.log(`✅ Restored take ${take.id} (${take.duration.toFixed(2)}s)`);
+                  
+                } catch (err) {
+                  console.error(`Failed to restore take ${takeData.id}:`, err);
+                }
+              }
+            }
+            
             multitrack.tracks.push(track);
-          });
+          }
           
           multitrack.nextTrackId = project.multitrack.nextTrackId;
-          
-          if (project.multitrack.tracks.some(t => t.takesCount > 0)) {
-            showToast('⚠️ Track settings loaded. Audio must be re-recorded.', 'warning');
-          }
         }
         
         // Update all displays
@@ -9702,8 +9605,9 @@ function loadProject() {
         
         document.getElementById('projectName').value = project.name || 'Untitled';
         
+        const totalTakes = multitrack.tracks.reduce((sum, t) => sum + t.takes.length, 0);
         console.log('✅ Project loaded successfully');
-        showToast('✅ Project loaded!', 'success');
+        showToast(`✅ Project loaded with ${totalTakes} recording(s)!`, 'success');
         
       } catch (err) {
         console.error('❌ Load project error:', err);
@@ -9716,7 +9620,7 @@ function loadProject() {
   
   input.click();
 }
-
+  
 function updateAllDisplays() {
   state.bpm = Math.min(CONFIG.MAX_BPM, state.bpm);
   
@@ -9805,262 +9709,8 @@ function bufferToWav(audioBuffer) {
 }
 
 async function exportAudio() {
-  // Check if we should use offline rendering or live recording
-  const useOffline = confirm('Export Method:\n\nOK = Offline Render (Higher Quality, Slower)\nCancel = Live Record (Real-time)');
-  
-  if (useOffline) {
-    await exportOfflineRender();
-  } else {
-    await exportLiveRecording();
-  }
-}
-
-async function exportOfflineRender() {
-  const hasActive = Object.keys(patterns).some(inst =>
-    patterns[inst]?.some(s => s.active)
-  );
-  
-  if (!hasActive) {
-    alert('No active notes to export!');
-    return;
-  }
-  
-  const durationSeconds = state.duration * 60;
-  showToast('🎵 Rendering audio offline...', 'info');
-  
-  try {
-    const renderedBuffer = await Tone.Offline(({ transport, destination }) => {
-      // --- Transport-like timing ---
-      const bpm = state.bpm || 80;
-      const secondsPerBeat = 60 / bpm;
-      
-      const resolution = state.resolution || '16n';
-      let beatsPerStep = 0.25;
-      if (resolution === '4n') beatsPerStep = 1;
-      else if (resolution === '8n') beatsPerStep = 0.5;
-      else if (resolution === '2n') beatsPerStep = 2;
-      
-      const stepDuration = secondsPerBeat * beatsPerStep;
-      const stepsPerBar = state.sequenceLength || 16;
-      const barsToRender = Math.ceil(durationSeconds / (stepsPerBar * stepDuration));
-      
-      // --- Master chain ---
-      const masterGain = new Tone.Gain(0.7);
-      const comp = new Tone.Compressor({
-        threshold: -18,
-        ratio: 4,
-        attack: 0.003,
-        release: 0.15
-      });
-      const limiter = new Tone.Limiter(-0.5);
-      
-      masterGain.chain(comp, limiter);
-      limiter.toDestination();
-      
-      // --- Instruments with REAL samples ---
-      const offlineSynths = {};
-      const offlineChannels = {};
-      
-      Object.keys(instruments).forEach(inst => {
-        const instData = instruments[inst];
-        if (!instData) return;
-        
-        const channel = new Tone.Channel({
-          volume: instData.volume ?? 0,
-          pan: (instData.pan ?? 0) / 100
-        }).connect(masterGain);
-        
-        offlineChannels[inst] = channel;
-        
-        if (instData.type === 'drum') {
-          // Use real drum samples
-          const sampleUrl = DRUM_SAMPLES[inst];
-          if (sampleUrl) {
-            offlineSynths[inst] = new Tone.Player({
-              url: sampleUrl,
-              fadeOut: 0.01
-            }).connect(channel);
-          } else {
-            // Fallback synth
-            offlineSynths[inst] = createOfflineDrumSynth(inst, channel);
-          }
-        } else if (instData.type === 'atmospheric') {
-          offlineSynths[inst] = createOfflineAtmospheric(inst, channel);
-        } else {
-          // Melodic - use sampled instruments
-          const samples = MELODIC_SAMPLES[inst];
-          if (samples) {
-            offlineSynths[inst] = new Tone.Sampler({
-              urls: samples,
-              release: 2
-            }).connect(channel);
-          } else {
-            // Fallback PolySynth for chords
-            offlineSynths[inst] = new Tone.PolySynth(Tone.Synth, {
-              maxPolyphony: 8,
-              oscillator: { type: 'sine' },
-              envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 }
-            }).connect(channel);
-          }
-        }
-      });
-      
-      // Wait for samples to load
-      return Tone.loaded().then(() => {
-        // --- Schedule all steps ---
-        for (let bar = 0; bar < barsToRender; bar++) {
-          for (let step = 0; step < stepsPerBar; step++) {
-            const time = bar * stepsPerBar * stepDuration + step * stepDuration;
-            
-            Object.keys(instruments).forEach(inst => {
-              const instData = instruments[inst];
-              const pattern = patterns[inst];
-              if (!instData || !pattern) return;
-              
-              const stepData = pattern[step];
-              if (!stepData || !stepData.active) return;
-              
-              if (instData.mute) return;
-              const anySolo = Object.values(instruments).some(i => i.solo);
-              if (anySolo && !instData.solo) return;
-              
-              const prob = stepData.probability ?? 100;
-              if (Math.random() * 100 > prob) return;
-              
-              const synth = offlineSynths[inst];
-              if (!synth) return;
-              
-              // FIX: Ensure positive time
-              const humanizeMs = (state.humanize || 0) / 1000;
-              const humanize = (Math.random() - 0.5) * humanizeMs;
-              const scheduledTime = Math.max(0.001, time + humanize);
-              
-              const velocity = (stepData.velocity ?? 0.9) * 0.9;
-              
-              try {
-                if (instData.type === 'drum' || instData.type === 'atmospheric') {
-                  if (synth.start) {
-                    // It's a Player
-                    synth.start(scheduledTime);
-                  } else {
-                    // It's a synth
-                    synth.triggerAttackRelease('C2', '8n', scheduledTime, velocity);
-                  }
-                } else {
-                  const note = stepData.note || instData.note || 'C4';
-                  const dur = stepData.duration || '8n';
-                  synth.triggerAttackRelease(note, dur, scheduledTime, velocity);
-                }
-              } catch (err) {
-                console.warn(`Failed to schedule ${inst}:`, err);
-              }
-            });
-          }
-        }
-      });
-      
-    }, durationSeconds);
-    
-    // Convert to WAV and download
-    const wavData = bufferToWavImproved(renderedBuffer);
-    const blob = new Blob([wavData], { type: 'audio/wav' });
-    
-    const name = (document.getElementById('projectName')?.value || 'export')
-      .replace(/\s+/g, '_') + `_${Date.now()}`;
-    
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${name}.wav`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    
-    showToast('✅ Export complete!', 'success');
-    
-  } catch (err) {
-    console.error('Export error:', err);
-    showToast('❌ Export failed: ' + err.message, 'error');
-  }
-}
-
-// Helper for atmospheric synths
-function createOfflineAtmospheric(inst, channel) {
-  if (inst === 'fx') {
-    return new Tone.MetalSynth({
-      frequency: 200,
-      envelope: { attack: 0.001, decay: 0.05, release: 0.01 },
-      harmonicity: 12,
-      modulationIndex: 50,
-      resonance: 2000,
-      octaves: 0.5
-    }).connect(channel);
-  } else if (inst === 'riser') {
-    return new Tone.FMSynth({
-      harmonicity: 3,
-      modulationIndex: 10,
-      oscillator: { type: 'sawtooth' },
-      envelope: { attack: 2, decay: 0.1, sustain: 0.1, release: 0.5 }
-    }).connect(channel);
-  } else if (inst === 'ambience') {
-    const poly = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'sine' },
-      envelope: { attack: 1, decay: 1, sustain: 0.5, release: 2 }
-    }).connect(channel);
-    return poly;
-  }
-}
-
-// Helper for offline drum synths
-function createOfflineDrumSynth(inst, channel) {
-  switch(inst) {
-    case 'kick':
-      return new Tone.MembraneSynth({
-        pitchDecay: 0.05,
-        octaves: 6,
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
-      }).connect(channel);
-      
-    case 'snare':
-      return new Tone.NoiseSynth({
-        noise: { type: 'white' },
-        envelope: { attack: 0.001, decay: 0.2, sustain: 0 }
-      }).connect(channel);
-      
-    case 'hihat':
-      return new Tone.MetalSynth({
-        frequency: 200,
-        envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
-        harmonicity: 5.1,
-        modulationIndex: 32,
-        resonance: 4000,
-        octaves: 1.5
-      }).connect(channel);
-      
-    default:
-      return new Tone.MembraneSynth().connect(channel);
-  }
-}
-
-// Create offline melodic synth
-function createOfflineMelodicSynth(inst, context, channel) {
-  const synth = new Tone.PolySynth(Tone.Synth, {
-    maxPolyphony: 8,
-    oscillator: { type: 'sine' },
-    envelope: {
-      attack: 0.005,
-      decay: 0.1,
-      sustain: 0.3,
-      release: 1
-    },
-    context: context
-  });
-  
-  synth.connect(channel);
-  return synth;
+  // Live recording only - captures real-time output
+  await exportLiveRecording();
 }
 
 // Improved WAV converter with peak normalization
@@ -10146,7 +9796,7 @@ function bufferToWavImproved(audioBuffer) {
   return new Uint8Array(buffer);
 }
 
-// Live recording (original method, kept for real-time recording)
+// Live recording - captures what you hear in real-time
 async function exportLiveRecording() {
   // if we're already recording, this call means "stop & download"
   if (master.mediaRecorder && master.mediaRecorder.state === 'recording') {
@@ -10184,7 +9834,7 @@ async function exportLiveRecording() {
       type: rec.mimeType || 'audio/webm'
     });
 
-    const name = (document.getElementById('projectName')?.value || 'live_take')
+    const name = (document.getElementById('projectName')?.value || 'live_mix')
       .replace(/\s+/g, '_') + `_${Date.now()}`;
 
     let ext = 'webm';
@@ -10198,7 +9848,9 @@ async function exportLiveRecording() {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
 
     const btn = document.getElementById('exportBtn');
-    if (btn) btn.textContent = '💾 Export';
+    if (btn) btn.textContent = '🎧 DJ Export';
+    
+    showToast('✅ Live mix exported!', 'success');
   };
 
   rec.start();
