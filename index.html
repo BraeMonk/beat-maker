@@ -7630,10 +7630,10 @@ class AudioTrack {
   
       const duration = audioBuffer.duration;
       
-      // 🔑 CRITICAL FIX: Calculate startTime to include silence BEFORE first note
-      // Use the transport offset we stored when recording started
-      const transportOffset = this.transportStartOffset || 0;
-      const startTime = this.contextStartTime - transportOffset;
+      // 🔑 CRITICAL FIX: startTime = when recording button was clicked (contextStartTime)
+      // This is already the correct timeline position - no math needed!
+      // The transportStartOffset was just for logging/debugging
+      const startTime = this.contextStartTime || 0;
   
       const take = {
         id: Date.now(),
@@ -7642,18 +7642,18 @@ class AudioTrack {
         duration,
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime,             // 🔑 Now includes silence before first sound
+        startTime,             // 🔑 Exact moment recording started in context timeline
         recordedAt: Date.now()
       };
   
       this.contextStartTime = null;
-      this.transportStartOffset = null; // Clear the offset
+      this.transportStartOffset = null;
   
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
   
       console.log(`✅ Take ${this.takes.length} created:`);
-      console.log(`   - Start (context): ${take.startTime.toFixed(3)}s (includes pre-roll)`);
+      console.log(`   - Start (context): ${take.startTime.toFixed(3)}s`);
       console.log(`   - Duration:        ${take.duration.toFixed(3)}s`);
       console.log(`   - Ends at:         ${(take.startTime + take.duration).toFixed(3)}s`);
       console.log(`   - Channels:        ${audioBuffer.numberOfChannels}`);
@@ -7670,7 +7670,6 @@ class AudioTrack {
     this.recorder = null;
     this.recordStartTime = null;
   }
-
   
   selectTake(index) {
     if (index < 0 || index >= this.takes.length) return;
