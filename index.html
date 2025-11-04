@@ -4260,7 +4260,7 @@ function initAudio() {
     noteQueue.length = 0;
   };
   
-  // Main sequencer loop with batching
+  // Main sequencer loop - FIXED TIMING
   const loop = new Tone.Sequence((time, step) => {
     state.currentStep = step;
     updateStepVisuals(step);
@@ -4269,15 +4269,21 @@ function initAudio() {
       patterns[inst][step]?.active
     );
     
-    // Queue notes instead of playing immediately
-    activeInsts.forEach((inst, idx) => {
-      const offset = (idx / Math.max(1, activeInsts.length - 1)) * 0.005;
-      noteQueue.push({ inst, step, time: time + offset });
+    // 🔥 FIX: Play drum instruments IMMEDIATELY without batching
+    // Only batch melodic instruments to prevent message handler overload
+    const drumInsts = activeInsts.filter(inst => instruments[inst].type === 'drum');
+    const melodicInsts = activeInsts.filter(inst => instruments[inst].type !== 'drum');
+    
+    // Play drums immediately - no offset (tight timing critical)
+    drumInsts.forEach(inst => {
+      playStep(inst, step, time);
     });
     
-    // Flush queue with slight delay to batch
-    clearTimeout(batchTimeout);
-    batchTimeout = setTimeout(() => flushNoteQueue(time), 1);
+    // Batch melodic instruments with tiny offset (they're more forgiving)
+    melodicInsts.forEach((inst, idx) => {
+      const offset = (idx / Math.max(1, melodicInsts.length - 1)) * 0.002; // Reduced from 0.005
+      setTimeout(() => playStep(inst, step, time + offset), 0);
+    });
     
     updateVisualizer();
   }, Array.from({ length: state.sequenceLength }, (_, i) => i), state.resolution);
@@ -4722,6 +4728,13 @@ function playStep(inst, step, time) {
   if (anySolo && !instData.solo) return;
   
   if (Math.random() * 100 > stepData.probability) return;
+  
+  // 🔥 FIX: Check if sample is loaded before playing
+  const synth = synths[inst];
+  if (instData.type === 'drum' && synth && !synth.loaded) {
+    console.warn(`⚠️ ${inst} sample not loaded, skipping step`);
+    return;
+  }
   
   // Per-instrument humanization scaling
   const humanizeScale = {
@@ -7454,7 +7467,6 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  // Per-track recording - RECORDS ACTUAL AUDIO OUTPUT
   async startRecording(options = {}) {
     const {
       punchIn = null,
@@ -7465,6 +7477,28 @@ class AudioTrack {
     if (this.recording) return;
   
     await Tone.start();
+  
+    // 🔥 CRITICAL FIX: Wait for drum samples to load BEFORE recording
+    if (!this.isExternalAudio && instruments[this.instrument]?.type === 'drum') {
+      const synth = synths[this.instrument];
+      if (synth && !synth.loaded) {
+        console.log(`⏳ Waiting for ${this.instrument} sample to load...`);
+        
+        // Wait up to 5 seconds for sample to load
+        let attempts = 0;
+        while (!synth.loaded && attempts < 50) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+        
+        if (!synth.loaded) {
+          showToast(`❌ ${this.instrument} sample not ready - recording may be silent`, 'error');
+          console.error(`❌ ${this.instrument} failed to load after 5s`);
+        } else {
+          console.log(`✅ ${this.instrument} sample loaded, ready to record`);
+        }
+      }
+    }
   
     console.log(`🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} AUDIO OUTPUT on track ${this.id}`);
   
