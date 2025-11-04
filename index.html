@@ -7878,11 +7878,10 @@ class AudioTrack {
   }
 }
 
-// Create track with external audio support
 async function createTrack(instrument, isExternalAudio = false) {
   const trackName = isExternalAudio ? 
     `Mic/Ext ${multitrack.tracks.filter(t => t.isExternalAudio).length + 1}` :
-    `${instruments[instrument]?.name || instrument} ${multitrack.tracks.length + 1}`;
+    `${instruments[instrument]?.name || instrument} ${multitrack.tracks.filter(t => !t.isExternalAudio).length + 1}`;
   
   const track = new AudioTrack(
     multitrack.nextTrackId++,
@@ -7908,6 +7907,8 @@ async function createTrack(instrument, isExternalAudio = false) {
   
   multitrack.tracks.push(track);
   renderMultitrack();
+  
+  console.log(`✅ Track created: ${trackName}`);
   
   return track;
 }
@@ -8327,24 +8328,35 @@ function showAddTrackDialog() {
     confirmBtn.disabled = true;
     confirmBtn.textContent = isExternal ? 'Requesting access...' : 'Adding...';
     
-    if (isExternal) {
-      const track = await createTrack('external', true);
-      if (!track) {
-        // Error already shown by createTrack
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Add Track';
-        return;
+    try {
+      if (isExternal) {
+        const track = await createTrack('external', true);
+        if (track) {
+          showToast('✅ External audio track added!', 'success');
+          close();
+        } else {
+          // Error already shown by createTrack
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Add Track';
+        }
+      } else {
+        const instrument = instrumentSelect.value;
+        const track = await createTrack(instrument, false);
+        if (track) {
+          showToast('✅ Instrument track added!', 'success');
+          close();
+        } else {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Add Track';
+        }
       }
-      showToast('✅ External audio track added!', 'success');
-    } else {
-      const instrument = instrumentSelect.value;
-      await createTrack(instrument, false);
-      showToast('✅ Instrument track added!', 'success');
+    } catch (err) {
+      console.error('❌ Failed to add track:', err);
+      showToast(`❌ Failed to add track: ${err.message}`, 'error');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Add Track';
     }
-    
-    close();
-  };
-  
+  };  
   backdrop.onclick = (e) => {
     if (e.target === backdrop) close();
   };
