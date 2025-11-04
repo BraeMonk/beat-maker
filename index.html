@@ -7113,7 +7113,6 @@ class AudioTrack {
     this.soloed = false;
     this.volume = 0;
     this.pan = 0;
-    this.recordStartTime = null;
     this.inputMonitoring = false;
     
     // Audio routing
@@ -7131,9 +7130,6 @@ class AudioTrack {
     this.mediaStreamSource = null;
     this.externalInput = null;
     
-    // IMPORTANT:
-    // - Instrument tracks should route their synth into this.channel
-    // - External tracks use setupExternalAudio instead and do NOT use routeInstrument
     if (!isExternalAudio && instrument !== 'external') {
       this.routeInstrument();
     }
@@ -7141,7 +7137,6 @@ class AudioTrack {
   
   async setupExternalAudio() {
     try {
-      // Request microphone access
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
@@ -7153,15 +7148,12 @@ class AudioTrack {
       
       console.log(`🎤 Microphone access granted for track ${this.id}`);
       
-      // Create Web Audio nodes
       const audioContext = Tone.context.rawContext;
       this.mediaStreamSource = audioContext.createMediaStreamSource(this.mediaStream);
       
-      // Convert to Tone.js node
       this.externalInput = new Tone.Gain(1);
       this.mediaStreamSource.connect(this.externalInput.input);
       
-      // Route through channel (initially muted until monitoring enabled)
       this.externalInput.connect(this.channel);
       this.externalInput.gain.value = this.inputMonitoring ? 1 : 0;
       
@@ -7210,8 +7202,6 @@ class AudioTrack {
   
   addFx(type, params = {}) {
     let fx;
-  
-    // Clone params so we can safely mutate defaults
     params = { ...params };
   
     switch (type) {
@@ -7223,85 +7213,58 @@ class AudioTrack {
         params.wet = wet;
         break;
       }
-  
       case 'delay': {
         const time = params.time ?? '8n';
         const feedback = params.feedback ?? 0.3;
         const wet = params.wet ?? 0.3;
-        fx = new Tone.FeedbackDelay({
-          delayTime: time,
-          feedback,
-          wet
-        });
+        fx = new Tone.FeedbackDelay({ delayTime: time, feedback, wet });
         params.time = time;
         params.feedback = feedback;
         params.wet = wet;
         break;
       }
-  
       case 'chorus': {
         const frequency = params.frequency ?? 1.5;
         const delayTime = params.delayTime ?? 3.5;
         const depth = params.depth ?? 0.7;
         const wet = params.wet ?? 0.5;
-        fx = new Tone.Chorus({
-          frequency,
-          delayTime,
-          depth,
-          wet
-        }).start();
+        fx = new Tone.Chorus({ frequency, delayTime, depth, wet }).start();
         params.frequency = frequency;
         params.delayTime = delayTime;
         params.depth = depth;
         params.wet = wet;
         break;
       }
-  
       case 'distortion': {
         const amount = params.amount ?? 0.4;
         const wet = params.wet ?? 0.5;
-        fx = new Tone.Distortion({
-          distortion: amount,
-          wet
-        });
+        fx = new Tone.Distortion({ distortion: amount, wet });
         params.amount = amount;
         params.wet = wet;
         break;
       }
-  
       case 'filter': {
         const typeOpt = params.type ?? 'lowpass';
         const frequency = params.frequency ?? 5000;
         const q = params.q ?? 1;
-        fx = new Tone.Filter({
-          type: typeOpt,
-          frequency,
-          Q: q
-        });
+        fx = new Tone.Filter({ type: typeOpt, frequency, Q: q });
         params.type = typeOpt;
         params.frequency = frequency;
         params.q = q;
         break;
       }
-  
       case 'compressor': {
         const threshold = params.threshold ?? -24;
         const ratio = params.ratio ?? 4;
         const attack = params.attack ?? 0.003;
         const release = params.release ?? 0.25;
-        fx = new Tone.Compressor({
-          threshold,
-          ratio,
-          attack,
-          release
-        });
+        fx = new Tone.Compressor({ threshold, ratio, attack, release });
         params.threshold = threshold;
         params.ratio = ratio;
         params.attack = attack;
         params.release = release;
         break;
       }
-  
       case 'eq': {
         const low = params.low ?? 0;
         const mid = params.mid ?? 0;
@@ -7312,14 +7275,12 @@ class AudioTrack {
         params.high = high;
         break;
       }
-  
       case 'bitcrusher': {
         const bits = params.bits ?? 4;
         fx = new Tone.BitCrusher({ bits });
         params.bits = bits;
         break;
       }
-  
       default:
         return null;
     }
@@ -7337,7 +7298,6 @@ class AudioTrack {
   
     return fxObj;
   }
-
   
   removeFx(fxId) {
     const index = this.fxChain.findIndex(fx => fx.id === fxId);
@@ -7353,7 +7313,6 @@ class AudioTrack {
   
   reconnectFxChain() {
     if (this.isExternalAudio && this.externalInput) {
-      // External audio routing
       this.fxChain.forEach(fx => {
         if (fx.node && typeof fx.node.disconnect === 'function') {
           fx.node.disconnect();
@@ -7376,7 +7335,6 @@ class AudioTrack {
       console.log(`🔗 Reconnected FX chain for external audio: ${this.fxChain.filter(f => f.enabled).length} active effects`);
       
     } else {
-      // Instrument routing
       const instSynth = synths[this.instrument];
       if (!instSynth) return;
       
@@ -7481,18 +7439,11 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  async startRecording(options = {}) {
-    const {
-      punchIn = null,
-      punchOut = null,
-      forcedStartTime = null
-    } = options || {};
-  
+  // 🔥 FIXED: Pure real-time recording - captures EXACTLY what plays
+  async startRecording() {
     if (this.recording) return;
   
     await Tone.start();
-  
-    // ... validation code stays the same ...
   
     console.log(`🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} on track ${this.id}`);
   
@@ -7501,29 +7452,7 @@ class AudioTrack {
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
   
-    // 🔥 FIX: Use Transport position as the source of truth
-    const transportPosition = Tone.Transport.seconds;
-    const contextNow = Tone.now();
-    
-    // Calculate the offset between context time and transport time
-    // This accounts for lookahead scheduling
-    const offset = contextNow - transportPosition;
-    
-    // Store TRANSPORT position (not context time)
-    const startTime = (typeof forcedStartTime === 'number') ? 
-      forcedStartTime : transportPosition;
-    
-    this.recordStartTime = startTime;  // Transport time
-    this.contextStartTime = contextNow; // Context time (for reference)
-    this.transportStartOffset = transportPosition;
-  
-    console.log(`⏱️ Track ${this.id} recording start:`);
-    console.log(`   - Transport position: ${transportPosition.toFixed(3)}s`);
-    console.log(`   - Context time: ${contextNow.toFixed(3)}s`);
-    console.log(`   - Offset (lookahead): ${offset.toFixed(3)}s`);
-    console.log(`   - Recording startTime: ${startTime.toFixed(3)}s`);
-  
-    // Tap the track channel output
+    // Tap the track channel output - this is the ACTUAL audio being heard
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
     this.channel.connect(recordDest);
     this.recordDest = recordDest;
@@ -7611,9 +7540,6 @@ class AudioTrack {
       }
   
       const duration = audioBuffer.duration;
-      
-      // 🔥 FIX: Use the transport position we stored, NOT context time
-      const startTime = this.recordStartTime; // This is already in transport time
   
       const take = {
         id: Date.now(),
@@ -7622,21 +7548,14 @@ class AudioTrack {
         duration,
         timestamp: new Date().toISOString(),
         muted: false,
-        startTime,  // Transport-aligned time
+        startTime: 0,  // No alignment - just raw audio
         recordedAt: Date.now()
       };
-  
-      this.recordStartTime = null;
-      this.contextStartTime = null;
-      this.transportStartOffset = null;
   
       this.takes.push(take);
       this.selectedTakeIndex = this.takes.length - 1;
   
-      console.log(`✅ Take ${this.takes.length} created:`);
-      console.log(`   - Start (transport): ${take.startTime.toFixed(3)}s`);
-      console.log(`   - Duration:          ${take.duration.toFixed(3)}s`);
-      console.log(`   - Ends at:           ${(take.startTime + take.duration).toFixed(3)}s`);
+      console.log(`✅ Take ${this.takes.length} created: ${take.duration.toFixed(3)}s`);
   
       renderMultitrack();
       showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
@@ -7800,7 +7719,6 @@ class AudioTrack {
       this.stopRecording();
     }
     
-    // Stop external audio
     if (this.isExternalAudio) {
       if (this.mediaStreamSource) {
         this.mediaStreamSource.disconnect();
@@ -7818,7 +7736,6 @@ class AudioTrack {
         this.externalInput = null;
       }
     } else {
-      // Restore original routing for instruments
       const instSynth = synths[this.instrument];
       if (instSynth && this.originalChannel) {
         if (typeof instSynth.disconnect === 'function') {
