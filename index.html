@@ -8586,28 +8586,84 @@ async function bounceAllTracks() {
     for (const track of activeTracks) {
       const take = track.takes[track.selectedTakeIndex];
       if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
-
+    
       try {
         const src = offlineContext.createBufferSource();
         src.buffer = take.buffer;
-
+    
+        // === 🎛️ Recreate the per-track FX chain for offline rendering ===
+        const filter = offlineContext.createBiquadFilter();
+        filter.type = track.fx?.filter?.type || 'lowpass';
+        filter.frequency.value = track.fx?.filter?.frequency || 20000;
+    
+        const distortion = offlineContext.createWaveShaper();
+        if (track.fx?.distortion?.amount) {
+          const amount = track.fx.distortion.amount;
+          const n = 44100;
+          const curve = new Float32Array(n);
+          const deg = Math.PI / 180;
+          for (let i = 0; i < n; ++i) {
+            const x = (i * 2) / n - 1;
+            curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
+          }
+          distortion.curve = curve;
+          distortion.oversample = '4x';
+        }
+    
+        const chorusDelay = offlineContext.createDelay();
+        chorusDelay.delayTime.value = track.fx?.chorus?.delay || 0.003;
+        const chorusGain = offlineContext.createGain();
+        chorusGain.gain.value = track.fx?.chorus?.depth || 0.002;
+    
+        const delay = offlineContext.createDelay();
+        delay.delayTime.value = track.fx?.delay?.time || 0.25;
+        const feedback = offlineContext.createGain();
+        feedback.gain.value = track.fx?.delay?.feedback || 0.3;
+        delay.connect(feedback);
+        feedback.connect(delay);
+    
+        const reverb = offlineContext.createConvolver();
+        if (track.fx?.reverb?.buffer) {
+          reverb.buffer = track.fx.reverb.buffer;
+        } else {
+          // Simple exponential tail fallback
+          const len = sampleRate * 1.5;
+          const impulse = offlineContext.createBuffer(2, len, sampleRate);
+          for (let ch = 0; ch < 2; ch++) {
+            const data = impulse.getChannelData(ch);
+            for (let i = 0; i < len; i++) {
+              data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+            }
+          }
+          reverb.buffer = impulse;
+        }
+    
+        // Volume + panning
         const gain = offlineContext.createGain();
         gain.gain.value = Tone.dbToGain(track.volume);
-
         const pan = offlineContext.createStereoPanner();
         pan.pan.value = track.pan / 100;
-
-        src.connect(gain);
+    
+        // === 🔗 Connect full FX chain ===
+        // src → filter → distortion → chorus → delay → reverb → gain → pan → master
+        src.connect(filter);
+        filter.connect(distortion);
+        distortion.connect(chorusDelay);
+        chorusDelay.connect(chorusGain);
+        chorusGain.connect(delay);
+        delay.connect(reverb);
+        reverb.connect(gain);
         gain.connect(pan);
         pan.connect(offlineMaster);
-
+    
+        // === 🕒 Schedule playback ===
         const startTime = take.startTime || 0;
         const relStart = startTime - minStart;
         src.start(relStart);
-
-        console.log(`✅ ${track.name} scheduled @${relStart.toFixed(3)}s`);
+    
+        console.log(`✅ ${track.name}: scheduled @${relStart.toFixed(3)}s with FX`);
       } catch (err) {
-        console.error(`❌ Failed ${track.name}:`, err);
+        console.error(`❌ Failed to schedule ${track.name}:`, err);
       }
     }
 
