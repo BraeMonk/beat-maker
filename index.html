@@ -7492,19 +7492,16 @@ class AudioTrack {
   
     await Tone.start();
   
-    // 🔥 CRITICAL FIX: Wait for drum samples to load BEFORE recording
+    // 🔄 Drum sample readiness check (keep as you had it)
     if (!this.isExternalAudio && instruments[this.instrument]?.type === 'drum') {
       const synth = synths[this.instrument];
       if (synth && !synth.loaded) {
         console.log(`⏳ Waiting for ${this.instrument} sample to load...`);
-        
-        // Wait up to 5 seconds for sample to load
         let attempts = 0;
         while (!synth.loaded && attempts < 50) {
           await new Promise(resolve => setTimeout(resolve, 100));
           attempts++;
         }
-        
         if (!synth.loaded) {
           showToast(`❌ ${this.instrument} sample not ready - recording may be silent`, 'error');
           console.error(`❌ ${this.instrument} failed to load after 5s`);
@@ -7521,25 +7518,18 @@ class AudioTrack {
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
   
-    // CRITICAL: Use audio context time (Tone.now()), NOT transport time
-    // This ensures perfect sync regardless of when samples load
-    const nowContext = Tone.now();
+    // 🔑 Use a single shared audio-context start time for all tracks in this pass
+    const contextNow = Tone.now();
+    const startTime = (typeof forcedStartTime === 'number') ? forcedStartTime : contextNow;
   
-    this.recordStartTime = nowContext;
-    this.contextStartTime = nowContext;
+    this.recordStartTime = startTime;
+    this.contextStartTime = startTime;
   
-    console.log(
-      `⏱️ Track ${this.id} recording start: ${nowContext.toFixed(3)}s (audio context time)`
-    );
+    console.log(`⏱️ Track ${this.id} recording start (context): ${startTime.toFixed(3)}s`);
   
-    // 🔥 KEY FIX: Create a MediaStreamDestination from the track's CHANNEL OUTPUT
-    // This captures the actual mixed audio signal, not MIDI events
+    // 🎧 Tap the TRACK CHANNEL OUTPUT (what you actually hear) into a MediaStreamDestination
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
-  
-    // Connect the track's channel (which has the instrument/external audio + FX) to the recorder
     this.channel.connect(recordDest);
-    
-    // Store the destination so we can disconnect it later
     this.recordDest = recordDest;
   
     let mimeType = '';
@@ -7559,10 +7549,13 @@ class AudioTrack {
     };
   
     this.recorder.onstop = () => {
-      console.log(`⏹️ Recording stopped: ${this.recordedChunks.length} chunks, ${(this.recordedChunks.reduce((sum, c) => sum + c.size, 0) / 1024).toFixed(1)}KB total`);
+      console.log(
+        `⏹️ Recording stopped: ${this.recordedChunks.length} chunks, ` +
+        `${(this.recordedChunks.reduce((sum, c) => sum + c.size, 0) / 1024).toFixed(1)}KB total`
+      );
       this.finishRecording();
   
-      // Disconnect recording tap
+      // Disconnect tap
       try {
         this.channel.disconnect(recordDest);
         this.recordDest = null;
@@ -7576,11 +7569,10 @@ class AudioTrack {
       showToast('❌ Recording error: ' + e.error, 'error');
     };
   
-    // Start recording with small timeslices for better responsiveness
+    // Start recording immediately, in realtime
     this.recorder.start(100);
   
-    console.log(`▶️ Recording AUDIO OUTPUT from track ${this.id} channel`);
-    console.log(`   - Capturing: ${this.isExternalAudio ? 'External Input' : 'Instrument'} → FX Chain → Channel Output`);
+    console.log(`▶️ Recording AUDIO OUTPUT from track ${this.id} channel (realtime)`);
   }
   
   stopRecording() {
@@ -7601,14 +7593,6 @@ class AudioTrack {
       return;
     }
   
-    // Use audio-context time only
-    const contextEndTime = Tone.now();
-    const contextStartTime = this.contextStartTime ?? this.recordStartTime ?? contextEndTime;
-    const recordDuration = contextEndTime - contextStartTime;
-  
-    console.log(`⏱️ Recording stopped at context time: ${contextEndTime.toFixed(3)}s`);
-    console.log(`⏱️ Approx. recording duration: ${recordDuration.toFixed(3)}s`);
-  
     const blob = new Blob(this.recordedChunks, {
       type: (this.recorder && this.recorder.mimeType) || 'audio/webm'
     });
@@ -7626,19 +7610,18 @@ class AudioTrack {
   
     try {
       const arrayBuffer = await blob.arrayBuffer();
-  
       if (arrayBuffer.byteLength === 0) {
         throw new Error('ArrayBuffer is empty');
       }
   
       const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
-  
       if (!audioBuffer || audioBuffer.length === 0 || audioBuffer.numberOfChannels === 0) {
         throw new Error('Decoded buffer is invalid');
       }
   
-      const takeStartTime = contextStartTime;
       const duration = audioBuffer.duration;
+      // All tracks in same pass share the same contextStartTime (given by toggleRecordAllArmed)
+      const startTime = this.contextStartTime ?? (Tone.now() - duration);
   
       const take = {
         id: Date.now(),
@@ -7647,10 +7630,7 @@ class AudioTrack {
         duration,
         timestamp: new Date().toISOString(),
         muted: false,
-  
-        // 🔑 Alignment anchor for preview + bounce (audio-context time)
-        startTime: takeStartTime,
-  
+        startTime,             // 🔑 audio-context-based alignment anchor
         recordedAt: Date.now()
       };
   
@@ -7661,9 +7641,9 @@ class AudioTrack {
   
       console.log(`✅ Take ${this.takes.length} created:`);
       console.log(`   - Start (context): ${take.startTime.toFixed(3)}s`);
-      console.log(`   - Duration (buffer): ${take.duration.toFixed(3)}s`);
-      console.log(`   - Ends at: ${(take.startTime + take.duration).toFixed(3)}s`);
-      console.log(`   - Channels: ${audioBuffer.numberOfChannels}`);
+      console.log(`   - Duration:        ${take.duration.toFixed(3)}s`);
+      console.log(`   - Ends at:         ${(take.startTime + take.duration).toFixed(3)}s`);
+      console.log(`   - Channels:        ${audioBuffer.numberOfChannels}`);
   
       renderMultitrack();
       showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
@@ -7677,6 +7657,7 @@ class AudioTrack {
     this.recorder = null;
     this.recordStartTime = null;
   }
+
   
   selectTake(index) {
     if (index < 0 || index >= this.takes.length) return;
@@ -8378,82 +8359,81 @@ function renderMultitrack() {
   });
 }
   
-// Multitrack preview using the same timing as bounce (take.startTime)
 async function previewMultitrack() {
-  const activeTracks = multitrack.tracks.filter(t =>
+  const activeTracks = multitrack.tracks.filter(t => 
     t.selectedTakeIndex >= 0 && !t.muted
   );
-
+  
   if (activeTracks.length === 0) {
     showToast('❌ No active takes to preview', 'error');
     return;
   }
-
+  
   stopMultitrackPreview();
-
+  
   await Tone.start();
   if (Tone.context.state !== 'running') {
     await Tone.context.resume();
   }
-
+  
   multitrack.previewPlayers = [];
   let minStartTime = Infinity;
   let maxEndTime = 0;
-
+  
   showToast('⏳ Loading takes...', 'info');
-
+  
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted) continue;
-
+    
     if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
       console.error(`❌ ${track.name}: Invalid buffer`);
       continue;
     }
-
+    
     try {
-      // Use buffer directly, no URL loading
       const player = new Tone.Player({
         context: Tone.context,
+        loop: false,
         fadeOut: 0.01
       }).connect(track.channel);
-
+      
       player.buffer = take.buffer;
-
+      
       const startTime = take.startTime || 0;
       const endTime = startTime + take.duration;
-
+      
       if (startTime < minStartTime) minStartTime = startTime;
       if (endTime > maxEndTime) maxEndTime = endTime;
-
-      multitrack.previewPlayers.push({
-        player,
-        track,
+      
+      multitrack.previewPlayers.push({ 
+        player, 
+        track, 
         startTime
       });
-
+      
       console.log(`✅ ${track.name} ready (starts at ${startTime.toFixed(3)}s)`);
-
+      
     } catch (err) {
       console.error(`❌ ${track.name} failed:`, err);
     }
   }
-
+  
   if (!multitrack.previewPlayers.length) {
     showToast('❌ No takes could be loaded', 'error');
     return;
   }
-
+  
   if (minStartTime === Infinity) minStartTime = 0;
   const totalDuration = maxEndTime - minStartTime;
-
+  
   console.log(`▶️ Preview:`);
   console.log(`   - Total duration: ${totalDuration.toFixed(3)}s`);
   console.log(`   - Earliest start (context): ${minStartTime.toFixed(3)}s`);
-  console.log(`   - Latest end (context): ${maxEndTime.toFixed(3)}s`);
-
+  console.log(`   - Latest end (context):     ${maxEndTime.toFixed(3)}s`);
+  
   const now = Tone.now() + 0.1;
-
+  
   multitrack.previewPlayers.forEach(({ player, track, startTime }) => {
     try {
       const relativeStart = (startTime || 0) - minStartTime;
@@ -8463,9 +8443,9 @@ async function previewMultitrack() {
       console.error(`❌ Failed to start ${track.name}:`, err);
     }
   });
-
+  
   showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
-
+  
   multitrack.previewTimeout = setTimeout(() => {
     stopMultitrackPreview();
     const btn = document.getElementById('previewMultitrackBtn');
@@ -8609,7 +8589,6 @@ function createOfflineFxNode(fxDef, offlineContext) {
   }
 }
   
-// Enhanced bounce: recorded track output → offline channel → offline master
 async function bounceAllTracks() {
   const activeTracks = multitrack.tracks.filter(t =>
     t.selectedTakeIndex >= 0 && !t.muted
@@ -8622,7 +8601,6 @@ async function bounceAllTracks() {
 
   showToast('🎵 Preparing bounce...', 'info');
 
-  // Find earliest start & latest end (audio-context timeline)
   let minStart = Infinity;
   let maxEnd = 0;
 
@@ -8645,10 +8623,9 @@ async function bounceAllTracks() {
 
   const totalDuration = maxEnd - minStart;
   console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
-  console.log(`   - Earliest take starts (context): ${minStart.toFixed(2)}s`);
-  console.log(`   - Latest take ends  (context): ${maxEnd.toFixed(2)}s`);
+  console.log(`   - Earliest start (context): ${minStart.toFixed(2)}s`);
+  console.log(`   - Latest end   (context):   ${maxEnd.toFixed(2)}s`);
 
-  // Match the live context sample rate as closely as possible
   const sampleRate = Tone.context.sampleRate || 48000;
   const numFrames = Math.ceil(totalDuration * sampleRate);
 
@@ -8660,21 +8637,17 @@ async function bounceAllTracks() {
 
   const { masterIn: offlineMaster } = createOfflineMasterChain(offlineContext);
 
-  // Build offline signal path for each active track (NO extra FX — already printed)
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
 
     try {
-      // Player using the already-decoded AudioBuffer
       const player = new Tone.Player({
         context: offlineContext,
         loop: false
       });
-
       player.buffer = take.buffer;
 
-      // Track-level volume & pan in the offline world
       const channel = new Tone.Channel({
         volume: track.volume,
         pan: track.pan / 100,
@@ -8705,7 +8678,6 @@ async function bounceAllTracks() {
     const renderedBuffer = await offlineContext.startRendering();
     console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
 
-    // Convert to WAV
     const wavData = bufferToWavImproved(renderedBuffer);
     const blob = new Blob([wavData], { type: 'audio/wav' });
 
@@ -8753,7 +8725,7 @@ async function validateAllArmedTracks() {
   }
 }
   
-// Enhanced record ALL armed tracks function
+// Enhanced record ALL armed tracks function (pure realtime)
 async function toggleRecordAllArmed() {
   const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
   const recordingTracks = multitrack.tracks.filter(t => t.recording);
@@ -8761,7 +8733,7 @@ async function toggleRecordAllArmed() {
   // If anything is already recording, stop them all
   if (recordingTracks.length > 0) {
     recordingTracks.forEach(track => track.stopRecording());
-    multitrack.globalRecordStartTime = null; // kept for backwards compatibility/logging
+    multitrack.globalRecordStartTime = null;
     showToast(`⏹️ Stopped recording ${recordingTracks.length} track(s)`, 'info');
     renderMultitrack();
     return;
@@ -8778,55 +8750,19 @@ async function toggleRecordAllArmed() {
     showToast(`❌ Cannot record:\n${err.message}`, 'error');
     return;
   }
-  
-  // Check if any external audio tracks need monitoring
-  const externalTracks = armedTracks.filter(t => t.isExternalAudio);
-  if (externalTracks.length > 0) {
-    const needsMonitoring = externalTracks.some(t => !t.inputMonitoring);
-    if (needsMonitoring) {
-      const enableMonitoring = confirm(
-        `${needsMonitoring} external audio track(s) have monitoring disabled.\n\n` +
-        `Enable monitoring to hear input while recording?\n\n` +
-        `(You can toggle monitoring with the MON button)`
-      );
 
-      if (enableMonitoring) {
-        externalTracks.forEach(t => {
-          if (!t.inputMonitoring) {
-            t.toggleInputMonitoring();
-          }
-        });
-      }
-    }
-  }
-
-  // 🔥 CRITICAL: Start transport FIRST so patterns play
+  // Make sure sequencer is running so instruments actually play
   if (!state.isPlaying) {
-    await togglePlay(); // This starts the sequencer loop
-    await new Promise(resolve => setTimeout(resolve, 200)); // Give it time to stabilize
+    await togglePlay();
   }
 
   await Tone.start();
 
-  // 🎯 WAIT FOR NEXT BAR BOUNDARY for perfect timing
-  const currentBar = Math.floor(Tone.Transport.position.split(':')[0]);
-  const nextBar = currentBar + 1;
-  const nextBarTime = Tone.Time(`${nextBar}:0:0`).toSeconds();
-  const now = Tone.now();
-  const waitTime = Math.max(0, nextBarTime - Tone.Transport.seconds);
-  
-  console.log(`⏱️ Waiting ${(waitTime * 1000).toFixed(0)}ms for bar ${nextBar}...`);
-  showToast(`⏱️ Recording starts at bar ${nextBar}... (${(waitTime * 1000).toFixed(0)}ms)`, 'info');
-  
-  // Schedule recording to start at next bar
-  await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
-
-  // Single shared start time for this record pass
-  const globalStart = Tone.Transport.seconds;
+  // 🔥 CRITICAL: single shared audio-context start time for this pass
+  const globalStart = Tone.now();
   multitrack.globalRecordStartTime = globalStart;
-  console.log(`🎬 GLOBAL RECORD START at bar ${nextBar}: ${globalStart.toFixed(3)}s`);
+  console.log(`🎬 GLOBAL RECORD START (context): ${globalStart.toFixed(3)}s`);
 
-  // Start each armed track with the SAME start time
   for (const track of armedTracks) {
     await track.startRecording({ forcedStartTime: globalStart });
   }
@@ -8837,7 +8773,7 @@ async function toggleRecordAllArmed() {
   renderMultitrack();
 }
 
-// Toggle recording for a single track (legacy support)
+// Toggle recording for a single track
 async function toggleRecordTrack(trackId) {
   const track = multitrack.tracks.find(t => t.id === trackId);
   if (!track) return;
@@ -8849,12 +8785,15 @@ async function toggleRecordTrack(trackId) {
     if (!track.armed) {
       track.armed = true;
     }
-    
+
     if (!state.isPlaying) {
       await togglePlay();
     }
-    
-    await track.startRecording();
+
+    await Tone.start();
+    const start = Tone.now();
+    await track.startRecording({ forcedStartTime: start });
+
     showToast(`🎙️ Recording ${track.name}...`, 'success');
   }
   
