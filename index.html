@@ -7133,12 +7133,12 @@ class AudioTrack {
     if (!isExternalAudio && instrument !== 'external') {
       this.routeInstrument();
     }
-
-    rename(newName) {
-      this.name = newName.trim() || `Track ${this.id}`;
-      showToast(`✏️ Renamed to "${this.name}"`, 'info');
-      renderMultitrack();
-    }
+  }
+  
+  rename(newName) {
+    this.name = newName.trim() || `Track ${this.id}`;
+    showToast(`✏️ Renamed to "${this.name}"`, 'info');
+    renderMultitrack();
   }
   
   async setupExternalAudio() {
