@@ -7210,19 +7210,20 @@ class AudioTrack {
   
   addFx(type, params = {}) {
     let fx;
-
-    // We always clone params so we can safely mutate defaults
+  
+    // Clone params so we can safely mutate defaults
     params = { ...params };
-
+  
     switch (type) {
       case 'reverb': {
         const decay = params.decay ?? 1.5;
         const wet = params.wet ?? 0.3;
         fx = new Tone.Reverb({ decay, wet });
-        params = { decay, wet };
+        params.decay = decay;
+        params.wet = wet;
         break;
       }
-
+  
       case 'delay': {
         const time = params.time ?? '8n';
         const feedback = params.feedback ?? 0.3;
@@ -7232,10 +7233,12 @@ class AudioTrack {
           feedback,
           wet
         });
-        params = { time, feedback, wet };
+        params.time = time;
+        params.feedback = feedback;
+        params.wet = wet;
         break;
       }
-
+  
       case 'chorus': {
         const frequency = params.frequency ?? 1.5;
         const delayTime = params.delayTime ?? 3.5;
@@ -7247,10 +7250,13 @@ class AudioTrack {
           depth,
           wet
         }).start();
-        params = { frequency, delayTime, depth, wet };
+        params.frequency = frequency;
+        params.delayTime = delayTime;
+        params.depth = depth;
+        params.wet = wet;
         break;
       }
-
+  
       case 'distortion': {
         const amount = params.amount ?? 0.4;
         const wet = params.wet ?? 0.5;
@@ -7258,10 +7264,11 @@ class AudioTrack {
           distortion: amount,
           wet
         });
-        params = { amount, wet };
+        params.amount = amount;
+        params.wet = wet;
         break;
       }
-
+  
       case 'filter': {
         const typeOpt = params.type ?? 'lowpass';
         const frequency = params.frequency ?? 5000;
@@ -7271,10 +7278,12 @@ class AudioTrack {
           frequency,
           Q: q
         });
-        params = { type: typeOpt, frequency, q };
+        params.type = typeOpt;
+        params.frequency = frequency;
+        params.q = q;
         break;
       }
-
+  
       case 'compressor': {
         const threshold = params.threshold ?? -24;
         const ratio = params.ratio ?? 4;
@@ -7286,30 +7295,35 @@ class AudioTrack {
           attack,
           release
         });
-        params = { threshold, ratio, attack, release };
+        params.threshold = threshold;
+        params.ratio = ratio;
+        params.attack = attack;
+        params.release = release;
         break;
       }
-
+  
       case 'eq': {
         const low = params.low ?? 0;
         const mid = params.mid ?? 0;
         const high = params.high ?? 0;
         fx = new Tone.EQ3({ low, mid, high });
-        params = { low, mid, high };
+        params.low = low;
+        params.mid = mid;
+        params.high = high;
         break;
       }
-
+  
       case 'bitcrusher': {
         const bits = params.bits ?? 4;
         fx = new Tone.BitCrusher({ bits });
-        params = { bits };
+        params.bits = bits;
         break;
       }
-
+  
       default:
         return null;
     }
-
+  
     const fxObj = {
       id: Date.now() + Math.random(),
       type,
@@ -7317,10 +7331,10 @@ class AudioTrack {
       params,
       enabled: true
     };
-
+  
     this.fxChain.push(fxObj);
     this.reconnectFxChain();
-
+  
     return fxObj;
   }
 
@@ -7465,25 +7479,6 @@ class AudioTrack {
     
     fx.enabled = !fx.enabled;
     this.reconnectFxChain();
-  }
-
-  // Add pre-flight check before recording
-  async function validateRecordingSetup(track) {
-    if (!track.isExternalAudio) {
-      const synth = synths[track.instrument];
-      if (synth && !synth.loaded) {
-        throw new Error(`${track.instrument} sample not loaded`);
-      }
-    } else {
-      if (!track.mediaStream) {
-        throw new Error('Microphone not connected');
-      }
-    }
-    
-    // Test audio context state
-    if (Tone.context.state !== 'running') {
-      await Tone.context.resume();
-    }
   }
   
   async startRecording(options = {}) {
