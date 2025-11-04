@@ -7492,51 +7492,51 @@ class AudioTrack {
   
     await Tone.start();
   
-    // 🔄 Drum sample readiness check
+    // 🔥 FIX: Wait for drum samples to load BEFORE starting recording
     if (!this.isExternalAudio && instruments[this.instrument]?.type === 'drum') {
       const synth = synths[this.instrument];
       if (synth && !synth.loaded) {
         console.log(`⏳ Waiting for ${this.instrument} sample to load...`);
+        
+        // Wait up to 10 seconds for sample to load
         let attempts = 0;
-        while (!synth.loaded && attempts < 50) {
+        while (!synth.loaded && attempts < 100) {
           await new Promise(resolve => setTimeout(resolve, 100));
           attempts++;
         }
+        
         if (!synth.loaded) {
-          showToast(`❌ ${this.instrument} sample not ready - recording may be silent`, 'error');
-          console.error(`❌ ${this.instrument} failed to load after 5s`);
+          showToast(`❌ ${this.instrument} sample not ready - cannot record`, 'error');
+          console.error(`❌ ${this.instrument} failed to load after 10s`);
+          return; // STOP - don't record if sample isn't ready
         } else {
           console.log(`✅ ${this.instrument} sample loaded, ready to record`);
         }
       }
     }
   
-    console.log(`🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} AUDIO OUTPUT on track ${this.id}`);
+    console.log(`🎙️ Recording ${this.isExternalAudio ? 'external audio' : this.instrument} on track ${this.id}`);
   
     this.recording = true;
     this.armed = false;
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
   
-    // 🔑 CRITICAL FIX: Always use Transport.seconds as the reference point
-    // This ensures we capture from the beginning of the sequence, not just when sound starts
+    // Store exact Transport position when recording starts
     const transportTime = Tone.Transport.seconds;
     const contextNow = Tone.now();
     
-    // If forcedStartTime provided (batch recording), use it
-    // Otherwise, use current transport position as the anchor
     const startTime = (typeof forcedStartTime === 'number') ? forcedStartTime : contextNow;
     
-    // Store BOTH times - transport time is our logical anchor
     this.recordStartTime = startTime;
     this.contextStartTime = startTime;
-    this.transportStartOffset = transportTime; // NEW: Remember where in the sequence we started
+    this.transportStartOffset = transportTime;
   
     console.log(`⏱️ Track ${this.id} recording start:`);
     console.log(`   - Context time: ${startTime.toFixed(3)}s`);
     console.log(`   - Transport position: ${transportTime.toFixed(3)}s`);
   
-    // 🎧 Tap the TRACK CHANNEL OUTPUT (what you actually hear) into a MediaStreamDestination
+    // Tap the track channel output
     const recordDest = this.channel.context.rawContext.createMediaStreamDestination();
     this.channel.connect(recordDest);
     this.recordDest = recordDest;
@@ -7558,13 +7558,9 @@ class AudioTrack {
     };
   
     this.recorder.onstop = () => {
-      console.log(
-        `⏹️ Recording stopped: ${this.recordedChunks.length} chunks, ` +
-        `${(this.recordedChunks.reduce((sum, c) => sum + c.size, 0) / 1024).toFixed(1)}KB total`
-      );
+      console.log(`⏹️ Recording stopped: ${this.recordedChunks.length} chunks`);
       this.finishRecording();
   
-      // Disconnect tap
       try {
         this.channel.disconnect(recordDest);
         this.recordDest = null;
@@ -7578,10 +7574,9 @@ class AudioTrack {
       showToast('❌ Recording error: ' + e.error, 'error');
     };
   
-    // Start recording immediately, in realtime
     this.recorder.start(100);
   
-    console.log(`▶️ Recording AUDIO OUTPUT from track ${this.id} channel (realtime)`);
+    console.log(`▶️ Recording track ${this.id} channel output`);
   }
   
   stopRecording() {
@@ -8778,11 +8773,13 @@ async function bounceAllTracks() {
   }
 }
   
+// Add this NEW function
 async function validateAllArmedTracks() {
   const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
   const errors = [];
   
   for (const track of armedTracks) {
+    // Check if drum samples are loaded
     if (!track.isExternalAudio && instruments[track.instrument]?.type === 'drum') {
       const synth = synths[track.instrument];
       if (synth && !synth.loaded) {
@@ -8790,6 +8787,7 @@ async function validateAllArmedTracks() {
       }
     }
     
+    // Check external audio setup
     if (track.isExternalAudio && !track.mediaStream) {
       errors.push(`${track.name} has no audio input`);
     }
@@ -8800,12 +8798,10 @@ async function validateAllArmedTracks() {
   }
 }
   
-// Enhanced record ALL armed tracks function (pure realtime)
 async function toggleRecordAllArmed() {
   const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
   const recordingTracks = multitrack.tracks.filter(t => t.recording);
 
-  // If anything is already recording, stop them all
   if (recordingTracks.length > 0) {
     recordingTracks.forEach(track => track.stopRecording());
     multitrack.globalRecordStartTime = null;
@@ -8819,6 +8815,7 @@ async function toggleRecordAllArmed() {
     return;
   }
 
+  // 🔥 NEW: Validate BEFORE starting any recordings
   try {
     await validateAllArmedTracks();
   } catch (err) {
@@ -8826,17 +8823,15 @@ async function toggleRecordAllArmed() {
     return;
   }
 
-  // Make sure sequencer is running so instruments actually play
   if (!state.isPlaying) {
     await togglePlay();
   }
 
   await Tone.start();
 
-  // 🔥 CRITICAL: single shared audio-context start time for this pass
   const globalStart = Tone.now();
   multitrack.globalRecordStartTime = globalStart;
-  console.log(`🎬 GLOBAL RECORD START (context): ${globalStart.toFixed(3)}s`);
+  console.log(`🎬 GLOBAL RECORD START: ${globalStart.toFixed(3)}s`);
 
   for (const track of armedTracks) {
     await track.startRecording({ forcedStartTime: globalStart });
@@ -8847,7 +8842,7 @@ async function toggleRecordAllArmed() {
   showToast(`🎙️ Recording ${armedTracks.length} track(s)`, 'success');
   renderMultitrack();
 }
-
+  
 // Toggle recording for a single track
 async function toggleRecordTrack(trackId) {
   const track = multitrack.tracks.find(t => t.id === trackId);
