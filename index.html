@@ -5206,7 +5206,25 @@ function setupProjectManagement() {
 }
 
 function setupKeyboardShortcuts() {
+  // Detect if device is mobile/tablet
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                   ('ontouchstart' in window) || 
+                   (navigator.maxTouchPoints > 0);
+  
+  // Don't enable keyboard shortcuts on mobile devices
+  if (isMobile) {
+    console.log('📱 Mobile device detected - keyboard shortcuts disabled');
+    return;
+  }
+  
   document.addEventListener('keydown', e => {
+    // Also check if user is typing in an input field
+    const isTyping = e.target.tagName === 'INPUT' || 
+                     e.target.tagName === 'TEXTAREA' || 
+                     e.target.isContentEditable;
+    
+    if (isTyping) return; // Don't trigger shortcuts while typing
+    
     if (e.code === 'Space') {
       e.preventDefault();
       togglePlay();
