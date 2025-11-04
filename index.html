@@ -7473,19 +7473,15 @@ class AudioTrack {
     multitrack.recordingTracks.add(this.id);
     renderMultitrack();
   
-    // Actual transport time when THIS track starts recording
-    const nowTransport = Tone.Transport.seconds;
-    const nowContext = Tone.now(); // actual audio context time
+    // CRITICAL: Use audio context time (Tone.now()), NOT transport time
+    // This ensures perfect sync regardless of when samples load
+    const nowContext = Tone.now();
   
-    const recordStart = (typeof forcedStartTime === 'number')
-      ? forcedStartTime
-      : nowTransport;
-  
-    this.recordStartTime = recordStart;
+    this.recordStartTime = nowContext;
     this.contextStartTime = nowContext;
   
     console.log(
-      `⏱️ Track ${this.id} recording start: ${this.recordStartTime.toFixed(3)}s (transport), ${nowContext.toFixed(3)}s (context)`
+      `⏱️ Track ${this.id} recording start: ${nowContext.toFixed(3)}s (audio context time)`
     );
   
     // 🔥 KEY FIX: Create a MediaStreamDestination from the track's CHANNEL OUTPUT
@@ -7511,7 +7507,6 @@ class AudioTrack {
     this.recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
         this.recordedChunks.push(e.data);
-        console.log(`📦 Chunk ${this.recordedChunks.length}: ${(e.data.size / 1024).toFixed(1)}KB`);
       }
     };
   
