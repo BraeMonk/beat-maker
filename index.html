@@ -8763,6 +8763,27 @@ async function bounceAllTracks() {
   }
 }
 
+async function validateAllArmedTracks() {
+  const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
+  const errors = [];
+  
+  for (const track of armedTracks) {
+    if (!track.isExternalAudio && instruments[track.instrument]?.type === 'drum') {
+      const synth = synths[track.instrument];
+      if (synth && !synth.loaded) {
+        errors.push(`${track.instrument} sample not loaded`);
+      }
+    }
+    
+    if (track.isExternalAudio && !track.mediaStream) {
+      errors.push(`${track.name} has no audio input`);
+    }
+  }
+  
+  if (errors.length > 0) {
+    throw new Error(errors.join('\n'));
+  }
+}
   
 // Enhanced record ALL armed tracks function
 async function toggleRecordAllArmed() {
@@ -8783,6 +8804,13 @@ async function toggleRecordAllArmed() {
     return;
   }
 
+  try {
+    await validateAllArmedTracks();
+  } catch (err) {
+    showToast(`❌ Cannot record:\n${err.message}`, 'error');
+    return;
+  }
+  
   // Check if any external audio tracks need monitoring
   const externalTracks = armedTracks.filter(t => t.isExternalAudio);
   if (externalTracks.length > 0) {
