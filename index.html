@@ -7466,6 +7466,25 @@ class AudioTrack {
     fx.enabled = !fx.enabled;
     this.reconnectFxChain();
   }
+
+  // Add pre-flight check before recording
+  async function validateRecordingSetup(track) {
+    if (!track.isExternalAudio) {
+      const synth = synths[track.instrument];
+      if (synth && !synth.loaded) {
+        throw new Error(`${track.instrument} sample not loaded`);
+      }
+    } else {
+      if (!track.mediaStream) {
+        throw new Error('Microphone not connected');
+      }
+    }
+    
+    // Test audio context state
+    if (Tone.context.state !== 'running') {
+      await Tone.context.resume();
+    }
+  }
   
   async startRecording(options = {}) {
     const {
@@ -7908,6 +7927,40 @@ function removeTrack(trackId) {
   renderMultitrack();
 }
 
+function drawTakeWaveform(canvasEl, audioBuffer) {
+  const ctx = canvasEl.getContext('2d');
+  const width = canvasEl.width;
+  const height = canvasEl.height;
+  
+  ctx.clearRect(0, 0, width, height);
+  
+  const data = audioBuffer.getChannelData(0);
+  const step = Math.ceil(data.length / width);
+  const amp = height / 2;
+  
+  ctx.fillStyle = 'rgba(124, 131, 255, 0.3)';
+  ctx.strokeStyle = 'rgb(124, 131, 255)';
+  ctx.lineWidth = 1;
+  
+  ctx.beginPath();
+  for (let i = 0; i < width; i++) {
+    let min = 1.0;
+    let max = -1.0;
+    
+    for (let j = 0; j < step; j++) {
+      const datum = data[(i * step) + j];
+      if (datum < min) min = datum;
+      if (datum > max) max = datum;
+    }
+    
+    const x = i;
+    const yMin = (1 + min) * amp;
+    const yMax = (1 + max) * amp;
+    
+    ctx.fillRect(x, yMin, 1, yMax - yMin);
+  }
+}
+
 function renderTakes(track) {
   if (!track.takes || track.takes.length === 0) return '';
   
@@ -8092,6 +8145,14 @@ function createTrackStrip(track) {
     });
   });
 
+  // Use in renderTakes:
+  const canvas = document.createElement('canvas');
+  canvas.width = 120;
+  canvas.height = 40;
+  canvas.className = 'take-waveform-canvas';
+  drawTakeWaveform(canvas, take.buffer);
+  // append canvas to take region
+  
   // Add take interaction listeners
   strip.addEventListener('click', (e) => {
     const takeRegion = e.target.closest('.take-region');
@@ -8454,6 +8515,119 @@ function stopMultitrackPreview() {
   }
 }
 
+function createOfflineMasterChain(offlineContext) {
+  const masterIn = new Tone.Gain(0.25, { context: offlineContext });
+  
+  // Rebuild master FX chain in offline context
+  const lowCut = new Tone.Filter({
+    type: 'highpass',
+    frequency: state.lowCut,
+    rolloff: -12,
+    context: offlineContext
+  });
+  
+  const highCut = new Tone.Filter({
+    type: 'lowpass',
+    frequency: state.highCut,
+    rolloff: -12,
+    context: offlineContext
+  });
+  
+  const tape = new Tone.Distortion({
+    distortion: state.tapeSaturation / 100 * 0.2,
+    wet: state.tapeSaturation / 100 * 0.6,
+    context: offlineContext
+  });
+  
+  const comp = new Tone.Compressor({
+    threshold: state.compressor,
+    ratio: 4,
+    attack: 0.003,
+    release: 0.15,
+    context: offlineContext
+  });
+  
+  const limiter = new Tone.Limiter(-2, { context: offlineContext });
+  
+  masterIn.chain(lowCut, highCut, tape, comp, limiter);
+  
+  // Connect to offline destination
+  limiter.connect(offlineContext.destination);
+  
+  return { masterIn, limiter };
+}
+
+function createOfflineFxNode(fxDef, offlineContext) {
+  const { type, params } = fxDef;
+  
+  switch (type) {
+    case 'reverb':
+      return new Tone.Reverb({ 
+        decay: params.decay, 
+        wet: params.wet,
+        context: offlineContext 
+      });
+    
+    case 'delay':
+      return new Tone.FeedbackDelay({
+        delayTime: params.time,
+        feedback: params.feedback,
+        wet: params.wet,
+        context: offlineContext
+      });
+    
+    case 'chorus':
+      return new Tone.Chorus({
+        frequency: params.frequency,
+        delayTime: params.delayTime,
+        depth: params.depth,
+        wet: params.wet,
+        context: offlineContext
+      }).start();
+    
+    case 'distortion':
+      return new Tone.Distortion({
+        distortion: params.amount,
+        wet: params.wet,
+        context: offlineContext
+      });
+    
+    case 'filter':
+      return new Tone.Filter({
+        type: params.type,
+        frequency: params.frequency,
+        Q: params.q,
+        context: offlineContext
+      });
+    
+    case 'compressor':
+      return new Tone.Compressor({
+        threshold: params.threshold,
+        ratio: params.ratio,
+        attack: params.attack,
+        release: params.release,
+        context: offlineContext
+      });
+    
+    case 'eq':
+      return new Tone.EQ3({
+        low: params.low,
+        mid: params.mid,
+        high: params.high,
+        context: offlineContext
+      });
+    
+    case 'bitcrusher':
+      return new Tone.BitCrusher({
+        bits: params.bits,
+        context: offlineContext
+      });
+    
+    default:
+      return null;
+  }
+}
+  
 // Enhanced bounce with ALL takes from ALL tracks + per-track FX + master FX
 async function bounceAllTracks() {
   const activeTracks = multitrack.tracks.filter(t =>
