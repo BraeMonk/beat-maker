@@ -9724,9 +9724,9 @@ function stopMultitrackPreview() {
 
 // 🔁 PURE WEB AUDIO MASTER CHAIN FOR OFFLINE BOUNCE
 function createOfflineMasterChain(offlineContext) {
-  // Input from all tracks
+  // Entry point for all tracks
   const input = offlineContext.createGain();
-  input.gain.value = 0.25; // similar to your 0.25 Tone.Gain
+  input.gain.value = 1.0; // 🔊 no pre-attenuation (was 0.25 ≈ -12 dB)
 
   // High-pass (low cut)
   const lowCut = offlineContext.createBiquadFilter();
@@ -9740,41 +9740,47 @@ function createOfflineMasterChain(offlineContext) {
   highCut.frequency.value = typeof state.highCut === 'number' ? state.highCut : 20000;
   highCut.Q.value = 0.707;
 
-  // "Tape" saturation as a simple waveshaper
+  // Tape-style soft clip
   const tape = offlineContext.createWaveShaper();
   const satAmt = ((state.tapeSaturation || 0) / 100) * 0.8; // 0–0.8
   const curveLen = 4096;
   const curve = new Float32Array(curveLen);
   for (let i = 0; i < curveLen; i++) {
     const x = (i / (curveLen - 1)) * 2 - 1; // -1..1
-    curve[i] = ((1 + satAmt) * x) / (1 + satAmt * Math.abs(x)); // soft clip
+    curve[i] = ((1 + satAmt) * x) / (1 + satAmt * Math.abs(x));
   }
   tape.curve = curve;
 
   // Bus compressor
   const comp = offlineContext.createDynamicsCompressor();
-  comp.threshold.value = typeof state.compressor === 'number' ? state.compressor : -24;
-  comp.ratio.value = 4;
-  comp.attack.value = 0.003;
-  comp.release.value = 0.15;
+  comp.threshold.value =
+    typeof state.compressor === 'number' ? state.compressor : -18; // a bit gentler than -24
+  comp.ratio.value = 3;       // 3:1 instead of 4:1
+  comp.attack.value = 0.005;
+  comp.release.value = 0.2;
 
-  // "Limiter" approximation
+  // Limiter approximation
   const limiter = offlineContext.createDynamicsCompressor();
-  limiter.threshold.value = -2;
+  limiter.threshold.value = -1;  // let it sit closer to 0 dBFS
   limiter.ratio.value = 20;
   limiter.attack.value = 0.001;
   limiter.release.value = 0.1;
 
-  // Chain: input → lowCut → highCut → tape → comp → limiter → destination
+  // Final output gain (makeup)
+  const outGain = offlineContext.createGain();
+  // 1.0 = no change. 1.4 ≈ +3 dB, 2.0 ≈ +6 dB
+  outGain.gain.value = 1.6; // tweak to taste
+
+  // Chain: input → lowCut → highCut → tape → comp → limiter → outGain → destination
   input.connect(lowCut);
   lowCut.connect(highCut);
   highCut.connect(tape);
   tape.connect(comp);
   comp.connect(limiter);
-  limiter.connect(offlineContext.destination);
+  limiter.connect(outGain);
+  outGain.connect(offlineContext.destination);
 
-  // We only need to return the entry point for tracks
-  return input; // this is your "offlineMaster"
+  return input;
 }
 
 function createOfflineFxNode(fxDef, offlineContext) {
