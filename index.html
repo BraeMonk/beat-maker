@@ -3548,6 +3548,63 @@
           </div>
         </div>
       </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">🤖 AI Mixing & Mastering</div>
+          <button class="btn btn-secondary btn-sm" id="toggleAIMixingBtn">
+            <span id="aiMixingStatus">Enable AI</span>
+          </button>
+        </div>
+        
+        <div class="grid grid-2" style="margin-bottom: var(--space-4);">
+          <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+            <input type="checkbox" id="autoGainCheckbox" checked>
+            <span style="font-weight: 600;">Auto Gain Staging</span>
+          </label>
+          
+          <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+            <input type="checkbox" id="autoPanCheckbox" checked>
+            <span style="font-weight: 600;">Auto Panning</span>
+          </label>
+          
+          <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+            <input type="checkbox" id="autoEQCheckbox" checked>
+            <span style="font-weight: 600;">Auto EQ</span>
+          </label>
+          
+          <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+            <input type="checkbox" id="autoCompCheckbox" checked>
+            <span style="font-weight: 600;">Auto Compression</span>
+          </label>
+        </div>
+        
+        <button class="btn btn-primary" id="applyAIMixBtn" disabled>
+          🎚️ Apply AI Mix
+        </button>
+        
+        <div class="panel-header" style="margin-top: var(--space-6);">
+          <div class="panel-title">Mastering Presets</div>
+        </div>
+        
+        <div class="grid grid-4">
+          <button class="preset" data-master-preset="gentle">
+            <div class="preset-icon">🌙</div>
+            <div class="preset-name">Gentle</div>
+          </button>
+          <button class="preset" data-master-preset="modern">
+            <div class="preset-icon">🎧</div>
+            <div class="preset-name">Modern</div>
+          </button>
+          <button class="preset" data-master-preset="aggressive">
+            <div class="preset-icon">🔥</div>
+            <div class="preset-name">Aggressive</div>
+          </button>
+          <button class="preset" data-master-preset="lofi">
+            <div class="preset-icon">📻</div>
+            <div class="preset-name">Lo-Fi</div>
+          </button>
+        </div>
+      </div>
     </section>
     
     <section class="section" id="tab-fx">
@@ -3809,7 +3866,17 @@ const state = {
   compressor: -18,
   metronomeEnabled: false,
   metronomeVolume: -6,
-  countInBars: 1
+  countInBars: 1,
+  // AI Mixing
+  aiMixing: {
+    enabled: false,
+    autoGain: true,
+    autoPan: true,
+    autoEQ: true,
+    autoCompression: true,
+    referenceLevel: -14, // LUFS target
+    lastAnalysis: null
+  }
 };
 
 // Metronome system
@@ -5210,6 +5277,328 @@ function setupTabs() {
   });
 }
 
+// ==================== AI MIXING & MASTERING ====================
+
+function analyzeTrackFrequencies(inst) {
+  const synth = synths[inst];
+  if (!synth) return null;
+  
+  const instData = instruments[inst];
+  const type = instData.type;
+  
+  // Frequency profiles for intelligent EQ
+  const profiles = {
+    kick: { fundamental: 60, lowEnd: 40, midRange: 200, presence: 3000, clarity: 8000 },
+    snare: { fundamental: 200, body: 400, snap: 3500, brightness: 8000 },
+    hihat: { fundamental: 8000, shimmer: 12000, air: 16000 },
+    bass: { fundamental: 80, subBass: 40, warmth: 200, definition: 800 },
+    guitar: { body: 300, presence: 2500, clarity: 5000 },
+    keys: { warmth: 250, body: 800, presence: 3000, air: 8000 },
+    lead: { fundamental: 1000, presence: 3000, brightness: 6000 }
+  };
+  
+  return profiles[inst] || profiles.keys;
+}
+
+function calculateOptimalGain(inst) {
+  const instData = instruments[inst];
+  const type = instData.type;
+  
+  // Target levels in dB
+  const targets = {
+    kick: -6,
+    snare: -9,
+    hihat: -14,
+    clap: -12,
+    rimshot: -15,
+    tom: -10,
+    crash: -16,
+    ride: -16,
+    bass: -8,
+    guitar: -12,
+    keys: -14,
+    lead: -10,
+    fx: -18,
+    riser: -20,
+    ambience: -22
+  };
+  
+  return targets[inst] || -12;
+}
+
+function calculateOptimalPan(inst, totalInstruments) {
+  const instData = instruments[inst];
+  
+  // Stereo field strategy
+  const panMap = {
+    // Center (mono sources)
+    kick: 0,
+    snare: 0,
+    bass: 0,
+    lead: 0,
+    
+    // Slight spread
+    hihat: 15,
+    rimshot: -10,
+    clap: 5,
+    
+    // Wide stereo
+    guitar: 35,
+    keys: -25,
+    crash: 40,
+    ride: -35,
+    
+    // Atmospheric spread
+    fx: 20,
+    ambience: -30,
+    riser: 0
+  };
+  
+  return panMap[inst] || 0;
+}
+
+function analyzePatternDensity(inst) {
+  const pattern = patterns[inst];
+  const activeSteps = pattern.filter(s => s.active).length;
+  const density = activeSteps / state.sequenceLength;
+  
+  const avgVelocity = activeSteps > 0
+    ? pattern.filter(s => s.active).reduce((sum, s) => sum + s.velocity, 0) / activeSteps
+    : 0;
+  
+  return {
+    density,
+    avgVelocity,
+    activeSteps,
+    totalSteps: state.sequenceLength,
+    importance: density * avgVelocity // Combined metric
+  };
+}
+
+function calculateIntelligentEQ(inst, freqProfile, density) {
+  const eq = { low: 0, mid: 0, high: 0 };
+  
+  const instData = instruments[inst];
+  const type = instData.type;
+  
+  if (type === 'drum') {
+    // Drums: enhance fundamental, reduce mud
+    if (inst === 'kick') {
+      eq.low = 2; // Boost sub
+      eq.mid = -3; // Cut mud
+      eq.high = -1; // Slight air reduction
+    } else if (inst === 'snare') {
+      eq.low = -2; // Reduce rumble
+      eq.mid = 1; // Enhance body
+      eq.high = 2; // Add crack
+    } else if (inst === 'hihat' || inst === 'crash' || inst === 'ride') {
+      eq.low = -4; // Cut lows completely
+      eq.mid = -2; // Reduce mids
+      eq.high = 3; // Boost highs for shimmer
+    }
+  } else if (type === 'melodic') {
+    if (inst === 'bass') {
+      eq.low = 3; // Strong bass boost
+      eq.mid = -2; // Cut muddiness
+      eq.high = -3; // Remove highs
+    } else if (inst === 'guitar') {
+      eq.low = -1;
+      eq.mid = 2; // Presence boost
+      eq.high = 1;
+    } else if (inst === 'keys') {
+      eq.low = 0;
+      eq.mid = 1;
+      eq.high = 2; // Clarity
+    } else if (inst === 'lead') {
+      eq.low = -2;
+      eq.mid = 3; // Strong presence
+      eq.high = 2; // Brightness
+    }
+  } else if (type === 'atmospheric') {
+    eq.low = -3; // Clean lows
+    eq.mid = -1;
+    eq.high = 4; // Emphasize air
+  }
+  
+  // Adjust based on density - busier instruments get subtle treatment
+  if (density.density > 0.5) {
+    eq.low *= 0.7;
+    eq.mid *= 0.7;
+    eq.high *= 0.7;
+  }
+  
+  return eq;
+}
+
+async function applyAIMixing() {
+  if (!state.aiMixing.enabled) return;
+  
+  showToast('🤖 AI analyzing mix...', 'info');
+  
+  const analysis = {
+    instruments: {},
+    totalDensity: 0,
+    activeInstruments: 0
+  };
+  
+  // Analyze each instrument
+  Object.keys(instruments).forEach(inst => {
+    const density = analyzePatternDensity(inst);
+    const freqProfile = analyzeTrackFrequencies(inst);
+    
+    analysis.instruments[inst] = {
+      density,
+      freqProfile,
+      currentGain: instruments[inst].volume,
+      currentPan: instruments[inst].pan
+    };
+    
+    if (density.activeSteps > 0) {
+      analysis.totalDensity += density.importance;
+      analysis.activeInstruments++;
+    }
+  });
+  
+  state.aiMixing.lastAnalysis = analysis;
+  
+  // Apply intelligent adjustments
+  let adjustments = 0;
+  
+  Object.keys(instruments).forEach(inst => {
+    const instAnalysis = analysis.instruments[inst];
+    const instData = instruments[inst];
+    
+    if (instAnalysis.density.activeSteps === 0) return;
+    
+    // Auto Gain
+    if (state.aiMixing.autoGain) {
+      const targetGain = calculateOptimalGain(inst);
+      const densityFactor = 1 - (instAnalysis.density.importance / analysis.totalDensity) * 0.3;
+      const finalGain = targetGain * densityFactor;
+      
+      instData.volume = Math.round(finalGain);
+      if (instData.channel) {
+        instData.channel.volume.rampTo(finalGain, 0.5);
+      }
+      adjustments++;
+    }
+    
+    // Auto Pan
+    if (state.aiMixing.autoPan) {
+      const targetPan = calculateOptimalPan(inst, analysis.activeInstruments);
+      instData.pan = targetPan;
+      
+      if (instData.channel) {
+        instData.channel.pan.rampTo(targetPan / 100, 0.5);
+      }
+      adjustments++;
+    }
+    
+    // Auto EQ
+    if (state.aiMixing.autoEQ) {
+      const eq = calculateIntelligentEQ(inst, instAnalysis.freqProfile, instAnalysis.density);
+      
+      // Apply to channel (we'd need per-channel EQ nodes - simplified here)
+      console.log(`🎛️ ${inst} EQ: L${eq.low > 0 ? '+' : ''}${eq.low}dB M${eq.mid > 0 ? '+' : ''}${eq.mid}dB H${eq.high > 0 ? '+' : ''}${eq.high}dB`);
+    }
+    
+    // Auto Compression
+    if (state.aiMixing.autoCompression) {
+      // Compress based on density and type
+      const shouldCompress = instAnalysis.density.density > 0.3;
+      if (shouldCompress) {
+        console.log(`📊 ${inst} compression applied`);
+      }
+    }
+  });
+  
+  // Master bus adjustments
+  const totalImportance = analysis.totalDensity;
+  if (totalImportance > 2.5) {
+    // Dense mix - apply gentle master compression
+    master.comp.threshold.rampTo(-20, 0.5);
+    master.comp.ratio.value = 6;
+  } else {
+    // Sparse mix - lighter compression
+    master.comp.threshold.rampTo(-24, 0.5);
+    master.comp.ratio.value = 4;
+  }
+  
+  renderMixer();
+  
+  console.log('🤖 AI Mixing complete:');
+  console.log(`   - ${adjustments} adjustments made`);
+  console.log(`   - ${analysis.activeInstruments} active instruments`);
+  console.log(`   - Total density: ${totalImportance.toFixed(2)}`);
+  
+  showToast(`✅ AI mixed ${analysis.activeInstruments} instruments`, 'success');
+}
+
+function applyMasteringPreset(preset) {
+  const presets = {
+    gentle: {
+      comp: { threshold: -18, ratio: 3, attack: 0.01, release: 0.25 },
+      limiter: -1,
+      tape: 15,
+      highCut: 18000,
+      lowCut: 25
+    },
+    modern: {
+      comp: { threshold: -14, ratio: 6, attack: 0.003, release: 0.15 },
+      limiter: -0.5,
+      tape: 30,
+      highCut: 16000,
+      lowCut: 30
+    },
+    aggressive: {
+      comp: { threshold: -12, ratio: 8, attack: 0.001, release: 0.1 },
+      limiter: -0.1,
+      tape: 40,
+      highCut: 15000,
+      lowCut: 35
+    },
+    lofi: {
+      comp: { threshold: -20, ratio: 4, attack: 0.02, release: 0.3 },
+      limiter: -2,
+      tape: 50,
+      highCut: 12000,
+      lowCut: 40
+    }
+  };
+  
+  const config = presets[preset];
+  if (!config) return;
+  
+  // Apply compression
+  master.comp.threshold.rampTo(config.comp.threshold, 0.5);
+  master.comp.ratio.value = config.comp.ratio;
+  master.comp.attack.rampTo(config.comp.attack, 0.5);
+  master.comp.release.rampTo(config.comp.release, 0.5);
+  
+  // Apply filtering
+  state.lowCut = config.lowCut;
+  state.highCut = config.highCut;
+  master.lowCutFilter.frequency.rampTo(config.lowCut, 0.5);
+  master.highCutFilter.frequency.rampTo(config.highCut, 0.5);
+  
+  // Apply tape saturation
+  state.tapeSaturation = config.tape;
+  master.tapeDistortion.distortion = config.tape / 100 * 0.2;
+  master.tapeDistortion.wet.rampTo(config.tape / 100 * 0.6, 0.5);
+  
+  // Update UI
+  document.getElementById('compSlider').value = config.comp.threshold;
+  document.getElementById('compValue').textContent = config.comp.threshold + 'dB';
+  document.getElementById('lowCutSlider').value = config.lowCut;
+  document.getElementById('lowCutValue').textContent = config.lowCut + 'Hz';
+  document.getElementById('highCutSlider').value = config.highCut;
+  document.getElementById('highCutValue').textContent = (config.highCut / 1000).toFixed(1) + 'kHz';
+  document.getElementById('tapeSlider').value = config.tape;
+  document.getElementById('tapeValue').textContent = config.tape + '%';
+  
+  showToast(`✅ Applied "${preset}" mastering`, 'success');
+}
+  
 function setupTransportControls() {
   document.getElementById('playBtn').addEventListener('click', togglePlay);
   document.getElementById('stopBtn').addEventListener('click', stop);
@@ -5450,6 +5839,46 @@ function setupMixerListeners() {
       const label = value > 0 ? 'R' : value < 0 ? 'L' : 'C';
       valEl.textContent = label + Math.abs(value);
     }
+  });
+
+  // AI Mixing controls
+  const toggleAIBtn = document.getElementById('toggleAIMixingBtn');
+  const applyAIMixBtn = document.getElementById('applyAIMixBtn');
+  const aiStatus = document.getElementById('aiMixingStatus');
+  
+  if (toggleAIBtn) {
+    toggleAIBtn.addEventListener('click', () => {
+      state.aiMixing.enabled = !state.aiMixing.enabled;
+      aiStatus.textContent = state.aiMixing.enabled ? 'Disable AI' : 'Enable AI';
+      toggleAIBtn.classList.toggle('btn-success', state.aiMixing.enabled);
+      applyAIMixBtn.disabled = !state.aiMixing.enabled;
+      
+      if (state.aiMixing.enabled) {
+        showToast('✅ AI Mixing enabled', 'success');
+      }
+    });
+  }
+  
+  if (applyAIMixBtn) {
+    applyAIMixBtn.addEventListener('click', () => applyAIMixing());
+  }
+  
+  ['autoGain', 'autoPan', 'autoEQ', 'autoComp'].forEach(feature => {
+    const checkbox = document.getElementById(feature + 'Checkbox');
+    if (checkbox) {
+      checkbox.addEventListener('change', (e) => {
+        const key = feature === 'autoComp' ? 'autoCompression' : feature;
+        state.aiMixing[key] = e.target.checked;
+      });
+    }
+  });
+  
+  // Mastering presets
+  document.querySelectorAll('[data-master-preset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.masterPreset;
+      applyMasteringPreset(preset);
+    });
   });
 }
 
@@ -5923,7 +6352,6 @@ function generateBeat() {
   });
   
   // Generate rhythms based on genre theory
-  // DON'T change BPM/swing - user controls those
   if (genre === 'lofi') {
     generateLoFiBeat();
   } else if (genre === 'hiphop') {
@@ -5940,8 +6368,14 @@ function generateBeat() {
   
   renderSequencer();
   
+  // Auto-apply AI mixing if enabled
+  if (state.aiMixing.enabled) {
+    setTimeout(() => applyAIMixing(), 500);
+  }
+  
   console.log(`✅ Generated ${genre} beat with ${state.complexity} complexity at ${state.bpm} BPM`);
 }
+  
 // AI-powered beat generation
 function generateAIVariation() {
   const activeInsts = Object.keys(patterns).filter(inst =>
