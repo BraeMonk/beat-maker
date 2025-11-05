@@ -12115,10 +12115,7 @@ function init() {
   checkAudioPermissions();
   checkSamplesLoaded();
   loadSavedVibe();
-
-  if (typeof window.storage !== 'undefined') {
-    loadCustomSampleStatus();
-  }
+  setupSampleUpload();
 }
   
 // -------------------- Entry Point --------------------
