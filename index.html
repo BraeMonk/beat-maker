@@ -5261,118 +5261,69 @@ function setupGenreSelector() {
   });
 }
   
+// -------------------- Sample Browser (no custom uploads) --------------------
 function setupSampleUpload() {
+  const grid = document.getElementById('sampleUploadGrid');
+  if (!grid) {
+    console.warn('⚠️ setupSampleUpload: #sampleUploadGrid not found');
+    return;
+  }
   renderSampleUploadGrid();
-  
-  document.getElementById('restoreDefaultsBtn')?.addEventListener('click', async () => {
-    if (!confirm('Restore all default samples? Custom samples will be deleted.')) return;
-    
-    // Clear custom samples from storage
-    try {
-      if (typeof window.storage !== 'undefined') {
-        const keys = await window.storage.list('custom-sample:');
-        if (keys && keys.keys) {
-          for (const key of keys.keys) {
-            await window.storage.delete(key);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Could not clear storage:', e);
-    }
-    
-    // Reload all instruments
-    Object.keys(instruments).forEach(inst => {
-      if (instruments[inst].type === 'drum' || instruments[inst].type === 'atmospheric') {
-        createInstrumentChain(inst);
-      }
-    });
-    
-    renderSampleUploadGrid();
-    showToast('✅ Default samples restored', 'success');
-  });
 }
 
 function renderSampleUploadGrid() {
   const grid = document.getElementById('sampleUploadGrid');
   if (!grid) return;
-  
+
   grid.innerHTML = '';
-  
-  // Get all drum and atmospheric instruments
-  const uploadableInstruments = Object.keys(instruments).filter(inst => 
+
+  // Show all drum / atmospheric instruments as previewable samples
+  const uploadableInstruments = Object.keys(instruments).filter(inst =>
     instruments[inst].type === 'drum' || instruments[inst].type === 'atmospheric'
   );
-  
+
+  if (uploadableInstruments.length === 0) {
+    const msg = document.createElement('div');
+    msg.className = 'panel';
+    msg.style.padding = 'var(--space-4)';
+    msg.textContent = 'No sample-based instruments found. Drums and atmospheric instruments will show here.';
+    grid.appendChild(msg);
+    return;
+  }
+
   uploadableInstruments.forEach(inst => {
     const data = instruments[inst];
-    
+
     const card = document.createElement('div');
     card.className = 'panel';
     card.style.padding = 'var(--space-4)';
     card.style.display = 'flex';
     card.style.flexDirection = 'column';
     card.style.gap = 'var(--space-3)';
-    
-    // Check if custom sample is loaded
-    const hasCustom = synths[inst]?.isCustom === true;
-    
+
     card.innerHTML = `
       <div style="text-align: center;">
-        <div style="font-size: var(--text-3xl); margin-bottom: var(--space-2);">${data.icon}</div>
-        <div style="font-weight: 700; margin-bottom: var(--space-2); color: var(--text-primary);">
-          ${data.name}
+        <div style="font-size: var(--text-3xl); margin-bottom: var(--space-2);">
+          ${data.icon || '🎛️'}
+        </div>
+        <div style="font-weight: 700; margin-bottom: var(--space-1); color: var(--text-primary);">
+          ${data.name || inst}
+        </div>
+        <div style="font-size: var(--text-xs); color: var(--text-tertiary);">
+          Built-in sample
         </div>
       </div>
-      
-      <div class="sample-status" data-inst="${inst}" 
-           style="font-size: var(--text-xs); color: var(--text-tertiary); text-align: center; min-height: 2em;">
-        ${hasCustom ? '✅ Custom sample loaded' : 'Using default'}
-      </div>
-      
+
       <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-        <button class="btn btn-primary btn-sm upload-sample-btn" data-inst="${inst}">
-          📤 Upload Sample
-        </button>
-        <button class="btn btn-secondary btn-sm preview-sample-btn" data-inst="${inst}">
+        <button class="btn btn-primary btn-sm preview-sample-btn" data-inst="${inst}">
           ▶️ Preview
         </button>
-        ${hasCustom ? `
-          <button class="btn btn-ghost btn-sm clear-sample-btn" data-inst="${inst}">
-            🗑️ Remove Custom
-          </button>
-        ` : ''}
       </div>
     `;
-    
+
     grid.appendChild(card);
   });
-  
-  // Attach upload listeners
-  grid.querySelectorAll('.upload-sample-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const inst = btn.dataset.inst;
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'audio/wav,audio/mp3,audio/mpeg,audio/ogg,audio/webm';
-      
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        // Validate file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-          showToast('❌ File too large (max 10MB)', 'error');
-          return;
-        }
-        
-        await uploadCustomSample(inst, file);
-      };
-      
-      input.click();
-    });
-  });
-  
+
   // Preview listeners
   grid.querySelectorAll('.preview-sample-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -5380,247 +5331,6 @@ function renderSampleUploadGrid() {
       previewInstrument(inst);
     });
   });
-  
-  // Clear custom sample listeners
-  grid.querySelectorAll('.clear-sample-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const inst = btn.dataset.inst;
-      
-      if (!confirm(`Remove custom sample for ${instruments[inst].name}?`)) return;
-      
-      try {
-        // Delete from storage
-        if (typeof window.storage !== 'undefined') {
-          await window.storage.delete(`custom-sample:${inst}`);
-        }
-        
-        // Reload default
-        createInstrumentChain(inst);
-        
-        renderSampleUploadGrid();
-        showToast(`✅ ${instruments[inst].name} restored to default`, 'success');
-        
-      } catch (err) {
-        console.error('Failed to remove custom sample:', err);
-        showToast(`❌ Failed to remove: ${err.message}`, 'error');
-      }
-    });
-  });
-  
-  // Load custom sample status
-  loadCustomSampleStatus();
-}
-  
-async function uploadCustomSample(inst, file) {
-  try {
-    showToast(`⏳ Loading ${file.name}...`, 'info');
-    
-    const arrayBuffer = await file.arrayBuffer();
-    const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
-    
-    // Store in persistent storage
-    try {
-      const base64 = await arrayBufferToBase64(arrayBuffer);
-      await window.storage.set(`custom-sample:${inst}`, JSON.stringify({
-        name: file.name,
-        data: base64,
-        type: file.type,
-        duration: audioBuffer.duration,
-        uploadedAt: Date.now()
-      }));
-      console.log(`💾 Saved ${inst} to storage`);
-    } catch (e) {
-      console.warn('Could not save to storage:', e);
-    }
-    
-    // Dispose old synth properly
-    const oldSynth = synths[inst];
-    if (oldSynth) {
-      try {
-        if (oldSynth.player) {
-          oldSynth.player.disconnect();
-          oldSynth.player.dispose();
-        }
-        if (oldSynth.gain) {
-          oldSynth.gain.disconnect();
-          oldSynth.gain.dispose();
-        }
-        if (typeof oldSynth.dispose === 'function') {
-          oldSynth.dispose();
-        }
-      } catch (err) {
-        console.warn('Error disposing old synth:', err);
-      }
-    }
-    
-    // Create new player
-    const player = new Tone.Player({
-      buffer: audioBuffer,
-      fadeOut: 0.01
-    });
-    
-    const playerGain = new Tone.Gain(1);
-    player.connect(playerGain);
-    
-    // Create wrapper matching synth interface
-    synths[inst] = {
-      triggerAttackRelease: (note, duration, time, velocity = 1) => {
-        if (player.loaded) {
-          player.stop(time);
-          playerGain.gain.setValueAtTime(velocity, time);
-          player.start(time);
-        }
-      },
-      connect: (node) => {
-        playerGain.disconnect();
-        playerGain.connect(node);
-        return playerGain;
-      },
-      toDestination: () => playerGain.toDestination(),
-      dispose: () => {
-        player.dispose();
-        playerGain.dispose();
-      },
-      loaded: true,
-      player: player,
-      gain: playerGain,
-      isCustom: true
-    };
-    
-    // Reconnect to channel
-    if (instruments[inst].channel) {
-      playerGain.connect(instruments[inst].channel);
-    } else {
-      console.warn(`No channel for ${inst}, connecting to master`);
-      playerGain.connect(master.fxIn);
-    }
-    
-    // Update UI
-    const statusEl = document.querySelector(`.sample-status[data-inst="${inst}"]`);
-    if (statusEl) {
-      statusEl.textContent = `✅ ${file.name}`;
-      statusEl.style.color = 'var(--success)';
-    }
-    
-    console.log(`✅ ${instruments[inst].name} sample loaded and connected`);
-    showToast(`✅ ${instruments[inst].name} sample loaded!`, 'success');
-    
-  } catch (err) {
-    console.error('Sample upload failed:', err);
-    showToast(`❌ Upload failed: ${err.message}`, 'error');
-  }
-}
-  
-async function loadCustomSampleStatus() {
-  if (typeof window.storage === 'undefined') {
-    console.log('Storage not available, skipping custom sample load');
-    return;
-  }
-  
-  try {
-    const keys = await window.storage.list('custom-sample:');
-    if (!keys || !keys.keys || keys.keys.length === 0) {
-      console.log('No custom samples found in storage');
-      return;
-    }
-    
-    console.log(`📦 Loading ${keys.keys.length} custom sample(s)...`);
-    
-    for (const key of keys.keys) {
-      const inst = key.replace('custom-sample:', '');
-      
-      try {
-        const result = await window.storage.get(key);
-        
-        if (result && result.value) {
-          const data = JSON.parse(result.value);
-          
-          // Update UI immediately
-          const statusEl = document.querySelector(`.sample-status[data-inst="${inst}"]`);
-          if (statusEl) {
-            statusEl.textContent = `⏳ Loading ${data.name}...`;
-            statusEl.style.color = 'var(--warning)';
-          }
-          
-          // Restore the custom sample
-          const base64Data = data.data;
-          const arrayBuffer = base64ToArrayBuffer(base64Data);
-          const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
-          
-          // Dispose old synth
-          const oldSynth = synths[inst];
-          if (oldSynth) {
-            try {
-              if (oldSynth.player) oldSynth.player.dispose();
-              if (oldSynth.gain) oldSynth.gain.dispose();
-              if (typeof oldSynth.dispose === 'function') oldSynth.dispose();
-            } catch (err) {
-              console.warn('Error disposing:', err);
-            }
-          }
-          
-          // Create new player
-          const player = new Tone.Player({
-            buffer: audioBuffer,
-            fadeOut: 0.01
-          });
-          
-          const playerGain = new Tone.Gain(1);
-          player.connect(playerGain);
-          
-          synths[inst] = {
-            triggerAttackRelease: (note, duration, time, velocity = 1) => {
-              if (player.loaded) {
-                player.stop(time);
-                playerGain.gain.setValueAtTime(velocity, time);
-                player.start(time);
-              }
-            },
-            connect: (node) => {
-              playerGain.disconnect();
-              playerGain.connect(node);
-              return playerGain;
-            },
-            toDestination: () => playerGain.toDestination(),
-            dispose: () => {
-              player.dispose();
-              playerGain.dispose();
-            },
-            loaded: true,
-            player: player,
-            gain: playerGain,
-            isCustom: true
-          };
-          
-          // Connect to channel
-          if (instruments[inst].channel) {
-            playerGain.connect(instruments[inst].channel);
-          } else {
-            playerGain.connect(master.fxIn);
-          }
-          
-          // Update UI success
-          if (statusEl) {
-            statusEl.textContent = `✅ ${data.name}`;
-            statusEl.style.color = 'var(--success)';
-          }
-          
-          console.log(`✅ Restored custom sample: ${inst} (${data.name})`);
-        }
-      } catch (err) {
-        console.error(`Failed to load custom sample ${inst}:`, err);
-        const statusEl = document.querySelector(`.sample-status[data-inst="${inst}"]`);
-        if (statusEl) {
-          statusEl.textContent = `❌ Load failed`;
-          statusEl.style.color = 'var(--error)';
-        }
-      }
-    }
-    
-    console.log('✅ Custom samples restored');
-  } catch (e) {
-    console.warn('Could not load custom samples:', e);
-  }
 }
   
 function previewInstrument(inst) {
