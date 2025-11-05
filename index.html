@@ -9,11 +9,6 @@
   <link rel="apple-touch-icon" href="./lofi8Beat.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-
-  <script 
-    src="https://www.paypal.com/sdk/js?client-id=BAAGVoG-lT_63LsXSnS1hfaZvAl0wdln649o15710RZ4RxFfJCMsAV-ja611rPGiO-VeIvV8kRfMk6cT94&components=hosted-buttons&disable-funding=venmo&currency=USD">
-  </script>
-  
   <style>
    /* =========================================================
       8-BEAT STUDIO — PROFESSIONAL ULTRA-MODERN REDESIGN
@@ -3733,12 +3728,14 @@
             <p>Paste your license key to unlock all features.</p>
             <input id="licenseInput" type="text" placeholder="8BEAT-XXXX-XXXX-XXXX">
             <div class="modal-actions">
-              <div id="paypal-container-58FUHY8RYFPP2"></div>
-              <script>
-                paypal.HostedButtons({
-                  hostedButtonId: "58FUHY8RYFPP2",
-                }).render("#paypal-container-58FUHY8RYFPP2")
-              </script>
+              <div>
+                <style>.pp-58FUHY8RYFPP2{text-align:center;border:none;border-radius:0.25rem;min-width:11.625rem;padding:0 2rem;height:2.625rem;font-weight:bold;background-color:#FFD140;color:#000000;font-family:"Helvetica Neue",Arial,sans-serif;font-size:1rem;line-height:1.25rem;cursor:pointer;}</style>
+                <form action="https://www.paypal.com/ncp/payment/58FUHY8RYFPP2" method="post" target="_blank" style="display:inline-grid;justify-items:center;align-content:start;gap:0.5rem;">
+                  <input class="pp-58FUHY8RYFPP2" type="submit" value="Buy Now" />
+                  <img src=https://www.paypalobjects.com/images/Debit_Credit_APM.svg alt="cards" />
+                  <section style="font-size: 0.75rem;"> Powered by <img src="https://www.paypalobjects.com/paypal-ui/logos/svg/paypal-wordmark-color.svg" alt="paypal" style="height:0.875rem;vertical-align:middle;"/></section>
+                </form>
+              </div>
               <button id="confirmLicenseBtn" class="btn btn-primary">Confirm</button>
               <button id="cancelLicenseBtn" class="btn btn-secondary">Cancel</button>
             </div>
