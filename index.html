@@ -3549,6 +3549,142 @@
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
     }
+
+    /* Enhanced region styling */
+    .audio-region {
+      box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.1);
+      user-select: none;
+    }
+
+    .audio-region.dragging {
+      opacity: 0.8;
+      cursor: grabbing;
+      z-index: 100;
+      box-shadow: var(--shadow-2xl), 0 0 40px rgba(124, 131, 255, 0.4);
+    }
+    
+    .audio-region:hover .region-resize-handle {
+      opacity: 1;
+    }
+    
+    .region-resize-handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      background: rgba(255,255,255,0.1);
+      opacity: 0;
+      transition: all var(--duration-fast) var(--ease-smooth);
+      z-index: 10;
+    }
+    
+    .region-resize-handle.left {
+      left: 0;
+      cursor: w-resize;
+      border-left: 2px solid var(--accent-primary);
+    }
+    
+    .region-resize-handle.right {
+      right: 0;
+      cursor: e-resize;
+      border-right: 2px solid var(--accent-primary);
+    }
+    
+    .region-resize-handle:hover {
+      background: rgba(124, 131, 255, 0.3);
+      width: 12px;
+    }
+    
+    .region-time-label {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+    
+    /* Track canvas scrolling */
+    .track-canvas-area {
+      overflow-x: auto;
+      overflow-y: hidden;
+      position: relative;
+    }
+    
+    .track-canvas {
+      min-width: 100%;
+      position: relative;
+    }
+    
+    /* Snap grid visualization */
+    .track-canvas::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+      background-image: repeating-linear-gradient(
+        90deg,
+        rgba(255,255,255,0.03) 0px,
+        rgba(255,255,255,0.03) 1px,
+        transparent 1px,
+        transparent 100px
+      );
+      z-index: 1;
+    }
+    
+    /* Playhead for timeline */
+    .timeline-playhead-global {
+      position: fixed;
+      top: calc(var(--header-h) + var(--tabs-h) + var(--transport-h) + var(--space-8));
+      bottom: 0;
+      width: 2px;
+      background: var(--error);
+      box-shadow: 0 0 20px var(--error);
+      pointer-events: none;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity var(--duration-base) var(--ease-smooth);
+    }
+    
+    .timeline-playhead-global.playing {
+      opacity: 1;
+    }
+    
+    /* Context menu for regions */
+    .region-context-menu {
+      position: fixed;
+      background: var(--surface-elevated);
+      border: 1px solid var(--glass-border-strong);
+      border-radius: var(--radius-lg);
+      padding: var(--space-2);
+      box-shadow: var(--shadow-2xl);
+      z-index: 10000;
+      min-width: 200px;
+    }
+    
+    .region-context-item {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-weight: 600;
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      transition: all var(--duration-fast) var(--ease-smooth);
+    }
+    
+    .region-context-item:hover {
+      background: var(--glass-bg-strong);
+      color: var(--text-primary);
+    }
+    
+    .region-context-item.danger:hover {
+      background: var(--error);
+      color: white;
+    }
+    
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
       .transport{
@@ -6374,7 +6510,7 @@ function setupKeyboardShortcuts() {
     console.log('📱 Mobile device detected - keyboard shortcuts disabled');
     return;
   }
-  
+
   document.addEventListener('keydown', e => {
     // Also check if user is typing in an input field
     const isTyping = e.target.tagName === 'INPUT' || 
@@ -6382,7 +6518,8 @@ function setupKeyboardShortcuts() {
                      e.target.isContentEditable;
     
     if (isTyping) return; // Don't trigger shortcuts while typing
-    
+
+    // Basic transport shortcuts
     if (e.code === 'Space') {
       e.preventDefault();
       togglePlay();
@@ -6393,8 +6530,66 @@ function setupKeyboardShortcuts() {
       e.preventDefault();
       exportAudio();
     }
+
+    // === NEW MULTITRACK SHORTCUTS ===
+    if (e.code === 'KeyX' && !e.ctrlKey && !e.metaKey) {
+      // Split at playhead
+      e.preventDefault();
+      const selected = document.querySelector('.audio-region.selected');
+      if (selected) {
+        const trackId = parseInt(selected.dataset.trackId);
+        const takeIndex = parseInt(selected.dataset.takeIndex);
+        handleContextAction(
+          multitrack.tracks.find(t => t.id === trackId),
+          takeIndex,
+          'split'
+        );
+      }
+    }
+
+    if (e.code === 'KeyD' && (e.ctrlKey || e.metaKey)) {
+      // Duplicate region
+      e.preventDefault();
+      const selected = document.querySelector('.audio-region.selected');
+      if (selected) {
+        const trackId = parseInt(selected.dataset.trackId);
+        const takeIndex = parseInt(selected.dataset.takeIndex);
+        handleContextAction(
+          multitrack.tracks.find(t => t.id === trackId),
+          takeIndex,
+          'duplicate'
+        );
+      }
+    }
+
+    if ((e.code === 'Delete' || e.code === 'Backspace') && !isTyping) {
+      // Delete selected region
+      const selected = document.querySelector('.audio-region.selected');
+      if (selected) {
+        e.preventDefault();
+        const trackId = parseInt(selected.dataset.trackId);
+        const takeIndex = parseInt(selected.dataset.takeIndex);
+        const track = multitrack.tracks.find(t => t.id === trackId);
+        if (track && confirm('Delete selected region?')) {
+          track.deleteTake(takeIndex);
+          renderMultitrack();
+        }
+      }
+    }
+
+    // Zoom shortcuts
+    if (e.code === 'Equal' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      document.getElementById('zoomInBtn')?.click();
+    }
+    
+    if (e.code === 'Minus' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      document.getElementById('zoomOutBtn')?.click();
+    }
   });
 }
+
 
 function setupVibeSelector() {
   const vibeBtn = document.getElementById('vibeBtn');
@@ -8626,7 +8821,10 @@ const multitrack = {
   nextTrackId: 1,
   recordingTracks: new Set(),
   currentFxTrackId: null,
-  globalRecordStartTime: null
+  globalRecordStartTime: null,
+  zoom: 100, // pixels per second
+  snapEnabled: true,
+  snapInterval: 0.25
 };
 
 // ==================== ENHANCED MULTITRACK WITH EXTERNAL AUDIO ====================
@@ -9499,6 +9697,7 @@ function renderTakes(track) {
 function createTrackStrip(track) {
   const strip = document.createElement('div');
   strip.className = 'track-strip';
+  strip.dataset.trackId = track.id;
   if (track.recording) strip.classList.add('recording');
   if (track.armed) strip.classList.add('armed');
   
@@ -9553,7 +9752,7 @@ function createTrackStrip(track) {
       ${!track.isExternalAudio ? `
         <div class="track-controls-grid" style="margin-top: var(--space-2); grid-template-columns: 1fr;">
           <button class="track-mini-btn mute ${track.muted ? 'active' : ''}" data-action="mute">
-            ${track.muted ? '🔇 Unmuted' : '🔊 Muted'}
+            ${track.muted ? '🔇 Unmute' : '🔊 Mute'}
           </button>
         </div>
       ` : ''}
@@ -9589,7 +9788,7 @@ function createTrackStrip(track) {
       ` : ''}
     </div>
     
-    <div class="track-canvas-area">
+    <div class="track-canvas-area" data-track-id="${track.id}">
       ${track.takes.length === 0 && !track.recording ? `
         <div class="track-empty-state">
           <div class="track-empty-state-icon">🎙️</div>
@@ -9602,8 +9801,10 @@ function createTrackStrip(track) {
           <span>Recording...</span>
         </div>
       ` : ''}
-      ${track.takes.length > 0 ? renderTakes(track) : ''}
+      <div class="track-canvas" style="position: relative; min-height: 80px;">
+        ${renderTimelineRegions(track)}
       </div>
+    </div>
   `;
   
   // Attach event listeners
@@ -9641,40 +9842,8 @@ function createTrackStrip(track) {
     });
   });
   
-  // Add take interaction listeners
-  strip.addEventListener('click', (e) => {
-    const takeRegion = e.target.closest('.take-region');
-    if (takeRegion) {
-      const trackId = parseInt(takeRegion.dataset.trackId);
-      const takeIndex = parseInt(takeRegion.dataset.takeIndex);
-      const actionBtn = e.target.closest('.region-action-btn');
-      const action = actionBtn?.dataset.action;
-      
-      if (action === 'play-take') {
-        e.stopPropagation();
-        track.playTake(takeIndex);
-      } else if (action === 'toggle-mute-take') {
-        e.stopPropagation();
-        track.toggleTakeMute(takeIndex);
-        renderMultitrack();
-      } else if (action === 'edit-waveform') {
-        e.stopPropagation();
-        const btnTrackId = parseInt(actionBtn.dataset.trackId);
-        const btnTakeIndex = parseInt(actionBtn.dataset.takeIndex);
-        openWaveformEditor(btnTrackId, btnTakeIndex);
-      } else if (action === 'delete-take') {
-        e.stopPropagation();
-        if (confirm('Delete this take?')) {
-          track.deleteTake(takeIndex);
-          renderMultitrack();
-        }
-      } else {
-        // Click on region itself = select take
-        track.selectTake(takeIndex);
-        renderMultitrack();
-      }
-    }
-  });
+  // Setup region drag and drop
+  setupRegionInteractions(strip, track);
   
   // Start meter animation for external audio tracks
   if (track.isExternalAudio && track.meter) {
@@ -9697,6 +9866,884 @@ function createTrackStrip(track) {
   }
   
   return strip;
+}
+
+function renderTimelineRegions(track) {
+  if (!track.takes || track.takes.length === 0) return '';
+  
+  // Calculate pixels per second based on zoom level
+  const zoom = multitrack.zoom || 100; // pixels per second
+  
+  let html = '';
+  
+  track.takes.forEach((take, idx) => {
+    const isSelected = idx === track.selectedTakeIndex;
+    const isMuted = take.muted;
+    
+    const startPos = (take.startTime || 0) * zoom;
+    const width = take.duration * zoom;
+    
+    html += `
+      <div class="audio-region ${isSelected ? 'selected' : ''} ${isMuted ? 'muted' : ''}"
+           data-track-id="${track.id}"
+           data-take-index="${idx}"
+           data-region-id="${take.id}"
+           style="position: absolute; left: ${startPos}px; width: ${width}px; height: 80px; top: 0;">
+        
+        <div class="region-header">
+          <div class="region-name">Take ${idx + 1}</div>
+          <div class="region-actions">
+            <button class="region-action-btn" data-action="split-region" title="Split">✂️</button>
+            <button class="region-action-btn" data-action="toggle-mute-region" title="Mute">
+              ${isMuted ? '🔇' : '🔊'}
+            </button>
+            <button class="region-action-btn" data-action="edit-waveform" title="Edit">✏️</button>
+            <button class="region-action-btn" data-action="delete-region" title="Delete">🗑️</button>
+          </div>
+        </div>
+        
+        <div class="region-waveform">
+          <canvas class="region-waveform-canvas" 
+                  data-take-id="${take.id}"
+                  width="${Math.max(100, width)}" 
+                  height="60"></canvas>
+        </div>
+        
+        <div class="region-resize-handle left" data-handle="left"></div>
+        <div class="region-resize-handle right" data-handle="right"></div>
+        
+        <div class="region-time-label" style="position: absolute; bottom: 2px; left: 4px; font-size: 10px; color: rgba(255,255,255,0.7);">
+          ${formatTime(take.startTime || 0)}
+        </div>
+      </div>
+    `;
+  });
+  
+  return html;
+}
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 100);
+  return `${mins}:${String(secs).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
+}
+
+function setupRegionInteractions(stripEl, track) {
+  const canvas = stripEl.querySelector('.track-canvas');
+  if (!canvas) return;
+  
+  let dragState = null;
+  
+  canvas.addEventListener('mousedown', (e) => {
+    const region = e.target.closest('.audio-region');
+    if (!region) return;
+    
+    const takeIndex = parseInt(region.dataset.takeIndex);
+    const take = track.takes[takeIndex];
+    if (!take) return;
+    
+    const handle = e.target.closest('.region-resize-handle');
+    
+    if (handle) {
+      // Resize mode
+      dragState = {
+        mode: 'resize',
+        trackId: track.id,
+        takeIndex,
+        handle: handle.dataset.handle,
+        startX: e.clientX,
+        originalStart: take.startTime || 0,
+        originalDuration: take.duration
+      };
+    } else if (region && !e.target.closest('.region-action-btn')) {
+      // Move mode
+      dragState = {
+        mode: 'move',
+        trackId: track.id,
+        takeIndex,
+        startX: e.clientX,
+        originalStart: take.startTime || 0
+      };
+      
+      region.classList.add('dragging');
+    }
+    
+    e.preventDefault();
+  });
+  
+  document.addEventListener('mousemove', (e) => {
+    if (!dragState) return;
+    
+    const zoom = multitrack.zoom || 100;
+    const deltaX = e.clientX - dragState.startX;
+    const deltaSeconds = deltaX / zoom;
+    
+    const track = multitrack.tracks.find(t => t.id === dragState.trackId);
+    if (!track) return;
+    
+    const take = track.takes[dragState.takeIndex];
+    if (!take) return;
+    
+    if (dragState.mode === 'move') {
+      // Snap to grid if enabled
+      let newStart = dragState.originalStart + deltaSeconds;
+      
+      if (multitrack.snapEnabled) {
+        const snapInterval = multitrack.snapInterval || 0.25; // 250ms default
+        newStart = Math.round(newStart / snapInterval) * snapInterval;
+      }
+      
+      take.startTime = Math.max(0, newStart);
+      
+      // Update visual position
+      const region = document.querySelector(`.audio-region[data-take-index="${dragState.takeIndex}"][data-track-id="${track.id}"]`);
+      if (region) {
+        region.style.left = (take.startTime * zoom) + 'px';
+      }
+      
+    } else if (dragState.mode === 'resize') {
+      if (dragState.handle === 'left') {
+        // Trim start
+        let newStart = dragState.originalStart + deltaSeconds;
+        const maxStart = dragState.originalStart + dragState.originalDuration - 0.1;
+        
+        if (multitrack.snapEnabled) {
+          const snapInterval = multitrack.snapInterval || 0.25;
+          newStart = Math.round(newStart / snapInterval) * snapInterval;
+        }
+        
+        newStart = Math.max(0, Math.min(maxStart, newStart));
+        const trimAmount = newStart - dragState.originalStart;
+        
+        take.startTime = newStart;
+        take.trimStart = (take.trimStart || 0) + trimAmount;
+        take.duration = dragState.originalDuration - trimAmount;
+        
+      } else if (dragState.handle === 'right') {
+        // Trim end
+        let newDuration = dragState.originalDuration + deltaSeconds;
+        
+        if (multitrack.snapEnabled) {
+          const snapInterval = multitrack.snapInterval || 0.25;
+          const endPoint = dragState.originalStart + newDuration;
+          const snappedEnd = Math.round(endPoint / snapInterval) * snapInterval;
+          newDuration = snappedEnd - dragState.originalStart;
+        }
+        
+        take.duration = Math.max(0.1, newDuration);
+        take.trimEnd = take.duration;
+      }
+      
+      renderMultitrack();
+    }
+    
+    e.preventDefault();
+  });
+  
+  document.addEventListener('mouseup', (e) => {
+    if (!dragState) return;
+    
+    document.querySelectorAll('.audio-region.dragging').forEach(r => {
+      r.classList.remove('dragging');
+    });
+    
+    if (dragState.mode === 'move' || dragState.mode === 'resize') {
+      renderMultitrack();
+      showToast('✅ Region updated', 'success');
+    }
+    
+    dragState = null;
+  });
+  
+  // Handle region actions
+  canvas.addEventListener('click', (e) => {
+    const btn = e.target.closest('.region-action-btn');
+    if (!btn) return;
+    
+    const region = btn.closest('.audio-region');
+    const trackId = parseInt(region.dataset.trackId);
+    const takeIndex = parseInt(region.dataset.takeIndex);
+    const action = btn.dataset.action;
+    
+    handleRegionAction(trackId, takeIndex, action, e);
+    e.stopPropagation();
+  });
+  
+  // Draw waveforms after a short delay
+  setTimeout(() => {
+    track.takes.forEach((take, idx) => {
+      const canvas = stripEl.querySelector(`canvas[data-take-id="${take.id}"]`);
+      if (canvas && take.buffer) {
+        drawRegionWaveform(canvas, take.buffer);
+      }
+    });
+  }, 100);
+}
+
+function handleRegionAction(trackId, takeIndex, action, event) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+  
+  const take = track.takes[takeIndex];
+  if (!take) return;
+  
+  if (action === 'split-region') {
+    openSplitDialog(track, takeIndex, event);
+  } else if (action === 'toggle-mute-region') {
+    take.muted = !take.muted;
+    renderMultitrack();
+    showToast(take.muted ? '🔇 Region muted' : '🔊 Region unmuted', 'info');
+  } else if (action === 'edit-waveform') {
+    openWaveformEditor(trackId, takeIndex);
+  } else if (action === 'delete-region') {
+    if (confirm('Delete this region?')) {
+      track.takes.splice(takeIndex, 1);
+      if (track.selectedTakeIndex >= track.takes.length) {
+        track.selectedTakeIndex = track.takes.length - 1;
+      }
+      renderMultitrack();
+      showToast('🗑️ Region deleted', 'success');
+    }
+  }
+}
+
+function openSplitDialog(track, takeIndex, event) {
+  const take = track.takes[takeIndex];
+  
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.style.zIndex = '10001';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '600px';
+  
+  modal.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">✂️ Split Region</div>
+      <button class="modal-close">✕</button>
+    </div>
+    
+    <div class="modal-body">
+      <div style="margin-bottom: var(--space-4);">
+        <canvas id="splitPreviewCanvas" width="500" height="150"
+                style="width: 100%; height: 150px; background: var(--glass-bg); border-radius: var(--radius-md); cursor: crosshair;">
+        </canvas>
+      </div>
+      
+      <div class="param-control">
+        <div class="param-label">
+          <span>Split Point</span>
+          <span class="param-value" id="splitPointValue">0.00s</span>
+        </div>
+        <input type="range" id="splitPointSlider" min="0" max="100" value="50" step="0.1">
+      </div>
+      
+      <div style="padding: var(--space-3); background: var(--glass-bg); border-radius: var(--radius-sm); margin-top: var(--space-3);">
+        <div style="font-size: var(--text-sm); color: var(--text-secondary);">
+          💡 <strong>Tip:</strong> Click on the waveform to set split point
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn-secondary cancel-split-btn">Cancel</button>
+      <button class="btn btn-primary confirm-split-btn">✂️ Split</button>
+    </div>
+  `;
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  
+  const canvas = document.getElementById('splitPreviewCanvas');
+  const slider = document.getElementById('splitPointSlider');
+  const valueLabel = document.getElementById('splitPointValue');
+  
+  let splitPoint = 0.5; // 0-1 normalized
+  
+  function drawSplitPreview() {
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    if (!take.buffer) return;
+    
+    // Draw waveform
+    const data = take.buffer.getChannelData(0);
+    const step = Math.ceil(data.length / width);
+    const amp = height / 2;
+    
+    ctx.fillStyle = 'rgba(124, 131, 255, 0.3)';
+    for (let i = 0; i < width; i++) {
+      let min = 1.0, max = -1.0;
+      for (let j = 0; j < step; j++) {
+        const index = (i * step) + j;
+        if (index < data.length) {
+          const datum = data[index];
+          if (datum < min) min = datum;
+          if (datum > max) max = datum;
+        }
+      }
+      
+      const yMin = (1 + min) * amp;
+      const yMax = (1 + max) * amp;
+      ctx.fillRect(i, yMin, 1, Math.max(1, yMax - yMin));
+    }
+    
+    // Draw split line
+    const splitX = splitPoint * width;
+    ctx.strokeStyle = 'var(--error)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(splitX, 0);
+    ctx.lineTo(splitX, height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Labels
+    ctx.fillStyle = 'var(--text-primary)';
+    ctx.font = '12px var(--font-mono)';
+    ctx.fillText('A', 10, 20);
+    ctx.fillText('B', width - 20, 20);
+  }
+  
+  function updateSplitPoint(newPoint) {
+    splitPoint = Math.max(0.01, Math.min(0.99, newPoint));
+    slider.value = splitPoint * 100;
+    const timeInSeconds = splitPoint * take.duration;
+    valueLabel.textContent = timeInSeconds.toFixed(2) + 's';
+    drawSplitPreview();
+  }
+  
+  slider.addEventListener('input', (e) => {
+    updateSplitPoint(parseFloat(e.target.value) / 100);
+  });
+  
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const normalizedX = x / rect.width;
+    updateSplitPoint(normalizedX);
+  });
+  
+  const close = () => backdrop.remove();
+  modal.querySelector('.modal-close').onclick = close;
+  modal.querySelector('.cancel-split-btn').onclick = close;
+  
+  modal.querySelector('.confirm-split-btn').onclick = async () => {
+    try {
+      showToast('⏳ Splitting region...', 'info');
+      
+      const splitTime = splitPoint * take.duration;
+      const buffer = take.buffer;
+      
+      // Create two new buffers
+      const sampleRate = buffer.sampleRate;
+      const splitSample = Math.floor(splitTime * sampleRate);
+      
+      const bufferA = Tone.context.rawContext.createBuffer(
+        buffer.numberOfChannels,
+        splitSample,
+        sampleRate
+      );
+      
+      const bufferB = Tone.context.rawContext.createBuffer(
+        buffer.numberOfChannels,
+        buffer.length - splitSample,
+        sampleRate
+      );
+      
+      for (let c = 0; c < buffer.numberOfChannels; c++) {
+        const original = buffer.getChannelData(c);
+        const dataA = bufferA.getChannelData(c);
+        const dataB = bufferB.getChannelData(c);
+        
+        for (let i = 0; i < splitSample; i++) {
+          dataA[i] = original[i];
+        }
+        
+        for (let i = splitSample; i < buffer.length; i++) {
+          dataB[i - splitSample] = original[i];
+        }
+      }
+      
+      // Create blobs
+      const wavA = bufferToWavImproved(bufferA);
+      const wavB = bufferToWavImproved(bufferB);
+      const blobA = new Blob([wavA], { type: 'audio/wav' });
+      const blobB = new Blob([wavB], { type: 'audio/wav' });
+      
+      // Create new takes
+      const takeA = {
+        id: Date.now(),
+        buffer: bufferA,
+        blob: blobA,
+        duration: bufferA.duration,
+        timestamp: new Date().toISOString(),
+        muted: false,
+        startTime: take.startTime || 0
+      };
+      
+      const takeB = {
+        id: Date.now() + 1,
+        buffer: bufferB,
+        blob: blobB,
+        duration: bufferB.duration,
+        timestamp: new Date().toISOString(),
+        muted: false,
+        startTime: (take.startTime || 0) + splitTime
+      };
+      
+      // Replace original take with split takes
+      track.takes.splice(takeIndex, 1, takeA, takeB);
+      
+      if (track.selectedTakeIndex === takeIndex) {
+        track.selectedTakeIndex = takeIndex; // Select first part
+      } else if (track.selectedTakeIndex > takeIndex) {
+        track.selectedTakeIndex++; // Adjust index
+      }
+      
+      close();
+      renderMultitrack();
+      showToast('✅ Region split successfully!', 'success');
+      
+    } catch (err) {
+      console.error('Split failed:', err);
+      showToast(`❌ Split failed: ${err.message}`, 'error');
+    }
+  };
+  
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) close();
+  };
+  
+  updateSplitPoint(0.5);
+  drawSplitPreview();
+}
+
+function drawRegionWaveform(canvas, buffer) {
+  if (!canvas || !buffer) return;
+  
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  
+  ctx.clearRect(0, 0, width, height);
+  
+  const data = buffer.getChannelData(0);
+  const step = Math.max(1, Math.ceil(data.length / width));
+  const amp = height / 2;
+  
+  ctx.fillStyle = 'rgba(124, 131, 255, 0.5)';
+  ctx.strokeStyle = 'rgb(124, 131, 255)';
+  ctx.lineWidth = 1;
+  
+  for (let i = 0; i < width; i++) {
+    let min = 1.0;
+    let max = -1.0;
+    
+    for (let j = 0; j < step; j++) {
+      const index = (i * step) + j;
+      if (index < data.length) {
+        const sample = data[index];
+        if (sample < min) min = sample;
+        if (sample > max) max = sample;
+      }
+    }
+    
+    const yMin = (1 + min) * amp;
+    const yMax = (1 + max) * amp;
+    
+    ctx.fillRect(i, yMin, 1, Math.max(1, yMax - yMin));
+  }
+}
+
+function setupRegionContextMenu() {
+  let contextMenu = null;
+  let contextTarget = null;
+  
+  document.addEventListener('contextmenu', (e) => {
+    const region = e.target.closest('.audio-region');
+    if (!region) return;
+    
+    e.preventDefault();
+    
+    // Remove existing menu
+    if (contextMenu) contextMenu.remove();
+    
+    const trackId = parseInt(region.dataset.trackId);
+    const takeIndex = parseInt(region.dataset.takeIndex);
+    
+    contextTarget = { trackId, takeIndex };
+    
+    contextMenu = document.createElement('div');
+    contextMenu.className = 'region-context-menu';
+    contextMenu.style.left = e.pageX + 'px';
+    contextMenu.style.top = e.pageY + 'px';
+    
+    contextMenu.innerHTML = `
+      <div class="region-context-item" data-action="split">✂️ Split at Playhead</div>
+      <div class="region-context-item" data-action="duplicate">📋 Duplicate</div>
+      <div class="region-context-item" data-action="reverse">↩️ Reverse</div>
+      <div class="region-context-item" data-action="normalize">📊 Normalize</div>
+      <div class="region-context-item" data-action="fade-in">📈 Fade In</div>
+      <div class="region-context-item" data-action="fade-out">📉 Fade Out</div>
+      <div class="region-context-item" data-action="export">💾 Export Region</div>
+      <div style="height: 1px; background: var(--glass-border); margin: var(--space-2) 0;"></div>
+      <div class="region-context-item danger" data-action="delete">🗑️ Delete</div>
+    `;
+    
+    document.body.appendChild(contextMenu);
+    
+    // Handle menu clicks
+    contextMenu.addEventListener('click', async (e) => {
+      const item = e.target.closest('.region-context-item');
+      if (!item || !contextTarget) return;
+      
+      const action = item.dataset.action;
+      const track = multitrack.tracks.find(t => t.id === contextTarget.trackId);
+      if (!track) return;
+      
+      const take = track.takes[contextTarget.takeIndex];
+      if (!take) return;
+      
+      contextMenu.remove();
+      contextMenu = null;
+      
+      await handleContextAction(track, contextTarget.takeIndex, action);
+    });
+    
+    // Close on click outside
+    const closeHandler = (e) => {
+      if (contextMenu && !contextMenu.contains(e.target)) {
+        contextMenu.remove();
+        contextMenu = null;
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    
+    setTimeout(() => {
+      document.addEventListener('click', closeHandler);
+    }, 0);
+  });
+}
+
+async function handleContextAction(track, takeIndex, action) {
+  const take = track.takes[takeIndex];
+  
+  switch(action) {
+    case 'split':
+      // Split at current playhead position
+      const currentTime = Tone.Transport.seconds;
+      const relativeTime = currentTime - (take.startTime || 0);
+      
+      if (relativeTime > 0 && relativeTime < take.duration) {
+        const splitPoint = relativeTime / take.duration;
+        openSplitDialog(track, takeIndex, { splitPoint });
+      } else {
+        showToast('⚠️ Playhead not within region', 'warning');
+      }
+      break;
+      
+    case 'duplicate':
+      const duplicate = {
+        ...take,
+        id: Date.now(),
+        startTime: (take.startTime || 0) + take.duration + 0.1
+      };
+      track.takes.splice(takeIndex + 1, 0, duplicate);
+      renderMultitrack();
+      showToast('✅ Region duplicated', 'success');
+      break;
+      
+    case 'reverse':
+      await reverseRegion(track, takeIndex);
+      break;
+      
+    case 'normalize':
+      await normalizeRegion(track, takeIndex);
+      break;
+      
+    case 'fade-in':
+      openFadeDialog(track, takeIndex, 'in');
+      break;
+      
+    case 'fade-out':
+      openFadeDialog(track, takeIndex, 'out');
+      break;
+      
+    case 'export':
+      track.exportTake(takeIndex);
+      break;
+      
+    case 'delete':
+      if (confirm('Delete this region?')) {
+        track.deleteTake(takeIndex);
+        renderMultitrack();
+        showToast('🗑️ Region deleted', 'success');
+      }
+      break;
+  }
+}
+
+async function reverseRegion(track, takeIndex) {
+  const take = track.takes[takeIndex];
+  if (!take || !take.buffer) return;
+  
+  showToast('⏳ Reversing region...', 'info');
+  
+  try {
+    const buffer = take.buffer;
+    const reversed = Tone.context.rawContext.createBuffer(
+      buffer.numberOfChannels,
+      buffer.length,
+      buffer.sampleRate
+    );
+    
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const original = buffer.getChannelData(c);
+      const reversedData = reversed.getChannelData(c);
+      
+      for (let i = 0; i < buffer.length; i++) {
+        reversedData[i] = original[buffer.length - 1 - i];
+      }
+    }
+    
+    const wavData = bufferToWavImproved(reversed);
+    const blob = new Blob([wavData], { type: 'audio/wav' });
+    
+    take.buffer = reversed;
+    take.blob = blob;
+    
+    renderMultitrack();
+    showToast('✅ Region reversed', 'success');
+    
+  } catch (err) {
+    console.error('Reverse failed:', err);
+    showToast(`❌ Reverse failed: ${err.message}`, 'error');
+  }
+}
+
+async function normalizeRegion(track, takeIndex) {
+  const take = track.takes[takeIndex];
+  if (!take || !take.buffer) return;
+  
+  showToast('⏳ Normalizing region...', 'info');
+  
+  try {
+    const buffer = take.buffer;
+    
+    // Find peak
+    let peak = 0;
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const data = buffer.getChannelData(c);
+      for (let i = 0; i < data.length; i++) {
+        const abs = Math.abs(data[i]);
+        if (abs > peak) peak = abs;
+      }
+    }
+    
+    if (peak === 0) {
+      showToast('⚠️ Region is silent', 'warning');
+      return;
+    }
+    
+    const normalized = Tone.context.rawContext.createBuffer(
+      buffer.numberOfChannels,
+      buffer.length,
+      buffer.sampleRate
+    );
+    
+    const targetPeak = 0.891; // -1dB
+    const gain = targetPeak / peak;
+    
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const original = buffer.getChannelData(c);
+      const normalizedData = normalized.getChannelData(c);
+      
+      for (let i = 0; i < buffer.length; i++) {
+        normalizedData[i] = original[i] * gain;
+      }
+    }
+    
+    const wavData = bufferToWavImproved(normalized);
+    const blob = new Blob([wavData], { type: 'audio/wav' });
+    
+    take.buffer = normalized;
+    take.blob = blob;
+    
+    renderMultitrack();
+    showToast(`✅ Normalized (+${(20 * Math.log10(gain)).toFixed(1)}dB)`, 'success');
+    
+  } catch (err) {
+    console.error('Normalize failed:', err);
+    showToast(`❌ Normalize failed: ${err.message}`, 'error');
+  }
+}
+
+function openFadeDialog(track, takeIndex, type) {
+  const take = track.takes[takeIndex];
+  
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.style.zIndex = '10001';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '500px';
+  
+  const fadeType = type === 'in' ? 'Fade In' : 'Fade Out';
+  
+  modal.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">📈 ${fadeType}</div>
+      <button class="modal-close">✕</button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="param-control">
+        <div class="param-label">
+          <span>Duration</span>
+          <span class="param-value" id="fadeDurationValue">100ms</span>
+        </div>
+        <input type="range" id="fadeDurationSlider" min="10" max="5000" value="100" step="10">
+      </div>
+      
+      <div class="param-control" style="margin-top: var(--space-4);">
+        <div class="param-label">
+          <span>Curve Type</span>
+        </div>
+        <select id="fadeCurveSelect" style="width: 100%;">
+          <option value="linear">Linear</option>
+          <option value="exponential">Exponential</option>
+          <option value="logarithmic">Logarithmic</option>
+          <option value="sCurve">S-Curve</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn-secondary cancel-fade-btn">Cancel</button>
+      <button class="btn btn-primary apply-fade-btn">Apply ${fadeType}</button>
+    </div>
+  `;
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  
+  const slider = document.getElementById('fadeDurationSlider');
+  const valueLabel = document.getElementById('fadeDurationValue');
+  const curveSelect = document.getElementById('fadeCurveSelect');
+  
+  slider.addEventListener('input', (e) => {
+    const ms = parseInt(e.target.value);
+    valueLabel.textContent = ms + 'ms';
+  });
+  
+  const close = () => backdrop.remove();
+  modal.querySelector('.modal-close').onclick = close;
+  modal.querySelector('.cancel-fade-btn').onclick = close;
+  
+  modal.querySelector('.apply-fade-btn').onclick = async () => {
+    try {
+      const duration = parseInt(slider.value) / 1000; // Convert to seconds
+      const curve = curveSelect.value;
+      
+      showToast(`⏳ Applying ${fadeType.toLowerCase()}...`, 'info');
+      
+      const buffer = take.buffer;
+      const sampleRate = buffer.sampleRate;
+      const fadeSamples = Math.floor(duration * sampleRate);
+      
+      const processed = Tone.context.rawContext.createBuffer(
+        buffer.numberOfChannels,
+        buffer.length,
+        sampleRate
+      );
+      
+      for (let c = 0; c < buffer.numberOfChannels; c++) {
+        const original = buffer.getChannelData(c);
+        const processedData = processed.getChannelData(c);
+        
+        for (let i = 0; i < buffer.length; i++) {
+          let gain = 1.0;
+          
+          if (type === 'in' && i < fadeSamples) {
+            const progress = i / fadeSamples;
+            gain = applyFadeCurve(progress, curve);
+          } else if (type === 'out' && i >= buffer.length - fadeSamples) {
+            const progress = (buffer.length - i) / fadeSamples;
+            gain = applyFadeCurve(progress, curve);
+          }
+          
+          processedData[i] = original[i] * gain;
+        }
+      }
+      
+      const wavData = bufferToWavImproved(processed);
+      const blob = new Blob([wavData], { type: 'audio/wav' });
+      
+      take.buffer = processed;
+      take.blob = blob;
+      
+      close();
+      renderMultitrack();
+      showToast(`✅ ${fadeType} applied`, 'success');
+      
+    } catch (err) {
+      console.error('Fade failed:', err);
+      showToast(`❌ Fade failed: ${err.message}`, 'error');
+    }
+  };
+  
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) close();
+  };
+}
+
+function applyFadeCurve(progress, curve) {
+  switch(curve) {
+    case 'exponential':
+      return Math.pow(progress, 2);
+    case 'logarithmic':
+      return Math.sqrt(progress);
+    case 'sCurve':
+      return 0.5 - 0.5 * Math.cos(progress * Math.PI);
+    default: // linear
+      return progress;
+  }
+}
+
+function updateTimelineRuler() {
+  const markers = document.getElementById('timelineMarkers');
+  if (!markers) return;
+  
+  markers.innerHTML = '';
+  
+  const zoom = multitrack.zoom || 100;
+  const totalWidth = 10000; // Large canvas
+  
+  // Calculate interval based on zoom
+  let interval = 1; // seconds
+  if (zoom < 50) interval = 5;
+  else if (zoom < 25) interval = 10;
+  else if (zoom > 200) interval = 0.5;
+  
+  for (let t = 0; t < totalWidth / zoom; t += interval) {
+    const x = t * zoom;
+    const isMajor = t % (interval * 4) === 0;
+    
+    const marker = document.createElement('div');
+    marker.className = 'timeline-marker' + (isMajor ? ' major' : '');
+    marker.style.left = x + 'px';
+    marker.textContent = formatTime(t);
+    
+    markers.appendChild(marker);
+  }
 }
 
 // Enhanced track action handler
@@ -9886,6 +10933,9 @@ function renderMultitrack() {
     const strip = createTrackStrip(track);
     grid.appendChild(strip);
   });
+  
+  updateTimelineRuler();
+  
 }
   
 async function previewMultitrack() {
@@ -11315,6 +12365,66 @@ function setupMultitrackListeners() {
   if (recordArmedBtn) {
     recordArmedBtn.onclick = async () => await toggleRecordAllArmed();
   }
+
+  // Zoom controls
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  const zoomFitBtn = document.getElementById('zoomFitBtn');
+  
+  if (zoomInBtn) {
+    zoomInBtn.onclick = () => {
+      multitrack.zoom = Math.min(500, multitrack.zoom * 1.5);
+      renderMultitrack();
+      showToast(`🔍 Zoom: ${Math.round(multitrack.zoom)}px/s`, 'info');
+    };
+  }
+  
+  if (zoomOutBtn) {
+    zoomOutBtn.onclick = () => {
+      multitrack.zoom = Math.max(20, multitrack.zoom / 1.5);
+      renderMultitrack();
+      showToast(`🔍 Zoom: ${Math.round(multitrack.zoom)}px/s`, 'info');
+    };
+  }
+  
+  if (zoomFitBtn) {
+    zoomFitBtn.onclick = () => {
+      // Calculate max duration
+      let maxDuration = 0;
+      multitrack.tracks.forEach(t => {
+        t.takes.forEach(take => {
+          const end = (take.startTime || 0) + take.duration;
+          if (end > maxDuration) maxDuration = end;
+        });
+      });
+      
+      if (maxDuration > 0) {
+        const canvasWidth = 800; // approximate
+        multitrack.zoom = canvasWidth / maxDuration;
+        renderMultitrack();
+        showToast('✅ Zoom to fit', 'success');
+      }
+    };
+  }
+  
+  // Snap toggle
+  const snapSelect = document.getElementById('snapGrid');
+  if (snapSelect) {
+    snapSelect.onchange = (e) => {
+      const value = e.target.value;
+      if (value === 'off') {
+        multitrack.snapEnabled = false;
+      } else {
+        multitrack.snapEnabled = true;
+        const intervals = {
+          'bar': 4.0,
+          'beat': 1.0,
+          '16th': 0.25
+        };
+        multitrack.snapInterval = intervals[value] || 0.25;
+      }
+    };
+  }
   
   const bounceBtn = document.getElementById('bounceAllBtn');
   if (bounceBtn) {
@@ -12393,6 +13503,7 @@ function init() {
   // === 3. Event wiring ===
   setupEventListeners();
   setupMultitrackListeners();
+  setupRegionContextMenu();
 
   updateSplash('Rendering interface…', 75);
 
