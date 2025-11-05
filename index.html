@@ -3436,6 +3436,49 @@
             <button class="btn btn-secondary" id="randomProbBtn">🎲 Random Prob</button>
             <button class="btn btn-ghost" id="clearBtn">🧹 Clear</button>
           </div>
+          
+          <!-- NEW: AI Generation Section -->
+          <div class="panel-header" style="margin-top: var(--space-6);">
+            <div class="panel-title">🤖 AI Beat Generator</div>
+          </div>
+          
+          <div style="padding: var(--space-4); background: var(--glass-bg); border-radius: var(--radius-md); margin-bottom: var(--space-3);">
+            <div style="font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6;">
+              AI analyzes your current pattern and creates intelligent variations using music theory and production techniques.
+            </div>
+          </div>
+          
+          <div class="flex">
+            <button class="btn btn-primary" id="aiVariationBtn">
+              🤖 AI Drum Variation
+            </button>
+            <button class="btn btn-primary" id="aiMelodicBtn">
+              🎹 AI Melodic Variation
+            </button>
+          </div>
+          
+          <div class="panel-header" style="margin-top: var(--space-4);">
+            <div class="panel-title">Groove Templates</div>
+          </div>
+          
+          <div class="grid grid-4">
+            <button class="preset groove-template-btn" data-template="shuffle">
+              <div class="preset-icon">🎵</div>
+              <div class="preset-name">Shuffle</div>
+            </button>
+            <button class="preset groove-template-btn" data-template="halfTime">
+              <div class="preset-icon">🐌</div>
+              <div class="preset-name">Half-Time</div>
+            </button>
+            <button class="preset groove-template-btn" data-template="doubleTime">
+              <div class="preset-icon">⚡</div>
+              <div class="preset-name">Double-Time</div>
+            </button>
+            <button class="preset groove-template-btn" data-template="breakbeat">
+              <div class="preset-icon">💥</div>
+              <div class="preset-name">Breakbeat</div>
+            </button>
+          </div>
         </div>
         
         <div class="panel">
@@ -6659,26 +6702,26 @@ function applyGrooveTemplate(template) {
   const templates = {
     shuffle: {
       name: 'Shuffle',
-      swing: 66,
-      hihatPattern: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+      // swing: 66,  // REMOVED - user controls this
+      hihatPattern: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
       velocityMap: [0.8, 0.4, 0.7, 0.35, 0.8, 0.4, 0.7, 0.35]
     },
     halfTime: {
       name: 'Half-Time',
-      bpmMultiplier: 0.5,
-      kickPattern: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-      snarePattern: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
+      // bpmMultiplier: 0.5,  // REMOVED
+      kickPattern: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      snarePattern: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
     },
     doubleTime: {
       name: 'Double-Time',
-      bpmMultiplier: 2,
-      kickPattern: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
-      hihatPattern: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+      // bpmMultiplier: 2,  // REMOVED
+      kickPattern: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+      hihatPattern: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     },
     breakbeat: {
       name: 'Breakbeat',
-      kickPattern: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],
-      snarePattern: [0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,1],
+      kickPattern: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],
+      snarePattern: [0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,1,0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,1],
       complexity: 3
     }
   };
@@ -6688,24 +6731,9 @@ function applyGrooveTemplate(template) {
   
   showToast(`🎵 Applying ${groove.name} groove...`, 'info');
   
-  // Apply BPM change
-  if (groove.bpmMultiplier) {
-    state.bpm = Math.round(state.bpm * groove.bpmMultiplier);
-    state.bpm = clamp(state.bpm, 60, CONFIG.MAX_BPM);
-    Tone.Transport.bpm.value = state.bpm;
-    document.getElementById('bpmSlider').value = state.bpm;
-    document.getElementById('bpmValue').textContent = state.bpm;
-  }
+  // NO BPM OR SWING CHANGES - user controls these for recording!
   
-  // Apply swing
-  if (groove.swing !== undefined) {
-    state.swing = groove.swing;
-    Tone.Transport.swing = state.swing / 100;
-    document.getElementById('swingSlider').value = state.swing;
-    document.getElementById('swingValue').textContent = state.swing + '%';
-  }
-  
-  // Apply patterns
+  // Apply patterns (extend to 32 steps if needed)
   if (groove.kickPattern) {
     patterns.kick.forEach((step, i) => {
       const patternIndex = i % groove.kickPattern.length;
@@ -6733,7 +6761,7 @@ function applyGrooveTemplate(template) {
       const patternIndex = i % groove.hihatPattern.length;
       step.active = groove.hihatPattern[patternIndex] === 1;
       if (step.active) {
-        const velIdx = i % groove.velocityMap.length;
+        const velIdx = i % (groove.velocityMap?.length || 8);
         step.velocity = groove.velocityMap ? groove.velocityMap[velIdx] : 0.6;
         step.probability = 100;
       }
@@ -6741,7 +6769,7 @@ function applyGrooveTemplate(template) {
   }
   
   renderSequencer();
-  showToast(`✅ ${groove.name} groove applied!`, 'success');
+  showToast(`✅ ${groove.name} groove applied! (BPM/swing unchanged)`, 'success');
 }
   
 // Lo-Fi: Laid back, off-grid, jazzy
