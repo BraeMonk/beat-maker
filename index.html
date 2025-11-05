@@ -3731,13 +3731,15 @@
         </div>
       </div>
     </section>
-
+    
     <footer class="footer">
       <strong>8-Beat Studio</strong> • Fun With Noise • 
       Shortcuts: <kbd>Space</kbd> Play/Pause • <kbd>S</kbd> Stop • <kbd>E</kbd> DJ • 
       Sequencer: <kbd>Alt</kbd> Accent Velocity • <kbd>Shift</kbd> Increase Probability
     </footer>
   </div>
+  <!-- Add before closing </body> tag -->
+  <div id="waveformEditorModal" style="display: none;"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <script>
 // ========================================
@@ -7870,9 +7872,7 @@ function renderTakes(track) {
             <button class="region-action-btn" data-action="toggle-mute-take" title="Mute/Unmute">
               ${isMuted ? '🔇' : '🔊'}
             </button>
-            <button class="track-mini-btn" data-action="rename">
-              ✏️ Rename
-            </button>
+            <button class="region-action-btn" data-action="edit-waveform" title="Edit Waveform">✂️</button>
             <button class="region-action-btn" data-action="delete-take" title="Delete">🗑️</button>
           </div>
         </div>
@@ -8114,6 +8114,9 @@ async function handleTrackAction(track, action) {
     if (newName !== null) track.rename(newName);
   } else if (action === 'edit') {
     openTakeEditor(track.id);
+  } else if (action === 'edit-waveform') {
+  e.stopPropagation();
+  openWaveformEditor(trackId, takeIndex);
   } else if (action === 'delete') {
     if (confirm(`Delete track "${track.name}"?`)) {
       removeTrack(track.id);
@@ -9171,7 +9174,407 @@ function openTakeEditor(trackId) {
     });
   });
 }
+
+function openWaveformEditor(trackId, takeIndex) {
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
   
+  const take = track.takes[takeIndex];
+  if (!take || !take.buffer) return;
+  
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.style.zIndex = '10000';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.maxWidth = '900px';
+  modal.style.maxHeight = '90vh';
+  
+  const buffer = take.buffer;
+  const duration = buffer.duration;
+  
+  modal.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">✂️ Waveform Editor: ${track.name} - Take ${takeIndex + 1}</div>
+      <button class="modal-close">✕</button>
+    </div>
+    
+    <div class="modal-body" style="overflow: visible;">
+      <div style="margin-bottom: var(--space-4);">
+        <canvas id="waveformCanvas" 
+                width="800" 
+                height="200" 
+                style="width: 100%; height: 200px; background: var(--glass-bg); border-radius: var(--radius-md); border: 1px solid var(--glass-border); cursor: crosshair;">
+        </canvas>
+      </div>
+      
+      <div class="grid grid-2" style="margin-bottom: var(--space-4);">
+        <div class="param-control">
+          <div class="param-label">
+            <span>Trim Start</span>
+            <span class="param-value" id="trimStartValue">0.00s</span>
+          </div>
+          <input type="range" id="trimStartSlider" min="0" max="100" value="0">
+        </div>
+        
+        <div class="param-control">
+          <div class="param-label">
+            <span>Trim End</span>
+            <span class="param-value" id="trimEndValue">${duration.toFixed(2)}s</span>
+          </div>
+          <input type="range" id="trimEndSlider" min="0" max="100" value="100">
+        </div>
+        
+        <div class="param-control">
+          <div class="param-label">
+            <span>Fade In</span>
+            <span class="param-value" id="fadeInValue">0ms</span>
+          </div>
+          <input type="range" id="fadeInSlider" min="0" max="1000" value="0">
+        </div>
+        
+        <div class="param-control">
+          <div class="param-label">
+            <span>Fade Out</span>
+            <span class="param-value" id="fadeOutValue">0ms</span>
+          </div>
+          <input type="range" id="fadeOutSlider" min="0" max="1000" value="0">
+        </div>
+        
+        <div class="param-control">
+          <div class="param-label">
+            <span>Gain</span>
+            <span class="param-value" id="gainValue">0dB</span>
+          </div>
+          <input type="range" id="gainSlider" min="-24" max="24" value="0">
+        </div>
+        
+        <div class="param-control">
+          <div class="param-label">
+            <span>Reverse</span>
+            <span class="param-value"></span>
+          </div>
+          <label style="display: flex; align-items: center; gap: var(--space-2);">
+            <input type="checkbox" id="reverseCheckbox">
+            <span style="font-size: var(--text-sm);">Reverse audio</span>
+          </label>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-4);">
+        <button class="btn btn-secondary" id="previewEditBtn">▶️ Preview</button>
+        <button class="btn btn-secondary" id="normalizeBtn">📊 Normalize</button>
+        <button class="btn btn-ghost" id="resetEditsBtn">↻ Reset</button>
+      </div>
+      
+      <div style="padding: var(--space-3); background: var(--glass-bg); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--text-tertiary);">
+        <strong>Original:</strong> ${duration.toFixed(2)}s • 
+        <span id="editedDurationLabel">${duration.toFixed(2)}s</span> after edits
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn-secondary cancel-edit-btn">Cancel</button>
+      <button class="btn btn-success apply-edit-btn">✅ Apply Changes</button>
+    </div>
+  `;
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  
+  const canvas = document.getElementById('waveformCanvas');
+  const ctx = canvas.getContext('2d');
+  
+  // Editor state
+  const editorState = {
+    trimStart: 0,
+    trimEnd: duration,
+    fadeIn: 0,
+    fadeOut: 0,
+    gain: 0,
+    reverse: false
+  };
+  
+  // Draw waveform
+  function drawWaveform() {
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    const channelData = buffer.getChannelData(0);
+    const step = Math.ceil(channelData.length / width);
+    const amp = height / 2;
+    
+    // Draw waveform
+    ctx.fillStyle = 'rgba(124, 131, 255, 0.3)';
+    ctx.strokeStyle = 'rgb(124, 131, 255)';
+    ctx.lineWidth = 1;
+    
+    for (let i = 0; i < width; i++) {
+      let min = 1.0;
+      let max = -1.0;
+      
+      for (let j = 0; j < step; j++) {
+        const datum = channelData[(i * step) + j];
+        if (datum !== undefined) {
+          if (datum < min) min = datum;
+          if (datum > max) max = datum;
+        }
+      }
+      
+      const x = i;
+      const yMin = (1 + min) * amp;
+      const yMax = (1 + max) * amp;
+      
+      ctx.fillRect(x, yMin, 1, yMax - yMin);
+    }
+    
+    // Draw trim markers
+    const startX = (editorState.trimStart / duration) * width;
+    const endX = (editorState.trimEnd / duration) * width;
+    
+    // Grayed out regions
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, 0, startX, height);
+    ctx.fillRect(endX, 0, width - endX, height);
+    
+    // Trim lines
+    ctx.strokeStyle = 'var(--warning)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(startX, 0);
+    ctx.lineTo(startX, height);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(endX, 0);
+    ctx.lineTo(endX, height);
+    ctx.stroke();
+    
+    // Fade curves
+    if (editorState.fadeIn > 0) {
+      const fadeInX = startX + (editorState.fadeIn / 1000 / duration) * width;
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(startX, height);
+      ctx.lineTo(fadeInX, 0);
+      ctx.stroke();
+    }
+    
+    if (editorState.fadeOut > 0) {
+      const fadeOutX = endX - (editorState.fadeOut / 1000 / duration) * width;
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(fadeOutX, 0);
+      ctx.lineTo(endX, height);
+      ctx.stroke();
+    }
+  }
+  
+  drawWaveform();
+  
+  // Update handlers
+  const trimStartSlider = document.getElementById('trimStartSlider');
+  const trimEndSlider = document.getElementById('trimEndSlider');
+  const fadeInSlider = document.getElementById('fadeInSlider');
+  const fadeOutSlider = document.getElementById('fadeOutSlider');
+  const gainSlider = document.getElementById('gainSlider');
+  const reverseCheckbox = document.getElementById('reverseCheckbox');
+  
+  trimStartSlider.addEventListener('input', (e) => {
+    const percent = parseInt(e.target.value) / 100;
+    editorState.trimStart = percent * duration;
+    document.getElementById('trimStartValue').textContent = editorState.trimStart.toFixed(2) + 's';
+    updateEditedDuration();
+    drawWaveform();
+  });
+  
+  trimEndSlider.addEventListener('input', (e) => {
+    const percent = parseInt(e.target.value) / 100;
+    editorState.trimEnd = percent * duration;
+    document.getElementById('trimEndValue').textContent = editorState.trimEnd.toFixed(2) + 's';
+    updateEditedDuration();
+    drawWaveform();
+  });
+  
+  fadeInSlider.addEventListener('input', (e) => {
+    editorState.fadeIn = parseInt(e.target.value);
+    document.getElementById('fadeInValue').textContent = editorState.fadeIn + 'ms';
+    drawWaveform();
+  });
+  
+  fadeOutSlider.addEventListener('input', (e) => {
+    editorState.fadeOut = parseInt(e.target.value);
+    document.getElementById('fadeOutValue').textContent = editorState.fadeOut + 'ms';
+    drawWaveform();
+  });
+  
+  gainSlider.addEventListener('input', (e) => {
+    editorState.gain = parseInt(e.target.value);
+    document.getElementById('gainValue').textContent = (editorState.gain > 0 ? '+' : '') + editorState.gain + 'dB';
+  });
+  
+  reverseCheckbox.addEventListener('change', (e) => {
+    editorState.reverse = e.target.checked;
+  });
+  
+  function updateEditedDuration() {
+    const newDuration = editorState.trimEnd - editorState.trimStart;
+    document.getElementById('editedDurationLabel').textContent = newDuration.toFixed(2) + 's';
+  }
+  
+  // Preview
+  document.getElementById('previewEditBtn').addEventListener('click', async () => {
+    const editedBuffer = await applyEdits(buffer, editorState);
+    const player = new Tone.Player(editedBuffer).toDestination();
+    player.start();
+    showToast('▶️ Previewing edits', 'info');
+  });
+  
+  // Normalize
+  document.getElementById('normalizeBtn').addEventListener('click', () => {
+    let peak = 0;
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const data = buffer.getChannelData(c);
+      for (let i = 0; i < data.length; i++) {
+        const abs = Math.abs(data[i]);
+        if (abs > peak) peak = abs;
+      }
+    }
+    
+    const targetPeak = 0.891; // -1dB
+    const gainDb = 20 * Math.log10(targetPeak / peak);
+    
+    gainSlider.value = Math.round(gainDb);
+    editorState.gain = Math.round(gainDb);
+    document.getElementById('gainValue').textContent = (editorState.gain > 0 ? '+' : '') + editorState.gain + 'dB';
+    
+    showToast(`✅ Normalized: ${gainDb.toFixed(1)}dB gain`, 'success');
+  });
+  
+  // Reset
+  document.getElementById('resetEditsBtn').addEventListener('click', () => {
+    editorState.trimStart = 0;
+    editorState.trimEnd = duration;
+    editorState.fadeIn = 0;
+    editorState.fadeOut = 0;
+    editorState.gain = 0;
+    editorState.reverse = false;
+    
+    trimStartSlider.value = 0;
+    trimEndSlider.value = 100;
+    fadeInSlider.value = 0;
+    fadeOutSlider.value = 0;
+    gainSlider.value = 0;
+    reverseCheckbox.checked = false;
+    
+    document.getElementById('trimStartValue').textContent = '0.00s';
+    document.getElementById('trimEndValue').textContent = duration.toFixed(2) + 's';
+    document.getElementById('fadeInValue').textContent = '0ms';
+    document.getElementById('fadeOutValue').textContent = '0ms';
+    document.getElementById('gainValue').textContent = '0dB';
+    
+    updateEditedDuration();
+    drawWaveform();
+  });
+  
+  // Apply
+  document.querySelector('.apply-edit-btn').addEventListener('click', async () => {
+    try {
+      showToast('⏳ Processing audio...', 'info');
+      
+      const editedBuffer = await applyEdits(buffer, editorState);
+      
+      // Update take
+      take.buffer = editedBuffer;
+      take.duration = editedBuffer.duration;
+      
+      // Re-create blob (simplified)
+      const offlineCtx = new OfflineAudioContext(
+        editedBuffer.numberOfChannels,
+        editedBuffer.length,
+        editedBuffer.sampleRate
+      );
+      
+      const source = offlineCtx.createBufferSource();
+      source.buffer = editedBuffer;
+      source.connect(offlineCtx.destination);
+      source.start(0);
+      
+      const renderedBuffer = await offlineCtx.startRendering();
+      const wavData = bufferToWavImproved(renderedBuffer);
+      take.blob = new Blob([wavData], { type: 'audio/wav' });
+      
+      backdrop.remove();
+      renderMultitrack();
+      showToast('✅ Waveform edited successfully!', 'success');
+      
+    } catch (err) {
+      console.error('Edit failed:', err);
+      showToast(`❌ Edit failed: ${err.message}`, 'error');
+    }
+  });
+  
+  // Cancel
+  const close = () => backdrop.remove();
+  modal.querySelector('.modal-close').onclick = close;
+  modal.querySelector('.cancel-edit-btn').onclick = close;
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) close();
+  };
+}
+
+async function applyEdits(buffer, edits) {
+  const { trimStart, trimEnd, fadeIn, fadeOut, gain, reverse } = edits;
+  
+  const sampleRate = buffer.sampleRate;
+  const numChannels = buffer.numberOfChannels;
+  
+  const startSample = Math.floor(trimStart * sampleRate);
+  const endSample = Math.floor(trimEnd * sampleRate);
+  const newLength = endSample - startSample;
+  
+  const newBuffer = Tone.context.rawContext.createBuffer(
+    numChannels,
+    newLength,
+    sampleRate
+  );
+  
+  const gainLinear = Tone.dbToGain(gain);
+  const fadeInSamples = Math.floor((fadeIn / 1000) * sampleRate);
+  const fadeOutSamples = Math.floor((fadeOut / 1000) * sampleRate);
+  
+  for (let c = 0; c < numChannels; c++) {
+    const oldData = buffer.getChannelData(c);
+    const newData = newBuffer.getChannelData(c);
+    
+    for (let i = 0; i < newLength; i++) {
+      const oldIndex = reverse ? (endSample - 1 - i) : (startSample + i);
+      let sample = oldData[oldIndex] || 0;
+      
+      // Apply gain
+      sample *= gainLinear;
+      
+      // Apply fade in
+      if (i < fadeInSamples) {
+        sample *= (i / fadeInSamples);
+      }
+      
+      // Apply fade out
+      if (i > newLength - fadeOutSamples) {
+        sample *= ((newLength - i) / fadeOutSamples);
+      }
+      
+      newData[i] = sample;
+    }
+  }
+  
+  return newBuffer;
+}
 function setupMultitrackListeners() {
   const addTrackBtn = document.getElementById('addTrackBtn');
   if (addTrackBtn) {
