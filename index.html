@@ -9007,6 +9007,28 @@ class AudioTrack {
   }
 }
 
+// ==================== EXTERNAL STEM IMPORT ====================
+
+// 1) Decode an uploaded file into an AudioBuffer
+async function decodeFileToBuffer(file) {
+  const arrayBuffer = await file.arrayBuffer();
+
+  const audioCtx =
+    (Tone && Tone.context && Tone.context.rawContext) ||
+    (Tone && Tone.getContext && Tone.getContext().rawContext) ||
+    (Tone && Tone.context) ||
+    null;
+
+  if (!audioCtx || !audioCtx.decodeAudioData) {
+    throw new Error('AudioContext not available for decoding');
+  }
+
+  return new Promise((resolve, reject) => {
+    audioCtx.decodeAudioData(arrayBuffer, resolve, reject);
+  });
+}
+
+// 2) Create a new multitrack track from an AudioBuffer
 function addExternalAudioTrackFromBuffer(audioBuffer, fileName = 'Imported Stem') {
   const id = multitrack.nextTrackId++;
   const niceName = fileName.replace(/\.[^/.]+$/, ''); // strip extension
@@ -9014,34 +9036,71 @@ function addExternalAudioTrackFromBuffer(audioBuffer, fileName = 'Imported Stem'
   // Create track marked as external audio
   const track = new AudioTrack(id, niceName, 'stem', true);
 
-  // Create a single take covering the whole buffer
+  // Single take covering whole buffer
   const take = {
     id: `take-${Date.now()}-${id}`,
     buffer: audioBuffer,
-    startTime: 0,                 // starts at beginning of session
+    startTime: 0,                 // starts at 0 in the session
     duration: audioBuffer.duration,
     muted: false,
     source: 'external',
-    fileName,
+    fileName
   };
 
   track.takes.push(take);
   track.selectedTakeIndex = 0;
 
-  // If you have a helper that sets up channel routing per track, call it here.
-  // For example, if you have something like createMultitrackChannel(track):
-  if (typeof createMultitrackChannel === 'function') {
-    createMultitrackChannel(track);
-  } else {
-    // Fallback: simple gain → master.fxIn chain
-    const gain = new Tone.Gain(1);
-    track.channel = gain;
-    gain.connect(master.fxIn);
-  }
+  // Minimal routing: gain → master.fxIn
+  // (Adjust if you already have a per-track channel system)
+  const gain = new Tone.Gain(1);
+  track.channel = gain;
+  gain.connect(master.fxIn);
 
   multitrack.tracks.push(track);
 
   return track;
+}
+
+// 3) Wire up the "Import Stem" button
+function setupStemImport() {
+  const importBtn = document.getElementById('importStemBtn');
+  if (!importBtn) {
+    console.warn('⚠️ setupStemImport: #importStemBtn not found');
+    return;
+  }
+
+  if (importBtn.dataset._wired) return; // avoid double binding
+  importBtn.dataset._wired = 'true';
+
+  importBtn.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/wav,audio/mp3,audio/mpeg,audio/ogg,audio/webm';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Optional size guard
+      if (file.size > 50 * 1024 * 1024) {
+        showToast('❌ File too large (max 50MB)', 'error');
+        return;
+      }
+
+      try {
+        showToast(`⏳ Importing ${file.name}...`, 'info');
+        const buffer = await decodeFileToBuffer(file);
+        const track = addExternalAudioTrackFromBuffer(buffer, file.name);
+        renderMultitrack(); // your existing UI refresh
+        showToast(`✅ Imported stem: ${track.name}`, 'success');
+      } catch (err) {
+        console.error('Stem import failed:', err);
+        showToast(`❌ Import failed: ${err.message}`, 'error');
+      }
+    };
+
+    input.click();
+  });
 }
   
 async function createTrack(instrument = null, isExternalAudio = false) {
@@ -9661,63 +9720,6 @@ function stopMultitrackPreview() {
     clearTimeout(multitrack.previewTimeout);
     multitrack.previewTimeout = null;
   }
-}
-
-// -------------------- External Stem Import --------------------
-function setupStemImport() {
-  const importBtn = document.getElementById('importStemBtn');
-  if (!importBtn) {
-    console.warn('⚠️ setupStemImport: #importStemBtn not found');
-    return;
-  }
-
-  if (importBtn.dataset._wired) return; // avoid double-binding
-  importBtn.dataset._wired = 'true';
-
-  importBtn.addEventListener('click', async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'audio/wav,audio/mp3,audio/mpeg,audio/ogg,audio/webm';
-
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      // Optional size check (can tweak this or remove)
-      if (file.size > 50 * 1024 * 1024) {
-        showToast('❌ File too large (max 50MB)', 'error');
-        return;
-      }
-
-      try {
-        showToast(`⏳ Importing ${file.name}...`, 'info');
-        const buffer = await decodeFileToBuffer(file);
-        const track = addExternalAudioTrackFromBuffer(buffer, file.name);
-        renderMultitrack(); // your existing multitrack UI refresh
-        showToast(`✅ Imported stem: ${track.name}`, 'success');
-      } catch (err) {
-        console.error('Stem import failed:', err);
-        showToast(`❌ Import failed: ${err.message}`, 'error');
-      }
-    };
-
-    input.click();
-  });
-}
-
-async function decodeFileToBuffer(file) {
-  const arrayBuffer = await file.arrayBuffer();
-
-  // Using Tone's underlying AudioContext
-  const audioCtx = Tone?.context?.rawContext || Tone?.getContext()?.rawContext || Tone.context;
-  if (!audioCtx || !audioCtx.decodeAudioData) {
-    throw new Error('AudioContext not available for decoding');
-  }
-
-  // Some browsers support promise-based decode, some don't
-  return new Promise((resolve, reject) => {
-    audioCtx.decodeAudioData(arrayBuffer, resolve, reject);
-  });
 }
 
 // 🔁 PURE WEB AUDIO MASTER CHAIN FOR OFFLINE BOUNCE
