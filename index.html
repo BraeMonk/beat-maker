@@ -5133,24 +5133,41 @@ async function uploadCustomSample(inst, file) {
         duration: audioBuffer.duration,
         uploadedAt: Date.now()
       }));
+      console.log(`💾 Saved ${inst} to storage`);
     } catch (e) {
       console.warn('Could not save to storage:', e);
     }
     
-    // Replace synth with custom sample
+    // Dispose old synth properly
     const oldSynth = synths[inst];
-    if (oldSynth && typeof oldSynth.dispose === 'function') {
-      oldSynth.dispose();
+    if (oldSynth) {
+      try {
+        if (oldSynth.player) {
+          oldSynth.player.disconnect();
+          oldSynth.player.dispose();
+        }
+        if (oldSynth.gain) {
+          oldSynth.gain.disconnect();
+          oldSynth.gain.dispose();
+        }
+        if (typeof oldSynth.dispose === 'function') {
+          oldSynth.dispose();
+        }
+      } catch (err) {
+        console.warn('Error disposing old synth:', err);
+      }
     }
     
+    // Create new player
     const player = new Tone.Player({
-      url: audioBuffer,
+      buffer: audioBuffer,
       fadeOut: 0.01
     });
     
     const playerGain = new Tone.Gain(1);
     player.connect(playerGain);
     
+    // Create wrapper matching synth interface
     synths[inst] = {
       triggerAttackRelease: (note, duration, time, velocity = 1) => {
         if (player.loaded) {
@@ -5178,6 +5195,9 @@ async function uploadCustomSample(inst, file) {
     // Reconnect to channel
     if (instruments[inst].channel) {
       playerGain.connect(instruments[inst].channel);
+    } else {
+      console.warn(`No channel for ${inst}, connecting to master`);
+      playerGain.connect(master.fxIn);
     }
     
     // Update UI
@@ -5187,6 +5207,7 @@ async function uploadCustomSample(inst, file) {
       statusEl.style.color = 'var(--success)';
     }
     
+    console.log(`✅ ${instruments[inst].name} sample loaded and connected`);
     showToast(`✅ ${instruments[inst].name} sample loaded!`, 'success');
     
   } catch (err) {
@@ -5194,77 +5215,118 @@ async function uploadCustomSample(inst, file) {
     showToast(`❌ Upload failed: ${err.message}`, 'error');
   }
 }
-
+  
 async function loadCustomSampleStatus() {
+  if (typeof window.storage === 'undefined') {
+    console.log('Storage not available, skipping custom sample load');
+    return;
+  }
+  
   try {
     const keys = await window.storage.list('custom-sample:');
-    if (!keys || !keys.keys) return;
+    if (!keys || !keys.keys || keys.keys.length === 0) {
+      console.log('No custom samples found in storage');
+      return;
+    }
+    
+    console.log(`📦 Loading ${keys.keys.length} custom sample(s)...`);
     
     for (const key of keys.keys) {
       const inst = key.replace('custom-sample:', '');
-      const result = await window.storage.get(key);
       
-      if (result && result.value) {
-        const data = JSON.parse(result.value);
+      try {
+        const result = await window.storage.get(key);
         
+        if (result && result.value) {
+          const data = JSON.parse(result.value);
+          
+          // Update UI immediately
+          const statusEl = document.querySelector(`.sample-status[data-inst="${inst}"]`);
+          if (statusEl) {
+            statusEl.textContent = `⏳ Loading ${data.name}...`;
+            statusEl.style.color = 'var(--warning)';
+          }
+          
+          // Restore the custom sample
+          const base64Data = data.data;
+          const arrayBuffer = base64ToArrayBuffer(base64Data);
+          const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+          
+          // Dispose old synth
+          const oldSynth = synths[inst];
+          if (oldSynth) {
+            try {
+              if (oldSynth.player) oldSynth.player.dispose();
+              if (oldSynth.gain) oldSynth.gain.dispose();
+              if (typeof oldSynth.dispose === 'function') oldSynth.dispose();
+            } catch (err) {
+              console.warn('Error disposing:', err);
+            }
+          }
+          
+          // Create new player
+          const player = new Tone.Player({
+            buffer: audioBuffer,
+            fadeOut: 0.01
+          });
+          
+          const playerGain = new Tone.Gain(1);
+          player.connect(playerGain);
+          
+          synths[inst] = {
+            triggerAttackRelease: (note, duration, time, velocity = 1) => {
+              if (player.loaded) {
+                player.stop(time);
+                playerGain.gain.setValueAtTime(velocity, time);
+                player.start(time);
+              }
+            },
+            connect: (node) => {
+              playerGain.disconnect();
+              playerGain.connect(node);
+              return playerGain;
+            },
+            toDestination: () => playerGain.toDestination(),
+            dispose: () => {
+              player.dispose();
+              playerGain.dispose();
+            },
+            loaded: true,
+            player: player,
+            gain: playerGain,
+            isCustom: true
+          };
+          
+          // Connect to channel
+          if (instruments[inst].channel) {
+            playerGain.connect(instruments[inst].channel);
+          } else {
+            playerGain.connect(master.fxIn);
+          }
+          
+          // Update UI success
+          if (statusEl) {
+            statusEl.textContent = `✅ ${data.name}`;
+            statusEl.style.color = 'var(--success)';
+          }
+          
+          console.log(`✅ Restored custom sample: ${inst} (${data.name})`);
+        }
+      } catch (err) {
+        console.error(`Failed to load custom sample ${inst}:`, err);
         const statusEl = document.querySelector(`.sample-status[data-inst="${inst}"]`);
         if (statusEl) {
-          statusEl.textContent = `✅ ${data.name}`;
-          statusEl.style.color = 'var(--success)';
-        }
-        
-        // Restore the custom sample
-        const base64Data = data.data;
-        const arrayBuffer = base64ToArrayBuffer(base64Data);
-        const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
-        
-        const oldSynth = synths[inst];
-        if (oldSynth && typeof oldSynth.dispose === 'function') {
-          oldSynth.dispose();
-        }
-        
-        const player = new Tone.Player({
-          url: audioBuffer,
-          fadeOut: 0.01
-        });
-        
-        const playerGain = new Tone.Gain(1);
-        player.connect(playerGain);
-        
-        synths[inst] = {
-          triggerAttackRelease: (note, duration, time, velocity = 1) => {
-            if (player.loaded) {
-              player.stop(time);
-              playerGain.gain.setValueAtTime(velocity, time);
-              player.start(time);
-            }
-          },
-          connect: (node) => {
-            playerGain.disconnect();
-            playerGain.connect(node);
-            return playerGain;
-          },
-          toDestination: () => playerGain.toDestination(),
-          dispose: () => {
-            player.dispose();
-            playerGain.dispose();
-          },
-          loaded: true,
-          player: player,
-          gain: playerGain,
-          isCustom: true
-        };
-        
-        if (instruments[inst].channel) {
-          playerGain.connect(instruments[inst].channel);
+          statusEl.textContent = `❌ Load failed`;
+          statusEl.style.color = 'var(--error)';
         }
       }
     }
+    
+    console.log('✅ Custom samples restored');
   } catch (e) {
     console.warn('Could not load custom samples:', e);
   }
 }
-
 function previewInstrument(inst) {
   const synth = synths[inst];
   if (!synth) {
@@ -9013,7 +9075,8 @@ function renderTakes(track) {
             <button class="region-action-btn" data-action="toggle-mute-take" title="Mute/Unmute">
               ${isMuted ? '🔇' : '🔊'}
             </button>
-            <button class="region-action-btn" data-action="edit-waveform" title="Edit Waveform">✂️</button>
+            <button class="region-action-btn" data-action="edit-waveform" 
+                    data-track-id="${track.id}" data-take-index="${idx}" title="Edit Waveform">✂️</button>
             <button class="region-action-btn" data-action="delete-take" title="Delete">🗑️</button>
           </div>
         </div>
@@ -9178,7 +9241,8 @@ function createTrackStrip(track) {
     if (takeRegion) {
       const trackId = parseInt(takeRegion.dataset.trackId);
       const takeIndex = parseInt(takeRegion.dataset.takeIndex);
-      const action = e.target.closest('.region-action-btn')?.dataset.action;
+      const actionBtn = e.target.closest('.region-action-btn');
+      const action = actionBtn?.dataset.action;
       
       if (action === 'play-take') {
         e.stopPropagation();
@@ -9187,6 +9251,11 @@ function createTrackStrip(track) {
         e.stopPropagation();
         track.toggleTakeMute(takeIndex);
         renderMultitrack();
+      } else if (action === 'edit-waveform') {
+        e.stopPropagation();
+        const btnTrackId = parseInt(actionBtn.dataset.trackId);
+        const btnTakeIndex = parseInt(actionBtn.dataset.takeIndex);
+        openWaveformEditor(btnTrackId, btnTakeIndex);
       } else if (action === 'delete-take') {
         e.stopPropagation();
         if (confirm('Delete this take?')) {
@@ -10318,10 +10387,20 @@ function openTakeEditor(trackId) {
 
 function openWaveformEditor(trackId, takeIndex) {
   const track = multitrack.tracks.find(t => t.id === trackId);
-  if (!track) return;
+  if (!track) {
+    console.error('Track not found:', trackId);
+    return;
+  }
   
   const take = track.takes[takeIndex];
-  if (!take || !take.buffer) return;
+  if (!take || !take.buffer) {
+    console.error('Take or buffer not found');
+    showToast('❌ Cannot edit: invalid take', 'error');
+    return;
+  }
+  
+  // Remove any existing modal
+  document.querySelectorAll('.modal-backdrop').forEach(m => m.remove());
   
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
@@ -10356,7 +10435,7 @@ function openWaveformEditor(trackId, takeIndex) {
             <span>Trim Start</span>
             <span class="param-value" id="trimStartValue">0.00s</span>
           </div>
-          <input type="range" id="trimStartSlider" min="0" max="100" value="0">
+          <input type="range" id="trimStartSlider" min="0" max="100" value="0" step="0.1">
         </div>
         
         <div class="param-control">
@@ -10364,7 +10443,7 @@ function openWaveformEditor(trackId, takeIndex) {
             <span>Trim End</span>
             <span class="param-value" id="trimEndValue">${duration.toFixed(2)}s</span>
           </div>
-          <input type="range" id="trimEndSlider" min="0" max="100" value="100">
+          <input type="range" id="trimEndSlider" min="0" max="100" value="100" step="0.1">
         </div>
         
         <div class="param-control">
@@ -10372,7 +10451,7 @@ function openWaveformEditor(trackId, takeIndex) {
             <span>Fade In</span>
             <span class="param-value" id="fadeInValue">0ms</span>
           </div>
-          <input type="range" id="fadeInSlider" min="0" max="1000" value="0">
+          <input type="range" id="fadeInSlider" min="0" max="1000" value="0" step="10">
         </div>
         
         <div class="param-control">
@@ -10380,7 +10459,7 @@ function openWaveformEditor(trackId, takeIndex) {
             <span>Fade Out</span>
             <span class="param-value" id="fadeOutValue">0ms</span>
           </div>
-          <input type="range" id="fadeOutSlider" min="0" max="1000" value="0">
+          <input type="range" id="fadeOutSlider" min="0" max="1000" value="0" step="10">
         </div>
         
         <div class="param-control">
@@ -10388,7 +10467,7 @@ function openWaveformEditor(trackId, takeIndex) {
             <span>Gain</span>
             <span class="param-value" id="gainValue">0dB</span>
           </div>
-          <input type="range" id="gainSlider" min="-24" max="24" value="0">
+          <input type="range" id="gainSlider" min="-24" max="24" value="0" step="0.5">
         </div>
         
         <div class="param-control">
@@ -10403,7 +10482,7 @@ function openWaveformEditor(trackId, takeIndex) {
         </div>
       </div>
       
-      <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-4);">
+      <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-4); flex-wrap: wrap;">
         <button class="btn btn-secondary" id="previewEditBtn">▶️ Preview</button>
         <button class="btn btn-secondary" id="normalizeBtn">📊 Normalize</button>
         <button class="btn btn-ghost" id="resetEditsBtn">↻ Reset</button>
@@ -10411,7 +10490,7 @@ function openWaveformEditor(trackId, takeIndex) {
       
       <div style="padding: var(--space-3); background: var(--glass-bg); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--text-tertiary);">
         <strong>Original:</strong> ${duration.toFixed(2)}s • 
-        <span id="editedDurationLabel">${duration.toFixed(2)}s</span> after edits
+        <strong>After edits:</strong> <span id="editedDurationLabel">${duration.toFixed(2)}s</span>
       </div>
     </div>
     
@@ -10437,7 +10516,7 @@ function openWaveformEditor(trackId, takeIndex) {
     reverse: false
   };
   
-  // Draw waveform
+  // Draw waveform function
   function drawWaveform() {
     const width = canvas.width;
     const height = canvas.height;
@@ -10458,8 +10537,9 @@ function openWaveformEditor(trackId, takeIndex) {
       let max = -1.0;
       
       for (let j = 0; j < step; j++) {
-        const datum = channelData[(i * step) + j];
-        if (datum !== undefined) {
+        const index = (i * step) + j;
+        if (index < channelData.length) {
+          const datum = channelData[index];
           if (datum < min) min = datum;
           if (datum > max) max = datum;
         }
@@ -10469,7 +10549,7 @@ function openWaveformEditor(trackId, takeIndex) {
       const yMin = (1 + min) * amp;
       const yMax = (1 + max) * amp;
       
-      ctx.fillRect(x, yMin, 1, yMax - yMin);
+      ctx.fillRect(x, yMin, 1, Math.max(1, yMax - yMin));
     }
     
     // Draw trim markers
@@ -10478,8 +10558,8 @@ function openWaveformEditor(trackId, takeIndex) {
     
     // Grayed out regions
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, startX, height);
-    ctx.fillRect(endX, 0, width - endX, height);
+    if (startX > 0) ctx.fillRect(0, 0, startX, height);
+    if (endX < width) ctx.fillRect(endX, 0, width - endX, height);
     
     // Trim lines
     ctx.strokeStyle = 'var(--warning)';
@@ -10496,29 +10576,32 @@ function openWaveformEditor(trackId, takeIndex) {
     
     // Fade curves
     if (editorState.fadeIn > 0) {
-      const fadeInX = startX + (editorState.fadeIn / 1000 / duration) * width;
+      const fadeInDuration = editorState.fadeIn / 1000;
+      const fadeInX = startX + (fadeInDuration / duration) * width;
       ctx.strokeStyle = 'rgba(34, 197, 94, 0.8)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(startX, height);
-      ctx.lineTo(fadeInX, 0);
+      ctx.lineTo(Math.min(fadeInX, endX), 0);
       ctx.stroke();
     }
     
     if (editorState.fadeOut > 0) {
-      const fadeOutX = endX - (editorState.fadeOut / 1000 / duration) * width;
+      const fadeOutDuration = editorState.fadeOut / 1000;
+      const fadeOutX = endX - (fadeOutDuration / duration) * width;
       ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(fadeOutX, 0);
+      ctx.moveTo(Math.max(fadeOutX, startX), 0);
       ctx.lineTo(endX, height);
       ctx.stroke();
     }
   }
   
-  drawWaveform();
+  // Initial draw
+  setTimeout(() => drawWaveform(), 0);
   
-  // Update handlers
+  // Get controls
   const trimStartSlider = document.getElementById('trimStartSlider');
   const trimEndSlider = document.getElementById('trimEndSlider');
   const fadeInSlider = document.getElementById('fadeInSlider');
@@ -10526,57 +10609,90 @@ function openWaveformEditor(trackId, takeIndex) {
   const gainSlider = document.getElementById('gainSlider');
   const reverseCheckbox = document.getElementById('reverseCheckbox');
   
+  function updateEditedDuration() {
+    const newDuration = Math.max(0, editorState.trimEnd - editorState.trimStart);
+    document.getElementById('editedDurationLabel').textContent = newDuration.toFixed(2) + 's';
+  }
+  
+  // Trim start
   trimStartSlider.addEventListener('input', (e) => {
-    const percent = parseInt(e.target.value) / 100;
+    const percent = parseFloat(e.target.value) / 100;
     editorState.trimStart = percent * duration;
+    editorState.trimStart = Math.min(editorState.trimStart, editorState.trimEnd - 0.01);
     document.getElementById('trimStartValue').textContent = editorState.trimStart.toFixed(2) + 's';
     updateEditedDuration();
     drawWaveform();
   });
   
+  // Trim end
   trimEndSlider.addEventListener('input', (e) => {
-    const percent = parseInt(e.target.value) / 100;
+    const percent = parseFloat(e.target.value) / 100;
     editorState.trimEnd = percent * duration;
+    editorState.trimEnd = Math.max(editorState.trimEnd, editorState.trimStart + 0.01);
     document.getElementById('trimEndValue').textContent = editorState.trimEnd.toFixed(2) + 's';
     updateEditedDuration();
     drawWaveform();
   });
   
+  // Fade in
   fadeInSlider.addEventListener('input', (e) => {
     editorState.fadeIn = parseInt(e.target.value);
     document.getElementById('fadeInValue').textContent = editorState.fadeIn + 'ms';
     drawWaveform();
   });
   
+  // Fade out
   fadeOutSlider.addEventListener('input', (e) => {
     editorState.fadeOut = parseInt(e.target.value);
     document.getElementById('fadeOutValue').textContent = editorState.fadeOut + 'ms';
     drawWaveform();
   });
   
+  // Gain
   gainSlider.addEventListener('input', (e) => {
-    editorState.gain = parseInt(e.target.value);
-    document.getElementById('gainValue').textContent = (editorState.gain > 0 ? '+' : '') + editorState.gain + 'dB';
+    editorState.gain = parseFloat(e.target.value);
+    const sign = editorState.gain > 0 ? '+' : '';
+    document.getElementById('gainValue').textContent = sign + editorState.gain.toFixed(1) + 'dB';
   });
   
+  // Reverse
   reverseCheckbox.addEventListener('change', (e) => {
     editorState.reverse = e.target.checked;
   });
   
-  function updateEditedDuration() {
-    const newDuration = editorState.trimEnd - editorState.trimStart;
-    document.getElementById('editedDurationLabel').textContent = newDuration.toFixed(2) + 's';
-  }
-  
-  // Preview
+  // Preview button
+  let previewPlayer = null;
   document.getElementById('previewEditBtn').addEventListener('click', async () => {
-    const editedBuffer = await applyEdits(buffer, editorState);
-    const player = new Tone.Player(editedBuffer).toDestination();
-    player.start();
-    showToast('▶️ Previewing edits', 'info');
+    try {
+      if (previewPlayer) {
+        previewPlayer.stop();
+        previewPlayer.dispose();
+      }
+      
+      showToast('⏳ Rendering preview...', 'info');
+      const editedBuffer = await applyEdits(buffer, editorState);
+      
+      previewPlayer = new Tone.Player(editedBuffer).toDestination();
+      await Tone.start();
+      previewPlayer.start();
+      
+      showToast('▶️ Previewing edits', 'info');
+      
+      setTimeout(() => {
+        if (previewPlayer) {
+          previewPlayer.stop();
+          previewPlayer.dispose();
+          previewPlayer = null;
+        }
+      }, editedBuffer.duration * 1000 + 100);
+      
+    } catch (err) {
+      console.error('Preview failed:', err);
+      showToast(`❌ Preview failed: ${err.message}`, 'error');
+    }
   });
   
-  // Normalize
+  // Normalize button
   document.getElementById('normalizeBtn').addEventListener('click', () => {
     let peak = 0;
     for (let c = 0; c < buffer.numberOfChannels; c++) {
@@ -10587,17 +10703,23 @@ function openWaveformEditor(trackId, takeIndex) {
       }
     }
     
+    if (peak === 0) {
+      showToast('⚠️ Audio is silent, cannot normalize', 'warning');
+      return;
+    }
+    
     const targetPeak = 0.891; // -1dB
     const gainDb = 20 * Math.log10(targetPeak / peak);
     
-    gainSlider.value = Math.round(gainDb);
-    editorState.gain = Math.round(gainDb);
-    document.getElementById('gainValue').textContent = (editorState.gain > 0 ? '+' : '') + editorState.gain + 'dB';
+    gainSlider.value = gainDb.toFixed(1);
+    editorState.gain = parseFloat(gainDb.toFixed(1));
+    const sign = editorState.gain > 0 ? '+' : '';
+    document.getElementById('gainValue').textContent = sign + editorState.gain.toFixed(1) + 'dB';
     
     showToast(`✅ Normalized: ${gainDb.toFixed(1)}dB gain`, 'success');
   });
   
-  // Reset
+  // Reset button
   document.getElementById('resetEditsBtn').addEventListener('click', () => {
     editorState.trimStart = 0;
     editorState.trimEnd = duration;
@@ -10621,20 +10743,18 @@ function openWaveformEditor(trackId, takeIndex) {
     
     updateEditedDuration();
     drawWaveform();
+    
+    showToast('↻ Edits reset', 'info');
   });
   
-  // Apply
+  // Apply button
   document.querySelector('.apply-edit-btn').addEventListener('click', async () => {
     try {
       showToast('⏳ Processing audio...', 'info');
       
       const editedBuffer = await applyEdits(buffer, editorState);
       
-      // Update take
-      take.buffer = editedBuffer;
-      take.duration = editedBuffer.duration;
-      
-      // Re-create blob (simplified)
+      // Create new blob
       const offlineCtx = new OfflineAudioContext(
         editedBuffer.numberOfChannels,
         editedBuffer.length,
@@ -10648,11 +10768,18 @@ function openWaveformEditor(trackId, takeIndex) {
       
       const renderedBuffer = await offlineCtx.startRendering();
       const wavData = bufferToWavImproved(renderedBuffer);
-      take.blob = new Blob([wavData], { type: 'audio/wav' });
+      const newBlob = new Blob([wavData], { type: 'audio/wav' });
+      
+      // Update take
+      take.buffer = editedBuffer;
+      take.duration = editedBuffer.duration;
+      take.blob = newBlob;
       
       backdrop.remove();
       renderMultitrack();
       showToast('✅ Waveform edited successfully!', 'success');
+      
+      console.log(`✅ Edited take ${takeIndex}: ${take.duration.toFixed(2)}s`);
       
     } catch (err) {
       console.error('Edit failed:', err);
@@ -10660,8 +10787,15 @@ function openWaveformEditor(trackId, takeIndex) {
     }
   });
   
-  // Cancel
-  const close = () => backdrop.remove();
+  // Close handlers
+  const close = () => {
+    if (previewPlayer) {
+      previewPlayer.stop();
+      previewPlayer.dispose();
+    }
+    backdrop.remove();
+  };
+  
   modal.querySelector('.modal-close').onclick = close;
   modal.querySelector('.cancel-edit-btn').onclick = close;
   backdrop.onclick = (e) => {
