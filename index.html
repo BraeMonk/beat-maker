@@ -10138,9 +10138,25 @@ function createOfflineFxNode(fxDef, offlineContext) {
 }
   
 async function bounceAllTracks() {
-  const activeTracks = multitrack.tracks.filter(
-    t => t.selectedTakeIndex >= 0 && !t.muted
-  );
+  // 🔊 Include ANY track that actually has audio:
+  // - not muted
+  // - has a selectedTakeIndex OR at least one non-muted buffered take (imported stems safety)
+  const activeTracks = multitrack.tracks.filter(t => {
+    if (t.muted) return false;
+
+    // If a selected take exists, we're good
+    if (t.selectedTakeIndex >= 0 && t.takes[t.selectedTakeIndex]) {
+      const sel = t.takes[t.selectedTakeIndex];
+      return sel.buffer && sel.buffer.length && !sel.muted;
+    }
+
+    // Fallback: any non-muted take with a buffer counts as active
+    if (t.takes && t.takes.length > 0) {
+      return t.takes.some(tk => tk && tk.buffer && tk.buffer.length && !tk.muted);
+    }
+
+    return false;
+  });
 
   if (activeTracks.length === 0) {
     showToast('❌ No tracks to bounce!', 'error');
@@ -10191,13 +10207,20 @@ async function bounceAllTracks() {
   try {
     updateProgress(10, 'Analyzing tracks...', `${activeTracks.length} tracks to bounce`);
 
-    // Figure out global time span
+    // 🕒 Figure out global time span
     let minStart = Infinity;
     let maxEnd = 0;
 
     activeTracks.forEach(track => {
-      const take = track.takes[track.selectedTakeIndex];
-      if (!take || take.muted || !take.buffer) return;
+      // Pick selected take if valid, otherwise first non-muted buffered take
+      let take = null;
+      if (track.selectedTakeIndex >= 0 && track.takes[track.selectedTakeIndex]) {
+        take = track.takes[track.selectedTakeIndex];
+      } else if (track.takes && track.takes.length > 0) {
+        take = track.takes.find(tk => tk && tk.buffer && !tk.muted) || null;
+      }
+
+      if (!take || !take.buffer) return;
 
       const startTime = take.startTime || 0;
       const duration = take.duration || take.buffer.duration || 0;
@@ -10241,8 +10264,15 @@ async function bounceAllTracks() {
     updateProgress(40, 'Scheduling tracks...', `Processing ${activeTracks.length} tracks`);
 
     for (const track of activeTracks) {
-      const take = track.takes[track.selectedTakeIndex];
-      if (!take || take.muted || !take.buffer || take.buffer.length === 0) continue;
+      // Same selection logic as timing pass
+      let take = null;
+      if (track.selectedTakeIndex >= 0 && track.takes[track.selectedTakeIndex]) {
+        take = track.takes[track.selectedTakeIndex];
+      } else if (track.takes && track.takes.length > 0) {
+        take = track.takes.find(tk => tk && tk.buffer && !tk.muted) || null;
+      }
+
+      if (!take || !take.buffer || take.buffer.length === 0) continue;
 
       try {
         const ctx = offlineContext;
