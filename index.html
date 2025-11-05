@@ -12135,8 +12135,16 @@ async function validateLicenseKey(key) {
 
 function enableProFeatures() {
   document.body.classList.add('pro');
-  // Any extra JS toggles if needed:
-  // e.g. show/hide sections, remove "locked" overlays, etc.
+
+  // Unlock sidebar tabs
+  document.querySelectorAll('.sidebar-tab.locked').forEach(btn => {
+    btn.classList.remove('locked');
+  });
+
+  // Remove "pro-locked" overlays on content panels
+  document.querySelectorAll('.pro-locked').forEach(el => {
+    el.classList.remove('pro-locked');
+  });
 }
 
 function initLicenseUI() {
@@ -12209,19 +12217,27 @@ function gateTabsForFreeUsers() {
 
 // -------------------- Initialization --------------------
 function init() {
+  // === Licensing & UI gating first ===
+  initLicenseUI();      // sets up modal, unlockBtn, and checks localStorage
+  gateTabsForFreeUsers(); // disables tabs if not pro
+  if (isPro()) enableProFeatures(); // ensure UI is consistent immediately
+
+  // === Core systems ===
   initAudioContext();
   initAudio();
   ensurePatternLength(state.sequenceLength);
   setupEventListeners();
-  setupMultitrackListeners(); // Add this explicit call
-  initLicenseUI();
-  gateTabsForFreeUsers();
+  setupMultitrackListeners();
+
+  // === Rendering ===
   renderSequencer();
   renderMixer();
   renderFX();
   renderHarmony();
   renderPresets();
-  renderMultitrack(); // Add this to render initial state
+  renderMultitrack();
+
+  // === Final touches ===
   updateAllDisplays();
   initVisualizerOnce();
   unlockAudioOnce();
