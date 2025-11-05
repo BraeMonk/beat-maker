@@ -3346,6 +3346,136 @@
       pointer-events: none;
     }
 
+    /* Unlock Pro Button Styling */
+    #unlockProBtn {
+      padding: var(--space-4) var(--space-5);
+      border: none;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      color: #451a03;
+      font-family: var(--font-sans);
+      font-weight: 800;
+      font-size: var(--text-base);
+      cursor: pointer;
+      transition: all var(--duration-base) var(--ease-smooth);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      box-shadow: 
+        var(--shadow-md),
+        0 0 20px color-mix(in oklab, #f59e0b 40%, transparent);
+      margin-top: var(--space-4);
+    }
+    
+    #unlockProBtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        var(--shadow-lg),
+        0 0 30px color-mix(in oklab, #f59e0b 50%, transparent);
+    }
+    
+    #unlockProBtn:active {
+      transform: translateY(0);
+    }
+    
+    /* Locked Tab Styling */
+    .sidebar-tab.locked {
+      opacity: 0.5;
+      pointer-events: none;
+      position: relative;
+    }
+    
+    .sidebar-tab.locked::after {
+      content: '🔒';
+      margin-left: var(--space-2);
+      font-size: var(--text-sm);
+    }
+    
+    /* Modal Improvements */
+    #unlockModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      padding: var(--space-4);
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #unlockModal:not(.hidden) {
+      display: flex;
+    }
+    
+    #unlockModal .modal-inner {
+      background: var(--surface-elevated);
+      border: 1px solid var(--glass-border-strong);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      max-width: 500px;
+      width: 100%;
+      box-shadow: var(--shadow-2xl);
+      animation: modalSlideIn var(--duration-slow) var(--ease-bounce);
+    }
+    
+    #unlockModal h2 {
+      font-size: var(--text-2xl);
+      font-weight: 900;
+      color: var(--text-primary);
+      margin-bottom: var(--space-4);
+      background: linear-gradient(135deg, var(--text-primary), #fbbf24);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    #unlockModal p {
+      color: var(--text-secondary);
+      margin-bottom: var(--space-4);
+      line-height: 1.6;
+    }
+    
+    #unlockModal input {
+      width: 100%;
+      padding: var(--space-4);
+      font-family: var(--font-mono);
+      font-size: var(--text-base);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      margin-bottom: var(--space-4);
+      transition: all var(--duration-base) var(--ease-smooth);
+    }
+    
+    #unlockModal input:focus {
+      outline: none;
+      border-color: #fbbf24;
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2);
+    }
+    
+    #unlockModal .modal-actions {
+      display: flex;
+      gap: var(--space-3);
+      margin-top: var(--space-4);
+    }
+    
+    #unlockModal .status {
+      margin-top: var(--space-4);
+      padding: var(--space-3);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      text-align: center;
+    }
+    
+    #unlockModal .status:not(:empty) {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+    }
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
       .transport{
@@ -3597,9 +3727,9 @@
         <!--<button class="sidebar-tab" data-tab="samples">📂 Samples</button> -->
         <button id="unlockProBtn">🔓 Unlock Pro</button>
 
-        <div id="unlockModal" class="modal hidden">
+        <div id="unlockModal" class="hidden">
           <div class="modal-inner">
-            <h2>Unlock 8-Beat Studio Pro</h2>
+            <h2>🔓 Unlock 8-Beat Studio Pro</h2>
             <p>Paste your license key to unlock all features.</p>
             <input id="licenseInput" type="text" placeholder="8BEAT-XXXX-XXXX-XXXX">
             <div class="modal-actions">
@@ -3609,8 +3739,8 @@
                   hostedButtonId: "58FUHY8RYFPP2",
                 }).render("#paypal-container-58FUHY8RYFPP2")
               </script>
-              <button id="confirmLicenseBtn">Confirm</button>
-              <button id="cancelLicenseBtn">Cancel</button>
+              <button id="confirmLicenseBtn" class="btn btn-primary">Confirm</button>
+              <button id="cancelLicenseBtn" class="btn btn-secondary">Cancel</button>
             </div>
             <p id="licenseStatus" class="status"></p>
           </div>
