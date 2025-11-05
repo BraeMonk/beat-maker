@@ -3405,7 +3405,7 @@
       display: flex;
     }
     
-    #unlockModal .modal-inner {
+    #unlockModal .pro-modal-inner {
       background: var(--surface-elevated);
       border: 1px solid var(--glass-border-strong);
       border-radius: var(--radius-xl);
@@ -3414,6 +3414,10 @@
       width: 100%;
       box-shadow: var(--shadow-2xl);
       animation: modalSlideIn var(--duration-slow) var(--ease-bounce);
+      height: auto;
+      min-height: auto;
+      max-height: calc(100vh - 4rem);
+      align-self: center;
     }
     
     #unlockModal h2 {
@@ -3723,7 +3727,7 @@
         <button id="unlockProBtn">🔓 Unlock Pro</button>
 
         <div id="unlockModal" class="hidden">
-          <div class="modal-inner">
+          <div class="pro-modal-inner">
             <h2>🔓 Unlock 8-Beat Studio Pro</h2>
             <p>Paste your license key to unlock all features.</p>
             <input id="licenseInput" type="text" placeholder="8BEAT-XXXX-XXXX-XXXX">
