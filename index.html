@@ -3665,7 +3665,25 @@
           <button class="btn btn-ghost" id="clearAllTracksBtn">🗑️ Clear All</button>
         </div>
       </div>
-      
+      <section class="section" id="tab-samples">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">📂 Custom Samples</div>
+            <button class="btn btn-secondary btn-sm" id="restoreDefaultsBtn">↻ Restore Defaults</button>
+          </div>
+          
+          <div style="padding: var(--space-4); background: var(--glass-bg); border-radius: var(--radius-md); margin-bottom: var(--space-4);">
+            <div style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-2);">
+              Upload your own WAV/MP3 samples to replace any instrument. Changes are saved automatically.
+            </div>
+            <div style="font-size: var(--text-xs); color: var(--text-tertiary);">
+              💡 Tip: Use short, punchy samples (1-2 seconds) for best results
+            </div>
+          </div>
+          
+          <div class="grid grid-3" id="sampleUploadGrid"></div>
+        </div>
+      </section>
       <!-- Timeline Ruler -->
       <div class="timeline-ruler">
         <div class="timeline-markers" id="timelineMarkers"></div>
@@ -4892,7 +4910,287 @@ function setupGenreSelector() {
     updateGenrePresets();
   });
 }
+function setupSampleUpload() {
+  renderSampleUploadGrid();
+  
+  document.getElementById('restoreDefaultsBtn')?.addEventListener('click', async () => {
+    if (!confirm('Restore all default samples? Custom samples will be deleted.')) return;
+    
+    // Clear custom samples from storage
+    try {
+      const keys = await window.storage.list('custom-sample:');
+      if (keys && keys.keys) {
+        for (const key of keys.keys) {
+          await window.storage.delete(key);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not clear storage:', e);
+    }
+    
+    // Reload all instruments
+    Object.keys(instruments).forEach(inst => {
+      if (instruments[inst].type === 'drum' || instruments[inst].type === 'atmospheric') {
+        createInstrumentChain(inst);
+      }
+    });
+    
+    renderSampleUploadGrid();
+    showToast('✅ Default samples restored', 'success');
+  });
+}
 
+function renderSampleUploadGrid() {
+  const grid = document.getElementById('sampleUploadGrid');
+  if (!grid) return;
+  
+  grid.innerHTML = '';
+  
+  Object.keys(instruments).forEach(inst => {
+    const data = instruments[inst];
+    if (data.type !== 'drum' && data.type !== 'atmospheric') return;
+    
+    const card = document.createElement('div');
+    card.className = 'panel';
+    card.style.padding = 'var(--space-4)';
+    
+    card.innerHTML = `
+      <div style="text-align: center;">
+        <div style="font-size: var(--text-3xl); margin-bottom: var(--space-2);">${data.icon}</div>
+        <div style="font-weight: 700; margin-bottom: var(--space-3); color: var(--text-primary);">
+          ${data.name}
+        </div>
+        <button class="btn btn-primary btn-sm upload-sample-btn" data-inst="${inst}">
+          📤 Upload Sample
+        </button>
+        <button class="btn btn-ghost btn-sm preview-sample-btn" data-inst="${inst}" style="margin-top: var(--space-2);">
+          ▶️ Preview
+        </button>
+        <div class="sample-status" data-inst="${inst}" style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-2);">
+          Using default
+        </div>
+      </div>
+    `;
+    
+    grid.appendChild(card);
+  });
+  
+  // Attach upload listeners
+  grid.querySelectorAll('.upload-sample-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const inst = btn.dataset.inst;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'audio/wav,audio/mp3,audio/mpeg,audio/ogg';
+      
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        await uploadCustomSample(inst, file);
+      };
+      
+      input.click();
+    });
+  });
+  
+  // Preview listeners
+  grid.querySelectorAll('.preview-sample-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const inst = btn.dataset.inst;
+      previewInstrument(inst);
+    });
+  });
+  
+  // Load custom sample status
+  loadCustomSampleStatus();
+}
+
+async function uploadCustomSample(inst, file) {
+  try {
+    showToast(`⏳ Loading ${file.name}...`, 'info');
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+    
+    // Store in persistent storage
+    try {
+      const base64 = await arrayBufferToBase64(arrayBuffer);
+      await window.storage.set(`custom-sample:${inst}`, JSON.stringify({
+        name: file.name,
+        data: base64,
+        type: file.type,
+        duration: audioBuffer.duration,
+        uploadedAt: Date.now()
+      }));
+    } catch (e) {
+      console.warn('Could not save to storage:', e);
+    }
+    
+    // Replace synth with custom sample
+    const oldSynth = synths[inst];
+    if (oldSynth && typeof oldSynth.dispose === 'function') {
+      oldSynth.dispose();
+    }
+    
+    const player = new Tone.Player({
+      url: audioBuffer,
+      fadeOut: 0.01
+    });
+    
+    const playerGain = new Tone.Gain(1);
+    player.connect(playerGain);
+    
+    synths[inst] = {
+      triggerAttackRelease: (note, duration, time, velocity = 1) => {
+        if (player.loaded) {
+          player.stop(time);
+          playerGain.gain.setValueAtTime(velocity, time);
+          player.start(time);
+        }
+      },
+      connect: (node) => {
+        playerGain.disconnect();
+        playerGain.connect(node);
+        return playerGain;
+      },
+      toDestination: () => playerGain.toDestination(),
+      dispose: () => {
+        player.dispose();
+        playerGain.dispose();
+      },
+      loaded: true,
+      player: player,
+      gain: playerGain,
+      isCustom: true
+    };
+    
+    // Reconnect to channel
+    if (instruments[inst].channel) {
+      playerGain.connect(instruments[inst].channel);
+    }
+    
+    // Update UI
+    const statusEl = document.querySelector(`.sample-status[data-inst="${inst}"]`);
+    if (statusEl) {
+      statusEl.textContent = `✅ ${file.name}`;
+      statusEl.style.color = 'var(--success)';
+    }
+    
+    showToast(`✅ ${instruments[inst].name} sample loaded!`, 'success');
+    
+  } catch (err) {
+    console.error('Sample upload failed:', err);
+    showToast(`❌ Upload failed: ${err.message}`, 'error');
+  }
+}
+
+async function loadCustomSampleStatus() {
+  try {
+    const keys = await window.storage.list('custom-sample:');
+    if (!keys || !keys.keys) return;
+    
+    for (const key of keys.keys) {
+      const inst = key.replace('custom-sample:', '');
+      const result = await window.storage.get(key);
+      
+      if (result && result.value) {
+        const data = JSON.parse(result.value);
+        
+        const statusEl = document.querySelector(`.sample-status[data-inst="${inst}"]`);
+        if (statusEl) {
+          statusEl.textContent = `✅ ${data.name}`;
+          statusEl.style.color = 'var(--success)';
+        }
+        
+        // Restore the custom sample
+        const base64Data = data.data;
+        const arrayBuffer = base64ToArrayBuffer(base64Data);
+        const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
+        
+        const oldSynth = synths[inst];
+        if (oldSynth && typeof oldSynth.dispose === 'function') {
+          oldSynth.dispose();
+        }
+        
+        const player = new Tone.Player({
+          url: audioBuffer,
+          fadeOut: 0.01
+        });
+        
+        const playerGain = new Tone.Gain(1);
+        player.connect(playerGain);
+        
+        synths[inst] = {
+          triggerAttackRelease: (note, duration, time, velocity = 1) => {
+            if (player.loaded) {
+              player.stop(time);
+              playerGain.gain.setValueAtTime(velocity, time);
+              player.start(time);
+            }
+          },
+          connect: (node) => {
+            playerGain.disconnect();
+            playerGain.connect(node);
+            return playerGain;
+          },
+          toDestination: () => playerGain.toDestination(),
+          dispose: () => {
+            player.dispose();
+            playerGain.dispose();
+          },
+          loaded: true,
+          player: player,
+          gain: playerGain,
+          isCustom: true
+        };
+        
+        if (instruments[inst].channel) {
+          playerGain.connect(instruments[inst].channel);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Could not load custom samples:', e);
+  }
+}
+
+function previewInstrument(inst) {
+  const synth = synths[inst];
+  if (!synth) {
+    showToast('❌ Instrument not loaded', 'error');
+    return;
+  }
+  
+  const time = Tone.now();
+  synth.triggerAttackRelease('C2', '8n', time, 0.8);
+  
+  showToast(`▶️ ${instruments[inst].name}`, 'info');
+}
+
+// Helper functions for base64 conversion
+async function arrayBufferToBase64(buffer) {
+  const blob = new Blob([buffer]);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function base64ToArrayBuffer(base64) {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+  
 function setupTabs() {
   document.getElementById('tabs').addEventListener('click', e => {
     const tab = e.target.closest('.tab');
@@ -4905,6 +5203,10 @@ function setupTabs() {
     document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
     
     state.currentTab = tab.dataset.tab;
+
+    if (tab.dataset.tab === 'samples') {
+      setupSampleUpload();
+    }
   });
 }
 
@@ -5036,6 +5338,16 @@ function setupGeneratorButtons() {
     generateMelodicPatterns();
     addDrumFills();
     addSwingVariations();
+  });
+
+  document.getElementById('aiVariationBtn')?.addEventListener('click', generateAIVariation);
+  document.getElementById('aiMelodicBtn')?.addEventListener('click', generateMelodicAIVariation);
+  
+  document.querySelectorAll('.groove-template-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const template = e.currentTarget.dataset.template;
+      applyGrooveTemplate(template);
+    });
   });
   
   document.getElementById('randomVelBtn').addEventListener('click', randomizeVelocity);
@@ -5630,7 +5942,374 @@ function generateBeat() {
   
   console.log(`✅ Generated ${genre} beat with ${state.complexity} complexity at ${state.bpm} BPM`);
 }
+// AI-powered beat generation
+function generateAIVariation() {
+  const activeInsts = Object.keys(patterns).filter(inst =>
+    patterns[inst].some(s => s.active)
+  );
+  
+  if (activeInsts.length === 0) {
+    showToast('❌ Generate a beat first', 'error');
+    return;
+  }
+  
+  showToast('🤖 AI generating variation...', 'info');
+  
+  // Analyze current pattern
+  const analysis = analyzePattern();
+  
+  // Generate variation based on style
+  const variationType = Math.random();
+  
+  if (variationType < 0.25) {
+    generateRhythmicDisplacement(analysis);
+    showToast('🎲 Applied: Rhythmic Displacement', 'success');
+  } else if (variationType < 0.5) {
+    generateDensityVariation(analysis);
+    showToast('🎲 Applied: Density Variation', 'success');
+  } else if (variationType < 0.75) {
+    generatePolyrhythmicLayer(analysis);
+    showToast('🎲 Applied: Polyrhythmic Layer', 'success');
+  } else {
+    generateSyncopation(analysis);
+    showToast('🎲 Applied: Syncopation', 'success');
+  }
+  
+  renderSequencer();
+}
 
+function analyzePattern() {
+  const analysis = {
+    density: {},
+    complexity: 0,
+    activeSteps: 0,
+    totalSteps: state.sequenceLength,
+    instruments: {}
+  };
+  
+  Object.keys(instruments).forEach(inst => {
+    const steps = patterns[inst];
+    const active = steps.filter(s => s.active).length;
+    
+    analysis.instruments[inst] = {
+      density: active / state.sequenceLength,
+      avgVelocity: active > 0 
+        ? steps.filter(s => s.active).reduce((sum, s) => sum + s.velocity, 0) / active
+        : 0,
+      pattern: steps.map(s => s.active ? 1 : 0)
+    };
+    
+    analysis.activeSteps += active;
+  });
+  
+  analysis.complexity = analysis.activeSteps / (state.sequenceLength * Object.keys(instruments).length);
+  
+  return analysis;
+}
+
+function generateRhythmicDisplacement(analysis) {
+  // Shift patterns by random amounts to create variation
+  const shiftAmount = Math.floor(Math.random() * 4) + 1;
+  
+  Object.keys(instruments).forEach(inst => {
+    if (Math.random() > 0.6) return; // Only shift 40% of instruments
+    
+    const oldPattern = [...patterns[inst]];
+    
+    for (let i = 0; i < state.sequenceLength; i++) {
+      const newIndex = (i + shiftAmount) % state.sequenceLength;
+      patterns[inst][newIndex] = { ...oldPattern[i] };
+    }
+  });
+}
+
+function generateDensityVariation(analysis) {
+  // Add or remove notes to change groove density
+  const shouldAdd = Math.random() > 0.5;
+  
+  Object.keys(instruments).forEach(inst => {
+    const currentDensity = analysis.instruments[inst].density;
+    
+    if (shouldAdd && currentDensity < 0.6) {
+      // Add ghost notes
+      for (let i = 0; i < state.sequenceLength; i++) {
+        if (!patterns[inst][i].active && Math.random() > 0.7) {
+          patterns[inst][i].active = true;
+          patterns[inst][i].velocity = 0.3 + Math.random() * 0.2;
+          patterns[inst][i].probability = 60 + Math.random() * 30;
+        }
+      }
+    } else if (!shouldAdd && currentDensity > 0.3) {
+      // Remove some notes
+      for (let i = 0; i < state.sequenceLength; i++) {
+        if (patterns[inst][i].active && Math.random() > 0.7) {
+          patterns[inst][i].active = false;
+        }
+      }
+    }
+  });
+}
+
+function generatePolyrhythmicLayer(analysis) {
+  // Add polyrhythmic patterns (e.g., 3-over-4, 5-over-4)
+  const polyrhythms = [3, 5, 7];
+  const poly = polyrhythms[Math.floor(Math.random() * polyrhythms.length)];
+  
+  // Choose a percussive instrument
+  const percInsts = Object.keys(instruments).filter(k => 
+    instruments[k].type === 'drum' || instruments[k].type === 'atmospheric'
+  );
+  
+  if (percInsts.length === 0) return;
+  
+  const inst = percInsts[Math.floor(Math.random() * percInsts.length)];
+  
+  // Clear existing pattern
+  patterns[inst].forEach(s => s.active = false);
+  
+  // Apply polyrhythm
+  for (let i = 0; i < state.sequenceLength; i++) {
+    if (i % Math.floor(state.sequenceLength / poly) === 0) {
+      patterns[inst][i].active = true;
+      patterns[inst][i].velocity = 0.6 + Math.random() * 0.2;
+      patterns[inst][i].probability = 90 + Math.random() * 10;
+    }
+  }
+}
+
+function generateSyncopation(analysis) {
+  // Add off-beat accents
+  Object.keys(instruments).forEach(inst => {
+    const instData = instruments[inst];
+    if (instData.type !== 'drum') return;
+    
+    for (let i = 0; i < state.sequenceLength; i++) {
+      // Target off-beats (odd steps)
+      if (i % 2 === 1 && !patterns[inst][i].active && Math.random() > 0.6) {
+        patterns[inst][i].active = true;
+        patterns[inst][i].velocity = 0.5 + Math.random() * 0.3;
+        patterns[inst][i].probability = 70 + Math.random() * 25;
+      }
+      
+      // Occasionally accent existing off-beats
+      if (i % 2 === 1 && patterns[inst][i].active && Math.random() > 0.7) {
+        patterns[inst][i].velocity = Math.min(1, patterns[inst][i].velocity * 1.3);
+      }
+    }
+  });
+}
+
+// Melodic AI variations
+function generateMelodicAIVariation() {
+  const melodicInsts = ['bass', 'guitar', 'keys', 'lead'];
+  
+  if (!melodicInsts.some(inst => patterns[inst].some(s => s.active))) {
+    showToast('❌ Generate melodies first', 'error');
+    return;
+  }
+  
+  showToast('🎹 AI generating melodic variation...', 'info');
+  
+  const variationType = Math.random();
+  
+  if (variationType < 0.33) {
+    generateMelodicInversion();
+    showToast('🎲 Applied: Melodic Inversion', 'success');
+  } else if (variationType < 0.66) {
+    generateArpeggiation();
+    showToast('🎲 Applied: Arpeggiation', 'success');
+  } else {
+    generateHarmonicVariation();
+    showToast('🎲 Applied: Harmonic Variation', 'success');
+  }
+  
+  renderSequencer();
+}
+
+function generateMelodicInversion() {
+  // Invert melodic contours
+  const melodicInsts = ['bass', 'guitar', 'keys', 'lead'];
+  
+  melodicInsts.forEach(inst => {
+    const notes = patterns[inst]
+      .filter(s => s.active && s.note)
+      .map(s => s.note);
+    
+    if (notes.length === 0) return;
+    
+    // Find pivot point (median note)
+    const midiNotes = notes.map(n => Tone.Frequency(n).toMidi());
+    const pivot = midiNotes.reduce((a, b) => a + b, 0) / midiNotes.length;
+    
+    // Invert around pivot
+    patterns[inst].forEach(step => {
+      if (step.active && step.note) {
+        const midi = Tone.Frequency(step.note).toMidi();
+        const distance = midi - pivot;
+        const newMidi = Math.round(pivot - distance);
+        step.note = Tone.Frequency(newMidi, 'midi').toNote();
+      }
+    });
+  });
+}
+
+function generateArpeggiation() {
+  // Convert chords to arpeggios
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  const octave = state.octave;
+  
+  // Target keys instrument
+  patterns.keys.forEach(step => step.active = false);
+  
+  // Create ascending arpeggio
+  const arpPattern = [0, 2, 4, 2]; // I - III - V - III
+  const arpSpeed = 2; // Every 2 steps
+  
+  for (let i = 0; i < state.sequenceLength; i += arpSpeed) {
+    const degree = arpPattern[(i / arpSpeed) % arpPattern.length];
+    const note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + octave;
+    
+    if (i < state.sequenceLength) {
+      patterns.keys[i].active = true;
+      patterns.keys[i].note = note;
+      patterns.keys[i].velocity = 0.6 + Math.random() * 0.2;
+      patterns.keys[i].duration = '8n';
+    }
+  }
+}
+
+function generateHarmonicVariation() {
+  // Change chord voicings/extensions
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  const octave = state.octave;
+  
+  patterns.keys.forEach((step, idx) => {
+    if (!step.active) return;
+    
+    // Add 9ths and 11ths for color
+    if (Math.random() > 0.5) {
+      const baseNote = Array.isArray(step.note) ? step.note[0] : step.note;
+      const match = baseNote.match(/^([A-G]#?)(\d+)$/);
+      if (!match) return;
+      
+      const [, noteName, oct] = match;
+      const noteIndex = keysArr.indexOf(noteName);
+      
+      // Add extensions
+      const extensions = [];
+      
+      // 9th
+      if (Math.random() > 0.3) {
+        const ninth = keysArr[(noteIndex + scaleIntervals[1]) % 12] + (parseInt(oct) + 1);
+        extensions.push(ninth);
+      }
+      
+      // 11th
+      if (Math.random() > 0.5) {
+        const eleventh = keysArr[(noteIndex + scaleIntervals[3]) % 12] + (parseInt(oct) + 1);
+        extensions.push(eleventh);
+      }
+      
+      if (extensions.length > 0) {
+        const originalChord = Array.isArray(step.note) ? step.note : [step.note];
+        step.note = [...originalChord, ...extensions];
+      }
+    }
+  });
+}
+
+// Groove template system
+function applyGrooveTemplate(template) {
+  const templates = {
+    shuffle: {
+      name: 'Shuffle',
+      swing: 66,
+      hihatPattern: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+      velocityMap: [0.8, 0.4, 0.7, 0.35, 0.8, 0.4, 0.7, 0.35]
+    },
+    halfTime: {
+      name: 'Half-Time',
+      bpmMultiplier: 0.5,
+      kickPattern: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+      snarePattern: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]
+    },
+    doubleTime: {
+      name: 'Double-Time',
+      bpmMultiplier: 2,
+      kickPattern: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+      hihatPattern: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    },
+    breakbeat: {
+      name: 'Breakbeat',
+      kickPattern: [1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],
+      snarePattern: [0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,1],
+      complexity: 3
+    }
+  };
+  
+  const groove = templates[template];
+  if (!groove) return;
+  
+  showToast(`🎵 Applying ${groove.name} groove...`, 'info');
+  
+  // Apply BPM change
+  if (groove.bpmMultiplier) {
+    state.bpm = Math.round(state.bpm * groove.bpmMultiplier);
+    state.bpm = clamp(state.bpm, 60, CONFIG.MAX_BPM);
+    Tone.Transport.bpm.value = state.bpm;
+    document.getElementById('bpmSlider').value = state.bpm;
+    document.getElementById('bpmValue').textContent = state.bpm;
+  }
+  
+  // Apply swing
+  if (groove.swing !== undefined) {
+    state.swing = groove.swing;
+    Tone.Transport.swing = state.swing / 100;
+    document.getElementById('swingSlider').value = state.swing;
+    document.getElementById('swingValue').textContent = state.swing + '%';
+  }
+  
+  // Apply patterns
+  if (groove.kickPattern) {
+    patterns.kick.forEach((step, i) => {
+      const patternIndex = i % groove.kickPattern.length;
+      step.active = groove.kickPattern[patternIndex] === 1;
+      if (step.active) {
+        step.velocity = 0.8;
+        step.probability = 100;
+      }
+    });
+  }
+  
+  if (groove.snarePattern) {
+    patterns.snare.forEach((step, i) => {
+      const patternIndex = i % groove.snarePattern.length;
+      step.active = groove.snarePattern[patternIndex] === 1;
+      if (step.active) {
+        step.velocity = 0.75;
+        step.probability = 100;
+      }
+    });
+  }
+  
+  if (groove.hihatPattern) {
+    patterns.hihat.forEach((step, i) => {
+      const patternIndex = i % groove.hihatPattern.length;
+      step.active = groove.hihatPattern[patternIndex] === 1;
+      if (step.active) {
+        const velIdx = i % groove.velocityMap.length;
+        step.velocity = groove.velocityMap ? groove.velocityMap[velIdx] : 0.6;
+        step.probability = 100;
+      }
+    });
+  }
+  
+  renderSequencer();
+  showToast(`✅ ${groove.name} groove applied!`, 'success');
+}
+  
 // Lo-Fi: Laid back, off-grid, jazzy
 function generateLoFiBeat() {
   // DON'T set BPM - user controls it
@@ -10500,6 +11179,10 @@ function init() {
   checkAudioPermissions();
   checkSamplesLoaded();
   loadSavedVibe();
+
+  if (typeof window.storage !== 'undefined') {
+    loadCustomSampleStatus();
+  }
 }
   
 // -------------------- Entry Point --------------------
