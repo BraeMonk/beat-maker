@@ -5269,10 +5269,12 @@ function setupSampleUpload() {
     
     // Clear custom samples from storage
     try {
-      const keys = await window.storage.list('custom-sample:');
-      if (keys && keys.keys) {
-        for (const key of keys.keys) {
-          await window.storage.delete(key);
+      if (typeof window.storage !== 'undefined') {
+        const keys = await window.storage.list('custom-sample:');
+        if (keys && keys.keys) {
+          for (const key of keys.keys) {
+            await window.storage.delete(key);
+          }
         }
       }
     } catch (e) {
@@ -5297,29 +5299,49 @@ function renderSampleUploadGrid() {
   
   grid.innerHTML = '';
   
-  Object.keys(instruments).forEach(inst => {
+  // Get all drum and atmospheric instruments
+  const uploadableInstruments = Object.keys(instruments).filter(inst => 
+    instruments[inst].type === 'drum' || instruments[inst].type === 'atmospheric'
+  );
+  
+  uploadableInstruments.forEach(inst => {
     const data = instruments[inst];
-    if (data.type !== 'drum' && data.type !== 'atmospheric') return;
     
     const card = document.createElement('div');
     card.className = 'panel';
     card.style.padding = 'var(--space-4)';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+    card.style.gap = 'var(--space-3)';
+    
+    // Check if custom sample is loaded
+    const hasCustom = synths[inst]?.isCustom === true;
     
     card.innerHTML = `
       <div style="text-align: center;">
         <div style="font-size: var(--text-3xl); margin-bottom: var(--space-2);">${data.icon}</div>
-        <div style="font-weight: 700; margin-bottom: var(--space-3); color: var(--text-primary);">
+        <div style="font-weight: 700; margin-bottom: var(--space-2); color: var(--text-primary);">
           ${data.name}
         </div>
+      </div>
+      
+      <div class="sample-status" data-inst="${inst}" 
+           style="font-size: var(--text-xs); color: var(--text-tertiary); text-align: center; min-height: 2em;">
+        ${hasCustom ? '✅ Custom sample loaded' : 'Using default'}
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: var(--space-2);">
         <button class="btn btn-primary btn-sm upload-sample-btn" data-inst="${inst}">
           📤 Upload Sample
         </button>
-        <button class="btn btn-ghost btn-sm preview-sample-btn" data-inst="${inst}" style="margin-top: var(--space-2);">
+        <button class="btn btn-secondary btn-sm preview-sample-btn" data-inst="${inst}">
           ▶️ Preview
         </button>
-        <div class="sample-status" data-inst="${inst}" style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-2);">
-          Using default
-        </div>
+        ${hasCustom ? `
+          <button class="btn btn-ghost btn-sm clear-sample-btn" data-inst="${inst}">
+            🗑️ Remove Custom
+          </button>
+        ` : ''}
       </div>
     `;
     
@@ -5332,11 +5354,17 @@ function renderSampleUploadGrid() {
       const inst = btn.dataset.inst;
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'audio/wav,audio/mp3,audio/mpeg,audio/ogg';
+      input.accept = 'audio/wav,audio/mp3,audio/mpeg,audio/ogg,audio/webm';
       
       input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          showToast('❌ File too large (max 10MB)', 'error');
+          return;
+        }
         
         await uploadCustomSample(inst, file);
       };
@@ -5353,10 +5381,36 @@ function renderSampleUploadGrid() {
     });
   });
   
+  // Clear custom sample listeners
+  grid.querySelectorAll('.clear-sample-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const inst = btn.dataset.inst;
+      
+      if (!confirm(`Remove custom sample for ${instruments[inst].name}?`)) return;
+      
+      try {
+        // Delete from storage
+        if (typeof window.storage !== 'undefined') {
+          await window.storage.delete(`custom-sample:${inst}`);
+        }
+        
+        // Reload default
+        createInstrumentChain(inst);
+        
+        renderSampleUploadGrid();
+        showToast(`✅ ${instruments[inst].name} restored to default`, 'success');
+        
+      } catch (err) {
+        console.error('Failed to remove custom sample:', err);
+        showToast(`❌ Failed to remove: ${err.message}`, 'error');
+      }
+    });
+  });
+  
   // Load custom sample status
   loadCustomSampleStatus();
 }
-
+  
 async function uploadCustomSample(inst, file) {
   try {
     showToast(`⏳ Loading ${file.name}...`, 'info');
@@ -5568,6 +5622,7 @@ async function loadCustomSampleStatus() {
     console.warn('Could not load custom samples:', e);
   }
 }
+  
 function previewInstrument(inst) {
   const synth = synths[inst];
   if (!synth) {
@@ -5575,8 +5630,22 @@ function previewInstrument(inst) {
     return;
   }
   
+  // Check if it's loaded
+  if (!synth.loaded) {
+    showToast('⏳ Sample still loading...', 'warning');
+    return;
+  }
+  
   const time = Tone.now();
-  synth.triggerAttackRelease('C2', '8n', time, 0.8);
+  
+  // For drum samples, trigger at standard note
+  if (instruments[inst].type === 'drum' || instruments[inst].type === 'atmospheric') {
+    synth.triggerAttackRelease('C2', '8n', time, 0.8);
+  } else {
+    // For melodic instruments
+    const note = instruments[inst].note || 'C4';
+    synth.triggerAttackRelease(note, '8n', time, 0.8);
+  }
   
   showToast(`▶️ ${instruments[inst].name}`, 'info');
 }
