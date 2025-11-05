@@ -3300,7 +3300,23 @@
       border-radius: var(--radius-xs);
       background: rgba(0,0,0,0.3);
     }
+
+    .pro-locked-overlay {
+      position: absolute;
+      inset: 0;
+      backdrop-filter: blur(3px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 1rem;
+    }
     
+    body.pro .pro-locked-overlay {
+      display: none;
+    }
+
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
       .transport{
@@ -3550,6 +3566,20 @@
         <button class="sidebar-tab" data-tab="harmony">🎼 Harmony</button>
         <button class="sidebar-tab" data-tab="multitrack">🎙️ Multitrack</button>
         <!--<button class="sidebar-tab" data-tab="samples">📂 Samples</button> -->
+        <button id="unlockProBtn">🔓 Unlock Pro</button>
+
+        <div id="unlockModal" class="modal hidden">
+          <div class="modal-inner">
+            <h2>Unlock 8-Beat Studio Pro</h2>
+            <p>Paste your license key to unlock all features.</p>
+            <input id="licenseInput" type="text" placeholder="8BEAT-XXXX-XXXX-XXXX">
+            <div class="modal-actions">
+              <button id="confirmLicenseBtn">Confirm</button>
+              <button id="cancelLicenseBtn">Cancel</button>
+            </div>
+            <p id="licenseStatus" class="status"></p>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -11908,7 +11938,87 @@ function toggleSidebar() {
     openSidebar();
   }
 }
-  
+
+const LICENSE_API_URL = 'https://script.google.com/macros/s/AKfycbxvYwLDd0frF6GraU1RSX6q6xnxtVU3FwcVoeTVTsNNtf1C2zEm-DeAeVgCm1c4TbLh/exec'; // no query string
+
+function isPro() {
+  return localStorage.getItem('8beat.pro') === 'true';
+}
+
+function getSavedLicenseKey() {
+  return localStorage.getItem('8beat.licenseKey') || '';
+}
+
+async function validateLicenseKey(key) {
+  const url = `${LICENSE_API_URL}?action=validate&key=${encodeURIComponent(key.trim())}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Network error');
+  const data = await res.json();
+  return data.valid === true;
+}
+
+function enableProFeatures() {
+  document.body.classList.add('pro');
+  // Any extra JS toggles if needed:
+  // e.g. show/hide sections, remove "locked" overlays, etc.
+}
+
+function initLicenseUI() {
+  const unlockBtn = document.getElementById('unlockProBtn');
+  const modal = document.getElementById('unlockModal');
+  const input = document.getElementById('licenseInput');
+  const status = document.getElementById('licenseStatus');
+  const confirmBtn = document.getElementById('confirmLicenseBtn');
+  const cancelBtn = document.getElementById('cancelLicenseBtn');
+
+  if (!unlockBtn || !modal) return;
+
+  function openModal() {
+    modal.classList.remove('hidden');
+    status.textContent = '';
+    const savedKey = getSavedLicenseKey();
+    if (savedKey) input.value = savedKey;
+    input.focus();
+  }
+
+  function closeModal() {
+    modal.classList.add('hidden');
+  }
+
+  unlockBtn.addEventListener('click', openModal);
+  cancelBtn.addEventListener('click', closeModal);
+
+  confirmBtn.addEventListener('click', async () => {
+    const key = input.value.trim();
+    if (!key) {
+      status.textContent = 'Please paste your license key.';
+      return;
+    }
+    status.textContent = 'Checking key…';
+
+    try {
+      const valid = await validateLicenseKey(key);
+      if (valid) {
+        localStorage.setItem('8beat.licenseKey', key);
+        localStorage.setItem('8beat.pro', 'true');
+        enableProFeatures();
+        status.textContent = '✅ Pro unlocked! Enjoy.';
+        setTimeout(closeModal, 800);
+      } else {
+        status.textContent = '❌ Invalid or inactive license key.';
+      }
+    } catch (err) {
+      console.error(err);
+      status.textContent = '❌ Error contacting license server.';
+    }
+  });
+
+  // On load, auto-unlock if already Pro
+  if (isPro()) {
+    enableProFeatures();
+  }
+}
+
 // -------------------- Initialization --------------------
 function init() {
   initAudioContext();
@@ -11916,6 +12026,7 @@ function init() {
   ensurePatternLength(state.sequenceLength);
   setupEventListeners();
   setupMultitrackListeners(); // Add this explicit call
+  initLicenseUI();
   renderSequencer();
   renderMixer();
   renderFX();
