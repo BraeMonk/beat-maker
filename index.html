@@ -9194,13 +9194,23 @@ class AudioTrack {
   
   reconnectFxChain() {
     if (this.isExternalAudio && this.externalInput) {
+      // Disconnect all first
       this.fxChain.forEach(fx => {
         if (fx.node && typeof fx.node.disconnect === 'function') {
-          fx.node.disconnect();
+          try {
+            fx.node.disconnect();
+          } catch (e) {
+            console.warn('FX already disconnected:', e);
+          }
         }
       });
       
-      this.externalInput.disconnect();
+      // CRITICAL: Disconnect input before reconnecting
+      try {
+        this.externalInput.disconnect();
+      } catch (e) {
+        console.warn('Input already disconnected:', e);
+      }
       
       let lastNode = this.externalInput;
       
@@ -9213,33 +9223,34 @@ class AudioTrack {
       
       lastNode.connect(this.channel);
       
-      console.log(`🔗 Reconnected FX chain for external audio: ${this.fxChain.filter(f => f.enabled).length} active effects`);
-      
     } else {
+      // Internal audio track logic (unchanged)
       const instSynth = synths[this.instrument];
       if (!instSynth) return;
       
       this.fxChain.forEach(fx => {
         if (fx.node && typeof fx.node.disconnect === 'function') {
-          fx.node.disconnect();
+          try {
+            fx.node.disconnect();
+          } catch (e) {}
         }
       });
       
       let sourceNode = null;
       
       if (typeof instSynth.disconnect === 'function') {
-        instSynth.disconnect();
+        try {
+          instSynth.disconnect();
+        } catch (e) {}
         sourceNode = instSynth;
       } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-        instSynth.gain.disconnect();
+        try {
+          instSynth.gain.disconnect();
+        } catch (e) {}
         sourceNode = instSynth.gain;
-      } else if (instSynth.player && typeof instSynth.player.disconnect === 'function') {
-        instSynth.player.disconnect();
-        sourceNode = instSynth.player;
-      } else {
-        console.warn(`Cannot reconnect FX for ${this.instrument} - unknown synth type`);
-        return;
       }
+      
+      if (!sourceNode) return;
       
       let lastNode = sourceNode;
       
@@ -9251,8 +9262,6 @@ class AudioTrack {
       });
       
       lastNode.connect(this.channel);
-      
-      console.log(`🔗 Reconnected FX chain for ${this.instrument}: ${this.fxChain.filter(f => f.enabled).length} active effects`);
     }
   }
   
@@ -10273,15 +10282,21 @@ function setupRegionInteractions(stripEl, track) {
   document.addEventListener('mouseup', endDrag);
   document.addEventListener('touchend', endDrag);
   
-  // Draw waveforms
-  setTimeout(() => {
-    track.takes.forEach((take, idx) => {
-      const canvas = stripEl.querySelector(`canvas[data-take-id="${take.id}"]`);
-      if (canvas && take.buffer) {
-        drawRegionWaveform(canvas, take.buffer);
-      }
-    });
-  }, 100);
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      track.takes.forEach((take, idx) => {
+        const canvas = stripEl.querySelector(`canvas[data-take-id="${take.id}"]`);
+        if (canvas && take.buffer) {
+          // Ensure canvas has dimensions
+          if (canvas.width === 0 || canvas.height === 0) {
+            canvas.width = Math.max(100, take.duration * (multitrack.zoom || 100));
+            canvas.height = 20;
+          }
+          drawRegionWaveform(canvas, take.buffer);
+        }
+      });
+    }, 200); // Increased delay
+  });
 }
   
 function handleRegionAction(trackId, takeIndex, action, event) {
@@ -10967,24 +10982,25 @@ function applyFadeCurve(progress, curve) {
 
 function updateTimelineRuler() {
   const markers = document.getElementById('timelineMarkers');
-  if (!markers) return;
+  const wrapper = document.querySelector('.multitrack-wrapper');
+  if (!markers || !wrapper) return;
   
   markers.innerHTML = '';
   
   const zoom = multitrack.zoom || 100;
-  const projectDurationSeconds = state.duration * 60; // Convert minutes to seconds
-  const totalWidth = projectDurationSeconds * zoom; // Match project duration
+  const projectDurationSeconds = state.duration * 60;
+  const totalWidth = projectDurationSeconds * zoom;
   
-  // Calculate interval based on zoom
-  let interval = 1; // seconds
+  // CRITICAL: Force wrapper and markers to same width
+  wrapper.style.minWidth = totalWidth + 'px';
+  markers.style.minWidth = totalWidth + 'px';
+  markers.style.width = totalWidth + 'px';
+  
+  let interval = 1;
   if (zoom < 50) interval = 5;
   else if (zoom < 25) interval = 10;
   else if (zoom > 200) interval = 0.5;
   
-  // CRITICAL FIX: Set the markers container width to match timeline
-  markers.style.minWidth = totalWidth + 'px';
-  
-  // Create markers up to project duration
   for (let t = 0; t <= projectDurationSeconds; t += interval) {
     const x = t * zoom;
     const isMajor = t % (interval * 4) === 0;
@@ -11226,10 +11242,7 @@ function startPlayheadAnimation() {
   const playhead = document.getElementById('timelinePlayhead');
   const wrapper = document.querySelector('.multitrack-wrapper');
   
-  if (!playhead || !wrapper) {
-    console.error('❌ Missing playhead or wrapper');
-    return;
-  }
+  if (!playhead || !wrapper) return;
   
   const zoom = multitrack.zoom || 100;
   
@@ -11239,33 +11252,30 @@ function startPlayheadAnimation() {
       return;
     }
     
-    // SINGLE SOURCE OF TRUTH: Tone.Transport.seconds
     const currentTime = Tone.Transport.seconds;
     const xPos = currentTime * zoom;
     
     playhead.style.left = xPos + 'px';
     
-    // Auto-scroll to keep playhead in view (30-70% of viewport)
+    // FIXED: Better scroll logic
     const wrapperWidth = wrapper.clientWidth;
     const currentScroll = wrapper.scrollLeft;
     const playheadScreenPos = xPos - currentScroll;
     
-    const leftThreshold = wrapperWidth * 0.3;
-    const rightThreshold = wrapperWidth * 0.7;
+    // Keep playhead in center 40-60% range
+    const minPos = wrapperWidth * 0.4;
+    const maxPos = wrapperWidth * 0.6;
     
-    if (playheadScreenPos < leftThreshold) {
-      // Smooth scroll to keep playhead at 30%
-      wrapper.scrollLeft = xPos - wrapperWidth * 0.3;
-    } else if (playheadScreenPos > rightThreshold) {
-      // Smooth scroll to keep playhead at 70%
-      wrapper.scrollLeft = xPos - wrapperWidth * 0.7;
+    if (playheadScreenPos < minPos) {
+      wrapper.scrollLeft = Math.max(0, xPos - wrapperWidth * 0.5);
+    } else if (playheadScreenPos > maxPos) {
+      wrapper.scrollLeft = xPos - wrapperWidth * 0.5;
     }
     
     playheadAnimationId = requestAnimationFrame(animate);
   };
   
   playheadAnimationId = requestAnimationFrame(animate);
-  console.log('✅ Playhead animation started');
 }
 
 function stopPlayheadAnimation() {
@@ -12858,41 +12868,25 @@ function setupMultitrackListeners() {
   }
   
   const addFxBtn = document.getElementById('addFxBtn');
+  // In setupMultitrackListeners(), replace the FX menu section with:
   const fxAddMenu = document.getElementById('fxAddMenu');
-  
-  if (addFxBtn && fxAddMenu) {
-    addFxBtn.onclick = (e) => {
-      e.stopPropagation();
+  if (fxAddMenu) {
+    fxAddMenu.addEventListener('click', (e) => {
+      const item = e.target.closest('.fx-add-item');
+      if (!item) return;
       
-      // FIXED: Position menu at click location
-      const rect = addFxBtn.getBoundingClientRect();
-      const menuHeight = 400; // approximate max height
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
+      const fxType = item.dataset.fxType;
+      const trackId = multitrack.currentFxTrackId;
+      const track = multitrack.tracks.find(t => t.id === trackId);
       
-      // Position menu where there's more space
-      if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
-        // Open upward
-        fxAddMenu.style.bottom = 'auto';
-        fxAddMenu.style.top = 'auto';
-        fxAddMenu.style.transform = 'translateY(-100%)';
-      } else {
-        // Open downward (default)
-        fxAddMenu.style.bottom = 'auto';
-        fxAddMenu.style.top = '100%';
-        fxAddMenu.style.transform = 'none';
-      }
+      if (!track) return;
       
-      fxAddMenu.style.display = fxAddMenu.style.display === 'block' ? 'none' : 'block';
-    };
-    
-    // Close on outside click
-    document.onclick = (e) => {
-      const dropdown = document.getElementById('fxAddDropdown');
-      if (dropdown && !dropdown.contains(e.target)) {
-        fxAddMenu.style.display = 'none';
-      }
-    };
+      track.addFx(fxType);
+      renderFxChain(track);
+      fxAddMenu.style.display = 'none';
+      
+      showToast(`✅ Added ${fxType}`, 'success');
+    });
   }
 }
   
