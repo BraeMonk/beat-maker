@@ -2732,1555 +2732,942 @@
       border: 1px solid var(--glass-border);
     }
     
-    /* 🎛️ Floating Add Track Button for Mobile */
-    .daw-fab {
-      position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
-      background: var(--accent, #4caf50);
-      color: white;
-      font-size: 1.5rem;
-      border: none;
-      border-radius: 50%;
-      width: 56px;
-      height: 56px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-      z-index: 9999;
-      cursor: pointer;
-      display: none; /* Hidden on desktop */
-      transition: transform 0.2s ease, background 0.3s;
-    }
-    
-    .daw-fab:hover {
-      transform: scale(1.05);
-      background: var(--accent-hover, #43a047);
-    }
-    
-    /* Show only on mobile / tablet */
-    @media (max-width: 1024px) {
-      .daw-fab {
-        display: block;
-      }
-    }
-    
     /* ==================== PROFESSIONAL DAW / MULTITRACK ==================== */
-    
-    /* === TRANSPORT BAR === */
-    .daw-transport-bar {
-      display: flex;
-      align-items: center;
-      gap: var(--space-4);
-      padding: var(--space-4) var(--space-5);
-      background: var(--surface-elevated);
-      border: 1px solid var(--glass-border-strong);
-      border-radius: var(--radius-lg);
-      margin-bottom: var(--space-4);
-      box-shadow: var(--shadow-md);
-      flex-wrap: wrap;
-    }
-    
-    .transport-section {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
-    
-    .transport-btn {
-      width: 44px;
-      height: 44px;
-      border: none;
-      border-radius: var(--radius-md);
-      background: var(--glass-bg);
-      color: var(--text-primary);
-      font-size: var(--text-xl);
-      cursor: pointer;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      display: grid;
-      place-items: center;
-    }
-    
-    .transport-btn:hover {
-      background: var(--glass-bg-strong);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .transport-btn:active {
-      transform: translateY(0);
-    }
-    
-    .transport-btn.active {
-      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-      color: var(--bg-primary);
-      box-shadow: var(--shadow-md), var(--glow-sm) color-mix(in oklab, var(--accent-primary) 40%, transparent);
-    }
-    
-    .transport-display {
-      padding: var(--space-2) var(--space-4);
-      background: rgba(0, 0, 0, 0.4);
-      border-radius: var(--radius-sm);
-      font-family: var(--font-mono);
-      font-weight: 700;
-      font-size: var(--text-base);
-      color: var(--text-primary);
-      min-width: 120px;
-      text-align: center;
-    }
-    
-    /* === MAIN CONTAINER: 3-COLUMN LAYOUT === */
-    .daw-main-container {
-      display: grid;
-      grid-template-columns: 280px 1fr 320px; /* Track list | Timeline | Inspector */
-      gap: var(--space-4);
-      height: 600px;
-      min-height: 600px;
-      max-height: calc(100vh - 400px);
-      margin-bottom: var(--space-4);
-    }
-    
-    /* === LEFT: TRACK LIST / MIXER COLUMN === */
-    .daw-track-list {
-      display: flex;
-      flex-direction: column;
-      background: var(--surface);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-    }
-    
-    .daw-section-header {
-      padding: var(--space-3) var(--space-4);
-      background: var(--glass-bg-strong);
-      border-bottom: 1px solid var(--glass-border);
-      font-weight: 800;
-      font-size: var(--text-sm);
-      color: var(--text-primary);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .daw-track-list-scroll {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
-    
-    .daw-track-strip {
-      padding: var(--space-3);
-      border-bottom: 1px solid var(--glass-border);
-      cursor: pointer;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-    }
-    
-    .daw-track-strip:hover {
-      background: var(--glass-bg);
-    }
-    
-    .daw-track-strip.selected {
-      background: linear-gradient(90deg, 
-        color-mix(in oklab, var(--accent-primary) 15%, transparent),
-        transparent);
-      border-left: 3px solid var(--accent-primary);
-    }
-    
-    .daw-track-strip.recording {
-      background: linear-gradient(90deg,
-        color-mix(in oklab, var(--error) 15%, transparent),
-        transparent);
-      border-left: 3px solid var(--error);
-      animation: recordPulse 1s ease-in-out infinite;
-    }
-    
-    .track-strip-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--space-2);
-    }
-    
-    .track-strip-name {
-      font-weight: 700;
-      font-size: var(--text-sm);
-      color: var(--text-primary);
-      cursor: text;
-    }
-    
-    .track-strip-controls {
-      display: flex;
-      gap: var(--space-1);
-    }
-    
-    .track-strip-btn {
-      width: 28px;
-      height: 28px;
-      border: none;
-      border-radius: var(--radius-xs);
-      background: var(--glass-bg);
-      color: var(--text-tertiary);
-      font-size: var(--text-xs);
-      font-weight: 800;
-      cursor: pointer;
-      transition: all var(--duration-fast) var(--ease-smooth);
-    }
-    
-    .track-strip-btn:hover {
-      background: var(--glass-bg-strong);
-      color: var(--text-primary);
-    }
-    
-    .track-strip-btn.active {
-      background: var(--error);
-      color: white;
-    }
-    
-    .track-strip-meters {
-      display: flex;
-      gap: var(--space-1);
-      height: 32px;
-      margin-bottom: var(--space-2);
-    }
-    
-    .track-meter-bar {
-      flex: 1;
-      background: rgba(0, 0, 0, 0.4);
-      border-radius: var(--radius-xs);
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .track-meter-fill {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(to top,
-        var(--success) 0%,
-        var(--success) 60%,
-        var(--warning) 75%,
-        var(--error) 90%);
-      transition: height 50ms linear;
-    }
-    
-    .track-strip-fader {
-      width: 100%;
-      height: 80px;
-      writing-mode: bt-lr;
-      -webkit-appearance: slider-vertical;
-      appearance: slider-vertical;
-    }
-    
-    /* Master Strip */
-    .daw-master-strip {
-      padding: var(--space-4);
-      background: var(--glass-bg-strong);
-      border-top: 2px solid var(--glass-border-strong);
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-3);
-    }
-    
-    .daw-meters {
-      display: flex;
-      gap: var(--space-2);
-      height: 120px;
-    }
-    
-    .daw-meter-bar {
-      flex: 1;
-      background: rgba(0, 0, 0, 0.6);
-      border-radius: var(--radius-sm);
-      position: relative;
-      overflow: hidden;
-    }
-    
-    #masterFader {
-      height: 120px;
-      writing-mode: bt-lr;
-      -webkit-appearance: slider-vertical;
-      appearance: slider-vertical;
-    }
-    
-    .daw-fader-label {
-      text-align: center;
-      font-family: var(--font-mono);
-      font-weight: 700;
-      font-size: var(--text-sm);
-      color: var(--text-primary);
-    }
-    
-    /* === CENTER: TIMELINE / ARRANGEMENT VIEW === */
-    .daw-timeline-container {
-      display: flex;
-      flex-direction: column;
-      background: var(--surface);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-    }
-    
-    .daw-timeline-toolbar {
-      display: flex;
-      align-items: center;
-      gap: var(--space-4);
-      padding: var(--space-3) var(--space-4);
-      background: var(--glass-bg);
-      border-bottom: 1px solid var(--glass-border);
-      flex-wrap: wrap;
-    }
-    
-    .toolbar-group {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
-    
-    .toolbar-label {
-      font-size: var(--text-xs);
-      color: var(--text-tertiary);
-      font-weight: 700;
-    }
-    
-    /* Tool buttons (select/pencil/split/fade) */
-    .tool-btn {
-      width: 36px;
-      height: 36px;
-      border: none;
-      border-radius: var(--radius-sm);
-      background: var(--glass-bg);
-      color: var(--text-secondary);
-      font-size: var(--text-lg);
-      cursor: pointer;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      display: grid;
-      place-items: center;
-    }
-    
-    .tool-btn:hover {
-      background: var(--glass-bg-strong);
-      color: var(--text-primary);
-    }
-    
-    .tool-btn.active {
-      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-      color: var(--bg-primary);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    /* === RULER + PLAYHEAD === */
-    .daw-ruler {
-      position: relative;
-      height: 48px;
-      background: linear-gradient(180deg, var(--bg-secondary), var(--bg-tertiary));
-      border-bottom: 2px solid var(--glass-border-strong);
-      overflow: hidden;
-    }
-    
-    .daw-ruler-markers {
-      position: relative;
-      height: 100%;
-      width: var(--timeline-width, 100%);
-      min-width: var(--timeline-width, 100%);
-    }
-    
-    .daw-ruler-marker {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-      background: rgba(255, 255, 255, 0.15);
-    }
-    
-    .daw-ruler-marker.bar {
-      width: 2px;
-      background: rgba(255, 255, 255, 0.3);
-    }
-    
-    .daw-ruler-label {
-      position: absolute;
-      bottom: 4px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-tertiary);
-      pointer-events: none;
-    }
-    
-    .daw-playhead {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: var(--error);
-      pointer-events: none;
-      z-index: 100;
-      box-shadow: 0 0 12px var(--error);
-    }
-    
-    .daw-playhead::before {
-      content: '';
-      position: absolute;
-      top: -6px;
-      left: -5px;
-      width: 0;
-      height: 0;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-top: 8px solid var(--error);
-    }
-    
-    .daw-loop-region {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      background: rgba(124, 131, 255, 0.15);
-      border-left: 2px solid var(--accent-primary);
-      border-right: 2px solid var(--accent-primary);
-      pointer-events: none;
-    }
-    
-    /* Loop region highlight over tracks */
-    .loop-region-highlight {
-      position: absolute;
-      top: 0;
-      height: 100%;
-      background: rgba(0, 200, 255, 0.2);
-      border-left: 2px solid var(--accent-primary);
-      border-right: 2px solid var(--accent-primary);
-      pointer-events: none;
-      z-index: 5;
-      display: none;
-    }
-    
-    /* === ARRANGEMENT VIEW === */
-    .daw-arrangement-scroll {
-      flex: 1;
-      overflow: auto;
-      background: var(--bg-primary);
-      position: relative;
-      scrollbar-width: thin;
-    }
-    
-    .daw-arrangement-scroll::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-    
-    .daw-arrangement-scroll::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    
-    .daw-arrangement-scroll::-webkit-scrollbar-thumb {
-      background: linear-gradient(135deg, 
-        color-mix(in oklab, var(--accent-primary) 85%, #fff), 
-        color-mix(in oklab, var(--accent-secondary) 85%, #fff));
-      border-radius: var(--radius-xs);
-      box-shadow: var(--glow-sm) color-mix(in oklab, var(--accent-primary) 30%, transparent);
-    }
-    
-    .daw-arrangement-grid {
-      position: relative;
-      width: var(--timeline-width, 100%);
-      min-width: var(--timeline-width, 100%);
-      min-height: 100%;
-    }
-    
-    /* Track lane rows (created in JS as .track-lane) */
-    .track-lane {
-      width: var(--timeline-width, 100%);
-      min-width: var(--timeline-width, 100%);
-      min-height: 120px;
-      border-bottom: 1px solid var(--glass-border);
-      position: relative;
-      background: repeating-linear-gradient(
-        90deg,
-        transparent 0px,
-        transparent calc(100% / 16 - 1px),
-        rgba(255, 255, 255, 0.02) calc(100% / 16 - 1px),
-        rgba(255, 255, 255, 0.02) calc(100% / 16)
-      );
-    }
-    
-    .track-lane:hover {
-      background-color: rgba(255, 255, 255, 0.01);
-    }
-    
-    /* === AUDIO REGIONS === */
-    .audio-region {
-      position: absolute;
-      height: 80px;
-      top: 20px;
-      background: linear-gradient(135deg,
-        color-mix(in oklab, var(--accent-primary) 40%, transparent),
-        color-mix(in oklab, var(--accent-secondary) 30%, transparent));
-      border: 1px solid color-mix(in oklab, var(--accent-primary) 60%, transparent);
-      border-radius: var(--radius-sm);
-      cursor: move;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.1);
-      user-select: none;
-    }
-    
-    .audio-region:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg), 0 0 20px color-mix(in oklab, var(--accent-primary) 30%, transparent);
-      border-color: var(--accent-primary);
-      z-index: 10;
-    }
-    
-    .audio-region.selected {
-      border-color: var(--accent-primary);
-      border-width: 2px;
-      box-shadow: var(--shadow-lg), 0 0 24px color-mix(in oklab, var(--accent-primary) 40%, transparent);
-      z-index: 20;
-    }
-    
-    .audio-region.muted {
-      opacity: 0.3;
-      filter: grayscale(1);
-    }
-    
-    .audio-region.dragging {
-      opacity: 0.8;
-      cursor: grabbing;
-      z-index: 100;
-      box-shadow: var(--shadow-2xl), 0 0 40px rgba(124, 131, 255, 0.4);
-    }
-    
-    .region-header {
-      position: absolute;
-      left: 0;
-      top: 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--space-2) var(--space-3);
-      background: rgba(0,0,0,.8);
-      backdrop-filter: blur(8px);
-      z-index: 100;
-      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-      width: 100%;
-    }
-    
-    .region-name {
-      font-size: var(--text-xs);
-      font-weight: 700;
-      color: var(--text-primary);
-      text-shadow: 0 1px 2px rgba(0,0,0,.5);
-      pointer-events: none;
-      margin-left: 0;
-      order: 2;
-    }
-    
-    .region-actions {
-      display: flex;
-      gap: var(--space-1);
-      opacity: 1;
-      pointer-events: auto;
-      z-index: 101;
-      order: 1;
-      margin-right: auto;
-    }
-    
-    .region-action-btn {
-      width: 32px;
-      height: 32px;
-      min-width: 32px;
-      min-height: 32px;
-      border: none;
-      border-radius: 0;
-      background: transparent;
-      color: #fff;
-      cursor: pointer;
-      font-size: 18px;
-      display: grid;
-      place-items: center;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      padding: 0;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.9);
-    }
-    
-    .region-action-btn:hover,
-    .region-action-btn:active {
-      transform: scale(1.2);
-      filter: brightness(1.3);
-    }
-    
-    .region-action-btn:active {
-      transform: scale(1.1);
-    }
-    
-    .region-waveform {
-      flex: 1;
-      position: relative;
-      padding: var(--space-2);
-    }
-    
-    .region-waveform canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-    
-    .region-resize-handle {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 8px;
-      cursor: ew-resize;
-      background: rgba(255,255,255,.1);
-      opacity: 0;
-      transition: opacity var(--duration-fast) var(--ease-smooth);
-      z-index: 10;
-    }
-    
-    .region-resize-handle.left {
-      left: 0;
-      border-left: 2px solid var(--accent-primary);
-    }
-    
-    .region-resize-handle.right {
-      right: 0;
-      border-right: 2px solid var(--accent-primary);
-    }
-    
-    .audio-region:hover .region-resize-handle {
-      opacity: 1;
-    }
-    
-    .region-resize-handle:hover {
-      background: rgba(255,255,255,.2);
-    }
-    
-    /* Empty track state */
-    .track-empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: var(--space-2);
-      height: 100%;
-      color: var(--text-muted);
-      font-size: var(--text-sm);
-      text-align: center;
-      padding: var(--space-6);
-    }
-    
-    .track-empty-state-icon {
-      font-size: var(--text-4xl);
-      opacity: 0.5;
-    }
-    
-    /* Recording indicator */
-    .recording-indicator {
-      position: absolute;
-      top: var(--space-2);
-      right: var(--space-2);
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      padding: var(--space-2) var(--space-3);
-      background: rgba(0,0,0,.7);
-      backdrop-filter: blur(8px);
-      border-radius: var(--radius-full);
-      font-size: var(--text-xs);
-      font-weight: 800;
-      color: #fff;
-      z-index: 50;
-    }
-    
-    .recording-indicator-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--error);
-      animation: recordingDotPulse 1s ease-in-out infinite;
-    }
-    
-    @keyframes recordingDotPulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.8); }
-    }
-    
-    /* === RIGHT: INSPECTOR PANEL === */
-    .daw-inspector {
-      display: flex;
-      flex-direction: column;
-      background: var(--surface);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-    }
-    
-    .daw-inspector-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: var(--space-4);
-    }
-    
-    .inspector-section {
-      margin-bottom: var(--space-6);
-    }
-    
-    .inspector-section-title {
-      font-weight: 800;
-      font-size: var(--text-sm);
-      color: var(--text-primary);
-      margin-bottom: var(--space-3);
-      padding-bottom: var(--space-2);
-      border-bottom: 1px solid var(--glass-border);
-    }
-    
-    /* Status Bar */
-    .daw-status-bar {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-3) var(--space-4);
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      font-size: var(--text-xs);
-      color: var(--text-tertiary);
-    }
-    
-    #dawStatusMessage {
-      color: var(--text-secondary);
-    }
-    
-    /* === FX CHAIN PANEL === */
-    .fx-chain-panel {
-      background: var(--surface-elevated);
-      border: 1px solid var(--glass-border-strong);
-      border-radius: var(--radius-lg);
-      padding: var(--space-6);
-      margin-top: var(--space-6);
-      box-shadow: var(--shadow-xl);
-    }
-    
-    .fx-chain-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--space-5);
-      padding-bottom: var(--space-4);
-      border-bottom: 1px solid var(--glass-border);
-    }
-    
-    .fx-chain-title {
-      font-size: var(--text-xl);
-      font-weight: 800;
-      color: var(--text-primary);
-    }
-    
-    .fx-add-dropdown {
-      position: relative;
-      display: inline-block;
-    }
-    
-    .fx-add-menu {
-      position: absolute;
-      min-width: 200px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--glass-border-strong);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-2xl);
-      backdrop-filter: blur(24px) saturate(150%);
-      padding: var(--space-2);
-      z-index: 10001;
-      display: none;
-    }
-    
-    .fx-add-item {
-      padding: var(--space-3) var(--space-4);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      color: var(--text-secondary);
-      font-weight: 600;
-      font-size: var(--text-sm);
-      transition: all var(--duration-fast) var(--ease-smooth);
-      border: 1px solid transparent;
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
-    
-    .fx-add-item:hover {
-      background: var(--glass-bg-strong);
-      color: var(--text-primary);
-      border-color: var(--glass-border);
-    }
-    
-    .fx-slots,
-    .fx-chain-slots {
-      display: grid;
-      gap: var(--space-4);
-    }
-    
-    /* Takes list styling (sidebar) */
-    .take-region {
-      position: relative;
-      padding: var(--space-2) var(--space-3);
-      background: linear-gradient(135deg,
-        color-mix(in oklab, var(--accent-primary) 30%, transparent),
-        color-mix(in oklab, var(--accent-secondary) 20%, transparent));
-      border: 1px solid color-mix(in oklab, var(--accent-primary) 60%, transparent);
-      border-radius: var(--radius-sm);
-      cursor: move;
-      user-select: none;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      font-size: var(--text-sm);
-      font-weight: 700;
-      margin-bottom: var(--space-2);
-    }
-    
-    .take-region:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-      border-color: var(--accent-primary);
-      z-index: 10;
-    }
-    
-    .take-region.selected {
-      border-color: var(--accent-primary);
-      border-width: 2px;
-      box-shadow: 
-        var(--shadow-lg),
-        0 0 24px color-mix(in oklab, var(--accent-primary) 40%, transparent);
-    }
-    
-    .take-region.muted {
-      opacity: 0.3;
-      filter: grayscale(1);
-    }
-    
-    .take-waveform-canvas {
-      width: 120px;
-      height: 40px;
-      border-radius: var(--radius-xs);
-      background: rgba(0,0,0,0.3);
-    }
-    
-    /* Region context menu */
-    .region-context-menu {
-      position: fixed;
-      min-width: 200px;
-      max-width: 300px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--glass-border-strong);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-2xl);
-      backdrop-filter: blur(24px) saturate(150%);
-      padding: var(--space-2);
-      z-index: 10000;
-      animation: contextMenuAppear var(--duration-fast) var(--ease-smooth);
-    }
-    
-    .region-context-item {
-      padding: var(--space-3) var(--space-4);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      font-weight: 600;
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-      transition: all var(--duration-fast) var(--ease-smooth);
-    }
-    
-    .region-context-item:hover {
-      background: var(--glass-bg-strong);
-      color: var(--text-primary);
-    }
-    
-    .region-context-item.danger:hover {
-      background: var(--error);
-      color: white;
-    }
-    
-    /* === RESPONSIVE BREAKPOINTS === */
-    @media (max-width: 1400px) {
-      .daw-main-container {
-        grid-template-columns: 240px 1fr 280px;
-      }
-    }
-    
-    @media (max-width: 1200px) {
-      .daw-main-container {
-        grid-template-columns: 200px 1fr;
-      }
-    
-      .daw-inspector {
-        position: fixed;
-        right: -340px;
-        top: var(--space-4);
-        bottom: var(--space-4);
-        width: 320px;
-        z-index: 1000;
-        transition: right var(--duration-slow) var(--ease-smooth);
-      }
-    
-      .daw-inspector.open {
-        right: var(--space-4);
-        box-shadow: var(--shadow-2xl);
-      }
-    }
-    
-    @media (max-width: 900px) {
-      .daw-main-container {
-        grid-template-columns: 1fr;
-        height: auto;
-        max-height: none;
-      }
-    
-      .daw-track-list {
-        border-radius: 0;
-        border-left: none;
-        border-right: none;
-      }
-    
-      .daw-transport-bar {
-        flex-direction: column;
-        align-items: stretch;
-      }
-    }
 
-    
-    /* Responsive adjustments */
-    @media (max-width: 1400px) {
-      .daw-main-container {
-        grid-template-columns: 240px 1fr 280px;
-      }
-    }
-    
-    @media (max-width: 1200px) {
-      .daw-main-container {
-        grid-template-columns: 200px 1fr;
-      }
-      
-      .daw-inspector {
-        position: fixed;
-        right: -340px;
-        top: var(--space-4);
-        bottom: var(--space-4);
-        width: 320px;
-        z-index: 1000;
-        transition: right var(--duration-slow) var(--ease-smooth);
-      }
-      
-      .daw-inspector.open {
-        right: var(--space-4);
-        box-shadow: var(--shadow-2xl);
-      }
-    }
-    
-    @media (max-width: 900px) {
-      .daw-main-container {
-        grid-template-columns: 1fr;
-        height: auto;
-        max-height: none;
-      }
-      
-      .daw-track-list {
-        display: none;
-      }
-      
-      .daw-transport-bar {
-        flex-direction: column;
-        align-items: stretch;
-      }
-    }
-    /* -------- Professional DAW Multitrack System -------- */
+/* === TRANSPORT BAR === */
+.daw-transport-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-elevated);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-4);
+  box-shadow: var(--shadow-md);
+  flex-wrap: wrap;
+}
 
-    /* === MULTITRACK TOOLBAR – RESPONSIVE, NO HORIZONTAL SCROLL === */
-    
-    .multitrack-toolbar {
-      display: flex;
-      flex-wrap: wrap;                /* wrap instead of scrolling sideways */
-      gap: var(--space-3);
-      align-items: center;
-      padding: var(--space-3) var(--space-4);
-      margin-bottom: var(--space-4);
-      background: var(--surface-elevated);
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--glass-border-strong);
-      box-shadow: var(--shadow-md);
-      overflow: visible;              /* no horizontal scrollbar here */
-    }
-    
-    /* Each group of controls */
-    .multitrack-toolbar .toolbar-section {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      flex-wrap: wrap;
-      padding-right: var(--space-4);
-      border-right: 1px solid var(--glass-border);
-    }
-    
-    .multitrack-toolbar .toolbar-section:last-child {
-      border-right: none;
-    }
-    
-    /* On phones / narrow layouts: sections stack so everything stays visible */
-    @media (max-width: 900px) {
-      .multitrack-toolbar {
-        justify-content: flex-start;
-      }
-    
-      .multitrack-toolbar .toolbar-section {
-        flex: 1 1 100%;
-        margin-left: 0 !important;
-        padding-right: 0;
-        border-right: none;
-        border-bottom: 1px solid var(--glass-border);
-      }
-    
-      .multitrack-toolbar .toolbar-section:last-child {
-        border-bottom: none;
-      }
-    }
-    
-    /* Toolbar labels + values + zoom controls */
-    
-    .toolbar-label {
-      font-size: var(--text-xs);
-      font-weight: 700;
-      color: var(--text-tertiary);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    
-    .toolbar-value {
-      font-family: var(--font-mono);
-      font-size: var(--text-sm);
-      font-weight: 700;
-      color: var(--text-primary);
-      background: var(--glass-bg);
-      padding: var(--space-1) var(--space-3);
-      border-radius: var(--radius-xs);
-      min-width: 60px;
-      text-align: center;
-    }
-    
-    .zoom-controls {
-      display: flex;
-      gap: var(--space-1);
-    }
-    
-    .zoom-btn {
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: var(--radius-xs);
-      background: var(--glass-bg);
-      color: var(--text-secondary);
-      cursor: pointer;
-      font-weight: 800;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      display: grid;
-      place-items: center;
-    }
-    
-    .zoom-btn:hover {
-      background: var(--glass-bg-strong);
-      color: var(--text-primary);
-      transform: scale(1.05);
-    }
-    
-    /* === MULTITRACK SCROLL WRAPPER === */
-    
-    .multitrack-wrapper {
-      position: relative;
-      width: 100%;
-      max-width: 100%;
-      overflow-x: auto;                 /* SINGLE horizontal scrollbar */
-      overflow-y: hidden;
-      -webkit-overflow-scrolling: touch;
-      scroll-behavior: smooth;
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--glass-border);
-      background: var(--bg-primary);
-      box-sizing: border-box;
-    }
-    
-    /* === HORIZONTAL TIMELINE RULER === */
-    
-    .timeline-ruler {
-      position: sticky;
-      top: 0;
-      left: 0;
-      height: 48px;
-      background: linear-gradient(180deg, var(--bg-secondary), var(--bg-tertiary));
-      border-bottom: 2px solid var(--glass-border-strong);
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      z-index: 100;
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      color: var(--text-tertiary);
-      font-weight: 700;
-      box-sizing: border-box;
-      min-width: var(--timeline-width, 100%);
-      width: var(--timeline-width, 100%);
-    }
+.transport-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
 
-    /* Each marker is an absolutely positioned vertical line */
-    .timeline-marker {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-      background: rgba(255, 255, 255, 0.18); /* tick line */
-    }
-    
-    /* Major tick label under the line */
-    .timeline-marker-label {
-      position: absolute;
-      bottom: 4px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-tertiary);
-      pointer-events: none;
-    }
+.transport-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-smooth);
+  display: grid;
+  place-items: center;
+}
 
-    /* Markers strip stretches horizontally; width shared via CSS var */
-    .timeline-markers {
-      position: relative;
-      flex: 1 1 auto;
-      height: 100%;
-      min-width: var(--timeline-width, 100%);
-      width: var(--timeline-width, 100%);
-    }
-    
-    /* Vertical tick line moving horizontally */
-    .timeline-playhead {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: var(--error);
-      pointer-events: none;
-      z-index: 200;
-      box-shadow: 0 0 12px var(--error);
-      left: 50%;
-      transform: translateX(-50%);
-    }
-    
-    .timeline-playhead::before {
-      content: '';
-      position: absolute;
-      top: -6px;
-      left: -5px;
-      width: 0;
-      height: 0;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-top: 8px solid var(--error);
-    }
-    
-    /* === TRACK GRID UNDER THE RULER === */
-    
-    .multitrack-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      background: var(--bg-primary);
-      border-radius: var(--radius-lg);
-      overflow: visible;
-      position: relative;
-      width: var(--timeline-width, 100%);
-      min-width: var(--timeline-width, 100%);
-    }
-    
-    /* Individual track strip */
-    .track-strip {
-      display: grid;
-      grid-template-columns: 200px 1fr; /* header | canvas */
-      border-bottom: 1px solid var(--glass-border);
-      background: var(--surface);
-      transition: all var(--duration-base) var(--ease-smooth);
-      position: relative;
-      min-height: 120px;
-    }
-    
-    .track-strip:hover {
-      background: var(--surface-elevated);
-    }
-    
-    .track-strip.selected {
-      background: linear-gradient(90deg, 
-        color-mix(in oklab, var(--accent-primary) 8%, var(--surface)),
-        var(--surface));
-      border-left: 3px solid var(--accent-primary);
-    }
-    
-    .track-strip.recording {
-      background: linear-gradient(90deg,
-        color-mix(in oklab, var(--error) 10%, var(--surface)),
-        var(--surface));
-      border-left: 3px solid var(--error);
-      animation: recordPulse 1s ease-in-out infinite;
-    }
-    
-    .track-strip.armed {
-      border-left: 3px solid var(--warning);
-    }
-    
-    /* External audio track styling */
-    .track-strip.external-audio {
-      border-left: 3px solid var(--info);
-    }
-    
-    .track-strip.external-audio .track-header {
-      background: linear-gradient(90deg, 
-        color-mix(in oklab, var(--info) 10%, transparent),
-        transparent);
-    }
-    
-    /* Automation lane */
-    
-    .automation-lane {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-    }
-    
-    .automation-curve {
-      stroke: var(--warning);
-      stroke-width: 2;
-      fill: none;
-      filter: drop-shadow(0 0 4px var(--warning));
-    }
-    
-    .automation-point {
-      fill: var(--warning);
-      stroke: var(--bg-primary);
-      stroke-width: 2;
-      cursor: move;
-      pointer-events: all;
-      transition: all var(--duration-fast) var(--ease-smooth);
-    }
-    
-    .automation-point:hover {
-      fill: var(--accent-primary);
-      transform: scale(1.3);
-    }   
-    
-    /* Snap grid overlay */
-    
-    .snap-grid {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-      z-index: 1;
-    }
-    
-    .snap-line {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-      background: rgba(255,255,255,.03);
-    }
-    
-    .snap-line.beat {
-      background: rgba(255,255,255,.06);
-    }
-    
-    .snap-line.bar {
-      background: rgba(255,255,255,.1);
-      width: 2px;
-    }
+.transport-btn:hover {
+  background: var(--glass-bg-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
 
-    /* FX Chain Panel */
-    .fx-chain-panel {
-      background: var(--surface-elevated);
-      border: 1px solid var(--glass-border-strong);
-      border-radius: var(--radius-lg);
-      padding: var(--space-6);
-      margin-top: var(--space-6);
-      box-shadow: var(--shadow-xl);
-    }
-    
-    .fx-chain-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--space-5);
-      padding-bottom: var(--space-4);
-      border-bottom: 1px solid var(--glass-border);
-    }
-    
-    .fx-chain-title {
-      font-size: var(--text-xl);
-      font-weight: 800;
-      color: var(--text-primary);
-    }
-    
-    .fx-add-dropdown {
-      position: relative;
-      display: inline-block;
-    }
-    
-    .fx-add-menu {
-      position: absolute;
-      min-width: 200px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--glass-border-strong);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-2xl);
-      backdrop-filter: blur(24px) saturate(150%);
-      padding: var(--space-2);
-      z-index: 10001;
-      display: none;
-    }
-    
-    .fx-add-item {
-      padding: var(--space-3) var(--space-4);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      color: var(--text-secondary);
-      font-weight: 600;
-      font-size: var(--text-sm);
-      transition: all var(--duration-fast) var(--ease-smooth);
-      border: 1px solid transparent;
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
-    
-    .fx-add-item:hover {
-      background: var(--glass-bg-strong);
-      color: var(--text-primary);
-      border-color: var(--glass-border);
-    }
-    
-    .fx-slots {
-      display: grid;
-      gap: var(--space-4);
-    }
-    
-    /* Region manipulation */
-    .take-region {
-      position: relative;
-      padding: var(--space-2) var(--space-3);
-      background: linear-gradient(135deg,
-        color-mix(in oklab, var(--accent-primary) 30%, transparent),
-        color-mix(in oklab, var(--accent-secondary) 20%, transparent));
-      border: 1px solid color-mix(in oklab, var(--accent-primary) 60%, transparent);
-      border-radius: var(--radius-sm);
-      cursor: move;
-      user-select: none;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      font-size: var(--text-sm);
-      font-weight: 700;
-      margin-bottom: var(--space-2);
-    }
-    
-    .take-region:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-      border-color: var(--accent-primary);
-      z-index: 10;
-    }
-    
-    .take-region.selected {
-      border-color: var(--accent-primary);
-      border-width: 2px;
-      box-shadow: 
-        var(--shadow-lg),
-        0 0 24px color-mix(in oklab, var(--accent-primary) 40%, transparent);
-    }
-    
-    .take-region.muted {
-      opacity: 0.3;
-      filter: grayscale(1);
-    }
-    
-    .take-waveform-canvas {
-      width: 120px;
-      height: 40px;
-      border-radius: var(--radius-xs);
-      background: rgba(0,0,0,0.3);
-    }
+.transport-btn:active {
+  transform: translateY(0);
+}
 
-    
+.transport-btn.active {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: var(--bg-primary);
+  box-shadow: var(--shadow-md), var(--glow-sm) color-mix(in oklab, var(--accent-primary) 40%, transparent);
+}
 
-    /* Enhanced region styling */
-    .audio-region {
-      box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.1);
-      user-select: none;
-    }
+.transport-display {
+  padding: var(--space-2) var(--space-4);
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  min-width: 120px;
+  text-align: center;
+}
 
-    .audio-region.dragging {
-      opacity: 0.8;
-      cursor: grabbing;
-      z-index: 100;
-      box-shadow: var(--shadow-2xl), 0 0 40px rgba(124, 131, 255, 0.4);
-    }
-    
-    .audio-region:hover .region-resize-handle {
-      opacity: 1;
-    }
-    
-    .region-resize-handle {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 8px;
-      background: rgba(255,255,255,0.1);
-      opacity: 0;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      z-index: 10;
-    }
-    
-    .region-resize-handle.left {
-      left: 0;
-      cursor: w-resize;
-      border-left: 2px solid var(--accent-primary);
-    }
-    
-    .region-resize-handle.right {
-      right: 0;
-      cursor: e-resize;
-      border-right: 2px solid var(--accent-primary);
-    }
-    
-    .region-resize-handle:hover {
-      background: rgba(124, 131, 255, 0.3);
-      width: 12px;
-    }
-    
-    .region-time-label {
-      font-family: var(--font-mono);
-      font-weight: 700;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-    }
-    
-    /* Track canvas scrolling */
-    .track-canvas-area {
-      overflow-x: auto;
-      overflow-y: hidden;
-      position: relative;
-    }
-    
-    .track-canvas {
-      min-width: 100%;
-      position: relative;
-    }
-    
-    /* Snap grid visualization */
-    .track-canvas::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      pointer-events: none;
-      background-image: repeating-linear-gradient(
-        90deg,
-        rgba(255,255,255,0.03) 0px,
-        rgba(255,255,255,0.03) 1px,
-        transparent 1px,
-        transparent 100px
-      );
-      z-index: 1;
-    }
-    
-    /* Playhead for timeline */
-    .timeline-playhead-global {
-      position: fixed;
-      top: calc(var(--header-h) + var(--tabs-h) + var(--transport-h) + var(--space-8));
-      bottom: 0;
-      width: 2px;
-      background: var(--error);
-      box-shadow: 0 0 20px var(--error);
-      pointer-events: none;
-      z-index: 200;
-      opacity: 0;
-      transition: opacity var(--duration-base) var(--ease-smooth);
-    }
-    
-    .timeline-playhead-global.playing {
-      opacity: 1;
-    }
-    
-    /* Replace .region-context-menu CSS (around line 3880) */
-    .region-context-menu {
-      position: fixed; /* ← Changed from absolute */
-      min-width: 200px;
-      max-width: 300px; /* Prevent it getting too wide */
-      background: var(--surface-elevated);
-      border: 1px solid var(--glass-border-strong);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-2xl);
-      backdrop-filter: blur(24px) saturate(150%);
-      padding: var(--space-2);
-      z-index: 10000;
-      animation: contextMenuAppear var(--duration-fast) var(--ease-smooth);
-    }
-    
-    .region-context-item {
-      padding: var(--space-3) var(--space-4);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      font-weight: 600;
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-      transition: all var(--duration-fast) var(--ease-smooth);
-    }
-    
-    .region-context-item:hover {
-      background: var(--glass-bg-strong);
-      color: var(--text-primary);
-    }
-    
-    .region-context-item.danger:hover {
-      background: var(--error);
-      color: white;
-    }
+/* === MAIN CONTAINER: 3-COLUMN LAYOUT === */
+.daw-main-container {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  gap: var(--space-4);
+  height: 600px;
+  min-height: 600px;
+  max-height: calc(100vh - 400px);
+  margin-bottom: var(--space-4);
+}
 
-    @media (orientation: portrait) {
-      .toast-container {
-        left: 50%;
-        right: auto;
-        transform: translateX(-50%);
-        bottom: calc(var(--space-4) + var(--inset-bottom));
-        align-items: center;
-        max-width: 90vw;
-      }
-    }
+/* Responsive: Tablet landscape */
+@media (max-width: 1280px) {
+  .daw-main-container {
+    grid-template-columns: 240px 1fr 280px;
+  }
+}
 
+/* Responsive: Tablet portrait */
+@media (max-width: 1024px) {
+  .daw-main-container {
+    grid-template-columns: 200px 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  
+  .daw-inspector {
+    grid-column: 1 / -1;
+    max-height: 300px;
+  }
+}
+
+/* Responsive: Mobile landscape */
+@media (max-width: 768px) and (orientation: landscape) {
+  .daw-main-container {
+    grid-template-columns: 160px 1fr;
+    height: calc(100vh - 280px);
+  }
+}
+
+/* Responsive: Mobile portrait */
+@media (max-width: 768px) and (orientation: portrait) {
+  .daw-main-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    height: auto;
+    min-height: 500px;
+  }
+  
+  .daw-track-list {
+    max-height: 200px;
+  }
+  
+  .daw-inspector {
+    order: 2;
+    max-height: 250px;
+  }
+  
+  .daw-timeline-container {
+    order: 3;
+  }
+}
+
+/* === LEFT: TRACK LIST / MIXER COLUMN === */
+.daw-track-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.daw-section-header {
+  padding: var(--space-3) var(--space-4);
+  background: var(--glass-bg-strong);
+  border-bottom: 1px solid var(--glass-border);
+  font-weight: 800;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.daw-track-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.daw-track-strip {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-smooth);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.daw-track-strip:hover {
+  background: var(--glass-bg);
+}
+
+.daw-track-strip.selected {
+  background: linear-gradient(90deg, 
+    color-mix(in oklab, var(--accent-primary) 15%, transparent), transparent);
+  border-left: 3px solid var(--accent-primary);
+}
+
+.daw-track-strip.recording {
+  background: linear-gradient(90deg,
+    color-mix(in oklab, var(--error) 15%, transparent), transparent);
+  border-left: 3px solid var(--error);
+  animation: recordPulse 1s ease-in-out infinite;
+}
+
+@keyframes recordPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.track-strip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.track-strip-name {
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  cursor: text;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-strip-controls {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.track-strip-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: var(--glass-bg);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.track-strip-btn:hover {
+  background: var(--glass-bg-strong);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.track-strip-btn.active {
+  background: var(--error);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.track-strip-btn.solo.active {
+  background: var(--warning);
+}
+
+.track-strip-meters {
+  display: flex;
+  gap: var(--space-1);
+  height: 32px;
+  margin-bottom: var(--space-2);
+}
+
+.track-meter-bar {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-xs);
+  position: relative;
+  overflow: hidden;
+}
+
+.track-meter-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top,
+    var(--success) 0%,
+    var(--success) 60%,
+    var(--warning) 75%,
+    var(--error) 90%);
+  transition: height 50ms linear;
+  will-change: height;
+}
+
+.track-strip-fader {
+  width: 100%;
+  height: 80px;
+  writing-mode: bt-lr;
+  -webkit-appearance: slider-vertical;
+  appearance: slider-vertical;
+  cursor: ns-resize;
+}
+
+/* === MASTER STRIP === */
+.daw-master-strip {
+  padding: var(--space-4);
+  background: var(--glass-bg-strong);
+  border-top: 2px solid var(--glass-border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.daw-meters {
+  display: flex;
+  gap: var(--space-2);
+  height: 120px;
+}
+
+.daw-meter-bar {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+}
+
+.daw-meter-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top,
+    var(--success) 0%,
+    var(--success) 60%,
+    var(--warning) 75%,
+    var(--error) 90%);
+  transition: height 30ms linear;
+  box-shadow: 0 0 10px currentColor;
+  will-change: height;
+}
+
+#masterFader {
+  width: 100%;
+  height: 120px;
+  writing-mode: bt-lr;
+  -webkit-appearance: slider-vertical;
+  appearance: slider-vertical;
+  cursor: ns-resize;
+}
+
+.daw-fader-label {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  margin-top: var(--space-2);
+}
+
+/* === CENTER: TIMELINE / ARRANGEMENT VIEW === */
+.daw-timeline-container {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.daw-timeline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.toolbar-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tool-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  font-size: var(--text-lg);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-smooth);
+  display: grid;
+  place-items: center;
+}
+
+.tool-btn:hover {
+  background: var(--glass-bg-strong);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.tool-btn.active {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.tool-btn:active {
+  transform: translateY(0);
+}
+
+/* === RULER + PLAYHEAD === */
+.daw-ruler {
+  position: relative;
+  height: 48px;
+  background: linear-gradient(180deg, var(--bg-secondary), var(--bg-tertiary));
+  border-bottom: 2px solid var(--glass-border-strong);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.daw-ruler-markers {
+  position: relative;
+  height: 100%;
+  width: var(--timeline-width, 100%);
+  min-width: var(--timeline-width, 100%);
+}
+
+.daw-ruler-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.daw-ruler-marker.bar {
+  width: 2px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.daw-ruler-label {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.daw-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--error);
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 0 12px var(--error);
+}
+
+.daw-playhead::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -5px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--error);
+}
+
+.daw-loop-region {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(124, 131, 255, 0.15);
+  border-left: 2px solid var(--accent-primary);
+  border-right: 2px solid var(--accent-primary);
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* === ARRANGEMENT VIEW === */
+.daw-arrangement-scroll {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg-primary);
+  position: relative;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.daw-arrangement-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.daw-arrangement-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.daw-arrangement-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, 
+    color-mix(in oklab, var(--accent-primary) 85%, #fff), 
+    color-mix(in oklab, var(--accent-secondary) 85%, #fff));
+  border-radius: var(--radius-xs);
+  box-shadow: var(--glow-sm) color-mix(in oklab, var(--accent-primary) 30%, transparent);
+}
+
+.daw-arrangement-grid {
+  position: relative;
+  width: var(--timeline-width, 3200px);
+  min-width: var(--timeline-width, 3200px);
+  min-height: 100%;
+  background-image: 
+    repeating-linear-gradient(90deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 100px),
+    repeating-linear-gradient(90deg,
+      rgba(255, 255, 255, 0.08) 0px,
+      rgba(255, 255, 255, 0.08) 2px,
+      transparent 2px,
+      transparent 400px);
+}
+
+.loop-region-highlight {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(124, 131, 255, 0.08);
+  border-left: 2px solid var(--accent-primary);
+  border-right: 2px solid var(--accent-primary);
+  pointer-events: none;
+  z-index: 5;
+  display: none;
+}
+
+.loop-region-highlight.active {
+  display: block;
+}
+
+/* === TRACK LANES === */
+.daw-track-lane {
+  position: relative;
+  height: 80px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background var(--duration-fast) var(--ease-smooth);
+}
+
+.daw-track-lane:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.daw-track-lane.selected {
+  background: linear-gradient(90deg,
+    color-mix(in oklab, var(--accent-primary) 8%, transparent),
+    transparent);
+}
+
+.daw-track-lane.recording {
+  background: linear-gradient(90deg,
+    color-mix(in oklab, var(--error) 8%, transparent),
+    transparent);
+  animation: laneRecordPulse 1s ease-in-out infinite;
+}
+
+@keyframes laneRecordPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* === AUDIO/MIDI CLIPS === */
+.daw-clip {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg,
+    color-mix(in oklab, var(--accent-primary) 60%, transparent),
+    color-mix(in oklab, var(--accent-secondary) 50%, transparent));
+  border: 1px solid color-mix(in oklab, var(--accent-primary) 70%, transparent);
+  cursor: move;
+  overflow: hidden;
+  transition: all var(--duration-fast) var(--ease-smooth);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.daw-clip:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 
+    var(--shadow-md),
+    var(--glow-sm) color-mix(in oklab, var(--accent-primary) 30%, transparent);
+  transform: translateY(-1px);
+  z-index: 10;
+}
+
+.daw-clip.selected {
+  border-color: var(--warning);
+  box-shadow: 
+    var(--shadow-md),
+    0 0 16px color-mix(in oklab, var(--warning) 40%, transparent);
+  z-index: 15;
+}
+
+.daw-clip.dragging {
+  opacity: 0.7;
+  cursor: grabbing;
+  z-index: 100;
+}
+
+.clip-header {
+  padding: var(--space-1) var(--space-2);
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.clip-name {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clip-waveform {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-1);
+}
+
+.clip-waveform canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.clip-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  background: rgba(255, 255, 255, 0);
+  transition: background var(--duration-fast) var(--ease-smooth);
+}
+
+.clip-resize-handle.left {
+  left: 0;
+}
+
+.clip-resize-handle.right {
+  right: 0;
+}
+
+.clip-resize-handle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.clip-fade-handle {
+  position: absolute;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-smooth);
+}
+
+.daw-clip:hover .clip-fade-handle {
+  opacity: 1;
+}
+
+.clip-fade-handle.fade-in {
+  left: 4px;
+  top: 4px;
+}
+
+.clip-fade-handle.fade-out {
+  right: 4px;
+  top: 4px;
+}
+
+/* === RIGHT: INSPECTOR PANEL === */
+.daw-inspector {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.daw-inspector-tabs {
+  display: flex;
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.inspector-tab {
+  flex: 1;
+  padding: var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-smooth);
+  border-bottom: 2px solid transparent;
+}
+
+.inspector-tab:hover {
+  color: var(--text-primary);
+  background: var(--glass-bg-strong);
+}
+
+.inspector-tab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+  background: var(--glass-bg-strong);
+}
+
+.daw-inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-4);
+  -webkit-overflow-scrolling: touch;
+}
+
+.inspector-section {
+  margin-bottom: var(--space-5);
+}
+
+.inspector-section-title {
+  font-size: var(--text-sm);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--glass-border);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inspector-param {
+  margin-bottom: var(--space-3);
+}
+
+.inspector-param-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.inspector-param-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.inspector-param input[type="range"] {
+  width: 100%;
+}
+
+.inspector-param select,
+.inspector-param input[type="text"],
+.inspector-param input[type="number"] {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+/* === FLOATING ADD TRACK BUTTON (MOBILE) === */
+.daw-fab {
+  position: fixed;
+  bottom: calc(1.5rem + var(--inset-bottom));
+  right: calc(1.5rem + var(--inset-right));
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: var(--bg-primary);
+  font-size: var(--text-2xl);
+  border: none;
+  box-shadow: 
+    var(--shadow-lg),
+    var(--glow-md) color-mix(in oklab, var(--accent-primary) 40%, transparent);
+  z-index: 999;
+  cursor: pointer;
+  display: none;
+  transition: all var(--duration-base) var(--ease-smooth);
+}
+
+.daw-fab:hover {
+  transform: scale(1.05) rotate(90deg);
+  box-shadow: 
+    var(--shadow-xl),
+    var(--glow-lg) color-mix(in oklab, var(--accent-primary) 50%, transparent);
+}
+
+.daw-fab:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 1024px) {
+  .daw-fab {
+    display: grid;
+    place-items: center;
+  }
+}
+
+/* === MOBILE/TABLET TRANSPORT ADJUSTMENTS === */
+@media (max-width: 768px) {
+  .daw-transport-bar {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+  
+  .transport-btn {
+    width: 40px;
+    height: 40px;
+    font-size: var(--text-lg);
+  }
+  
+  .transport-display {
+    min-width: 100px;
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-3);
+  }
+}
+
+/* === MOBILE PORTRAIT SPECIFIC === */
+@media (max-width: 768px) and (orientation: portrait) {
+  .daw-track-strip {
+    padding: var(--space-2);
+  }
+  
+  .track-strip-name {
+    font-size: var(--text-xs);
+  }
+  
+  .track-strip-btn {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .track-strip-meters {
+    height: 24px;
+  }
+  
+  .track-strip-fader {
+    height: 60px;
+  }
+  
+  .daw-master-strip {
+    padding: var(--space-3);
+  }
+  
+  .daw-meters {
+    height: 80px;
+  }
+  
+  #masterFader {
+    height: 80px;
+  }
+  
+  .daw-timeline-toolbar {
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+  
+  .tool-btn {
+    width: 32px;
+    height: 32px;
+    font-size: var(--text-base);
+  }
+  
+  .daw-ruler {
+    height: 40px;
+  }
+  
+  .daw-track-lane {
+    height: 60px;
+  }
+  
+  .daw-clip {
+    top: 2px;
+    bottom: 2px;
+  }
+  
+  .clip-header {
+    padding: 2px var(--space-1);
+  }
+  
+  .clip-name {
+    font-size: 10px;
+  }
+}
+
+/* === MOBILE LANDSCAPE SPECIFIC === */
+@media (max-width: 768px) and (orientation: landscape) {
+  .daw-track-strip {
+    padding: var(--space-2);
+  }
+  
+  .track-strip-name {
+    font-size: var(--text-xs);
+  }
+  
+  .track-strip-fader {
+    height: 60px;
+  }
+  
+  .daw-track-lane {
+    height: 70px;
+  }
+}
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
       .transport{
