@@ -14321,38 +14321,6 @@ async function setupMultitrackListeners() {
     };
   }
 
-  // === FX MENU ===
-  const fxAddMenu = document.getElementById('fxAddMenu');
-  if (fxAddMenu) {
-    fxAddMenu.addEventListener('click', (e) => {
-      const item = e.target.closest('.fx-add-item');
-      if (!item) return;
-  
-      const fxType = item.dataset.fxType;
-      if (!fxType) {
-        console.warn('❌ FX add: .fx-add-item missing data-fx-type');
-        return;
-      }
-  
-      const trackId = Number(multitrack.currentFxTrackId);
-      const track = multitrack.tracks.find(t => t.id === trackId);
-      if (!track) {
-        console.warn('❌ FX add: no track for currentFxTrackId', multitrack.currentFxTrackId);
-        return;
-      }
-  
-      const fxObj = track.addFx(fxType);
-      if (!fxObj) {
-        showToast(`❌ FX type "${fxType}" not recognized`, 'error');
-        return;
-      }
-  
-      renderFxChain(track);
-      fxAddMenu.style.display = 'none';
-      showToast(`✅ Added ${fxType}`, 'success');
-    });
-  }
-
   // === FX CHAIN EDITOR ===
   const fxAddBtn = document.getElementById('fxAddBtn');
   const fxAddMenu = document.getElementById('fxAddMenu');
