@@ -2568,7 +2568,38 @@
       box-shadow: var(--shadow-md);
       flex-wrap: wrap;
     }
+
+    /* 🎛️ Floating Add Track Button for Mobile */
+    .daw-fab {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--accent, #4caf50);
+      color: white;
+      font-size: 1.5rem;
+      border: none;
+      border-radius: 50%;
+      width: 56px;
+      height: 56px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      z-index: 9999;
+      cursor: pointer;
+      display: none; /* Hidden on desktop */
+      transition: transform 0.2s ease, background 0.3s;
+    }
     
+    .daw-fab:hover {
+      transform: scale(1.05);
+      background: var(--accent-hover, #43a047);
+    }
+    
+    /* Show only on mobile / tablet */
+    @media (max-width: 1024px) {
+      .daw-fab {
+        display: block;
+      }
+    }
+
     .transport-section {
       display: flex;
       align-items: center;
@@ -5275,6 +5306,8 @@
           </div>
         </div>
       </div>
+      <!-- Floating Add Track button (mobile only) -->
+      <button id="addTrackBtnFloating" class="daw-fab">➕</button>
     </section>
     
     <footer class="footer">
@@ -13696,6 +13729,18 @@ async function setupMultitrackListeners() {
       e.preventDefault();
       e.stopPropagation();
       console.log('🎚️ Add track (left) clicked');
+      showAddTrackDialog();
+    });
+  }
+
+  // === ADD TRACK BUTTON (FLOATING - MOBILE) ===
+  const addTrackBtnFloating = document.getElementById('addTrackBtnFloating');
+  if (addTrackBtnFloating && !addTrackBtnFloating.dataset._wired) {
+    addTrackBtnFloating.dataset._wired = 'true';
+    addTrackBtnFloating.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('🎚️ Add track (floating) clicked');
       showAddTrackDialog();
     });
   }
