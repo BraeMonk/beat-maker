@@ -2569,6 +2569,17 @@
       flex-wrap: wrap;
     }
 
+    .loop-region-highlight {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: rgba(0, 200, 255, 0.2);
+      border-left: 2px solid var(--accent);
+      border-right: 2px solid var(--accent);
+      pointer-events: none;
+      z-index: 3;
+    }
+
     /* 🎛️ Floating Add Track Button for Mobile */
     .daw-fab {
       position: fixed;
@@ -5276,6 +5287,7 @@
     
             <!-- Scrollable arrangement view -->
             <div class="daw-arrangement-scroll" id="dawArrangementScroll">
+              <div id="loopRegionHighlight" class="loop-region-highlight" style="display:none;"></div>
               <div class="daw-arrangement-grid" id="dawArrangementGrid">
                 <!-- Track lanes will be rendered here -->
               </div>
@@ -13996,6 +14008,72 @@ async function setupMultitrackListeners() {
         'info'
       );
     };
+  }
+
+    // === LOOP REGION SELECTION (Select tool drag on empty timeline) ===
+  const scroll = document.getElementById('dawArrangementScroll');
+  const loopHighlight = document.getElementById('loopRegionHighlight');
+
+  if (scroll && loopHighlight && !scroll.dataset._loopWired) {
+    scroll.dataset._loopWired = 'true';
+
+    let dragStartX = null;
+
+    scroll.addEventListener('mousedown', (e) => {
+      // Only left-click + Select tool
+      if (e.button !== 0) return;
+      if (multitrack.currentTool !== 'select') return;
+
+      // Ignore dragging on a region/clip
+      if (e.target.closest('.audio-region') || e.target.closest('.daw-clip')) return;
+
+      const rect = scroll.getBoundingClientRect();
+      dragStartX = e.clientX - rect.left + scroll.scrollLeft;
+
+      loopHighlight.style.display = 'block';
+      loopHighlight.style.left = dragStartX + 'px';
+      loopHighlight.style.width = '0px';
+    });
+
+    scroll.addEventListener('mousemove', (e) => {
+      if (dragStartX === null) return;
+
+      const rect = scroll.getBoundingClientRect();
+      const currentX = e.clientX - rect.left + scroll.scrollLeft;
+      const width = currentX - dragStartX;
+
+      loopHighlight.style.width = Math.abs(width) + 'px';
+      loopHighlight.style.left = (width < 0 ? currentX : dragStartX) + 'px';
+    });
+
+    const finishLoopDrag = (e) => {
+      if (dragStartX === null) return;
+
+      const rect = scroll.getBoundingClientRect();
+      const dragEndX = e.clientX - rect.left + scroll.scrollLeft;
+      const zoom = multitrack.zoom || 100;
+
+      const startPx = Math.min(dragStartX, dragEndX);
+      const endPx = Math.max(dragStartX, dragEndX);
+
+      const startSec = startPx / zoom;
+      const endSec = endPx / zoom;
+      const dragLength = endSec - startSec;
+
+      loopHighlight.style.display = 'none';
+      dragStartX = null;
+
+      if (dragLength > 0.25) {
+        // Treat as loop selection
+        setLoopRegion(startSec, endSec);
+      } else {
+        // Tiny click = clear loop
+        clearLoopRegion();
+      }
+    };
+
+    scroll.addEventListener('mouseup', finishLoopDrag);
+    scroll.addEventListener('mouseleave', finishLoopDrag);
   }
 
   // 🥁 CLICK: sync with main metronome state
