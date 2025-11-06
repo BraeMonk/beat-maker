@@ -2553,20 +2553,22 @@
       line-height: 1.7;
     }
 
-   /* -------- Professional DAW Multitrack System -------- */
+    /* -------- Professional DAW Multitrack System -------- */
 
-    /* Toolbar – always visible, never horizontally scrolls */
+    /* === MULTITRACK TOOLBAR – RESPONSIVE, NO HORIZONTAL SCROLL === */
+    
     .multitrack-toolbar {
       display: flex;
-      flex-wrap: wrap;                 /* allow wrapping instead of overflow */
+      flex-wrap: wrap;                /* wrap instead of scrolling sideways */
       gap: var(--space-3);
       align-items: center;
       padding: var(--space-3) var(--space-4);
       margin-bottom: var(--space-4);
-      background: var(--surface);
+      background: var(--surface-elevated);
       border-radius: var(--radius-lg);
-      border: 1px solid var(--glass-border);
+      border: 1px solid var(--glass-border-strong);
       box-shadow: var(--shadow-md);
+      overflow: visible;              /* no horizontal scrollbar here */
     }
     
     /* Each group of controls */
@@ -2575,6 +2577,12 @@
       align-items: center;
       gap: var(--space-2);
       flex-wrap: wrap;
+      padding-right: var(--space-4);
+      border-right: 1px solid var(--glass-border);
+    }
+    
+    .multitrack-toolbar .toolbar-section:last-child {
+      border-right: none;
     }
     
     /* On phones / narrow layouts: sections wrap to new lines instead of going off-screen */
@@ -2585,17 +2593,72 @@
     
       .multitrack-toolbar .toolbar-section {
         flex: 1 1 100%;
-        margin-left: 0 !important;    /* override your margin-left:auto on the last block */
+        margin-left: 0 !important;
+        padding-right: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--glass-border);
+      }
+    
+      .multitrack-toolbar .toolbar-section:last-child {
+        border-bottom: none;
       }
     }
     
-    /* Wrapper is the ONLY horizontal scroll container for multitrack */
+    /* Toolbar labels + values + zoom controls */
+    
+    .toolbar-label {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .toolbar-value {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text-primary);
+      background: var(--glass-bg);
+      padding: var(--space-1) var(--space-3);
+      border-radius: var(--radius-xs);
+      min-width: 60px;
+      text-align: center;
+    }
+    
+    .zoom-controls {
+      display: flex;
+      gap: var(--space-1);
+    }
+    
+    .zoom-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: var(--radius-xs);
+      background: var(--glass-bg);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-weight: 800;
+      transition: all var(--duration-fast) var(--ease-smooth);
+      display: grid;
+      place-items: center;
+    }
+    
+    .zoom-btn:hover {
+      background: var(--glass-bg-strong);
+      color: var(--text-primary);
+      transform: scale(1.05);
+    }
+    
+    /* === MULTITRACK SCROLL WRAPPER === */
+    
     .multitrack-wrapper {
       position: relative;
       width: 100%;
       max-width: 100%;
-      overflow-x: auto;
-      overflow-y: visible;
+      overflow-x: auto;                 /* SINGLE horizontal scrollbar */
+      overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       scroll-behavior: smooth;
       border-radius: var(--radius-lg);
@@ -2603,7 +2666,8 @@
       background: var(--bg-primary);
     }
     
-    /* Ruler sits at the top of that scroll area */
+    /* === HORIZONTAL TIMELINE RULER === */
+    
     .timeline-ruler {
       position: sticky;
       top: 0;
@@ -2613,7 +2677,7 @@
       background: linear-gradient(180deg, var(--bg-secondary), var(--bg-tertiary));
       border-bottom: 2px solid var(--glass-border-strong);
       display: flex;
-      flex-direction: row;
+      flex-direction: row;              /* 🔒 FORCE HORIZONTAL LAYOUT */
       align-items: center;
       padding: 0 var(--space-4);
       z-index: 10;
@@ -2621,28 +2685,23 @@
       font-size: var(--text-xs);
       color: var(--text-tertiary);
       font-weight: 700;
+      box-sizing: border-box;
     }
     
     /* Use a CSS variable for the unified timeline width */
     .timeline-markers {
       position: relative;
+      flex: 1 1 auto;
       height: 100%;
-      width: var(--timeline-width);
-      min-width: var(--timeline-width);
+      min-width: var(--timeline-width, 100%);
     }
     
-    /* Track timeline width matches the same CSS var as the ruler */
-    .track-canvas {
-      position: relative;
-      width: var(--timeline-width);
-      min-width: var(--timeline-width);
-    }
-        
     .timeline-marker.major {
       border-left: 2px solid var(--glass-border-strong);
       color: var(--text-primary);
     }
     
+    /* Playhead is a vertical line moving horizontally */
     .timeline-playhead {
       position: absolute;
       top: 0;
@@ -2666,14 +2725,15 @@
       border-top: 8px solid var(--error);
     }
     
-    /* Track container */
+    /* === TRACK GRID UNDER THE RULER === */
+    
     .multitrack-grid {
       display: flex;
-      flex-direction: column;
+      flex-direction: column;           /* tracks stacked vertically */
       gap: 0;
       background: var(--bg-primary);
       border-radius: var(--radius-lg);
-      overflow: hidden;
+      overflow: visible;
       position: relative;
     }
     
@@ -2722,26 +2782,62 @@
         transparent);
     }
     
-    /* Input monitoring indicator */
-    .track-mini-btn.mon {
-      position: relative;
+    /* === TRACK HEADER (LEFT PANEL) === */
+    
+    .track-header {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      padding: var(--space-4);
+      background: linear-gradient(90deg, var(--bg-secondary), transparent);
+      border-right: 1px solid var(--glass-border);
     }
     
-    .track-mini-btn.mon.active {
-      background: var(--info);
-      animation: monitorPulse 2s ease-in-out infinite;
+    .track-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-2);
     }
     
-    @keyframes monitorPulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
+    .track-name {
+      font-weight: 800;
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      cursor: pointer;
+      padding: var(--space-2);
+      border-radius: var(--radius-xs);
+      transition: all var(--duration-fast) var(--ease-smooth);
     }
     
-    /* Enhanced meter styling */
+    .track-name:hover {
+      background: var(--glass-bg-strong);
+    }
+    
+    .track-name.editing input {
+      background: var(--glass-bg-strong);
+      border: 1px solid var(--accent-primary);
+      padding: var(--space-1) var(--space-2);
+      border-radius: var(--radius-xs);
+      color: var(--text-primary);
+      font: inherit;
+      width: 100%;
+    }
+    
+    .track-icon {
+      font-size: var(--text-lg);
+    }
+    
+    /* === METERS === */
+    
     .track-meters {
       display: flex;
       gap: var(--space-1);
-      height: 60px;
+      height: 40px;
+      margin: var(--space-2) 0;
       background: rgba(0,0,0,0.3);
       border-radius: var(--radius-sm);
       padding: var(--space-2);
@@ -2796,97 +2892,7 @@
       pointer-events: none;
     }
     
-    /* Recording with external audio visual feedback */
-    .track-strip.external-audio.recording {
-      box-shadow: 
-        0 0 30px color-mix(in oklab, var(--info) 30%, transparent),
-        inset 0 0 0 2px var(--info);
-      animation: externalRecPulse 1.5s ease-in-out infinite;
-    }
-    
-    @keyframes externalRecPulse {
-      0%, 100% { 
-        box-shadow: 
-          0 0 20px color-mix(in oklab, var(--info) 20%, transparent),
-          inset 0 0 0 2px var(--info);
-      }
-      50% { 
-        box-shadow: 
-          0 0 40px color-mix(in oklab, var(--info) 40%, transparent),
-          inset 0 0 0 2px var(--info);
-      }
-    }
-    /* Track header (left side panel) */
-    .track-header {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-      padding: var(--space-4);
-      background: linear-gradient(90deg, var(--bg-secondary), transparent);
-      border-right: 1px solid var(--glass-border);
-    }
-    
-    .track-header-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: var(--space-2);
-    }
-    
-    .track-name {
-      font-weight: 800;
-      font-size: var(--text-sm);
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      cursor: pointer;
-      padding: var(--space-2);
-      border-radius: var(--radius-xs);
-      transition: all var(--duration-fast) var(--ease-smooth);
-    }
-    
-    .track-name:hover {
-      background: var(--glass-bg-strong);
-    }
-    
-    .track-name.editing input {
-      background: var(--glass-bg-strong);
-      border: 1px solid var(--accent-primary);
-      padding: var(--space-1) var(--space-2);
-      border-radius: var(--radius-xs);
-      color: var(--text-primary);
-      font: inherit;
-      width: 100%;
-    }
-    
-    .track-icon {
-      font-size: var(--text-lg);
-    }
-    
-    .track-meters {
-      display: flex;
-      gap: var(--space-1);
-      height: 40px;
-      margin: var(--space-2) 0;
-    }
-    
-    .track-meter {
-      flex: 1;
-      background: rgba(0,0,0,.3);
-      border-radius: var(--radius-xs);
-      overflow: hidden;
-      position: relative;
-    }
-    
-    .track-meter-fill {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(to top, var(--success), var(--warning), var(--error));
-      transition: height 50ms linear;
-    }
+    /* === TRACK CONTROLS === */
     
     .track-controls-grid {
       display: grid;
@@ -2983,32 +2989,22 @@
       min-width: 36px;
       text-align: right;
     }
-
-    /* Inside the multitrack scroll, stack ruler + grid vertically */
-    .multitrack-wrapper .timeline-ruler,
-    .multitrack-wrapper .multitrack-grid {
-      min-width: 100%;
-    }
     
-    .multitrack-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
+    /* === TRACK CANVAS AREA & REGIONS === */
+    
+    /* Right side of each track (where audio blocks live) */
+    .track-canvas-area {
+      position: relative;
+      overflow: visible;                      /* no separate scroll here */
       background: var(--bg-primary);
-      border-radius: var(--radius-lg);
-      overflow: visible;
-      position: relative;
-      min-width: 100%;
     }
     
-    .track-strip {
-      display: grid;
-      grid-template-columns: 200px 1fr;
-      border-bottom: 1px solid var(--glass-border);
-      background: var(--surface);
-      transition: all var(--duration-base) var(--ease-smooth);
+    /* Track timeline width matches the same CSS var as the ruler */
+    .track-canvas {
       position: relative;
-      min-height: 120px;
+      width: var(--timeline-width, 100%);
+      min-width: var(--timeline-width, 100%);
+      height: 80px;                           /* per-track height for regions */
     }
     
     /* Audio region (recorded take) */
@@ -3056,6 +3052,8 @@
       cursor: grabbing;
     }
     
+    /* Region header + actions */
+    
     .region-header {
       position: sticky;
       left: 0;
@@ -3084,10 +3082,6 @@
       opacity: 1;
       pointer-events: auto;
       z-index: 101;
-    }
-    
-    .audio-region:hover .region-actions {
-      opacity: 1;
     }
     
     .region-action-btn {
@@ -3121,6 +3115,8 @@
       transform: scale(1.1);
     }
     
+    /* Waveform in region */
+    
     .region-waveform {
       flex: 1;
       position: relative;
@@ -3132,6 +3128,8 @@
       height: 100%;
       display: block;
     }
+    
+    /* Resize handles */
     
     .region-resize-handle {
       position: absolute;
@@ -3163,6 +3161,7 @@
     }
     
     /* Automation lane */
+    
     .automation-lane {
       position: absolute;
       top: 0;
@@ -3194,6 +3193,7 @@
     }
     
     /* Empty track placeholder */
+    
     .track-empty-state {
       display: flex;
       flex-direction: column;
@@ -3213,6 +3213,7 @@
     }
     
     /* Recording indicator */
+    
     .recording-indicator {
       position: absolute;
       top: var(--space-2);
@@ -3243,95 +3244,8 @@
       50% { opacity: 0.5; transform: scale(0.8); }
     }
     
-    /* Professional toolbar – single row, scrollable when cramped */
-    .multitrack-toolbar {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-4);
-      background: var(--surface-elevated);
-      border-bottom: 1px solid var(--glass-border-strong);
-    
-      /* KEY: keep everything in one line and allow horizontal scroll */
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      overflow-y: hidden;
-      scrollbar-width: thin;
-    }
-    
-    /* Nice little scrollbar on WebKit (mobile Safari, Chrome) */
-    .multitrack-toolbar::-webkit-scrollbar {
-      height: 6px;
-    }
-    
-    .multitrack-toolbar::-webkit-scrollbar-thumb {
-      background: var(--glass-border);
-      border-radius: 999px;
-    }
-    
-    .multitrack-toolbar::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    
-    /* Sections a bit tighter so they fit better on phones */
-    .toolbar-section {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      padding-right: var(--space-4);
-      border-right: 1px solid var(--glass-border);
-    }
-    
-    .toolbar-section:last-child {
-      border-right: none;
-    }
-    
-    .toolbar-label {
-      font-size: var(--text-xs);
-      font-weight: 700;
-      color: var(--text-tertiary);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    
-    .toolbar-value {
-      font-family: var(--font-mono);
-      font-size: var(--text-sm);
-      font-weight: 700;
-      color: var(--text-primary);
-      background: var(--glass-bg);
-      padding: var(--space-1) var(--space-3);
-      border-radius: var(--radius-xs);
-      min-width: 60px;
-      text-align: center;
-    }
-    
-    .zoom-controls {
-      display: flex;
-      gap: var(--space-1);
-    }
-    
-    .zoom-btn {
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: var(--radius-xs);
-      background: var(--glass-bg);
-      color: var(--text-secondary);
-      cursor: pointer;
-      font-weight: 800;
-      transition: all var(--duration-fast) var(--ease-smooth);
-      display: grid;
-      place-items: center;
-    }
-    
-    .zoom-btn:hover {
-      background: var(--glass-bg-strong);
-      color: var(--text-primary);
-      transform: scale(1.05);
-    }
-    
     /* Snap grid overlay */
+    
     .snap-grid {
       position: absolute;
       top: 0;
