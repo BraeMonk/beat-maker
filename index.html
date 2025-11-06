@@ -2555,7 +2555,15 @@
 
     /* -------- Professional DAW Multitrack System -------- */
 
-    /* Add to your CSS (around line 2450 where .timeline-ruler is defined) */
+    .multitrack-wrapper {
+      position: relative;
+      width: 100%;
+      overflow-x: auto !important;
+      overflow-y: visible;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+    
     .timeline-ruler {
       position: sticky;
       top: 0;
@@ -2567,20 +2575,20 @@
       display: flex;
       align-items: center;
       padding: 0 200px 0 var(--space-4);
-      z-index: 100; /* ← Increase to 101 to stay above track headers */
+      z-index: 100;
       font-family: var(--font-mono);
       font-size: var(--text-xs);
       color: var(--text-tertiary);
       font-weight: 700;
+      min-width: max-content; /* Allow ruler to expand */
     }
     
-    /* Make timeline markers container scroll with canvas */
     .timeline-markers {
       display: flex;
       width: 100%;
       position: relative;
       height: 100%;
-      min-width: var(--timeline-width); /* ← Match canvas width */
+      min-width: var(--timeline-width); /* Match canvas width */
     }
     
     .timeline-marker {
@@ -2946,24 +2954,6 @@
       overflow-y: visible;
       -webkit-overflow-scrolling: touch;
       scroll-behavior: smooth;
-    }
-    
-    .timeline-ruler {
-      position: sticky;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 48px;
-      background: linear-gradient(180deg, var(--bg-secondary), var(--bg-tertiary));
-      border-bottom: 2px solid var(--glass-border-strong);
-      display: flex;
-      align-items: center;
-      padding: 0 200px 0 var(--space-4);
-      z-index: 100;
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      color: var(--text-tertiary);
-      font-weight: 700;
     }
     
     .multitrack-grid {
@@ -10981,7 +10971,8 @@ function updateTimelineRuler() {
   markers.innerHTML = '';
   
   const zoom = multitrack.zoom || 100;
-  const totalWidth = 10000; // Large canvas
+  const projectDurationSeconds = state.duration * 60; // Convert minutes to seconds
+  const totalWidth = projectDurationSeconds * zoom; // Match project duration
   
   // Calculate interval based on zoom
   let interval = 1; // seconds
@@ -10989,7 +10980,8 @@ function updateTimelineRuler() {
   else if (zoom < 25) interval = 10;
   else if (zoom > 200) interval = 0.5;
   
-  for (let t = 0; t < totalWidth / zoom; t += interval) {
+  // Create markers up to project duration
+  for (let t = 0; t <= projectDurationSeconds; t += interval) {
     const x = t * zoom;
     const isMajor = t % (interval * 4) === 0;
     
@@ -10999,6 +10991,18 @@ function updateTimelineRuler() {
     marker.textContent = formatTime(t);
     
     markers.appendChild(marker);
+  }
+  
+  // Set the timeline container width to match
+  const timelineRuler = document.querySelector('.timeline-ruler');
+  if (timelineRuler) {
+    timelineRuler.style.minWidth = totalWidth + 'px';
+  }
+  
+  // Update CSS variable for track canvas widths
+  const grid = document.getElementById('multitrackGrid');
+  if (grid) {
+    grid.style.setProperty('--timeline-width', totalWidth + 'px');
   }
 }
 
@@ -11172,8 +11176,11 @@ function renderMultitrack() {
   const grid = document.getElementById('multitrackGrid');
   if (!grid) return;
   
-  // Calculate unified timeline width
-  let maxDuration = 10; // Default 10 seconds minimum
+  // Calculate unified timeline width based on BOTH project duration AND recorded content
+  const projectDurationSeconds = state.duration * 60; // Minutes to seconds
+  let maxDuration = projectDurationSeconds; // Start with project duration
+  
+  // Extend if any takes go beyond project duration
   multitrack.tracks.forEach(track => {
     track.takes.forEach(take => {
       const end = (take.startTime || 0) + take.duration;
