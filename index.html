@@ -3802,37 +3802,6 @@
       color: white;
     }
 
-    /* ---- FIX: Force horizontal timeline ruler ---- */
-    .timeline-ruler {
-      display: flex !important;
-      flex-direction: row !important;
-      align-items: center !important;
-      justify-content: flex-start !important;
-      height: 48px !important;
-      width: 100% !important;
-      overflow: hidden !important;
-    }
-    
-    .timeline-markers {
-      position: relative !important;
-      display: block !important;
-      height: 100% !important;
-      width: 100% !important;
-      min-width: max-content !important;
-    }
-    
-    .timeline-marker {
-      position: absolute !important;
-      top: 0 !important;
-      height: 100% !important;
-      display: flex !important;
-      align-items: flex-end !important;
-      justify-content: center !important;
-      flex-direction: column !important;
-      writing-mode: horizontal-tb !important;
-      transform: none !important;
-    }
-
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
       .transport{
@@ -11073,8 +11042,7 @@ function applyFadeCurve(progress, curve) {
 
 function updateTimelineRuler() {
   const markers = document.getElementById('timelineMarkers');
-  const wrapper = document.querySelector('.multitrack-wrapper');
-  if (!markers || !wrapper) return;
+  if (!markers) return;
 
   markers.innerHTML = '';
 
@@ -11082,12 +11050,9 @@ function updateTimelineRuler() {
   const projectDurationSeconds = state.duration * 60;
   const totalWidth = projectDurationSeconds * zoom;
 
-  // 🔑 SINGLE source of truth for timeline width:
-  // ruler + track canvases read this CSS variable
-  document.documentElement.style.setProperty('--timeline-width', totalWidth + 'px');
-
-  // Markers follow that same width, but the WRAPPER stays 100% viewport width
+  // Only set the marker strip width, NOT the wrapper’s width
   markers.style.width = totalWidth + 'px';
+  markers.style.minWidth = totalWidth + 'px';
 
   let interval = 1;
   if (zoom < 50) interval = 5;
