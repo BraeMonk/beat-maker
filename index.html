@@ -2927,22 +2927,60 @@
       text-align: right;
     }
     
-    /* Track canvas area (right side) */
+    /* FIXED: Unified timeline system */
+    .multitrack-wrapper {
+      position: relative;
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: visible;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .timeline-ruler {
+      position: sticky;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: linear-gradient(180deg, var(--bg-secondary), var(--bg-tertiary));
+      border-bottom: 2px solid var(--glass-border-strong);
+      display: flex;
+      align-items: center;
+      padding: 0 200px 0 var(--space-4);
+      z-index: 100;
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      font-weight: 700;
+    }
+    
+    .multitrack-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      background: var(--bg-primary);
+      border-radius: var(--radius-lg);
+      overflow: visible;
+      position: relative;
+      min-width: 100%;
+    }
+    
+    .track-strip {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      border-bottom: 1px solid var(--glass-border);
+      background: var(--surface);
+      transition: all var(--duration-base) var(--ease-smooth);
+      position: relative;
+      min-height: 120px;
+    }
+    
     .track-canvas-area {
       position: relative;
       background: linear-gradient(180deg, rgba(0,0,0,.1), transparent);
       padding: var(--space-2);
-      overflow-x: auto;
-      overflow-y: hidden;
-    }
-    
-    .track-canvas-area::-webkit-scrollbar {
-      height: 8px;
-    }
-    
-    .track-canvas-area::-webkit-scrollbar-thumb {
-      background: color-mix(in oklab, var(--accent-primary) 50%, transparent);
-      border-radius: var(--radius-xs);
+      overflow: visible; /* CHANGED from overflow-x: auto */
+      min-height: 80px;
     }
     
     .track-canvas {
@@ -2950,6 +2988,7 @@
       min-width: 100%;
       height: 100%;
       min-height: 80px;
+      /* Removed individual scrolling */
     }
     
     /* Audio region (recorded take) */
@@ -3746,6 +3785,48 @@
       .grid-4{
         grid-template-columns: 1fr;
       }
+
+      .multitrack-wrapper {
+        touch-action: pan-x pan-y;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      .track-canvas-area {
+        touch-action: pan-x;
+      }
+      
+      .audio-region {
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      
+      .audio-region.dragging {
+        opacity: 0.8;
+        pointer-events: none;
+      }
+      
+      /* Larger touch targets on mobile */
+      .track-mini-btn,
+      .region-action-btn {
+        min-height: 44px;
+        min-width: 44px;
+        font-size: var(--text-base);
+      }
+      
+      .track-header {
+        min-width: 200px;
+        position: sticky;
+        left: 0;
+        background: var(--surface);
+        z-index: 10;
+      }
+      
+      /* Prevent accidental scrolling during region drag */
+      body.dragging-region {
+        overflow: hidden;
+        touch-action: none;
+      }
     }
     
     @media (max-width: 480px){
@@ -4434,10 +4515,12 @@
           <div class="grid grid-3" id="sampleUploadGrid"></div>
         </div>
       </section>
-      <!-- Timeline Ruler -->
-      <div class="timeline-ruler">
-        <div class="timeline-markers" id="timelineMarkers"></div>
-        <div class="timeline-playhead" id="timelinePlayhead" style="left: 0;"></div>
+      <div class="multitrack-wrapper" style="overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch;">
+        <!-- Timeline Ruler -->
+        <div class="timeline-ruler">
+          <div class="timeline-markers" id="timelineMarkers"></div>
+          <div class="timeline-playhead" id="timelinePlayhead" style="left: 0;"></div>
+        </div>
       </div>
       
       <!-- Tracks Container -->
@@ -9103,7 +9186,8 @@ class AudioTrack {
     fx.params[param] = value;
     const node = fx.node;
     
-    const rampTime = 0.05;
+    // FIXED: Faster ramp time for more responsive feel
+    const rampTime = 0.01; // Reduced from 0.05
     
     try {
       if (param === 'wet' && node.wet) {
@@ -9164,23 +9248,23 @@ class AudioTrack {
     if (this.recording) return;
     await Tone.start();
     if (Tone.context.state !== 'running') await Tone.context.resume();
-
-    // 🩹 Ensure external inputs are open and audible
+  
+    // FIXED: Enable monitoring during recording
     if (this.isExternalAudio) {
       if (!this.mediaStreamSource) await this.setupExternalAudio();
-      this.inputMonitoring = true;
-      if (this.externalInput) this.externalInput.gain.value = 1;
+      this.inputMonitoring = true; // Force monitoring ON
+      if (this.externalInput) {
+        this.externalInput.gain.value = 1; // Ensure we can hear input
+      }
     }
     
     const ctx = Tone.getContext().rawContext;
     const dest = ctx.createMediaStreamDestination();
-
-    // 🩹 For internal tracks, tap the live Tone master bus
+  
     if (!this.isExternalAudio) {
       master.fxIn.connect(dest);
     }
-
-    // Tap the actual audible channel
+  
     this.channel.connect(dest);
     this.recordDest = dest;
     this.recordedChunks = [];
@@ -9195,7 +9279,8 @@ class AudioTrack {
   
     this.recorder.start(100);
     this.recording = true;
-    showToast(`🎧 Recording ${this.name}`, 'success');
+    
+    showToast(`🎧 Recording ${this.name} (monitoring ${this.isExternalAudio ? 'ON' : 'OFF'})`, 'success');
   }
   
   stopRecording() {
@@ -9694,7 +9779,7 @@ function renderTakes(track) {
 }
   
 // Enhanced track strip rendering
-function createTrackStrip(track) {
+function createTrackStrip(track, timelineWidth) {
   const strip = document.createElement('div');
   strip.className = 'track-strip';
   strip.dataset.trackId = track.id;
@@ -9801,7 +9886,7 @@ function createTrackStrip(track) {
           <span>Recording...</span>
         </div>
       ` : ''}
-      <div class="track-canvas" style="position: relative; min-height: 80px;">
+      <div class="track-canvas" style="position: relative; min-height: 80px; width: ${timelineWidth}px;">
         ${renderTimelineRegions(track)}
       </div>
     </div>
@@ -9819,7 +9904,7 @@ function createTrackStrip(track) {
     });
   });
   
-  // Volume/pan sliders
+  // Volume/pan sliders - FIXED: Apply changes in real-time
   strip.querySelectorAll('.track-volume-slider').forEach(slider => {
     slider.addEventListener('input', (e) => {
       const param = e.target.dataset.param;
@@ -9827,10 +9912,11 @@ function createTrackStrip(track) {
       
       track[param] = value;
       
+      // FIXED: Apply immediately
       if (param === 'volume') {
-        track.channel.volume.rampTo(value, 0.1);
+        track.channel.volume.value = value;
       } else if (param === 'pan') {
-        track.channel.pan.rampTo(value / 100, 0.1);
+        track.channel.pan.value = value / 100;
       }
       
       const label = e.target.closest('.param-control').querySelector('.param-value');
@@ -9934,9 +10020,14 @@ function setupRegionInteractions(stripEl, track) {
   if (!canvas) return;
   
   let dragState = null;
+  let isTouchDevice = 'ontouchstart' in window;
   
-  canvas.addEventListener('mousedown', (e) => {
-    const region = e.target.closest('.audio-region');
+  // Unified start handler for mouse and touch
+  const startDrag = (e) => {
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    
+    const region = document.elementFromPoint(clientX, clientY)?.closest('.audio-region');
     if (!region) return;
     
     const takeIndex = parseInt(region.dataset.takeIndex);
@@ -9946,37 +10037,41 @@ function setupRegionInteractions(stripEl, track) {
     const handle = e.target.closest('.region-resize-handle');
     
     if (handle) {
-      // Resize mode
       dragState = {
         mode: 'resize',
         trackId: track.id,
         takeIndex,
         handle: handle.dataset.handle,
-        startX: e.clientX,
+        startX: clientX,
         originalStart: take.startTime || 0,
         originalDuration: take.duration
       };
     } else if (region && !e.target.closest('.region-action-btn')) {
-      // Move mode
       dragState = {
         mode: 'move',
         trackId: track.id,
         takeIndex,
-        startX: e.clientX,
+        startX: clientX,
         originalStart: take.startTime || 0
       };
       
       region.classList.add('dragging');
+      
+      if (isTouchDevice) {
+        document.body.classList.add('dragging-region');
+      }
     }
     
     e.preventDefault();
-  });
+  };
   
-  document.addEventListener('mousemove', (e) => {
+  // Unified move handler
+  const moveDrag = (e) => {
     if (!dragState) return;
     
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const zoom = multitrack.zoom || 100;
-    const deltaX = e.clientX - dragState.startX;
+    const deltaX = clientX - dragState.startX;
     const deltaSeconds = deltaX / zoom;
     
     const track = multitrack.tracks.find(t => t.id === dragState.trackId);
@@ -9986,17 +10081,15 @@ function setupRegionInteractions(stripEl, track) {
     if (!take) return;
     
     if (dragState.mode === 'move') {
-      // Snap to grid if enabled
       let newStart = dragState.originalStart + deltaSeconds;
       
       if (multitrack.snapEnabled) {
-        const snapInterval = multitrack.snapInterval || 0.25; // 250ms default
+        const snapInterval = multitrack.snapInterval || 0.25;
         newStart = Math.round(newStart / snapInterval) * snapInterval;
       }
       
       take.startTime = Math.max(0, newStart);
       
-      // Update visual position
       const region = document.querySelector(`.audio-region[data-take-index="${dragState.takeIndex}"][data-track-id="${track.id}"]`);
       if (region) {
         region.style.left = (take.startTime * zoom) + 'px';
@@ -10004,7 +10097,6 @@ function setupRegionInteractions(stripEl, track) {
       
     } else if (dragState.mode === 'resize') {
       if (dragState.handle === 'left') {
-        // Trim start
         let newStart = dragState.originalStart + deltaSeconds;
         const maxStart = dragState.originalStart + dragState.originalDuration - 0.1;
         
@@ -10021,7 +10113,6 @@ function setupRegionInteractions(stripEl, track) {
         take.duration = dragState.originalDuration - trimAmount;
         
       } else if (dragState.handle === 'right') {
-        // Trim end
         let newDuration = dragState.originalDuration + deltaSeconds;
         
         if (multitrack.snapEnabled) {
@@ -10039,14 +10130,19 @@ function setupRegionInteractions(stripEl, track) {
     }
     
     e.preventDefault();
-  });
+  };
   
-  document.addEventListener('mouseup', (e) => {
+  // Unified end handler
+  const endDrag = (e) => {
     if (!dragState) return;
     
     document.querySelectorAll('.audio-region.dragging').forEach(r => {
       r.classList.remove('dragging');
     });
+    
+    if (isTouchDevice) {
+      document.body.classList.remove('dragging-region');
+    }
     
     if (dragState.mode === 'move' || dragState.mode === 'resize') {
       renderMultitrack();
@@ -10054,7 +10150,17 @@ function setupRegionInteractions(stripEl, track) {
     }
     
     dragState = null;
-  });
+  };
+  
+  // Attach listeners for both mouse and touch
+  canvas.addEventListener('mousedown', startDrag);
+  canvas.addEventListener('touchstart', startDrag, { passive: false });
+  
+  document.addEventListener('mousemove', moveDrag);
+  document.addEventListener('touchmove', moveDrag, { passive: false });
+  
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('touchend', endDrag);
   
   // Handle region actions
   canvas.addEventListener('click', (e) => {
@@ -10070,7 +10176,7 @@ function setupRegionInteractions(stripEl, track) {
     e.stopPropagation();
   });
   
-  // Draw waveforms after a short delay
+  // Draw waveforms
   setTimeout(() => {
     track.takes.forEach((take, idx) => {
       const canvas = stripEl.querySelector(`canvas[data-take-id="${take.id}"]`);
@@ -10080,7 +10186,7 @@ function setupRegionInteractions(stripEl, track) {
     });
   }, 100);
 }
-
+  
 function handleRegionAction(trackId, takeIndex, action, event) {
   const track = multitrack.tracks.find(t => t.id === trackId);
   if (!track) return;
@@ -10372,7 +10478,6 @@ function setupRegionContextMenu() {
     
     e.preventDefault();
     
-    // Remove existing menu
     if (contextMenu) contextMenu.remove();
     
     const trackId = parseInt(region.dataset.trackId);
@@ -10382,8 +10487,36 @@ function setupRegionContextMenu() {
     
     contextMenu = document.createElement('div');
     contextMenu.className = 'region-context-menu';
-    contextMenu.style.left = e.pageX + 'px';
-    contextMenu.style.top = e.pageY + 'px';
+    
+    // FIXED: Smart positioning to stay on screen
+    const menuWidth = 200;
+    const menuHeight = 350;
+    
+    let x = e.pageX;
+    let y = e.pageY;
+    
+    // Check right edge
+    if (x + menuWidth > window.innerWidth + window.scrollX) {
+      x = window.innerWidth + window.scrollX - menuWidth - 10;
+    }
+    
+    // Check bottom edge
+    if (y + menuHeight > window.innerHeight + window.scrollY) {
+      y = window.innerHeight + window.scrollY - menuHeight - 10;
+    }
+    
+    // Check left edge
+    if (x < window.scrollX) {
+      x = window.scrollX + 10;
+    }
+    
+    // Check top edge
+    if (y < window.scrollY) {
+      y = window.scrollY + 10;
+    }
+    
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.top = y + 'px';
     
     contextMenu.innerHTML = `
       <div class="region-context-item" data-action="split">✂️ Split at Playhead</div>
@@ -10916,6 +11049,21 @@ function renderMultitrack() {
   const grid = document.getElementById('multitrackGrid');
   if (!grid) return;
   
+  // Calculate unified timeline width
+  let maxDuration = 10; // Default 10 seconds minimum
+  multitrack.tracks.forEach(track => {
+    track.takes.forEach(take => {
+      const end = (take.startTime || 0) + take.duration;
+      if (end > maxDuration) maxDuration = end;
+    });
+  });
+  
+  // Add 20% padding to timeline
+  const timelineWidth = (maxDuration * 1.2) * multitrack.zoom;
+  
+  // Set unified timeline width for all tracks
+  grid.style.setProperty('--timeline-width', timelineWidth + 'px');
+  
   grid.innerHTML = '';
   
   if (multitrack.tracks.length === 0) {
@@ -10930,12 +11078,11 @@ function renderMultitrack() {
   }
   
   multitrack.tracks.forEach(track => {
-    const strip = createTrackStrip(track);
+    const strip = createTrackStrip(track, timelineWidth);
     grid.appendChild(strip);
   });
   
   updateTimelineRuler();
-  
 }
   
 async function previewMultitrack() {
@@ -11519,10 +11666,18 @@ function openFxChainEditor(trackId) {
   
   renderFxChain(track);
   
+  // FIXED: Scroll panel into view properly
   panel.style.display = 'block';
-  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   
-  // Re-setup listeners after panel is shown
+  // Use smooth scroll with better positioning
+  requestAnimationFrame(() => {
+    panel.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'start',
+      inline: 'nearest'
+    });
+  });
+  
   setupMultitrackListeners();
 }
 
@@ -12342,6 +12497,7 @@ async function applyEdits(buffer, edits) {
   
   return newBuffer;
 }
+  
 function setupMultitrackListeners() {
   const addTrackBtn = document.getElementById('addTrackBtn');
   if (addTrackBtn) {
@@ -12456,32 +12612,36 @@ function setupMultitrackListeners() {
   if (addFxBtn && fxAddMenu) {
     addFxBtn.onclick = (e) => {
       e.stopPropagation();
+      
+      // FIXED: Position menu at click location
+      const rect = addFxBtn.getBoundingClientRect();
+      const menuHeight = 400; // approximate max height
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      // Position menu where there's more space
+      if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+        // Open upward
+        fxAddMenu.style.bottom = 'auto';
+        fxAddMenu.style.top = 'auto';
+        fxAddMenu.style.transform = 'translateY(-100%)';
+      } else {
+        // Open downward (default)
+        fxAddMenu.style.bottom = 'auto';
+        fxAddMenu.style.top = '100%';
+        fxAddMenu.style.transform = 'none';
+      }
+      
       fxAddMenu.style.display = fxAddMenu.style.display === 'block' ? 'none' : 'block';
     };
     
+    // Close on outside click
     document.onclick = (e) => {
       const dropdown = document.getElementById('fxAddDropdown');
       if (dropdown && !dropdown.contains(e.target)) {
         fxAddMenu.style.display = 'none';
       }
     };
-    
-    fxAddMenu.querySelectorAll('.fx-add-item').forEach(item => {
-      item.onclick = (e) => {
-        e.stopPropagation();
-        const fxType = item.dataset.fxType;
-        const trackId = multitrack.currentFxTrackId;
-        const track = multitrack.tracks.find(t => t.id === trackId);
-        
-        if (track) {
-          track.addFx(fxType);
-          renderFxChain(track);
-          showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
-        }
-        
-        fxAddMenu.style.display = 'none';
-      };
-    });
   }
 }
   
@@ -12701,7 +12861,7 @@ function getSerializableInstruments() {
 async function saveProject() {
   const projectName = document.getElementById('projectName').value || 'Untitled';
   
-  showToast('💾 Saving project...', 'info');
+  showToast('💾 Saving project (with all audio)...', 'info');
   
   // Serialize patterns
   const plainPatterns = {};
@@ -12715,10 +12875,19 @@ async function saveProject() {
     }));
   });
   
+  // Serialize FX config
+  const fxState = {};
+  Object.keys(fxConfig).forEach(fx => {
+    fxState[fx] = { ...fxConfig[fx] };
+  });
+  
   // Serialize multitrack WITH AUDIO
   const multitrackData = {
     tracks: [],
-    nextTrackId: multitrack.nextTrackId
+    nextTrackId: multitrack.nextTrackId,
+    zoom: multitrack.zoom,
+    snapEnabled: multitrack.snapEnabled,
+    snapInterval: multitrack.snapInterval
   };
   
   // Convert audio blobs to base64 for each track
@@ -12732,6 +12901,8 @@ async function saveProject() {
       pan: track.pan,
       muted: track.muted,
       soloed: track.soloed,
+      armed: track.armed,
+      inputMonitoring: track.inputMonitoring,
       selectedTakeIndex: track.selectedTakeIndex,
       fxChain: track.fxChain.map(fx => ({
         type: fx.type,
@@ -12744,7 +12915,6 @@ async function saveProject() {
     // Convert each take's audio blob to base64
     for (const take of track.takes) {
       try {
-        // Convert blob to base64
         const base64Audio = await blobToBase64(take.blob);
         
         trackData.takes.push({
@@ -12753,9 +12923,10 @@ async function saveProject() {
           timestamp: take.timestamp,
           muted: take.muted,
           startTime: take.startTime,
-          transportStartTime: take.transportStartTime,
+          trimStart: take.trimStart,
+          trimEnd: take.trimEnd,
           recordedAt: take.recordedAt,
-          audioData: base64Audio, // Base64 encoded audio
+          audioData: base64Audio,
           mimeType: take.blob.type
         });
       } catch (err) {
@@ -12767,7 +12938,7 @@ async function saveProject() {
   }
   
   const project = {
-    version: '2.0', // Increment version for audio support
+    version: '2.1', // Increment for complete state save
     name: projectName,
     state: {
       bpm: state.bpm,
@@ -12777,6 +12948,7 @@ async function saveProject() {
       humanize: state.humanize,
       sequenceLength: state.sequenceLength,
       resolution: state.resolution,
+      currentGenre: state.currentGenre,
       key: state.key,
       scale: state.scale,
       octave: state.octave,
@@ -12789,30 +12961,32 @@ async function saveProject() {
       compressor: state.compressor,
       metronomeEnabled: state.metronomeEnabled,
       metronomeVolume: state.metronomeVolume,
-      countInBars: state.countInBars
+      countInBars: state.countInBars,
+      aiMixing: state.aiMixing
     },
     patterns: plainPatterns,
     instruments: getSerializableInstruments(),
+    fxConfig: fxState,
     multitrack: multitrackData,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    savedVibe: document.body.getAttribute('data-vibe')
   };
   
   const json = JSON.stringify(project, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   
-  // Calculate file size
   const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
   
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${projectName.replace(/\s+/g, '_')}.8beat.json`;
+  link.download = `${projectName.replace(/\s+/g, '_')}_${Date.now()}.8beat.json`;
   link.click();
   
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   
-  console.log(`💾 Project saved: ${projectName} (${sizeMB}MB)`);
-  showToast(`✅ Project saved! (${sizeMB}MB)`, 'success');
+  console.log(`💾 Full project saved: ${projectName} (${sizeMB}MB)`);
+  showToast(`✅ Complete project saved! (${sizeMB}MB with ${multitrackData.tracks.length} tracks)`, 'success');
 }
 
 // Helper function to convert Blob to Base64
@@ -12860,7 +13034,6 @@ function applyLoadedInstruments(loaded) {
   });
 }
 
-// Replace the loadProject function (around line 3600):
 function loadProject() {
   const input = document.createElement('input');
   input.type = 'file';
@@ -12875,15 +13048,15 @@ function loadProject() {
       try {
         const project = JSON.parse(ev.target.result);
         
-        console.log('📂 Loading project:', project.name);
-        showToast('⏳ Loading project...', 'info');
+        console.log('📂 Loading project:', project.name, 'version:', project.version);
+        showToast('⏳ Loading complete project...', 'info');
         
         // Stop playback
         if (state.isPlaying) {
           stop();
         }
         
-        // Load state
+        // Load ALL state
         Object.assign(state, {
           ...state,
           ...project.state,
@@ -12900,13 +13073,25 @@ function loadProject() {
           applyLoadedInstruments(project.instruments);
         }
         
+        // Load FX config
+        if (project.fxConfig) {
+          Object.assign(fxConfig, project.fxConfig);
+        }
+        
+        // Load vibe/theme
+        if (project.savedVibe) {
+          applyVibe(project.savedVibe);
+        }
+        
         // Load multitrack
         if (project.multitrack) {
-          // Clear existing tracks
           multitrack.tracks.forEach(t => t.dispose());
           multitrack.tracks = [];
           
-          // Restore tracks with audio
+          multitrack.zoom = project.multitrack.zoom || 100;
+          multitrack.snapEnabled = project.multitrack.snapEnabled ?? true;
+          multitrack.snapInterval = project.multitrack.snapInterval || 0.25;
+          
           for (const trackData of project.multitrack.tracks) {
             const track = new AudioTrack(
               trackData.id,
@@ -12919,9 +13104,10 @@ function loadProject() {
             track.pan = trackData.pan;
             track.muted = trackData.muted;
             track.soloed = trackData.soloed;
+            track.armed = trackData.armed;
+            track.inputMonitoring = trackData.inputMonitoring || false;
             track.selectedTakeIndex = trackData.selectedTakeIndex;
             
-            // Update channel settings
             track.channel.volume.value = track.volume;
             track.channel.pan.value = track.pan / 100;
             
@@ -12942,14 +13128,10 @@ function loadProject() {
               
               for (const takeData of trackData.takes) {
                 try {
-                  // Convert base64 back to blob
                   const blob = base64ToBlob(takeData.audioData, takeData.mimeType);
-                  
-                  // Decode audio buffer
                   const arrayBuffer = await blob.arrayBuffer();
                   const audioBuffer = await Tone.context.rawContext.decodeAudioData(arrayBuffer);
                   
-                  // Recreate the take
                   const take = {
                     id: takeData.id,
                     buffer: audioBuffer,
@@ -12958,7 +13140,8 @@ function loadProject() {
                     timestamp: takeData.timestamp,
                     muted: takeData.muted,
                     startTime: takeData.startTime,
-                    transportStartTime: takeData.transportStartTime,
+                    trimStart: takeData.trimStart,
+                    trimEnd: takeData.trimEnd,
                     recordedAt: takeData.recordedAt
                   };
                   
@@ -12977,9 +13160,20 @@ function loadProject() {
           multitrack.nextTrackId = project.multitrack.nextTrackId;
         }
         
-        // Update all displays
+        // Update ALL displays
         updateAllDisplays();
         ensurePatternLength(state.sequenceLength);
+        
+        // Set genre selector
+        if (state.currentGenre) {
+          document.querySelectorAll('.genre-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.genre === state.currentGenre);
+          });
+        }
+        
+        // Update BPM in transport
+        Tone.Transport.bpm.value = state.bpm;
+        Tone.Transport.swing = state.swing / 100;
         
         renderSequencer();
         renderMixer();
@@ -12990,8 +13184,8 @@ function loadProject() {
         document.getElementById('projectName').value = project.name || 'Untitled';
         
         const totalTakes = multitrack.tracks.reduce((sum, t) => sum + t.takes.length, 0);
-        console.log('✅ Project loaded successfully');
-        showToast(`✅ Project loaded with ${totalTakes} recording(s)!`, 'success');
+        console.log('✅ Complete project loaded successfully');
+        showToast(`✅ Project loaded: ${totalTakes} recording(s), ${multitrack.tracks.length} tracks!`, 'success');
         
       } catch (err) {
         console.error('❌ Load project error:', err);
