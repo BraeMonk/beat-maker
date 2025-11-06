@@ -12265,12 +12265,26 @@ function updatePlayheadUI(seconds) {
 }
 
 function renderMultitrack() {
-  const trackHeaders = document.querySelector('.daw-track-headers');
+  // LEFT COLUMN: track list
+  const trackHeaders = document.getElementById('dawTrackList'); // where strips should go
+
+  // CENTER: arrangement
   const arrangementGrid = document.getElementById('dawArrangementGrid');
-  const rulerContainer = document.querySelector('.daw-ruler-container');
   const arrangementScroll = document.getElementById('dawArrangementScroll');
-  
-  if (!trackHeaders || !arrangementGrid || !rulerContainer || !arrangementScroll) return;
+
+  // RULER STRIP (you have #dawRuler, not .daw-ruler-container)
+  const rulerContainer = document.getElementById('dawRuler');
+
+  // Only hard-require the ones we actually use here
+  if (!trackHeaders || !arrangementGrid) {
+    console.warn('renderMultitrack: missing containers', {
+      trackHeaders,
+      arrangementGrid,
+      arrangementScroll,
+      rulerContainer
+    });
+    return;
+  }
 
   const durationMinutes = typeof state.duration === 'number' && state.duration > 0 ? state.duration : 1;
   const projectDurationSeconds = durationMinutes * 60;
@@ -12280,7 +12294,6 @@ function renderMultitrack() {
   multitrack.projectDuration = projectDurationSeconds;
   multitrack.timelineWidth = timelineWidth;
 
-  // CSS var so ruler / lanes can use it
   document.documentElement.style.setProperty('--timeline-width', timelineWidth + 'px');
 
   // Clear both containers
