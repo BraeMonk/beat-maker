@@ -13071,8 +13071,6 @@ function openFxChainEditor(trackId) {
   
   // Just show it - it's already positioned at the bottom in the HTML
   panel.style.display = 'block';
-  
-  setupMultitrackListeners();
 }
 
 function renderFxChain(track) {
@@ -14326,56 +14324,60 @@ async function setupMultitrackListeners() {
   const fxAddMenu = document.getElementById('fxAddMenu');
   const closeFxBtn = document.getElementById('closeFxPanelBtn');
   
-  // Menu toggle
+  // In setupMultitrackListeners, around line 4790:
   if (fxAddBtn && fxAddMenu) {
-    fxAddBtn.onclick = (e) => {
-      e.stopPropagation();
-      const isVisible = fxAddMenu.style.display === 'block';
-      fxAddMenu.style.display = isVisible ? 'none' : 'block';
+    // Only attach listeners once
+    if (!fxAddMenu.dataset._wired) {
+      fxAddMenu.dataset._wired = 'true';
       
-      // Position menu below button
-      if (!isVisible) {
-        const rect = fxAddBtn.getBoundingClientRect();
-        fxAddMenu.style.position = 'absolute';
-        fxAddMenu.style.top = (rect.bottom + 5) + 'px';
-        fxAddMenu.style.right = '20px';
-      }
-    };
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!fxAddBtn.contains(e.target) && !fxAddMenu.contains(e.target)) {
+      fxAddBtn.onclick = (e) => {
+        e.stopPropagation();
+        const isVisible = fxAddMenu.style.display === 'block';
+        fxAddMenu.style.display = isVisible ? 'none' : 'block';
+        
+        if (!isVisible) {
+          const rect = fxAddBtn.getBoundingClientRect();
+          fxAddMenu.style.position = 'absolute';
+          fxAddMenu.style.top = (rect.bottom + 5) + 'px';
+          fxAddMenu.style.right = '20px';
+        }
+      };
+      
+      // Close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!fxAddBtn.contains(e.target) && !fxAddMenu.contains(e.target)) {
+          fxAddMenu.style.display = 'none';
+        }
+      });
+      
+      // FX type selection - NOW ONLY ATTACHED ONCE
+      fxAddMenu.addEventListener('click', (e) => {
+        const item = e.target.closest('.fx-add-item');
+        if (!item) return;
+        
+        const fxType = item.dataset.fxType;
+        if (!fxType) return;
+        
+        const trackId = Number(multitrack.currentFxTrackId);
+        const track = multitrack.tracks.find(t => t.id === trackId);
+        if (!track) {
+          showToast('❌ No track selected', 'error');
+          return;
+        }
+        
+        const fxObj = track.addFx(fxType);
+        if (!fxObj) {
+          showToast(`❌ FX type "${fxType}" not recognized`, 'error');
+          return;
+        }
+        
+        renderFxChain(track);
         fxAddMenu.style.display = 'none';
-      }
-    });
-    
-    // FX type selection
-    fxAddMenu.addEventListener('click', (e) => {
-      const item = e.target.closest('.fx-add-item');
-      if (!item) return;
-      
-      const fxType = item.dataset.fxType;
-      if (!fxType) return;
-      
-      const trackId = Number(multitrack.currentFxTrackId);
-      const track = multitrack.tracks.find(t => t.id === trackId);
-      if (!track) {
-        showToast('❌ No track selected', 'error');
-        return;
-      }
-      
-      const fxObj = track.addFx(fxType);
-      if (!fxObj) {
-        showToast(`❌ FX type "${fxType}" not recognized`, 'error');
-        return;
-      }
-      
-      renderFxChain(track);
-      fxAddMenu.style.display = 'none';
-      showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
-    });
+        showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
+      });
+    }
   }
-  
+    
   // Close FX panel button
   if (closeFxBtn) {
     closeFxBtn.onclick = () => {
