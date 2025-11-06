@@ -2935,9 +2935,10 @@
     .multitrack-wrapper {
       position: relative;
       width: 100%;
-      overflow-x: auto;
+      overflow-x: auto !important;
       overflow-y: visible;
       -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
     }
     
     .timeline-ruler {
@@ -10023,33 +10024,36 @@ function renderTimelineRegions(track) {
            data-region-id="${take.id}"
            style="position: absolute; left: ${startPos}px; width: ${width}px; height: 80px; top: 0;">
         
-        <div class="region-header">
-          <div class="region-name">Take ${idx + 1}</div>
-          <div class="region-actions">
-            <button class="region-action-btn" data-action="split-region" title="Split" 
-                    style="pointer-events: auto; touch-action: auto;">✂️</button>
-            <button class="region-action-btn" data-action="toggle-mute-region" title="Mute"
-                    style="pointer-events: auto; touch-action: auto;">
-              ${isMuted ? '🔇' : '🔊'}
-            </button>
-            <button class="region-action-btn" data-action="edit-waveform" title="Edit"
-                    style="pointer-events: auto; touch-action: auto;">✏️</button>
-            <button class="region-action-btn" data-action="delete-region" title="Delete"
-                    style="pointer-events: auto; touch-action: auto;">🗑️</button>
-          </div>
+        <!-- BUTTONS AT TOP LEFT - NOT IN FLEX CONTAINER -->
+        <div style="position: absolute; top: 4px; left: 4px; z-index: 100; display: flex; gap: 4px; background: rgba(0,0,0,0.9); padding: 4px; border-radius: 8px; backdrop-filter: blur(8px);">
+          <button class="region-action-btn" data-action="split-region" title="Split" 
+                  style="pointer-events: auto; touch-action: auto;">✂️</button>
+          <button class="region-action-btn" data-action="toggle-mute-region" title="Mute"
+                  style="pointer-events: auto; touch-action: auto;">
+            ${isMuted ? '🔇' : '🔊'}
+          </button>
+          <button class="region-action-btn" data-action="edit-waveform" title="Edit"
+                  style="pointer-events: auto; touch-action: auto;">✏️</button>
+          <button class="region-action-btn" data-action="delete-region" title="Delete"
+                  style="pointer-events: auto; touch-action: auto;">🗑️</button>
         </div>
         
-        <div class="region-waveform">
+        <!-- NAME BELOW BUTTONS -->
+        <div style="position: absolute; top: 48px; left: 8px; font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none; z-index: 99;">
+          Take ${idx + 1}
+        </div>
+        
+        <div class="region-waveform" style="margin-top: 60px;">
           <canvas class="region-waveform-canvas" 
                   data-take-id="${take.id}"
                   width="${Math.max(100, width)}" 
-                  height="60"></canvas>
+                  height="20"></canvas>
         </div>
         
         <div class="region-resize-handle left" data-handle="left"></div>
         <div class="region-resize-handle right" data-handle="right"></div>
         
-        <div class="region-time-label" style="position: absolute; bottom: 2px; left: 4px; font-size: 10px; color: rgba(255,255,255,0.7); pointer-events: none;">
+        <div style="position: absolute; bottom: 2px; left: 4px; font-size: 10px; color: rgba(255,255,255,0.7); pointer-events: none;">
           ${formatTime(take.startTime || 0)}
         </div>
       </div>
@@ -11161,7 +11165,10 @@ function startPlayheadAnimation() {
   const playhead = document.getElementById('timelinePlayhead');
   const wrapper = document.querySelector('.multitrack-wrapper');
   
-  if (!playhead || !wrapper) return;
+  if (!playhead || !wrapper) {
+    console.error('❌ Missing playhead or wrapper');
+    return;
+  }
   
   const zoom = multitrack.zoom || 100;
   
@@ -11176,22 +11183,36 @@ function startPlayheadAnimation() {
     
     playhead.style.left = xPos + 'px';
     
-    // Auto-scroll to keep playhead centered
+    // FIXED: Force scroll to follow playhead
     const wrapperWidth = wrapper.clientWidth;
-    const playheadPos = xPos;
-    const scrollPos = wrapper.scrollLeft;
-    const visibleStart = scrollPos;
-    const visibleEnd = scrollPos + wrapperWidth;
+    const currentScroll = wrapper.scrollLeft;
+    const playheadScreenPos = xPos - currentScroll;
     
-    // Keep playhead in center third of viewport
-    if (playheadPos < visibleStart + wrapperWidth / 3 || playheadPos > visibleEnd - wrapperWidth / 3) {
-      wrapper.scrollLeft = Math.max(0, playheadPos - wrapperWidth / 2);
+    // If playhead is outside the middle 60% of screen, scroll it
+    const leftThreshold = wrapperWidth * 0.2;
+    const rightThreshold = wrapperWidth * 0.8;
+    
+    if (playheadScreenPos < leftThreshold) {
+      // Playhead too far left
+      wrapper.scrollLeft = xPos - wrapperWidth * 0.3;
+    } else if (playheadScreenPos > rightThreshold) {
+      // Playhead too far right
+      wrapper.scrollLeft = xPos - wrapperWidth * 0.7;
     }
     
     playheadAnimationId = requestAnimationFrame(animate);
   };
   
   playheadAnimationId = requestAnimationFrame(animate);
+  console.log('✅ Playhead animation started');
+}
+
+function stopPlayheadAnimation() {
+  if (playheadAnimationId) {
+    cancelAnimationFrame(playheadAnimationId);
+    playheadAnimationId = null;
+    console.log('⏹️ Playhead animation stopped');
+  }
 }
 
 let previewPlayheadId = null;
@@ -11204,13 +11225,16 @@ function startPreviewPlayhead(startOffset, duration) {
   const playhead = document.getElementById('timelinePlayhead');
   const wrapper = document.querySelector('.multitrack-wrapper');
   
-  if (!playhead || !wrapper) return;
+  if (!playhead || !wrapper) {
+    console.error('❌ Missing playhead or wrapper for preview');
+    return;
+  }
   
   const zoom = multitrack.zoom || 100;
   const startTime = performance.now();
   
   const animate = () => {
-    const elapsed = (performance.now() - startTime) / 1000; // seconds
+    const elapsed = (performance.now() - startTime) / 1000;
     
     if (elapsed >= duration) {
       previewPlayheadId = null;
@@ -11222,34 +11246,32 @@ function startPreviewPlayhead(startOffset, duration) {
     
     playhead.style.left = xPos + 'px';
     
-    // Auto-scroll to keep playhead centered
+    // FIXED: Force scroll for preview
     const wrapperWidth = wrapper.clientWidth;
-    const scrollPos = wrapper.scrollLeft;
-    const visibleStart = scrollPos;
-    const visibleEnd = scrollPos + wrapperWidth;
+    const currentScroll = wrapper.scrollLeft;
+    const playheadScreenPos = xPos - currentScroll;
     
-    // Keep playhead in center third of viewport
-    if (xPos < visibleStart + wrapperWidth / 3 || xPos > visibleEnd - wrapperWidth / 3) {
-      wrapper.scrollLeft = Math.max(0, xPos - wrapperWidth / 2);
+    const leftThreshold = wrapperWidth * 0.2;
+    const rightThreshold = wrapperWidth * 0.8;
+    
+    if (playheadScreenPos < leftThreshold) {
+      wrapper.scrollLeft = xPos - wrapperWidth * 0.3;
+    } else if (playheadScreenPos > rightThreshold) {
+      wrapper.scrollLeft = xPos - wrapperWidth * 0.7;
     }
     
     previewPlayheadId = requestAnimationFrame(animate);
   };
   
   previewPlayheadId = requestAnimationFrame(animate);
+  console.log('✅ Preview playhead started');
 }
 
 function stopPreviewPlayhead() {
   if (previewPlayheadId) {
     cancelAnimationFrame(previewPlayheadId);
     previewPlayheadId = null;
-  }
-}
-  
-function stopPlayheadAnimation() {
-  if (playheadAnimationId) {
-    cancelAnimationFrame(playheadAnimationId);
-    playheadAnimationId = null;
+    console.log('⏹️ Preview playhead stopped');
   }
 }
   
