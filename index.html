@@ -11592,7 +11592,7 @@ function applyFadeCurve(progress, curve) {
 }
 
 function setupTimelineCursor() {
-  const wrapper = document.querySelector('.multitrack-wrapper');
+  const wrapper = document.getElementById('dawArrangementScroll');
   const ruler = document.querySelector('.timeline-ruler');
   if (!wrapper || !ruler) return;
 
@@ -11900,7 +11900,7 @@ function updatePlayheadUI(seconds) {
 }
 
 function renderMultitrack() {
-  const grid = document.getElementById('multitrackGrid');
+  const grid = document.getElementById('dawArrangementGrid');
   if (!grid) return;
 
   const durationMinutes = typeof state.duration === 'number' && state.duration > 0
@@ -11919,7 +11919,7 @@ function renderMultitrack() {
     timelineWidth + 'px'
   );
 
-  const wrapper = document.querySelector('.multitrack-wrapper');
+  const wrapper = document.querySelector('dawArrangementScroll');
   if (wrapper) {
     wrapper.style.width = '100%';
     wrapper.style.maxWidth = '100%';
@@ -11946,8 +11946,8 @@ function renderMultitrack() {
 }
 
 function updatePlayheadAndScroll(currentSeconds) {
-  const wrapper = document.querySelector('.multitrack-wrapper');
-  const playhead = document.getElementById('timelinePlayhead');
+  const wrapper = document.getElementById('dawArrangementScroll');
+  const playhead = document.getElementById('dawPlayhead');
   if (!wrapper || !playhead) return;
 
   const zoom = multitrack.zoom || 100;
@@ -11973,8 +11973,8 @@ function startPlayheadAnimation() {
     cancelAnimationFrame(playheadAnimationId);
   }
 
-  const playhead = document.getElementById('timelinePlayhead');
-  const wrapper = document.querySelector('.multitrack-wrapper');
+  const playhead = document.getElementById('dawPlayhead');
+  const wrapper = document.querySelector('dawArrangementScroll');
 
   if (!playhead || !wrapper) return;
 
@@ -12010,8 +12010,8 @@ function startPreviewPlayhead(startOffset, duration) {
     cancelAnimationFrame(previewPlayheadId);
   }
   
-  const playhead = document.getElementById('timelinePlayhead');
-  const wrapper = document.getElementById('multitrackScroll');
+  const playhead = document.getElementById('dawPlayhead');
+  const wrapper = document.getElementById('dawArrangementScroll');
   
   if (!playhead || !wrapper) {
     console.error('❌ Missing playhead or wrapper for preview');
@@ -14074,7 +14074,7 @@ function stop() {
   stopPlayheadAnimation(); // Add this line
   
   // Reset playhead to start
-  const playhead = document.getElementById('timelinePlayhead');
+  const playhead = document.getElementById('dawPlayhead');
   if (playhead) playhead.style.left = '0px';
   
   // Stop multitrack preview
