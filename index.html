@@ -2580,7 +2580,7 @@
       font-size: var(--text-xs);
       color: var(--text-tertiary);
       font-weight: 700;
-      min-width: max-content; /* Allow ruler to expand */
+      overflow: visible; /* CHANGED: was min-width: max-content */
     }
     
     .timeline-markers {
@@ -10042,8 +10042,9 @@ function renderTimelineRegions(track) {
     const isSelected = idx === track.selectedTakeIndex;
     const isMuted = take.muted;
     
-    const startPos = (take.startTime || 0) * zoom;
-    const width = take.duration * zoom;
+    // Position is ABSOLUTE on timeline - never relative
+    const startPos = (take.startTime || 0) * zoom; // Exact position in pixels
+    const width = take.duration * zoom; // Exact duration in pixels
     
     html += `
       <div class="audio-region ${isSelected ? 'selected' : ''} ${isMuted ? 'muted' : ''}"
@@ -10980,6 +10981,9 @@ function updateTimelineRuler() {
   else if (zoom < 25) interval = 10;
   else if (zoom > 200) interval = 0.5;
   
+  // CRITICAL FIX: Set the markers container width to match timeline
+  markers.style.minWidth = totalWidth + 'px';
+  
   // Create markers up to project duration
   for (let t = 0; t <= projectDurationSeconds; t += interval) {
     const x = t * zoom;
@@ -10992,20 +10996,8 @@ function updateTimelineRuler() {
     
     markers.appendChild(marker);
   }
-  
-  // Set the timeline container width to match
-  const timelineRuler = document.querySelector('.timeline-ruler');
-  if (timelineRuler) {
-    timelineRuler.style.minWidth = totalWidth + 'px';
-  }
-  
-  // Update CSS variable for track canvas widths
-  const grid = document.getElementById('multitrackGrid');
-  if (grid) {
-    grid.style.setProperty('--timeline-width', totalWidth + 'px');
-  }
 }
-
+  
 // Enhanced track action handler
 async function handleTrackAction(track, action) {
   if (action === 'arm') {
@@ -11176,26 +11168,27 @@ function renderMultitrack() {
   const grid = document.getElementById('multitrackGrid');
   if (!grid) return;
   
-  // Calculate unified timeline width based on BOTH project duration AND recorded content
-  const projectDurationSeconds = state.duration * 60; // Minutes to seconds
-  let maxDuration = projectDurationSeconds; // Start with project duration
+  // Calculate unified timeline width - ALWAYS use project duration as base
+  const projectDurationSeconds = state.duration * 60;
+  const timelineWidth = projectDurationSeconds * multitrack.zoom;
   
-  // Extend if any takes go beyond project duration
-  multitrack.tracks.forEach(track => {
-    track.takes.forEach(take => {
-      const end = (take.startTime || 0) + take.duration;
-      if (end > maxDuration) maxDuration = end;
-    });
-  });
+  multitrack.timelineWidth = timelineWidth;
+  multitrack.projectDuration = projectDurationSeconds;
   
-  // Add 20% padding to timeline
-  const timelineWidth = (maxDuration * 1.2) * multitrack.zoom;
-  
-  // Set unified timeline width for all tracks
-  grid.style.setProperty('--timeline-width', timelineWidth + 'px');
-  
-  // Get wrapper for scroll sync
+  // CRITICAL: Set unified scroll width
   const wrapper = document.querySelector('.multitrack-wrapper');
+  if (wrapper) {
+    wrapper.style.width = '100%';
+    wrapper.style.overflowX = 'auto';
+    wrapper.style.overflowY = 'visible';
+  }
+  
+  // Set timeline markers width to match
+  const markers = document.getElementById('timelineMarkers');
+  if (markers) {
+    markers.style.minWidth = timelineWidth + 'px';
+    markers.style.width = timelineWidth + 'px';
+  }
   
   grid.innerHTML = '';
   
@@ -11363,8 +11356,11 @@ async function previewMultitrack() {
   }
   
   multitrack.previewPlayers = [];
-  let minStartTime = Infinity;
-  let maxEndTime = 0;
+  
+  // Preview ALWAYS starts from 0 on the timeline
+  // Tracks play at their EXACT startTime positions
+  let minStartTime = 0; // Start from beginning
+  let maxEndTime = multitrack.projectDuration || (state.duration * 60);
   
   showToast('⏳ Loading takes...', 'info');
   
@@ -11670,36 +11666,31 @@ async function bounceAllTracks() {
   try {
     updateProgress(10, 'Analyzing tracks...', `${activeTracks.length} tracks to bounce`);
 
-    // 🕒 Figure out global time span
-    let minStart = Infinity;
-    let maxEnd = 0;
-
+    // 🕒 Use FULL project duration - never trim timeline
+    const projectDuration = multitrack.projectDuration || (state.duration * 60);
+    const minStart = 0; // Always start from timeline beginning
+    const maxEnd = projectDuration; // Always go to project end
+    
+    // Validate that tracks actually have content
+    let hasContent = false;
     activeTracks.forEach(track => {
-      // Pick selected take if valid, otherwise first non-muted buffered take
       let take = null;
       if (track.selectedTakeIndex >= 0 && track.takes[track.selectedTakeIndex]) {
         take = track.takes[track.selectedTakeIndex];
       } else if (track.takes && track.takes.length > 0) {
         take = track.takes.find(tk => tk && tk.buffer && !tk.muted) || null;
       }
-
-      if (!take || !take.buffer) return;
-
-      const startTime = take.startTime || 0;
-      const duration = take.duration || take.buffer.duration || 0;
-      const endTime = startTime + duration;
-
-      if (startTime < minStart) minStart = startTime;
-      if (endTime > maxEnd) maxEnd = endTime;
+      if (take && take.buffer) hasContent = true;
     });
-
-    if (minStart === Infinity || maxEnd <= minStart) {
+    
+    if (!hasContent) {
       backdrop.remove();
-      showToast('❌ Invalid take timing for bounce', 'error');
+      showToast('❌ No audio content to bounce', 'error');
       return;
     }
 
-    const totalDuration = maxEnd - minStart;
+    const totalDuration = maxEnd - minStart; // Full project length
+    
     updateProgress(
       20,
       'Setting up renderer...',
