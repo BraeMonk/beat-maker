@@ -9698,6 +9698,9 @@ const multitrack = {
   zoom: 100, // pixels per second
   snapEnabled: true,
   snapInterval: 0.25,
+  loopEnabled: false,
+  loopStart: null,
+  loopEnd: null,
   currentTool: 'select'   // ✏️ timeline tool state
 };
 
@@ -12252,12 +12255,38 @@ async function previewMultitrack(startAtSeconds) {
   initPlayheadFollow();                 // Start updating timecode + scroll
   startPreviewPlayhead(previewStart, totalDuration); // Keeps your existing animation logic
 
-  // Automatically stop when preview ends
-  multitrack.previewTimeout = setTimeout(() => {
+  // === 🌀 LOOP SUPPORT (Selection or Full Project) ===
+  multitrack.previewTimeout = setTimeout(async () => {
     stopMultitrackPreview();
     const btn = document.getElementById('previewMultitrackBtn');
-    if (btn) btn.textContent = '▶️ Preview Mix';
-  }, (totalDuration + 0.5) * 1000);
+
+    // If loop not enabled, end normally
+    if (!multitrack.loopEnabled) {
+      if (btn) btn.textContent = '▶️ Preview Mix';
+      return;
+    }
+
+    // Figure out if there’s a defined selection
+    const hasSelection =
+      typeof multitrack.loopStart === 'number' &&
+      typeof multitrack.loopEnd === 'number' &&
+      multitrack.loopEnd > multitrack.loopStart;
+
+    const restartAt = hasSelection ? multitrack.loopStart : 0;
+    const endPoint = hasSelection
+      ? multitrack.loopEnd
+      : multitrack.projectDuration || state.duration * 60;
+
+    console.log(
+      hasSelection
+        ? `🔁 Looping selected region: ${restartAt.toFixed(2)}s → ${endPoint.toFixed(2)}s`
+        : '🔁 Looping entire project…'
+    );
+
+    // Reset playhead and restart playback
+    multitrack.playheadSeconds = restartAt;
+    await previewMultitrack(restartAt);
+  }, (totalDuration + 0.25) * 1000);
 }
 
 function stopMultitrackPreview() {
@@ -14981,7 +15010,27 @@ async function exportLiveRecording() {
   
   showToast('🎙️ Recording live output...', 'info');
 }
-  
+
+function setLoopRegion(startSeconds, endSeconds) {
+  if (typeof startSeconds !== 'number' || typeof endSeconds !== 'number') {
+    showToast('⚠️ Invalid loop region.', 'warning');
+    return;
+  }
+  if (endSeconds <= startSeconds) {
+    showToast('⚠️ Loop end must be after start.', 'warning');
+    return;
+  }
+  multitrack.loopStart = startSeconds;
+  multitrack.loopEnd = endSeconds;
+  showToast(`🔁 Loop set: ${startSeconds.toFixed(2)}s → ${endSeconds.toFixed(2)}s`, 'info');
+}
+
+function clearLoopRegion() {
+  multitrack.loopStart = null;
+  multitrack.loopEnd = null;
+  showToast('⏹️ Loop region cleared.', 'info');
+}
+
 // -------------------- PWA Installation --------------------
 let deferredPrompt;
 
