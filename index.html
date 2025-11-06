@@ -3268,20 +3268,20 @@
       position: sticky;
       top: 0;
       left: 0;
-      right: 0;
       height: 48px;
       background: linear-gradient(180deg, var(--bg-secondary), var(--bg-tertiary));
       border-bottom: 2px solid var(--glass-border-strong);
       display: flex;
-      flex-direction: row;              /* 🔒 FORCE HORIZONTAL LAYOUT */
+      flex-direction: row;
       align-items: center;
-      padding: 0 var(--space-4);
-      z-index: 10;
+      z-index: 100;
       font-family: var(--font-mono);
       font-size: var(--text-xs);
       color: var(--text-tertiary);
       font-weight: 700;
       box-sizing: border-box;
+      min-width: var(--timeline-width, 100%);
+      width: var(--timeline-width, 100%);
     }
 
     /* Each marker is an absolutely positioned vertical line */
@@ -3311,6 +3311,7 @@
       flex: 1 1 auto;
       height: 100%;
       min-width: var(--timeline-width, 100%);
+      width: var(--timeline-width, 100%);
     }
     
     /* Vertical tick line moving horizontally */
@@ -3343,12 +3344,14 @@
     
     .multitrack-grid {
       display: flex;
-      flex-direction: column;           /* tracks stacked vertically */
+      flex-direction: column;
       gap: 0;
       background: var(--bg-primary);
       border-radius: var(--radius-lg);
       overflow: visible;
       position: relative;
+      width: var(--timeline-width, 100%);
+      min-width: var(--timeline-width, 100%);
     }
     
     /* Individual track strip */
@@ -12062,6 +12065,9 @@ function updateTimelineRuler() {
   multitrack.projectDuration = projectDurationSeconds;
   multitrack.timelineWidth = totalWidth;
   document.documentElement.style.setProperty('--timeline-width', totalWidth + 'px');
+
+  ruler.style.width = totalWidth + 'px';
+  ruler.style.minWidth = totalWidth + 'px';
 
   markers.style.width = totalWidth + 'px';
   markers.style.minWidth = totalWidth + 'px';
