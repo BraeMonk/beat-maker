@@ -4309,6 +4309,31 @@
       color: white;
     }
 
+    @media (orientation: portrait) {
+      .toast-container {
+        /* Stretch full viewport width */
+        left: 0;
+        right: 0;
+        transform: none;
+    
+        /* Nudge it up a bit if you want more breathing room */
+        bottom: calc(var(--space-8) + var(--inset-bottom));
+    
+        /* Center the toasts within that bar */
+        display: flex;              /* already set, but safe to restate */
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+    
+      .toast {
+        max-width: 90vw;            /* keep it inside the screen */
+        font-size: var(--text-xs);
+        padding: var(--space-2) var(--space-3);
+        margin: 0 auto;             /* extra safety */
+      }
+    }
+
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
       .transport{
@@ -14301,11 +14326,26 @@ async function setupMultitrackListeners() {
     fxAddMenu.addEventListener('click', (e) => {
       const item = e.target.closest('.fx-add-item');
       if (!item) return;
+  
       const fxType = item.dataset.fxType;
-      const trackId = multitrack.currentFxTrackId;
+      if (!fxType) {
+        console.warn('❌ FX add: .fx-add-item missing data-fx-type');
+        return;
+      }
+  
+      const trackId = Number(multitrack.currentFxTrackId);
       const track = multitrack.tracks.find(t => t.id === trackId);
-      if (!track) return;
-      track.addFx(fxType);
+      if (!track) {
+        console.warn('❌ FX add: no track for currentFxTrackId', multitrack.currentFxTrackId);
+        return;
+      }
+  
+      const fxObj = track.addFx(fxType);
+      if (!fxObj) {
+        showToast(`❌ FX type "${fxType}" not recognized`, 'error');
+        return;
+      }
+  
       renderFxChain(track);
       fxAddMenu.style.display = 'none';
       showToast(`✅ Added ${fxType}`, 'success');
