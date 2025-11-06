@@ -5198,6 +5198,10 @@
                 <button class="tool-btn" data-tool="split" title="Split Tool">✂️</button>
                 <button class="tool-btn" data-tool="fade" title="Fade Tool">📉</button>
               </div>
+
+              <div class="toolbar-group">
+                <button class="btn btn-secondary btn-sm" id="importStemBtn">📁 Import Audio</button>
+              </div>
     
               <div class="toolbar-group">
                 <span class="toolbar-label">Snap:</span>
@@ -13673,7 +13677,16 @@ async function applyEdits(buffer, edits) {
 async function setupMultitrackListeners() {
   // === LEGACY BUTTONS (you already had these) ===
   const addTrackBtn = document.getElementById('addTrackBtn');
-  if (addTrackBtn) addTrackBtn.onclick = () => showAddTrackDialog();
+  if (addTrackBtn) {
+    // Remove any existing listeners first
+    const newBtn = addTrackBtn.cloneNode(true);
+    addTrackBtn.parentNode.replaceChild(newBtn, addTrackBtn);
+    
+    // Attach fresh listener
+    newBtn.addEventListener('click', () => {
+      showAddTrackDialog();
+    });
+  }
 
   const previewBtn = document.getElementById('previewMultitrackBtn');
   if (previewBtn) {
