@@ -3913,10 +3913,7 @@
     }
     
     .fx-add-menu {
-      display: none;
       position: absolute;
-      top: calc(100% + var(--space-2));
-      right: 0;
       min-width: 200px;
       background: var(--surface-elevated);
       border: 1px solid var(--glass-border-strong);
@@ -3924,7 +3921,8 @@
       box-shadow: var(--shadow-2xl);
       backdrop-filter: blur(24px) saturate(150%);
       padding: var(--space-2);
-      z-index: 1000;
+      z-index: 10001;
+      display: none;
     }
     
     .fx-add-item {
@@ -3936,6 +3934,9 @@
       font-size: var(--text-sm);
       transition: all var(--duration-fast) var(--ease-smooth);
       border: 1px solid transparent;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
     }
     
     .fx-add-item:hover {
@@ -14354,21 +14355,60 @@ async function setupMultitrackListeners() {
 
   // === FX CHAIN EDITOR ===
   const fxAddBtn = document.getElementById('fxAddBtn');
+  const fxAddMenu = document.getElementById('fxAddMenu');
   const closeFxBtn = document.getElementById('closeFxPanelBtn');
   
+  // Menu toggle
   if (fxAddBtn && fxAddMenu) {
-    fxAddBtn.onclick = () => {
+    fxAddBtn.onclick = (e) => {
+      e.stopPropagation();
       const isVisible = fxAddMenu.style.display === 'block';
       fxAddMenu.style.display = isVisible ? 'none' : 'block';
+      
+      // Position menu below button
+      if (!isVisible) {
+        const rect = fxAddBtn.getBoundingClientRect();
+        fxAddMenu.style.position = 'absolute';
+        fxAddMenu.style.top = (rect.bottom + 5) + 'px';
+        fxAddMenu.style.right = '20px';
+      }
     };
     
+    // Close menu when clicking outside
     document.addEventListener('click', (e) => {
       if (!fxAddBtn.contains(e.target) && !fxAddMenu.contains(e.target)) {
         fxAddMenu.style.display = 'none';
       }
     });
+    
+    // FX type selection
+    fxAddMenu.addEventListener('click', (e) => {
+      const item = e.target.closest('.fx-add-item');
+      if (!item) return;
+      
+      const fxType = item.dataset.fxType;
+      if (!fxType) return;
+      
+      const trackId = Number(multitrack.currentFxTrackId);
+      const track = multitrack.tracks.find(t => t.id === trackId);
+      if (!track) {
+        showToast('❌ No track selected', 'error');
+        return;
+      }
+      
+      const fxObj = track.addFx(fxType);
+      if (!fxObj) {
+        showToast(`❌ FX type "${fxType}" not recognized`, 'error');
+        return;
+      }
+      
+      renderFxChain(track);
+      fxAddMenu.style.display = 'none';
+      showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
+    });
   }
   
+  // Close FX panel button
   if (closeFxBtn) {
     closeFxBtn.onclick = () => {
       const panel = document.getElementById('fxChainPanel');
