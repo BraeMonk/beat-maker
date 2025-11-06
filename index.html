@@ -11340,36 +11340,28 @@ function setupRegionContextMenu() {
       let x = e.clientX;
       let y = e.clientY;
       
-      // Check right edge (viewport, not page)
+      // Right edge
       if (x + menuWidth > window.innerWidth) {
         x = window.innerWidth - menuWidth - 10;
       }
-      
-      // Check bottom edge (viewport, not page)
+      // Bottom edge
       if (y + menuHeight > window.innerHeight) {
         y = window.innerHeight - menuHeight - 10;
       }
+      // Left edge
+      if (x < 10) x = 10;
+      // Top edge
+      if (y < 10) y = 10;
       
-      // Check left edge
-      if (x < 10) {
-        x = 10;
-      }
-      
-      // Check top edge
-      if (y < 10) {
-        y = 10;
-      }
-      
-      // CRITICAL: Use fixed positioning so it stays in viewport
       contextMenu.style.position = 'fixed';
       contextMenu.style.left = x + 'px';
       contextMenu.style.top = y + 'px';
-      contextMenu.style.zIndex = '10000'; // Above everything
+      contextMenu.style.zIndex = '10000';
     });
     
     // Handle menu clicks
-    contextMenu.addEventListener('click', async (e) => {
-      const item = e.target.closest('.region-context-item');
+    contextMenu.addEventListener('click', async (e2) => {
+      const item = e2.target.closest('.region-context-item');
       if (!item || !contextTarget) return;
       
       const action = item.dataset.action;
@@ -11384,10 +11376,10 @@ function setupRegionContextMenu() {
       
       await handleContextAction(track, contextTarget.takeIndex, action);
     });
-    
+
     // Close on click outside
-    const closeHandler = (e) => {
-      if (contextMenu && !contextMenu.contains(e.target)) {
+    const closeHandler = (e3) => {
+      if (contextMenu && !contextMenu.contains(e3.target)) {
         contextMenu.remove();
         contextMenu = null;
         document.removeEventListener('click', closeHandler);
@@ -11397,7 +11389,71 @@ function setupRegionContextMenu() {
     setTimeout(() => {
       document.addEventListener('click', closeHandler);
     }, 0);
-  });
+  }); // 🔚 close contextmenu listener
+
+
+  // === LONG-PRESS SUPPORT (mobile / touch) ===
+  let longPressTimer = null;
+  let touchStartX = 0;
+  let touchStartY = 0;
+  const LONG_PRESS_MS = 550;
+  const MOVE_TOLERANCE = 10; // px
+
+  // Start tracking on touchstart
+  document.addEventListener(
+    'touchstart',
+    (e) => {
+      const region = e.target.closest('.audio-region');
+      if (!region) return;
+
+      if (e.touches.length !== 1) return; // ignore multi-touch
+
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+
+      clearTimeout(longPressTimer);
+      longPressTimer = setTimeout(() => {
+        const fakeEvent = new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: touchStartX,
+          clientY: touchStartY,
+        });
+        region.dispatchEvent(fakeEvent);
+      }, LONG_PRESS_MS);
+    },
+    { passive: true }
+  );
+
+  // Cancel if the finger moves too far
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!longPressTimer) return;
+
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > MOVE_TOLERANCE) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    },
+    { passive: true }
+  );
+
+  // Cancel on touchend / cancel
+  const cancelLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  };
+
+  document.addEventListener('touchend', cancelLongPress, { passive: true });
+  document.addEventListener('touchcancel', cancelLongPress, { passive: true });
 }
 
 async function handleContextAction(track, takeIndex, action) {
