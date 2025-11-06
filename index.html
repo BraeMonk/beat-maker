@@ -3041,12 +3041,17 @@
     }
     
     .region-header {
+      position: sticky;
+      left: 0;
+      top: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: var(--space-2) var(--space-3);
-      background: rgba(0,0,0,.3);
-      backdrop-filter: blur(4px);
+      background: rgba(0,0,0,.8);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     }
     
     .region-name {
@@ -3054,15 +3059,15 @@
       font-weight: 700;
       color: var(--text-primary);
       text-shadow: 0 1px 2px rgba(0,0,0,.5);
+      pointer-events: none;
     }
     
     .region-actions {
       display: flex;
       gap: var(--space-1);
-      opacity: 1; /* Always visible now */
+      opacity: 1;
       pointer-events: auto;
-      z-index: 50;
-      position: relative;
+      z-index: 101;
     }
     
     .audio-region:hover .region-actions {
@@ -3072,11 +3077,11 @@
     .region-action-btn {
       width: 32px;
       height: 32px;
-      min-width: 32px; /* Prevent shrinking */
+      min-width: 32px;
       min-height: 32px;
       border: none;
       border-radius: var(--radius-xs);
-      background: rgba(0,0,0,.7);
+      background: rgba(0,0,0,.9);
       color: var(--text-primary);
       cursor: pointer;
       font-size: 14px;
@@ -3087,12 +3092,14 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,.2);
     }
     
     .region-action-btn:hover,
     .region-action-btn:active {
       background: var(--accent-primary);
       transform: scale(1.1);
+      border-color: var(--accent-primary);
     }
     
     .region-waveform {
@@ -3830,25 +3837,30 @@
       }
 
       .region-action-btn {
-        width: 40px;
-        height: 40px;
-        min-width: 40px;
-        min-height: 40px;
-        font-size: 16px;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 18px;
       }
-        
+      
       .region-actions {
         gap: var(--space-2);
       }
       
-      /* Ensure buttons stay on top during drag */
-      .audio-region.dragging .region-action-btn {
-        pointer-events: none;
+      .region-header {
+        padding: var(--space-3);
       }
-      
-      .audio-region:not(.dragging) .region-action-btn {
-        pointer-events: auto;
-      }
+    }
+    
+    /* Ensure buttons work during drag */
+    .audio-region.dragging .region-action-btn {
+      pointer-events: none;
+    }
+    
+    .audio-region:not(.dragging) .region-action-btn {
+      pointer-events: auto;
+    }
     
       .track-header {
         min-width: 200px;
@@ -11182,6 +11194,58 @@ function startPlayheadAnimation() {
   playheadAnimationId = requestAnimationFrame(animate);
 }
 
+let previewPlayheadId = null;
+
+function startPreviewPlayhead(startOffset, duration) {
+  if (previewPlayheadId) {
+    cancelAnimationFrame(previewPlayheadId);
+  }
+  
+  const playhead = document.getElementById('timelinePlayhead');
+  const wrapper = document.querySelector('.multitrack-wrapper');
+  
+  if (!playhead || !wrapper) return;
+  
+  const zoom = multitrack.zoom || 100;
+  const startTime = performance.now();
+  
+  const animate = () => {
+    const elapsed = (performance.now() - startTime) / 1000; // seconds
+    
+    if (elapsed >= duration) {
+      previewPlayheadId = null;
+      return;
+    }
+    
+    const currentTime = startOffset + elapsed;
+    const xPos = currentTime * zoom;
+    
+    playhead.style.left = xPos + 'px';
+    
+    // Auto-scroll to keep playhead centered
+    const wrapperWidth = wrapper.clientWidth;
+    const scrollPos = wrapper.scrollLeft;
+    const visibleStart = scrollPos;
+    const visibleEnd = scrollPos + wrapperWidth;
+    
+    // Keep playhead in center third of viewport
+    if (xPos < visibleStart + wrapperWidth / 3 || xPos > visibleEnd - wrapperWidth / 3) {
+      wrapper.scrollLeft = Math.max(0, xPos - wrapperWidth / 2);
+    }
+    
+    previewPlayheadId = requestAnimationFrame(animate);
+  };
+  
+  previewPlayheadId = requestAnimationFrame(animate);
+}
+
+function stopPreviewPlayhead() {
+  if (previewPlayheadId) {
+    cancelAnimationFrame(previewPlayheadId);
+    previewPlayheadId = null;
+  }
+}
+  
 function stopPlayheadAnimation() {
   if (playheadAnimationId) {
     cancelAnimationFrame(playheadAnimationId);
@@ -11276,6 +11340,9 @@ async function previewMultitrack() {
   
   showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
   
+  // Start visual playhead for preview
+  startPreviewPlayhead(minStartTime, totalDuration);
+  
   multitrack.previewTimeout = setTimeout(() => {
     stopMultitrackPreview();
     const btn = document.getElementById('previewMultitrackBtn');
@@ -11298,6 +11365,9 @@ function stopMultitrackPreview() {
     multitrack.previewPlayers = null;
     console.log('⏹️ Preview stopped');
   }
+  
+  // Stop preview playhead
+  stopPreviewPlayhead();
   
   // Clear timeout if exists
   if (multitrack.previewTimeout) {
@@ -11690,7 +11760,7 @@ async function toggleRecordAllArmed() {
 
   if (recordingTracks.length > 0) {
     recordingTracks.forEach(track => track.stopRecording());
-    // ❗️Do NOT clear globalRecordStartTime here – finishRecording needs it
+    stopPlayheadAnimation(); // Stop scroll during recording
     showToast(`⏹️ Stopped recording ${recordingTracks.length} track(s)`, 'info');
     renderMultitrack();
     return;
@@ -11701,7 +11771,6 @@ async function toggleRecordAllArmed() {
     return;
   }
 
-  // 🔥 NEW: Validate BEFORE starting any recordings
   try {
     await validateAllArmedTracks();
   } catch (err) {
@@ -11726,6 +11795,10 @@ async function toggleRecordAllArmed() {
   const trackList = armedTracks.map(t => t.name).join(', ');
   console.log(`🎙️ Recording ${armedTracks.length} tracks: ${trackList}`);
   showToast(`🎙️ Recording ${armedTracks.length} track(s)`, 'success');
+  
+  // Start playhead animation for recording
+  startPlayheadAnimation();
+  
   renderMultitrack();
 }
   
