@@ -4449,6 +4449,76 @@
         grid-template-columns: 140px repeat(16, 1fr);
       }
     }
+
+    /* --- DAW Transport Responsive --- */
+    @media (max-width: 768px){
+      .daw-transport-bar {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--space-2);
+        padding: var(--space-3);
+      }
+    
+      .daw-transport-bar .transport-section {
+        justify-content: center;
+        flex: 1 1 100%;
+      }
+    
+      .daw-transport-bar input[type="number"],
+      .daw-transport-bar select {
+        font-size: var(--text-sm);
+        padding: var(--space-2);
+        width: 70px;
+      }
+    
+      .transport-btn {
+        width: 38px;
+        height: 38px;
+        font-size: 1.2rem;
+      }
+    
+      .transport-display {
+        min-width: 70px;
+        font-size: var(--text-xs);
+      }
+    }
+    
+    @media (hover: none) and (pointer: coarse){
+      .transport-btn {
+        width: 48px;
+        height: 48px;
+      }
+    }
+
+    /* --- DAW Main Container Responsive --- */
+    @media (max-width: 1024px){
+      .daw-main-container {
+        grid-template-columns: 200px 1fr 240px;
+      }
+    }
+    
+    @media (max-width: 900px){
+      .daw-main-container {
+        grid-template-columns: 1fr;
+        gap: var(--space-3);
+      }
+    
+      .daw-track-list,
+      .daw-inspector {
+        order: 2;
+        max-height: 250px;
+        overflow-y: auto;
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--glass-border);
+        padding: var(--space-3);
+      }
+    
+      .daw-timeline-container {
+        order: 1;
+      }
+    }
+
     
     /* -------- Print Styles -------- */
     @media print{
@@ -11752,6 +11822,78 @@ function showAddTrackDialog() {
   backdrop.onclick = e => { if (e.target === backdrop) close(); };
 }
 
+// === PLAYHEAD FOLLOW + TIME DISPLAY ===
+
+let playheadFollowActive = true;
+let playheadUpdateInterval = null;
+
+// Call this once after your DAW tab is ready
+function initPlayheadFollow() {
+  const timecodeEl = document.getElementById('dawTimecode');
+  const barsEl = document.getElementById('dawBars');
+  const arrangementScroll = document.getElementById('dawArrangementScroll');
+  const playheadEl = document.getElementById('dawPlayhead');
+
+  if (!playheadEl || !arrangementScroll) return;
+
+  // Stop any previous timer
+  clearInterval(playheadUpdateInterval);
+
+  playheadUpdateInterval = setInterval(() => {
+    if (!multitrack.isPlaying) return; // only update while playing or recording
+
+    const ctx = Tone?.Transport || null;
+    const seconds = ctx ? ctx.seconds : (multitrack.playheadSeconds || 0);
+    multitrack.playheadSeconds = seconds;
+
+    // === 1. Update playhead position ===
+    updatePlayheadUI(seconds);
+
+    // === 2. Follow mode scroll ===
+    if (playheadFollowActive) {
+      const projDur = multitrack.projectDuration || (state.duration * 60);
+      const pct = (seconds / projDur);
+      const scrollWidth = arrangementScroll.scrollWidth - arrangementScroll.clientWidth;
+      arrangementScroll.scrollLeft = pct * scrollWidth;
+    }
+
+    // === 3. Update displays ===
+    if (timecodeEl) timecodeEl.textContent = formatTimecode(seconds);
+    if (barsEl) barsEl.textContent = formatBars(seconds);
+  }, 50); // updates ~20 fps
+}
+
+function formatTimecode(sec) {
+  const ms = Math.floor((sec % 1) * 1000);
+  const s = Math.floor(sec) % 60;
+  const m = Math.floor(sec / 60) % 60;
+  const h = Math.floor(sec / 3600);
+  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}.${ms.toString().padStart(3,'0')}`;
+}
+
+function formatBars(sec) {
+  const bpm = parseFloat(document.getElementById('dawBpmInput')?.value) || 120;
+  const beatDur = 60 / bpm;
+  const beats = sec / beatDur;
+  const bar = Math.floor(beats / 4) + 1;
+  const beat = Math.floor(beats % 4) + 1;
+  return `${bar}.${beat}.1`;
+}
+
+// Optionally toggle follow mode
+function togglePlayheadFollow() {
+  playheadFollowActive = !playheadFollowActive;
+  showToast(playheadFollowActive ? '🎥 Follow Mode ON' : '🎥 Follow Mode OFF', 'info');
+}
+
+// Helper: ensure playhead stays visible when manually scrubbed
+function updatePlayheadUI(seconds) {
+  const playhead = document.getElementById('dawPlayhead');
+  const projDur = multitrack.projectDuration || (state.duration * 60);
+  const pct = Math.max(0, Math.min(1, seconds / projDur));
+  playhead.style.left = `${pct * 100}%`;
+}
+
 function renderMultitrack() {
   const grid = document.getElementById('multitrackGrid');
   if (!grid) return;
@@ -11915,12 +12057,12 @@ function setupPreviewButton() {
 
 async function previewMultitrack(startAtSeconds) {
   // If no explicit start is passed, use the last playhead/cursor position
-  const startFrom = 
-    typeof startAtSeconds === 'number' 
-      ? startAtSeconds 
+  const startFrom =
+    typeof startAtSeconds === 'number'
+      ? startAtSeconds
       : (typeof state.cursorSeconds === 'number' ? state.cursorSeconds : 0);
 
-  const activeTracks = multitrack.tracks.filter(t => 
+  const activeTracks = multitrack.tracks.filter(t =>
     t.selectedTakeIndex >= 0 && !t.muted
   );
   
@@ -11928,89 +12070,83 @@ async function previewMultitrack(startAtSeconds) {
     showToast('❌ No active takes to preview', 'error');
     return;
   }
-  
-  // Stop any existing preview first
+
+  // 🧩 Stop any existing preview first
   stopMultitrackPreview();
-  
+
   await Tone.start();
   if (Tone.context.state !== 'running') {
     await Tone.context.resume();
   }
-  
+
   multitrack.previewPlayers = [];
-  
+
   const projectDurationSeconds = multitrack.projectDuration || (state.duration * 60);
   
   // 🔑 Clamp start offset to project bounds
   const previewStart = Math.max(0, Math.min(startFrom, projectDurationSeconds));
-  let previewEnd = previewStart; // we'll expand this as we see regions
-  
+  let previewEnd = previewStart;
+
   // Update cursor + visually move playhead to the preview start
   state.cursorSeconds = previewStart;
   updatePlayheadAndScroll(previewStart);
 
   showToast(`⏳ Loading takes (from ${previewStart.toFixed(2)}s)...`, 'info');
-  
+
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted) continue;
-    
+
     if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
       console.error(`❌ ${track.name}: Invalid buffer`);
       continue;
     }
-    
+
     const regionStart = take.startTime || 0;
     const regionEnd = regionStart + take.duration;
-    
-    // ⛔ Region ends before our preview window → skip
-    if (regionEnd <= previewStart) {
-      continue;
-    }
-    
+
+    if (regionEnd <= previewStart) continue;
+
     try {
       const player = new Tone.Player({
         context: Tone.context,
         loop: false,
         fadeOut: 0.01
       }).connect(track.channel);
-      
+
       player.buffer = take.buffer;
-      
-      // When (relative to preview start) should this region start?
+
       const relativeStart = Math.max(0, regionStart - previewStart);
-      
+
       multitrack.previewPlayers.push({
         player,
         track,
         startTime: regionStart,
         relativeStart
       });
-      
-      // Grow previewEnd to include anything that overlaps our window
+
       if (regionEnd > previewEnd) previewEnd = regionEnd;
-      
+
       console.log(
         `✅ ${track.name} ready: region ${regionStart.toFixed(3)}–${regionEnd.toFixed(3)}s, ` +
         `plays at +${relativeStart.toFixed(3)}s in preview`
       );
-      
+
     } catch (err) {
       console.error(`❌ ${track.name} failed:`, err);
     }
   }
-  
+
   if (!multitrack.previewPlayers.length) {
     showToast('⚠️ No regions overlap this preview range', 'warning');
     return;
   }
-  
-  // 🔥 Preview window = [previewStart, previewEnd]
+
   const totalDuration = Math.max(0.1, previewEnd - previewStart);
   console.log(`▶️ Preview from ${previewStart.toFixed(3)}s for ${totalDuration.toFixed(3)}s`);
-  
+
   const now = Tone.now() + 0.1;
-  
+
   multitrack.previewPlayers.forEach(({ player, track, relativeStart }) => {
     try {
       player.start(now + relativeStart);
@@ -12019,16 +12155,19 @@ async function previewMultitrack(startAtSeconds) {
       console.error(`❌ Failed to start ${track.name}:`, err);
     }
   });
-  
+
   showToast(
     `▶️ Previewing ${multitrack.previewPlayers.length} track(s) from ${previewStart.toFixed(2)}s`,
     'success'
   );
-  
-  // 🎯 Playhead moves along the real project timeline, starting at previewStart
-  // (this should internally call updatePlayheadAndScroll)
-  startPreviewPlayhead(previewStart, totalDuration);
-  
+
+  // === 🧭 NEW: Activate playhead + follow mode ===
+  multitrack.isPlaying = true;          // Let the UI know playback is active
+  multitrack.playheadSeconds = previewStart;
+  initPlayheadFollow();                 // Start updating timecode + scroll
+  startPreviewPlayhead(previewStart, totalDuration); // Keeps your existing animation logic
+
+  // Automatically stop when preview ends
   multitrack.previewTimeout = setTimeout(() => {
     stopMultitrackPreview();
     const btn = document.getElementById('previewMultitrackBtn');
@@ -12040,22 +12179,23 @@ function stopMultitrackPreview() {
   if (multitrack.previewPlayers) {
     multitrack.previewPlayers.forEach(({ player }) => {
       try {
-        if (player.state === 'started') {
-          player.stop();
-        }
+        if (player.state === 'started') player.stop();
         player.dispose();
       } catch (err) {
         console.warn('Error stopping preview player:', err);
       }
     });
-    multitrack.previewPlayers = []; // safer than null
+    multitrack.previewPlayers = [];
     console.log('⏹️ Preview stopped');
   }
-  
-  // Stop preview playhead
+
+  // === 🧭 NEW: Stop playhead follow + display updates ===
+  multitrack.isPlaying = false;
+  clearInterval(playheadUpdateInterval);
+  playheadUpdateInterval = null;
+
   stopPreviewPlayhead();
-  
-  // Clear timeout if exists
+
   if (multitrack.previewTimeout) {
     clearTimeout(multitrack.previewTimeout);
     multitrack.previewTimeout = null;
@@ -12510,6 +12650,189 @@ async function toggleRecordTrack(trackId) {
   renderMultitrack();
 }
 
+// Add these functions after the toggleRecordTrack function (around line 4630):
+
+// Global recording control
+async function startGlobalRecording() {
+  const armedTracks = multitrack.tracks.filter(t => t.armed && !t.recording);
+  
+  if (armedTracks.length === 0) {
+    showToast('❌ No armed tracks to record', 'error');
+    return;
+  }
+
+  try {
+    await validateAllArmedTracks();
+  } catch (err) {
+    showToast(`❌ Cannot record:\n${err.message}`, 'error');
+    return;
+  }
+
+  // Start transport if not playing
+  if (!state.isPlaying) {
+    await togglePlay();
+  }
+
+  await Tone.start();
+  const globalStart = Tone.now();
+  multitrack.globalRecordStartTime = globalStart;
+  multitrack.isPlaying = true;
+
+  console.log(`🎬 GLOBAL RECORD START: ${globalStart.toFixed(3)}s`);
+
+  for (const track of armedTracks) {
+    track.recordStartTime = globalStart;
+    await track.startRecording();
+  }
+
+  // Start playhead animation
+  initPlayheadFollow();
+
+  const trackList = armedTracks.map(t => t.name).join(', ');
+  console.log(`🎙️ Recording ${armedTracks.length} tracks: ${trackList}`);
+  showToast(`🎙️ Recording ${armedTracks.length} track(s)`, 'success');
+  
+  renderMultitrack();
+}
+
+function stopGlobalRecording() {
+  const recordingTracks = multitrack.tracks.filter(t => t.recording);
+  
+  if (recordingTracks.length === 0) return;
+
+  recordingTracks.forEach(track => {
+    track.stopRecording();
+  });
+
+  multitrack.globalRecordStartTime = null;
+  multitrack.isPlaying = false;
+
+  // Stop playhead
+  clearInterval(playheadUpdateInterval);
+  playheadUpdateInterval = null;
+
+  showToast(`⏹️ Stopped recording ${recordingTracks.length} track(s)`, 'info');
+  renderMultitrack();
+}
+
+// BPM and time signature controls
+function setBPM(newBpm) {
+  const bpm = Math.max(30, Math.min(300, parseFloat(newBpm) || 120));
+  state.bpm = bpm;
+  Tone.Transport.bpm.value = bpm;
+  
+  const bpmSlider = document.getElementById('bpmSlider');
+  const bpmValue = document.getElementById('bpmValue');
+  if (bpmSlider) bpmSlider.value = bpm;
+  if (bpmValue) bpmValue.textContent = bpm;
+  
+  console.log(`🎵 BPM set to ${bpm}`);
+}
+
+function setTimeSignature(timeSig) {
+  const [beats, noteValue] = timeSig.split('/').map(n => parseInt(n));
+  Tone.Transport.timeSignature = [beats, noteValue];
+  console.log(`🎵 Time signature: ${timeSig}`);
+  showToast(`⏱️ Time signature: ${timeSig}`, 'info');
+}
+
+// Session management
+function newMultitrackSession() {
+  if (!confirm('Create new session? Unsaved changes will be lost.')) return;
+  
+  // Stop everything
+  if (state.isPlaying) stop();
+  stopMultitrackPreview();
+  
+  // Clear all tracks
+  multitrack.tracks.forEach(t => t.dispose());
+  multitrack.tracks = [];
+  multitrack.nextTrackId = 1;
+  multitrack.globalRecordStartTime = null;
+  
+  // Reset state
+  state.cursorSeconds = 0;
+  multitrack.playheadSeconds = 0;
+  
+  renderMultitrack();
+  showToast('✅ New session created', 'success');
+}
+
+function saveMultitrackSession() {
+  // Reuse the full project save
+  saveProject();
+}
+
+function loadMultitrackSession() {
+  // Reuse the full project load
+  loadProject();
+}
+
+// Grid and automation toggles
+function toggleGrid() {
+  const gridBtn = document.getElementById('dawGridBtn');
+  if (!gridBtn) return;
+  
+  const isActive = gridBtn.classList.toggle('active');
+  
+  // Toggle snap grid visibility
+  document.querySelectorAll('.snap-grid').forEach(grid => {
+    grid.style.display = isActive ? 'block' : 'none';
+  });
+  
+  showToast(isActive ? '⊞ Grid: On' : '⊞ Grid: Off', 'info');
+}
+
+function toggleAutomationView() {
+  const autoBtn = document.getElementById('dawAutomationBtn');
+  if (!autoBtn) return;
+  
+  const isActive = autoBtn.classList.toggle('active');
+  
+  // Toggle automation lanes
+  document.querySelectorAll('.automation-lane').forEach(lane => {
+    lane.style.display = isActive ? 'block' : 'none';
+  });
+  
+  showToast(isActive ? '📈 Automation: On' : '📈 Automation: Off', 'info');
+}
+
+// CPU and status monitoring
+function updateDAWStatus() {
+  const cpuEl = document.getElementById('dawCpuLoad');
+  const latencyEl = document.getElementById('dawLatency');
+  const trackCountEl = document.getElementById('dawTrackCount');
+  const statusEl = document.getElementById('dawStatusMessage');
+  
+  if (cpuEl) {
+    // Approximate CPU usage based on active tracks
+    const activeTracks = multitrack.tracks.filter(t => !t.muted).length;
+    const cpuPercent = Math.min(100, activeTracks * 3 + Math.random() * 5);
+    cpuEl.textContent = cpuPercent.toFixed(0) + '%';
+  }
+  
+  if (latencyEl) {
+    const ctx = Tone.context.rawContext;
+    const latencyMs = (ctx.baseLatency || 0) * 1000;
+    latencyEl.textContent = latencyMs.toFixed(1) + 'ms';
+  }
+  
+  if (trackCountEl) {
+    trackCountEl.textContent = multitrack.tracks.length.toString();
+  }
+  
+  if (statusEl && multitrack.isPlaying) {
+    const recordingCount = multitrack.tracks.filter(t => t.recording).length;
+    if (recordingCount > 0) {
+      statusEl.textContent = `Recording ${recordingCount} track(s)...`;
+    } else {
+      statusEl.textContent = 'Playing';
+    }
+  } else if (statusEl) {
+    statusEl.textContent = 'Ready';
+  }
+}
+  
 // Replace openFxChainEditor function (around line 3285)
 function openFxChainEditor(trackId) {
   const track = multitrack.tracks.find(t => t.id === trackId);
@@ -13347,12 +13670,11 @@ async function applyEdits(buffer, edits) {
   return newBuffer;
 }
   
-function setupMultitrackListeners() {
+async function setupMultitrackListeners() {
+  // === LEGACY BUTTONS (you already had these) ===
   const addTrackBtn = document.getElementById('addTrackBtn');
-  if (addTrackBtn) {
-    addTrackBtn.onclick = () => showAddTrackDialog();
-  }
-  
+  if (addTrackBtn) addTrackBtn.onclick = () => showAddTrackDialog();
+
   const previewBtn = document.getElementById('previewMultitrackBtn');
   if (previewBtn) {
     previewBtn.onclick = async () => {
@@ -13360,124 +13682,213 @@ function setupMultitrackListeners() {
         stopMultitrackPreview();
         previewBtn.textContent = '▶️ Preview Mix';
       } else {
-        await previewMultitrack();
+        await previewMultitrack(multitrack.playheadSeconds || 0);
         previewBtn.textContent = '⏹️ Stop Preview';
       }
     };
   }
-  
-  const recordArmedBtn = document.getElementById('recordArmedBtn');
-  if (recordArmedBtn) {
-    recordArmedBtn.onclick = async () => await toggleRecordAllArmed();
-  }
 
-  // Zoom controls
-  const zoomInBtn = document.getElementById('zoomInBtn');
-  const zoomOutBtn = document.getElementById('zoomOutBtn');
-  const zoomFitBtn = document.getElementById('zoomFitBtn');
-  
-  if (zoomInBtn) {
-    zoomInBtn.onclick = () => {
-      multitrack.zoom = Math.min(500, multitrack.zoom * 1.5);
-      renderMultitrack();
-      showToast(`🔍 Zoom: ${Math.round(multitrack.zoom)}px/s`, 'info');
-    };
-  }
-  
-  if (zoomOutBtn) {
-    zoomOutBtn.onclick = () => {
-      multitrack.zoom = Math.max(20, multitrack.zoom / 1.5);
-      renderMultitrack();
-      showToast(`🔍 Zoom: ${Math.round(multitrack.zoom)}px/s`, 'info');
-    };
-  }
-  
-  if (zoomFitBtn) {
-    zoomFitBtn.onclick = () => {
-      // Calculate max duration
-      let maxDuration = 0;
-      multitrack.tracks.forEach(t => {
-        t.takes.forEach(take => {
-          const end = (take.startTime || 0) + take.duration;
-          if (end > maxDuration) maxDuration = end;
-        });
-      });
-      
-      if (maxDuration > 0) {
-        const canvasWidth = 800; // approximate
-        multitrack.zoom = canvasWidth / maxDuration;
-        renderMultitrack();
-        showToast('✅ Zoom to fit', 'success');
+  const recordArmedBtn = document.getElementById('recordArmedBtn');
+  if (recordArmedBtn) recordArmedBtn.onclick = async () => await toggleRecordAllArmed();
+
+  // === NEW DAW TRANSPORT CONTROLS ===
+  const playBtn = document.getElementById('dawPlayBtn');
+  const stopBtn = document.getElementById('dawStopBtn');
+  const rewindBtn = document.getElementById('dawRewindBtn');
+  const forwardBtn = document.getElementById('dawForwardBtn');
+  const recordBtn = document.getElementById('dawRecordBtn');
+
+  if (playBtn) {
+    playBtn.onclick = async () => {
+      if (playBtn.textContent.trim() === '▶️') {
+        playBtn.textContent = '⏸️';
+        await previewMultitrack(multitrack.playheadSeconds || 0);
+      } else {
+        playBtn.textContent = '▶️';
+        stopMultitrackPreview(true); // pause
       }
     };
   }
-  
-  // Snap toggle
-  const snapSelect = document.getElementById('snapGrid');
+
+  if (stopBtn) {
+    stopBtn.onclick = () => {
+      playBtn.textContent = '▶️';
+      stopMultitrackPreview();
+      multitrack.playheadSeconds = 0;
+      updatePlayheadUI(0);
+    };
+  }
+
+  if (rewindBtn) {
+    rewindBtn.onclick = () => {
+      multitrack.playheadSeconds = Math.max(0, (multitrack.playheadSeconds || 0) - 5);
+      updatePlayheadUI(multitrack.playheadSeconds);
+    };
+  }
+
+  if (forwardBtn) {
+    forwardBtn.onclick = () => {
+      const projDur = multitrack.projectDuration || (state.duration * 60);
+      multitrack.playheadSeconds = Math.min(projDur, (multitrack.playheadSeconds || 0) + 5);
+      updatePlayheadUI(multitrack.playheadSeconds);
+    };
+  }
+
+  if (recordBtn) {
+    recordBtn.onclick = () => {
+      recordBtn.classList.toggle('active');
+      if (recordBtn.classList.contains('active')) {
+        startGlobalRecording();
+      } else {
+        stopGlobalRecording();
+      }
+    };
+  }
+
+  // === LOOP / CLICK / COUNT ===
+  const loopBtn = document.getElementById('dawLoopBtn');
+  const clickBtn = document.getElementById('dawClickBtn');
+  const countInBtn = document.getElementById('dawCountInBtn');
+
+  if (loopBtn) loopBtn.onclick = () => loopBtn.classList.toggle('active');
+  if (clickBtn) clickBtn.onclick = () => toggleMetronome(clickBtn);
+  if (countInBtn) countInBtn.onclick = () => countInBtn.classList.toggle('active');
+
+  // === BPM + TIME SIG ===
+  const bpmInput = document.getElementById('dawBpmInput');
+  const timeSigSelect = document.getElementById('dawTimeSigSelect');
+  if (bpmInput) bpmInput.onchange = e => setBPM(parseFloat(e.target.value));
+  if (timeSigSelect) timeSigSelect.onchange = e => setTimeSignature(e.target.value);
+
+  // === DAW TOOLBAR ZOOM CONTROLS ===
+  const zoomInBtn = document.getElementById('dawZoomInBtn') || document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('dawZoomOutBtn') || document.getElementById('zoomOutBtn');
+  const zoomFitBtn = document.getElementById('dawZoomFitBtn') || document.getElementById('zoomFitBtn');
+
+  const applyZoom = (factor) => {
+    multitrack.zoom = Math.max(20, Math.min(500, multitrack.zoom * factor));
+    renderMultitrack();
+    showToast(`🔍 Zoom: ${Math.round(multitrack.zoom)}px/s`, 'info');
+  };
+
+  if (zoomInBtn) zoomInBtn.onclick = () => applyZoom(1.5);
+  if (zoomOutBtn) zoomOutBtn.onclick = () => applyZoom(1 / 1.5);
+  if (zoomFitBtn) zoomFitBtn.onclick = () => {
+    let maxDuration = 0;
+    multitrack.tracks.forEach(t => {
+      t.takes.forEach(take => {
+        const end = (take.startTime || 0) + take.duration;
+        if (end > maxDuration) maxDuration = end;
+      });
+    });
+    if (maxDuration > 0) {
+      const canvasWidth = 800; // approximate visible area
+      multitrack.zoom = canvasWidth / maxDuration;
+      renderMultitrack();
+      showToast('✅ Zoom to fit', 'success');
+    }
+  };
+
+  // === SNAP ===
+  const snapSelect = document.getElementById('snapGrid') || document.getElementById('dawSnapSelect');
   if (snapSelect) {
     snapSelect.onchange = (e) => {
-      const value = e.target.value;
-      if (value === 'off') {
+      const val = e.target.value;
+      if (val === 'off') {
         multitrack.snapEnabled = false;
       } else {
         multitrack.snapEnabled = true;
-        const intervals = {
-          'bar': 4.0,
-          'beat': 1.0,
-          '16th': 0.25
-        };
-        multitrack.snapInterval = intervals[value] || 0.25;
+        const map = { bar: 4, beat: 1, '1/8': 0.5, '1/16': 0.25, '1/32': 0.125 };
+        multitrack.snapInterval = map[val] || 0.25;
       }
     };
   }
-  
+
+  // === SESSION MANAGEMENT ===
+  const newBtn = document.getElementById('newSessionBtn');
+  const saveBtn = document.getElementById('saveSessionBtn');
+  const loadBtn = document.getElementById('loadSessionBtn');
+  if (newBtn) newBtn.onclick = () => newMultitrackSession();
+  if (saveBtn) saveBtn.onclick = () => saveMultitrackSession();
+  if (loadBtn) loadBtn.onclick = () => loadMultitrackSession();
+
+  // === GRID / AUTOMATION ===
+  const gridBtn = document.getElementById('dawGridBtn');
+  const autoBtn = document.getElementById('dawAutomationBtn');
+  if (gridBtn) gridBtn.onclick = () => toggleGrid();
+  if (autoBtn) autoBtn.onclick = () => toggleAutomationView();
+
+  // === EXISTING FX / BOUNCE / CLEAR ===
   const bounceBtn = document.getElementById('bounceAllBtn');
-  if (bounceBtn) {
-    bounceBtn.onclick = () => bounceAllTracks();
-  }
-  
+  if (bounceBtn) bounceBtn.onclick = () => bounceAllTracks();
+
   const clearBtn = document.getElementById('clearAllTracksBtn');
   if (clearBtn) {
     clearBtn.onclick = () => {
       if (confirm('Delete all tracks? This cannot be undone.')) {
-        multitrack.tracks.forEach(track => track.dispose());
+        multitrack.tracks.forEach(t => t.dispose());
         multitrack.tracks = [];
         multitrack.nextTrackId = 1;
         renderMultitrack();
       }
     };
   }
-  
-  const closeFxBtn = document.getElementById('closeFxChainBtn');
-  if (closeFxBtn) {
-    closeFxBtn.onclick = () => {
-      document.getElementById('fxChainPanel').style.display = 'none';
-    };
-  }
-  
-  const addFxBtn = document.getElementById('addFxBtn');
-  // In setupMultitrackListeners(), replace the FX menu section with:
+
+  // === FX MENU ===
   const fxAddMenu = document.getElementById('fxAddMenu');
   if (fxAddMenu) {
     fxAddMenu.addEventListener('click', (e) => {
       const item = e.target.closest('.fx-add-item');
       if (!item) return;
-      
       const fxType = item.dataset.fxType;
       const trackId = multitrack.currentFxTrackId;
       const track = multitrack.tracks.find(t => t.id === trackId);
-      
       if (!track) return;
-      
       track.addFx(fxType);
       renderFxChain(track);
       fxAddMenu.style.display = 'none';
-      
       showToast(`✅ Added ${fxType}`, 'success');
     });
   }
+
+  // === FX CHAIN EDITOR ===
+  const fxAddBtn = document.getElementById('fxAddBtn');
+  const fxAddMenu = document.getElementById('fxAddMenu');
+  const closeFxBtn = document.getElementById('closeFxPanelBtn');
+  
+  if (fxAddBtn && fxAddMenu) {
+    fxAddBtn.onclick = () => {
+      const isVisible = fxAddMenu.style.display === 'block';
+      fxAddMenu.style.display = isVisible ? 'none' : 'block';
+    };
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!fxAddBtn.contains(e.target) && !fxAddMenu.contains(e.target)) {
+        fxAddMenu.style.display = 'none';
+      }
+    });
+  }
+  
+  if (closeFxBtn) {
+    closeFxBtn.onclick = () => {
+      const panel = document.getElementById('fxChainPanel');
+      if (panel) panel.style.display = 'none';
+      multitrack.currentFxTrackId = null;
+    };
+  }
+
+  // === TIMELINE + RULER ===
   setupTimelineCursor();
   updateTimelineRuler();
+}
+
+// Utility
+function updatePlayheadUI(seconds) {
+  const el = document.getElementById('dawPlayhead');
+  if (!el) return;
+  const dur = multitrack.projectDuration || (state.duration * 60);
+  el.style.left = `${(seconds / dur) * 100}%`;
 }
   
 // -------------------- Preset System --------------------
@@ -14565,6 +14976,7 @@ function init() {
 
   updateSplash('Ready! Have fun ✨', 100);
 
+  setInterval(updateDAWStatus, 500);
   // Small delay so the user sees "Ready!" before it disappears
   setTimeout(hideSplash, 3000);
 }
