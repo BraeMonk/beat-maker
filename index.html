@@ -11295,6 +11295,7 @@ function startPlayheadAnimation() {
     }
 
     const currentTime = Tone.Transport.seconds;
+    state.cursorSeconds = currentTime;
 
     // ⬅️ Single source of truth for playhead + scroll
     updatePlayheadAndScroll(currentTime);
@@ -11340,6 +11341,7 @@ function startPreviewPlayhead(startOffset, duration) {
     }
     
     const currentTime = startOffset + elapsed; // 🔑 real project time
+    state.cursorSeconds = currentTime; 
     updatePlayheadAndScroll(currentTime);
     
     previewPlayheadId = requestAnimationFrame(animate);
@@ -11356,7 +11358,17 @@ function stopPreviewPlayhead() {
     console.log('⏹️ Preview playhead stopped');
   }
 }
-  
+
+function setupPreviewButton() {
+  const btn = document.getElementById('previewMultitrackBtn');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    // Just call with no args → uses last cursor/playhead position
+    previewMultitrack();
+  });
+}
+
 // Make sure you have something like this in your global state:
 /// const state = { duration: 3, isPlaying: false, cursorSeconds: 0 };
 
@@ -14006,6 +14018,7 @@ function init() {
   checkSamplesLoaded();
   loadSavedVibe();
   setupStemImport();
+  setupPreviewButton();
 
   updateSplash('Ready! Have fun ✨', 100);
 
