@@ -7481,6 +7481,23 @@ function setupKeyboardShortcuts() {
       e.preventDefault();
       document.getElementById('zoomOutBtn')?.click();
     }
+    
+    // === UNDO/REDO ===
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) {
+      e.preventDefault();
+      multitrackHistory.undo();
+    }
+      
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyZ') {
+      e.preventDefault();
+      multitrackHistory.redo();
+    }
+      
+    // Alternative: Ctrl+Y for redo
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY') {
+      e.preventDefault();
+      multitrackHistory.redo();
+    }
   });
 }
 
@@ -9742,7 +9759,175 @@ const multitrack = {
   currentTool: 'select'   // ✏️ timeline tool state
 };
 
+1. Add History State Management (after the multitrack object definition, around line 2850):
+javascriptconst multitrack = {
+  tracks: [],
+  nextTrackId: 1,
+  recordingTracks: new Set(),
+  currentFxTrackId: null,
+  globalRecordStartTime: null,
+  zoom: 100,
+  snapEnabled: true,
+  snapInterval: 0.25,
+  loopEnabled: false,
+  loopStart: null,
+  loopEnd: null,
+  currentTool: 'select'
+};
 
+// === UNDO/REDO HISTORY SYSTEM ===
+const multitrackHistory = {
+  stack: [],
+  currentIndex: -1,
+  maxSize: 50,
+  isRestoring: false, // Prevent recording during undo/redo
+  
+  captureState() {
+    if (this.isRestoring) return; // Don't record during undo/redo
+    
+    // Serialize current multitrack state (without audio buffers to save memory)
+    const state = {
+      tracks: multitrack.tracks.map(t => ({
+        id: t.id,
+        name: t.name,
+        instrument: t.instrument,
+        isExternalAudio: t.isExternalAudio,
+        volume: t.volume,
+        pan: t.pan,
+        muted: t.muted,
+        soloed: t.soloed,
+        armed: t.armed,
+        selectedTakeIndex: t.selectedTakeIndex,
+        takes: t.takes.map(take => ({
+          id: take.id,
+          duration: take.duration,
+          startTime: take.startTime,
+          muted: take.muted,
+          timestamp: take.timestamp,
+          trimStart: take.trimStart,
+          trimEnd: take.trimEnd
+          // Note: We keep audio buffers in the actual track objects
+        }))
+      })),
+      nextTrackId: multitrack.nextTrackId,
+      zoom: multitrack.zoom,
+      timestamp: Date.now()
+    };
+    
+    // Remove any states after current index (branching timeline)
+    this.stack = this.stack.slice(0, this.currentIndex + 1);
+    
+    // Add new state
+    this.stack.push(state);
+    
+    // Limit stack size
+    if (this.stack.length > this.maxSize) {
+      this.stack.shift();
+    } else {
+      this.currentIndex++;
+    }
+    
+    updateUndoRedoButtons();
+  },
+  
+  undo() {
+    if (!this.canUndo()) return;
+    
+    this.currentIndex--;
+    this.restoreState(this.stack[this.currentIndex]);
+    updateUndoRedoButtons();
+    showToast('↶ Undo', 'info');
+  },
+  
+  redo() {
+    if (!this.canRedo()) return;
+    
+    this.currentIndex++;
+    this.restoreState(this.stack[this.currentIndex]);
+    updateUndoRedoButtons();
+    showToast('↷ Redo', 'info');
+  },
+  
+  canUndo() {
+    return this.currentIndex > 0;
+  },
+  
+  canRedo() {
+    return this.currentIndex < this.stack.length - 1;
+  },
+  
+  restoreState(state) {
+    this.isRestoring = true;
+    
+    try {
+      // Restore track metadata (preserve existing audio buffers)
+      state.tracks.forEach(savedTrack => {
+        const liveTrack = multitrack.tracks.find(t => t.id === savedTrack.id);
+        
+        if (liveTrack) {
+          // Update existing track
+          liveTrack.name = savedTrack.name;
+          liveTrack.volume = savedTrack.volume;
+          liveTrack.pan = savedTrack.pan;
+          liveTrack.muted = savedTrack.muted;
+          liveTrack.soloed = savedTrack.soloed;
+          liveTrack.armed = savedTrack.armed;
+          liveTrack.selectedTakeIndex = savedTrack.selectedTakeIndex;
+          
+          // Update audio routing
+          if (liveTrack.channel) {
+            liveTrack.channel.volume.value = liveTrack.volume;
+            liveTrack.channel.pan.value = liveTrack.pan / 100;
+          }
+          
+          // Restore take metadata (keep audio buffers)
+          savedTrack.takes.forEach((savedTake, idx) => {
+            if (liveTrack.takes[idx]) {
+              liveTrack.takes[idx].startTime = savedTake.startTime;
+              liveTrack.takes[idx].muted = savedTake.muted;
+              liveTrack.takes[idx].trimStart = savedTake.trimStart;
+              liveTrack.takes[idx].trimEnd = savedTake.trimEnd;
+            }
+          });
+        }
+      });
+      
+      // Remove tracks that don't exist in saved state
+      multitrack.tracks = multitrack.tracks.filter(t => 
+        state.tracks.some(st => st.id === t.id)
+      );
+      
+      // Restore other properties
+      multitrack.zoom = state.zoom;
+      multitrack.nextTrackId = state.nextTrackId;
+      
+      renderMultitrack();
+      
+    } finally {
+      this.isRestoring = false;
+    }
+  },
+  
+  clear() {
+    this.stack = [];
+    this.currentIndex = -1;
+    updateUndoRedoButtons();
+  }
+};
+
+function updateUndoRedoButtons() {
+  const undoBtn = document.getElementById('undoBtn');
+  const redoBtn = document.getElementById('redoBtn');
+  
+  if (undoBtn) {
+    undoBtn.disabled = !multitrackHistory.canUndo();
+  }
+  
+  if (redoBtn) {
+    redoBtn.disabled = !multitrackHistory.canRedo();
+  }
+}
+  
 // ==================== ENHANCED MULTITRACK WITH EXTERNAL AUDIO ====================
 
 class AudioTrack {
@@ -10203,7 +10388,9 @@ class AudioTrack {
           3
         )}s (start=${startTime.toFixed(3)}s)`
       );
-  
+
+      multitrackHistory.captureState();
+      
       renderMultitrack();
       showToast(`✅ Recorded ${take.duration.toFixed(1)}s take`, 'success');
     } catch (err) {
@@ -10530,6 +10717,7 @@ async function createTrack(instrument = null, isExternalAudio = false) {
   }
 
   multitrack.tracks.push(track);
+  multitrackHistory.captureState();
   renderMultitrack();
   showToast(`✅ ${isExternalAudio ? 'External' : 'Internal'} track added`, 'success');
   return track;
@@ -10542,6 +10730,7 @@ function removeTrack(trackId) {
   const track = multitrack.tracks[index];
   track.dispose();
   multitrack.tracks.splice(index, 1);
+  multitrackHistory.captureState();
   renderMultitrack();
 }
 
@@ -10997,6 +11186,7 @@ function setupRegionInteractions(stripEl, track) {
     }
     
     if (dragState.mode === 'move' || dragState.mode === 'resize') {
+      multitrackHistory.captureState();
       renderMultitrack();
       showToast('✅ Region updated', 'success');
     }
@@ -11060,6 +11250,7 @@ function handleRegionAction(trackId, takeIndex, action, event) {
       if (track.selectedTakeIndex >= track.takes.length) {
         track.selectedTakeIndex = track.takes.length - 1;
       }
+      multitrackHistory.captureState();
       renderMultitrack();
       showToast('🗑️ Region deleted', 'success');
     }
@@ -11266,7 +11457,8 @@ function openSplitDialog(track, takeIndex, event) {
       } else if (track.selectedTakeIndex > takeIndex) {
         track.selectedTakeIndex++; // Adjust index
       }
-      
+
+      multitrackHistory.captureState();
       close();
       renderMultitrack();
       showToast('✅ Region split successfully!', 'success');
@@ -11506,6 +11698,7 @@ async function handleContextAction(track, takeIndex, action) {
         startTime: (take.startTime || 0) + take.duration + 0.1
       };
       track.takes.splice(takeIndex + 1, 0, duplicate);
+      multitrackHistory.captureState();
       renderMultitrack();
       showToast('✅ Region duplicated', 'success');
       break;
@@ -11568,7 +11761,8 @@ async function reverseRegion(track, takeIndex) {
     
     take.buffer = reversed;
     take.blob = blob;
-    
+
+    multitrackHistory.captureState();
     renderMultitrack();
     showToast('✅ Region reversed', 'success');
     
@@ -11625,7 +11819,8 @@ async function normalizeRegion(track, takeIndex) {
     
     take.buffer = normalized;
     take.blob = blob;
-    
+
+    multitrackHistory.captureState();
     renderMultitrack();
     showToast(`✅ Normalized (+${(20 * Math.log10(gain)).toFixed(1)}dB)`, 'success');
     
@@ -11739,7 +11934,8 @@ function openFadeDialog(track, takeIndex, type) {
       
       take.buffer = processed;
       take.blob = blob;
-      
+
+      multitrackHistory.captureState();
       close();
       renderMultitrack();
       showToast(`✅ ${fadeType} applied`, 'success');
@@ -12975,6 +13171,8 @@ function newMultitrackSession() {
   // Reset state
   state.cursorSeconds = 0;
   multitrack.playheadSeconds = 0;
+
+  multitrackHistory.clear();
   
   renderMultitrack();
   showToast('✅ New session created', 'success');
@@ -13994,6 +14192,20 @@ async function setupMultitrackListeners() {
 
       input.click();
     });
+  }
+
+  // === UNDO / REDO ===
+  const undoBtn = document.getElementById('undoBtn');
+  const redoBtn = document.getElementById('redoBtn');
+  
+  if (undoBtn && !undoBtn.dataset._wired) {
+    undoBtn.dataset._wired = 'true';
+    undoBtn.addEventListener('click', () => multitrackHistory.undo());
+  }
+  
+  if (redoBtn && !redoBtn.dataset._wired) {
+    redoBtn.dataset._wired = 'true';
+    redoBtn.addEventListener('click', () => multitrackHistory.redo());
   }
 
   // === LEGACY BUTTONS ===
@@ -15532,6 +15744,7 @@ function init() {
   loadSavedVibe();
   setupStemImport();
   setupPreviewButton();
+  updateUndoRedoButtons();
 
   updateSplash('Ready! Have fun ✨', 100);
 
