@@ -3801,7 +3801,38 @@
       background: var(--error);
       color: white;
     }
+
+    /* ---- FIX: Force horizontal timeline ruler ---- */
+    .timeline-ruler {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      height: 48px !important;
+      width: 100% !important;
+      overflow: hidden !important;
+    }
     
+    .timeline-markers {
+      position: relative !important;
+      display: block !important;
+      height: 100% !important;
+      width: 100% !important;
+      min-width: max-content !important;
+    }
+    
+    .timeline-marker {
+      position: absolute !important;
+      top: 0 !important;
+      height: 100% !important;
+      display: flex !important;
+      align-items: flex-end !important;
+      justify-content: center !important;
+      flex-direction: column !important;
+      writing-mode: horizontal-tb !important;
+      transform: none !important;
+    }
+
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
       .transport{
