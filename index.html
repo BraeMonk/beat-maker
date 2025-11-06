@@ -2728,6 +2728,8 @@
       pointer-events: none;
       z-index: 200;
       box-shadow: 0 0 12px var(--error);
+      left: 50%;
+      transform: translateX(-50%);
     }
     
     .timeline-playhead::before {
@@ -4664,6 +4666,7 @@ const state = {
   sequenceLength: 32,  // CHANGED FROM 16
   resolution: '16n',
   currentStep: 0,
+  cursorSeconds: 0,
   // ... rest stays the same
   key: 'C',
   scale: 'major',
@@ -10955,6 +10958,31 @@ function applyFadeCurve(progress, curve) {
   }
 }
 
+function setupTimelineCursor() {
+  const wrapper = document.getElementById('multitrackScroll');
+  const ruler   = document.querySelector('.timeline-ruler');
+  if (!wrapper || !ruler) return;
+
+  ruler.addEventListener('click', (e) => {
+    const zoom = multitrack.zoom || 100;
+
+    const rect = ruler.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;       // x inside the ruler
+    const timelineX = clickX + wrapper.scrollLeft; // add scroll offset
+
+    const seconds = timelineX / zoom;
+
+    // Clamp a bit if you like
+    const projectDurationSeconds = multitrack.projectDuration || (state.duration * 60);
+    state.cursorSeconds = Math.max(0, Math.min(seconds, projectDurationSeconds));
+
+    // Move playhead + scroll to that cursor position
+    updatePlayheadAndScroll(state.cursorSeconds);
+
+    console.log('🕒 Cursor set to', state.cursorSeconds.toFixed(3), 's');
+  });
+}
+
 function updateTimelineRuler() {
   const markers = document.getElementById('timelineMarkers');
   if (!markers) return;
@@ -10962,16 +10990,24 @@ function updateTimelineRuler() {
   markers.innerHTML = '';
 
   const zoom = multitrack.zoom || 100;
-  const projectDurationSeconds = state.duration * 60;
+  const durationMinutes = typeof state.duration === 'number' && state.duration > 0
+    ? state.duration
+    : 1;
+  const projectDurationSeconds = durationMinutes * 60;
   const totalWidth = projectDurationSeconds * zoom;
 
-  // Only set the marker strip width, NOT the wrapper’s width
+  // Keep JS + CSS in sync
+  multitrack.projectDuration = projectDurationSeconds;
+  multitrack.timelineWidth = totalWidth;
+  document.documentElement.style.setProperty('--timeline-width', totalWidth + 'px');
+
   markers.style.width = totalWidth + 'px';
   markers.style.minWidth = totalWidth + 'px';
 
+  // Choose tick spacing based on zoom
   let interval = 1;
-  if (zoom < 50) interval = 5;
-  else if (zoom < 25) interval = 10;
+  if (zoom < 25) interval = 10;
+  else if (zoom < 50) interval = 5;
   else if (zoom > 200) interval = 0.5;
 
   for (let t = 0; t <= projectDurationSeconds; t += interval) {
@@ -10981,7 +11017,15 @@ function updateTimelineRuler() {
     const marker = document.createElement('div');
     marker.className = 'timeline-marker' + (isMajor ? ' major' : '');
     marker.style.left = x + 'px';
-    marker.textContent = formatTime(t);
+
+    if (isMajor) {
+      const label = document.createElement('div');
+      label.className = 'timeline-marker-label';
+      // drop milliseconds for ruler labels
+      const full = formatTime(t);          // e.g. "1:23.45"
+      label.textContent = full.split('.')[0];
+      marker.appendChild(label);
+    }
 
     markers.appendChild(marker);
   }
@@ -11157,112 +11201,107 @@ function renderMultitrack() {
   const grid = document.getElementById('multitrackGrid');
   if (!grid) return;
 
-  // Duration in seconds
-  const projectDurationSeconds = state.duration * 60;
+  // ---- 1) Compute unified project timeline width ----
+  const durationMinutes = typeof state.duration === 'number' && state.duration > 0
+    ? state.duration
+    : 1; // fallback 1 min
 
-  // zoom = pixels per second (fallback to 100px/sec if not set)
-  const pixelsPerSecond = typeof multitrack.zoom === 'number'
-    ? multitrack.zoom
-    : 100;
+  const projectDurationSeconds = durationMinutes * 60;
+  const zoom = multitrack.zoom || 100;          // px per second
+  const timelineWidth = projectDurationSeconds * zoom;
 
-  const timelineWidth = projectDurationSeconds * pixelsPerSecond;
-
-  multitrack.timelineWidth = timelineWidth;
   multitrack.projectDuration = projectDurationSeconds;
+  multitrack.timelineWidth = timelineWidth;
 
-  // Share with CSS: .timeline-markers and .track-canvas use this var
+  // Share with CSS (ruler + tracks)
   document.documentElement.style.setProperty(
     '--timeline-width',
     timelineWidth + 'px'
   );
 
-  // Let CSS control wrapper layout; just ensure it's the scroll container
-  const wrapper = document.querySelector('.multitrack-wrapper');
+  // Ensure the wrapper is the ONLY horizontal scroll container
+  const wrapper = document.getElementById('multitrackScroll');
   if (wrapper) {
     wrapper.style.width = '100%';
     wrapper.style.maxWidth = '100%';
-    // no need to touch overflow here if CSS already does it
+    wrapper.style.overflowX = 'auto';
+    wrapper.style.overflowY = 'hidden';
   }
 
-  // Explicitly size markers to match the timeline width
-  const markers = document.getElementById('timelineMarkers');
-  if (markers) {
-    markers.style.width = timelineWidth + 'px';
-    markers.style.minWidth = timelineWidth + 'px';
-    markers.style.height = '100%';
-  }
-
-  // Rebuild tracks
+  // ---- 2) Rebuild track strips with this fixed width ----
   grid.innerHTML = '';
 
-  if (multitrack.tracks.length === 0) {
-    grid.innerHTML = `
-      <div style="padding: var(--space-8); text-align: center; color: var(--text-tertiary);">
-        <div style="font-size: var(--text-3xl); margin-bottom: var(--space-3);">🎙️</div>
-        <div style="font-size: var(--text-lg); margin-bottom: var(--space-2);">No tracks yet</div>
-        <div style="font-size: var(--text-sm);">Click "Add Track" to get started</div>
-      </div>
-    `;
-    return;
-  }
-
   multitrack.tracks.forEach(track => {
-    const strip = createTrackStrip(track, timelineWidth);
+    const strip = createTrackStrip(track, timelineWidth); // ⬅️ you already accept timelineWidth
     grid.appendChild(strip);
   });
 
-  // Draw tick labels etc.
-  updateTimelineRuler();
+  // ---- 3) Update the little "Timeline" readout in the toolbar ----
+  const timelineDurationEl = document.getElementById('timelineDuration');
+  if (timelineDurationEl) {
+    // show mm:ss (drop milliseconds)
+    const total = projectDurationSeconds;
+    const mins = Math.floor(total / 60);
+    const secs = Math.floor(total % 60);
+    timelineDurationEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+  }
 
-  // Keep playhead animation behaviour you already had
-  if (state.isPlaying) {
-    startPlayheadAnimation();
+  // ---- 4) Rebuild the ruler so it matches this width ----
+  updateTimelineRuler();
+}
+
+function updatePlayheadAndScroll(currentSeconds) {
+  const wrapper  = document.getElementById('multitrackScroll');
+  const playhead = document.getElementById('timelinePlayhead');
+  if (!wrapper || !playhead) return;
+
+  const zoom = multitrack.zoom || 100;
+  const x = currentSeconds * zoom; // pixel position of time on the timeline
+
+  // 1) Move the red playhead line along the ruler
+  playhead.style.left = x + 'px';
+
+  // 2) Scroll the whole track stack so the playhead stays in view
+  const padding = 80; // how much "lead" you keep on each side
+  const visibleStart = wrapper.scrollLeft;
+  const visibleEnd   = visibleStart + wrapper.clientWidth;
+
+  if (x < visibleStart + padding) {
+    // playhead going off the left edge
+    wrapper.scrollLeft = Math.max(0, x - padding);
+  } else if (x > visibleEnd - padding) {
+    // playhead going off the right edge
+    wrapper.scrollLeft = x - wrapper.clientWidth + padding;
   }
 }
 
 let playheadAnimationId = null;
 
 function startPlayheadAnimation() {
+  // Stop any previous loop
   if (playheadAnimationId) {
     cancelAnimationFrame(playheadAnimationId);
   }
-  
+
   const playhead = document.getElementById('timelinePlayhead');
-  const wrapper = document.querySelector('.multitrack-wrapper');
-  
+  const wrapper  = document.getElementById('multitrackScroll'); // ⬅️ use the ID, not the class
+
   if (!playhead || !wrapper) return;
-  
-  const zoom = multitrack.zoom || 100;
-  
+
   const animate = () => {
     if (!state.isPlaying) {
       playheadAnimationId = null;
       return;
     }
-    
+
     const currentTime = Tone.Transport.seconds;
-    const xPos = currentTime * zoom;
-    
-    playhead.style.left = xPos + 'px';
-    
-    // FIXED: Better scroll logic
-    const wrapperWidth = wrapper.clientWidth;
-    const currentScroll = wrapper.scrollLeft;
-    const playheadScreenPos = xPos - currentScroll;
-    
-    // Keep playhead in center 40-60% range
-    const minPos = wrapperWidth * 0.4;
-    const maxPos = wrapperWidth * 0.6;
-    
-    if (playheadScreenPos < minPos) {
-      wrapper.scrollLeft = Math.max(0, xPos - wrapperWidth * 0.5);
-    } else if (playheadScreenPos > maxPos) {
-      wrapper.scrollLeft = xPos - wrapperWidth * 0.5;
-    }
-    
+
+    // ⬅️ Single source of truth for playhead + scroll
+    updatePlayheadAndScroll(currentTime);
+
     playheadAnimationId = requestAnimationFrame(animate);
   };
-  
+
   playheadAnimationId = requestAnimationFrame(animate);
 }
 
@@ -11283,14 +11322,13 @@ function startPreviewPlayhead(startOffset, duration) {
   }
   
   const playhead = document.getElementById('timelinePlayhead');
-  const wrapper = document.querySelector('.multitrack-wrapper');
+  const wrapper = document.getElementById('multitrackScroll');
   
   if (!playhead || !wrapper) {
     console.error('❌ Missing playhead or wrapper for preview');
     return;
   }
   
-  const zoom = multitrack.zoom || 100;
   previewStartTime = performance.now();
   
   const animate = () => {
@@ -11301,31 +11339,14 @@ function startPreviewPlayhead(startOffset, duration) {
       return;
     }
     
-    // Preview uses its own timeline but same rendering logic
-    const currentTime = startOffset + elapsed;
-    const xPos = currentTime * zoom;
-    
-    playhead.style.left = xPos + 'px';
-    
-    // Same auto-scroll logic
-    const wrapperWidth = wrapper.clientWidth;
-    const currentScroll = wrapper.scrollLeft;
-    const playheadScreenPos = xPos - currentScroll;
-    
-    const leftThreshold = wrapperWidth * 0.3;
-    const rightThreshold = wrapperWidth * 0.7;
-    
-    if (playheadScreenPos < leftThreshold) {
-      wrapper.scrollLeft = xPos - wrapperWidth * 0.3;
-    } else if (playheadScreenPos > rightThreshold) {
-      wrapper.scrollLeft = xPos - wrapperWidth * 0.7;
-    }
+    const currentTime = startOffset + elapsed; // 🔑 real project time
+    updatePlayheadAndScroll(currentTime);
     
     previewPlayheadId = requestAnimationFrame(animate);
   };
   
   previewPlayheadId = requestAnimationFrame(animate);
-  console.log('✅ Preview playhead started');
+  console.log('✅ Preview playhead started at', startOffset, 'for', duration, 'seconds');
 }
 
 function stopPreviewPlayhead() {
@@ -11336,7 +11357,16 @@ function stopPreviewPlayhead() {
   }
 }
   
-async function previewMultitrack() {
+// Make sure you have something like this in your global state:
+/// const state = { duration: 3, isPlaying: false, cursorSeconds: 0 };
+
+async function previewMultitrack(startAtSeconds) {
+  // If no explicit start is passed, use the last playhead/cursor position
+  const startFrom = 
+    typeof startAtSeconds === 'number' 
+      ? startAtSeconds 
+      : (typeof state.cursorSeconds === 'number' ? state.cursorSeconds : 0);
+
   const activeTracks = multitrack.tracks.filter(t => 
     t.selectedTakeIndex >= 0 && !t.muted
   );
@@ -11346,6 +11376,7 @@ async function previewMultitrack() {
     return;
   }
   
+  // Stop any existing preview first
   stopMultitrackPreview();
   
   await Tone.start();
@@ -11355,12 +11386,17 @@ async function previewMultitrack() {
   
   multitrack.previewPlayers = [];
   
-  // Preview ALWAYS starts from 0 on the timeline
-  // Tracks play at their EXACT startTime positions
-  let minStartTime = 0; // Start from beginning
-  let maxEndTime = multitrack.projectDuration || (state.duration * 60);
+  const projectDurationSeconds = multitrack.projectDuration || (state.duration * 60);
   
-  showToast('⏳ Loading takes...', 'info');
+  // 🔑 Clamp start offset to project bounds
+  const previewStart = Math.max(0, Math.min(startFrom, projectDurationSeconds));
+  let previewEnd = previewStart; // we'll expand this as we see regions
+  
+  // Update cursor + visually move playhead to the preview start
+  state.cursorSeconds = previewStart;
+  updatePlayheadAndScroll(previewStart);
+
+  showToast(`⏳ Loading takes (from ${previewStart.toFixed(2)}s)...`, 'info');
   
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
@@ -11368,6 +11404,14 @@ async function previewMultitrack() {
     
     if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
       console.error(`❌ ${track.name}: Invalid buffer`);
+      continue;
+    }
+    
+    const regionStart = take.startTime || 0;
+    const regionEnd = regionStart + take.duration;
+    
+    // ⛔ Region ends before our preview window → skip
+    if (regionEnd <= previewStart) {
       continue;
     }
     
@@ -11380,19 +11424,23 @@ async function previewMultitrack() {
       
       player.buffer = take.buffer;
       
-      const startTime = take.startTime || 0;
-      const endTime = startTime + take.duration;
+      // When (relative to preview start) should this region start?
+      const relativeStart = Math.max(0, regionStart - previewStart);
       
-      if (startTime < minStartTime) minStartTime = startTime;
-      if (endTime > maxEndTime) maxEndTime = endTime;
-      
-      multitrack.previewPlayers.push({ 
-        player, 
-        track, 
-        startTime
+      multitrack.previewPlayers.push({
+        player,
+        track,
+        startTime: regionStart,
+        relativeStart
       });
       
-      console.log(`✅ ${track.name} ready (starts at ${startTime.toFixed(3)}s)`);
+      // Grow previewEnd to include anything that overlaps our window
+      if (regionEnd > previewEnd) previewEnd = regionEnd;
+      
+      console.log(
+        `✅ ${track.name} ready: region ${regionStart.toFixed(3)}–${regionEnd.toFixed(3)}s, ` +
+        `plays at +${relativeStart.toFixed(3)}s in preview`
+      );
       
     } catch (err) {
       console.error(`❌ ${track.name} failed:`, err);
@@ -11400,23 +11448,18 @@ async function previewMultitrack() {
   }
   
   if (!multitrack.previewPlayers.length) {
-    showToast('❌ No takes could be loaded', 'error');
+    showToast('⚠️ No regions overlap this preview range', 'warning');
     return;
   }
   
-  if (minStartTime === Infinity) minStartTime = 0;
-  const totalDuration = maxEndTime - minStartTime;
-  
-  console.log(`▶️ Preview:`);
-  console.log(`   - Total duration: ${totalDuration.toFixed(3)}s`);
-  console.log(`   - Earliest start (context): ${minStartTime.toFixed(3)}s`);
-  console.log(`   - Latest end (context):     ${maxEndTime.toFixed(3)}s`);
+  // 🔥 Preview window = [previewStart, previewEnd]
+  const totalDuration = Math.max(0.1, previewEnd - previewStart);
+  console.log(`▶️ Preview from ${previewStart.toFixed(3)}s for ${totalDuration.toFixed(3)}s`);
   
   const now = Tone.now() + 0.1;
   
-  multitrack.previewPlayers.forEach(({ player, track, startTime }) => {
+  multitrack.previewPlayers.forEach(({ player, track, relativeStart }) => {
     try {
-      const relativeStart = (startTime || 0) - minStartTime;
       player.start(now + relativeStart);
       console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
     } catch (err) {
@@ -11424,10 +11467,14 @@ async function previewMultitrack() {
     }
   });
   
-  showToast(`▶️ Previewing ${multitrack.previewPlayers.length} track(s)`, 'success');
+  showToast(
+    `▶️ Previewing ${multitrack.previewPlayers.length} track(s) from ${previewStart.toFixed(2)}s`,
+    'success'
+  );
   
-  // Start visual playhead for preview
-  startPreviewPlayhead(minStartTime, totalDuration);
+  // 🎯 Playhead moves along the real project timeline, starting at previewStart
+  // (this should internally call updatePlayheadAndScroll)
+  startPreviewPlayhead(previewStart, totalDuration);
   
   multitrack.previewTimeout = setTimeout(() => {
     stopMultitrackPreview();
@@ -11448,7 +11495,7 @@ function stopMultitrackPreview() {
         console.warn('Error stopping preview player:', err);
       }
     });
-    multitrack.previewPlayers = null;
+    multitrack.previewPlayers = []; // safer than null
     console.log('⏹️ Preview stopped');
   }
   
