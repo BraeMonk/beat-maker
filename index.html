@@ -2553,17 +2553,57 @@
       line-height: 1.7;
     }
 
-    /* -------- Professional DAW Multitrack System -------- */
+   /* -------- Professional DAW Multitrack System -------- */
 
+    /* Toolbar – always visible, never horizontally scrolls */
+    .multitrack-toolbar {
+      display: flex;
+      flex-wrap: wrap;                 /* allow wrapping instead of overflow */
+      gap: var(--space-3);
+      align-items: center;
+      padding: var(--space-3) var(--space-4);
+      margin-bottom: var(--space-4);
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-md);
+    }
+    
+    /* Each group of controls */
+    .multitrack-toolbar .toolbar-section {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+    
+    /* On phones / narrow layouts: sections wrap to new lines instead of going off-screen */
+    @media (max-width: 900px) {
+      .multitrack-toolbar {
+        justify-content: flex-start;
+      }
+    
+      .multitrack-toolbar .toolbar-section {
+        flex: 1 1 100%;
+        margin-left: 0 !important;    /* override your margin-left:auto on the last block */
+      }
+    }
+    
+    /* Wrapper is the ONLY horizontal scroll container for multitrack */
     .multitrack-wrapper {
       position: relative;
       width: 100%;
-      overflow-x: auto !important;
+      max-width: 100%;
+      overflow-x: auto;
       overflow-y: visible;
       -webkit-overflow-scrolling: touch;
       scroll-behavior: smooth;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--glass-border);
+      background: var(--bg-primary);
     }
     
+    /* Ruler sits at the top of that scroll area */
     .timeline-ruler {
       position: sticky;
       top: 0;
@@ -2574,32 +2614,36 @@
       border-bottom: 2px solid var(--glass-border-strong);
       display: flex;
       align-items: center;
-      padding: 0 200px 0 var(--space-4);
-      z-index: 100;
+      padding: 0 var(--space-4);
+      z-index: 10;
       font-family: var(--font-mono);
       font-size: var(--text-xs);
       color: var(--text-tertiary);
       font-weight: 700;
-      overflow: visible; /* CHANGED: was min-width: max-content */
     }
     
+    /* Use a CSS variable for the unified timeline width */
     .timeline-markers {
-      display: flex;
-      width: 100%;
       position: relative;
       height: 100%;
-      min-width: var(--timeline-width); /* Match canvas width */
+      width: var(--timeline-width);
+      min-width: var(--timeline-width);
     }
     
-    .timeline-marker {
-      position: absolute;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      padding: 0 var(--space-2);
-      border-left: 1px solid var(--glass-border);
+    /* Let the wrapper control horizontal scroll – tracks do NOT get their own x-scroll */
+    .track-canvas-area {
+      overflow-x: visible;
+      overflow-y: hidden;
+      position: relative;
     }
     
+    /* Track timeline width matches the same CSS var as the ruler */
+    .track-canvas {
+      position: relative;
+      width: var(--timeline-width);
+      min-width: var(--timeline-width);
+    }
+        
     .timeline-marker.major {
       border-left: 2px solid var(--glass-border-strong);
       color: var(--text-primary);
@@ -2981,23 +3025,6 @@
       transition: all var(--duration-base) var(--ease-smooth);
       position: relative;
       min-height: 120px;
-    }
-    
-    .track-canvas-area {
-      position: relative;
-      background: linear-gradient(180deg, rgba(0,0,0,.1), transparent);
-      padding: var(--space-2);
-      overflow-x: visible;
-      overflow-y: hidden;
-      min-height: 80px;
-    }
-    
-    .track-canvas {
-      position: relative;
-      min-width: 100%;
-      height: 100%;
-      min-height: 80px;
-      /* Removed individual scrolling */
     }
     
     /* Audio region (recorded take) */
@@ -11025,32 +11052,34 @@ function updateTimelineRuler() {
   const markers = document.getElementById('timelineMarkers');
   const wrapper = document.querySelector('.multitrack-wrapper');
   if (!markers || !wrapper) return;
-  
+
   markers.innerHTML = '';
-  
+
   const zoom = multitrack.zoom || 100;
   const projectDurationSeconds = state.duration * 60;
   const totalWidth = projectDurationSeconds * zoom;
-  
-  // CRITICAL: Force wrapper and markers to same width
-  wrapper.style.minWidth = totalWidth + 'px';
-  markers.style.minWidth = totalWidth + 'px';
+
+  // 🔑 SINGLE source of truth for timeline width:
+  // ruler + track canvases read this CSS variable
+  document.documentElement.style.setProperty('--timeline-width', totalWidth + 'px');
+
+  // Markers follow that same width, but the WRAPPER stays 100% viewport width
   markers.style.width = totalWidth + 'px';
-  
+
   let interval = 1;
   if (zoom < 50) interval = 5;
   else if (zoom < 25) interval = 10;
   else if (zoom > 200) interval = 0.5;
-  
+
   for (let t = 0; t <= projectDurationSeconds; t += interval) {
     const x = t * zoom;
     const isMajor = t % (interval * 4) === 0;
-    
+
     const marker = document.createElement('div');
     marker.className = 'timeline-marker' + (isMajor ? ' major' : '');
     marker.style.left = x + 'px';
     marker.textContent = formatTime(t);
-    
+
     markers.appendChild(marker);
   }
 }
@@ -11224,39 +11253,38 @@ function showAddTrackDialog() {
 function renderMultitrack() {
   const grid = document.getElementById('multitrackGrid');
   if (!grid) return;
-  
+
   // Calculate unified timeline width - ALWAYS use project duration as base
   const projectDurationSeconds = state.duration * 60;
-  const timelineWidth = projectDurationSeconds * multitrack.zoom;
-  
+  const zoom = multitrack.zoom || 100;
+  const timelineWidth = projectDurationSeconds * zoom;
+
   multitrack.timelineWidth = timelineWidth;
   multitrack.projectDuration = projectDurationSeconds;
-  
-  // CRITICAL: Set unified scroll width
+
+  // Keep CSS var in sync for ruler + track canvases
+  document.documentElement.style.setProperty('--timeline-width', timelineWidth + 'px');
+
+  // Wrapper fills the viewport, scrolling happens INSIDE
   const wrapper = document.querySelector('.multitrack-wrapper');
   if (wrapper) {
     wrapper.style.width = '100%';
+    wrapper.style.maxWidth = '100%';
     wrapper.style.overflowX = 'auto';
     wrapper.style.overflowY = 'visible';
-
-    wrapper.style.setProperty('--timeline-width', timelineWidth + 'px');
   }
-  
-  // Set timeline markers width to match
+
+  // Markers width matches the timeline width, but no minWidth on wrapper
   const markers = document.getElementById('timelineMarkers');
   if (markers) {
-    markers.style.minWidth = timelineWidth + 'px';
     markers.style.width = timelineWidth + 'px';
   }
 
-  grid.style.minWidth = timelineWidth + 'px';
-  grid.style.width = timelineWidth + 'px';
-  
   grid.innerHTML = '';
-  
+
   if (multitrack.tracks.length === 0) {
     grid.innerHTML = `
-      <div style="grid-column: 1 / -1; padding: var(--space-8); text-align: center; color: var(--text-tertiary);">
+      <div style="padding: var(--space-8); text-align: center; color: var(--text-tertiary);">
         <div style="font-size: var(--text-3xl); margin-bottom: var(--space-3);">🎙️</div>
         <div style="font-size: var(--text-lg); margin-bottom: var(--space-2);">No tracks yet</div>
         <div style="font-size: var(--text-sm);">Click "Add Track" to get started</div>
@@ -11264,15 +11292,15 @@ function renderMultitrack() {
     `;
     return;
   }
-  
+
   multitrack.tracks.forEach(track => {
     const strip = createTrackStrip(track, timelineWidth);
     grid.appendChild(strip);
   });
-  
+
   updateTimelineRuler();
-  
-  // Setup playhead animation if playing
+
+  // Keep playhead animation behaviour you already had
   if (state.isPlaying) {
     startPlayheadAnimation();
   }
