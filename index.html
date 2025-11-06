@@ -895,21 +895,25 @@
       width: 56px;
       height: 56px;
       border-radius: var(--radius-full);
-      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-      border: none;
-      color: var(--bg-primary);
+      background: var(--glass-bg-strong);
+      border: 1px solid var(--glass-border-strong);
+      backdrop-filter: blur(12px) saturate(130%);
+      color: var(--text-primary);
       font-size: var(--text-2xl);
       cursor: pointer;
       display: grid;
       place-items: center;
-      box-shadow: 
-        var(--shadow-xl),
-        var(--glow-md) color-mix(in oklab, var(--accent-primary) 40%, transparent);
+      box-shadow: var(--shadow-lg);
       transition: all var(--duration-base) var(--ease-smooth);
     }
     
     .sidebar-toggle:hover {
-      transform: scale(1.1) rotate(90deg);
+      background: var(--glass-bg-strong);
+      border-color: color-mix(in oklab, var(--accent-primary) 40%, var(--glass-border-strong));
+      box-shadow: 
+        var(--shadow-xl),
+        var(--glow-sm) color-mix(in oklab, var(--accent-primary) 20%, transparent);
+      transform: scale(1.05);
     }
     
     .sidebar-toggle:active {
@@ -4741,7 +4745,7 @@
   </div>
   <!-- Sidebar Toggle Button -->
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menu">
-    ☰
+    🧭
   </button>
   
   <!-- Sidebar Backdrop -->
@@ -4750,7 +4754,7 @@
   <!-- Sidebar Navigation -->
   <nav class="sidebar-nav" id="sidebarNav">
     <div class="sidebar-section">
-      <div class="sidebar-section-title">📂 Navigation</div>
+      <div class="sidebar-section-title">...</div>
       <div class="sidebar-tabs" id="sidebarTabs">
         <button class="sidebar-tab active" data-tab="generate">🎲 Generate</button>
         <button class="sidebar-tab" data-tab="sequencer">🎹 Sequencer</button>
@@ -5394,9 +5398,77 @@
     </section>
     
     <footer class="footer">
-      <strong>8-Beat Studio</strong> • Fun With Noise • 
-      Shortcuts: <kbd>Space</kbd> Play/Pause • <kbd>S</kbd> Stop • <kbd>E</kbd> DJ • 
-      Sequencer: <kbd>Alt</kbd> Accent Velocity • <kbd>Shift</kbd> Increase Probability
+      <div style="max-width: 1400px; margin: 0 auto;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-6); margin-bottom: var(--space-4);">
+          
+          <!-- Transport & Playback -->
+          <div>
+            <div style="font-weight: 800; color: var(--accent-primary); margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2);">
+              <span>▶️</span> Transport
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm);">
+              <div><kbd>Space</kbd> Play/Pause</div>
+              <div><kbd>S</kbd> Stop</div>
+              <div><kbd>E</kbd> DJ Export</div>
+            </div>
+          </div>
+          
+          <!-- Multitrack DAW -->
+          <div>
+            <div style="font-weight: 800; color: var(--accent-primary); margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2);">
+              <span>🎙️</span> Multitrack
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm);">
+              <div><kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo</div>
+              <div><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> Redo</div>
+              <div><kbd>X</kbd> Split at Playhead</div>
+              <div><kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate Region</div>
+              <div><kbd>Delete</kbd> Delete Region</div>
+              <div><kbd>Ctrl</kbd>+<kbd>=</kbd> Zoom In</div>
+              <div><kbd>Ctrl</kbd>+<kbd>-</kbd> Zoom Out</div>
+            </div>
+          </div>
+          
+          <!-- Sequencer -->
+          <div>
+            <div style="font-weight: 800; color: var(--accent-primary); margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2);">
+              <span>🎹</span> Sequencer
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm);">
+              <div><kbd>Click</kbd> Toggle Step</div>
+              <div><kbd>Alt</kbd>+<kbd>Click</kbd> Accent Velocity</div>
+              <div><kbd>Shift</kbd>+<kbd>Click</kbd> Inc. Probability</div>
+              <div><kbd>Ctrl</kbd>+<kbd>Click</kbd> Edit Note</div>
+            </div>
+          </div>
+          
+          <!-- Navigation -->
+          <div>
+            <div style="font-weight: 800; color: var(--accent-primary); margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2);">
+              <span>🧭</span> Navigation
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-sm);">
+              <div><kbd>Esc</kbd> Close Sidebar</div>
+              <div><kbd>Tab</kbd> Next Control</div>
+            </div>
+          </div>
+          
+        </div>
+        
+        <!-- Studio Info Bar -->
+        <div style="padding-top: var(--space-4); border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-4);">
+          <div style="display: flex; align-items: center; gap: var(--space-4);">
+            <strong style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-size: var(--text-lg);">8-Beat Studio</strong>
+            <span style="color: var(--text-tertiary);">•</span>
+            <span style="color: var(--text-secondary);">Hand Crafted Multitrack DAW</span>
+          </div>
+          
+          <div style="display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); color: var(--text-tertiary);">
+            <div class="badge badge-ghost">v2.1</div>
+            <span>Made with ❤️ for producers</span>
+          </div>
+        </div>
+      </div>
     </footer>
   </div>
   <!-- Add before closing </body> tag -->
