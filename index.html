@@ -12820,19 +12820,14 @@ function createOfflineFxNode(fxDef, offlineContext) {
 }
   
 async function bounceAllTracks() {
-  // 🔊 Include ANY track that actually has audio:
-  // - not muted
-  // - has a selectedTakeIndex OR at least one non-muted buffered take (imported stems safety)
   const activeTracks = multitrack.tracks.filter(t => {
     if (t.muted) return false;
 
-    // If a selected take exists, we're good
     if (t.selectedTakeIndex >= 0 && t.takes[t.selectedTakeIndex]) {
       const sel = t.takes[t.selectedTakeIndex];
       return sel.buffer && sel.buffer.length && !sel.muted;
     }
 
-    // Fallback: any non-muted take with a buffer counts as active
     if (t.takes && t.takes.length > 0) {
       return t.takes.some(tk => tk && tk.buffer && tk.buffer.length && !tk.muted);
     }
@@ -12845,7 +12840,6 @@ async function bounceAllTracks() {
     return;
   }
 
-  // Progress modal
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.style.zIndex = '10000';
@@ -12889,13 +12883,10 @@ async function bounceAllTracks() {
   try {
     updateProgress(10, 'Analyzing tracks...', `${activeTracks.length} tracks to bounce`);
 
-    // 🕒 Use FULL project duration - never trim timeline
-    const projectDuration = multitrack.projectDuration || (state.duration * 60);
-    const minStart = 0; // Always start from timeline beginning
-    const maxEnd = projectDuration; // Always go to project end
+    // Find actual content boundaries
+    let minStart = Infinity;
+    let maxEnd = 0;
     
-    // Validate that tracks actually have content
-    let hasContent = false;
     activeTracks.forEach(track => {
       let take = null;
       if (track.selectedTakeIndex >= 0 && track.takes[track.selectedTakeIndex]) {
@@ -12903,26 +12894,31 @@ async function bounceAllTracks() {
       } else if (track.takes && track.takes.length > 0) {
         take = track.takes.find(tk => tk && tk.buffer && !tk.muted) || null;
       }
-      if (take && take.buffer) hasContent = true;
+      
+      if (take && take.buffer) {
+        const start = take.startTime || 0;
+        const end = start + take.duration;
+        if (start < minStart) minStart = start;
+        if (end > maxEnd) maxEnd = end;
+      }
     });
     
-    if (!hasContent) {
+    if (minStart === Infinity || maxEnd === 0) {
       backdrop.remove();
       showToast('❌ No audio content to bounce', 'error');
       return;
     }
 
-    const totalDuration = maxEnd - minStart; // Full project length
+    // Use actual content duration, not project duration
+    const totalDuration = maxEnd - minStart;
     
     updateProgress(
       20,
       'Setting up renderer...',
-      `Duration: ${totalDuration.toFixed(1)}s`
+      `Duration: ${totalDuration.toFixed(1)}s (trimmed)`
     );
 
-    console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s`);
-    console.log(`   - Earliest start (context): ${minStart.toFixed(2)}s`);
-    console.log(`   - Latest end   (context):   ${maxEnd.toFixed(2)}s`);
+    console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s (content from ${minStart.toFixed(2)}s to ${maxEnd.toFixed(2)}s)`);
 
     const sampleRate = Tone.context.sampleRate || 48000;
     const numFrames = Math.ceil(totalDuration * sampleRate);
@@ -12935,13 +12931,11 @@ async function bounceAllTracks() {
 
     updateProgress(30, 'Creating audio chain...', 'Building master effects');
 
-    // 🔥 Pure Web Audio master bus
     const offlineMasterIn = createOfflineMasterChain(offlineContext);
 
     updateProgress(40, 'Scheduling tracks...', `Processing ${activeTracks.length} tracks`);
 
     for (const track of activeTracks) {
-      // Same selection logic as timing pass
       let take = null;
       if (track.selectedTakeIndex >= 0 && track.takes[track.selectedTakeIndex]) {
         take = track.takes[track.selectedTakeIndex];
@@ -12956,7 +12950,6 @@ async function bounceAllTracks() {
         const src = ctx.createBufferSource();
         src.buffer = take.buffer;
 
-        // Simple per-track gain + pan
         const gainNode = ctx.createGain();
         gainNode.gain.value = Tone.dbToGain(track.volume || 0);
 
@@ -12969,14 +12962,11 @@ async function bounceAllTracks() {
 
         const startTime = take.startTime || 0;
         const relStart = startTime - minStart;
-        const safeStart = Math.max(0, relStart); // avoid negative
+        const safeStart = Math.max(0, relStart);
 
         src.start(safeStart);
 
-        console.log(`✅ ${track.name}:`);
-        console.log(`   - Context start: ${startTime.toFixed(3)}s`);
-        console.log(`   - Renders at:    ${safeStart.toFixed(3)}s (offline)`);
-        console.log(`   - Duration:      ${take.duration.toFixed(3)}s`);
+        console.log(`✅ ${track.name}: renders at ${safeStart.toFixed(3)}s`);
       } catch (err) {
         console.error(`❌ Failed to schedule ${track.name}:`, err);
       }
@@ -13003,7 +12993,7 @@ async function bounceAllTracks() {
     clearInterval(progressInterval);
     updateProgress(95, 'Converting to WAV...', 'Almost done');
 
-    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s`);
+    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s (trimmed from ${totalDuration.toFixed(2)}s)`);
 
     const wavData = bufferToWavImproved(renderedBuffer);
     const blob = new Blob([wavData], { type: 'audio/wav' });
@@ -13022,11 +13012,11 @@ async function bounceAllTracks() {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
 
-    console.log(`✅ Bounce complete: ${filename}`);
+    console.log(`✅ Bounce complete: ${filename} (${totalDuration.toFixed(1)}s)`);
 
     setTimeout(() => {
       backdrop.remove();
-      showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s exported`, 'success');
+      showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s exported (silence trimmed)`, 'success');
     }, 1000);
   } catch (err) {
     console.error('❌ Bounce failed:', err);
