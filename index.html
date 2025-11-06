@@ -12274,7 +12274,7 @@ function stopMultitrackPreview() {
     console.log('⏹️ Preview stopped');
   }
 
-  // === 🧭 NEW: Stop playhead follow + display updates ===
+  // 🧭 Stop playhead follow + display updates
   multitrack.isPlaying = false;
   clearInterval(playheadUpdateInterval);
   playheadUpdateInterval = null;
@@ -12285,6 +12285,18 @@ function stopMultitrackPreview() {
     clearTimeout(multitrack.previewTimeout);
     multitrack.previewTimeout = null;
   }
+
+  // 🎯 NEW: remember last position so PAUSE can resume from here
+  let lastSeconds = 0;
+
+  if (typeof state.cursorSeconds === 'number' && !Number.isNaN(state.cursorSeconds)) {
+    lastSeconds = state.cursorSeconds;
+  } else if (typeof multitrack.playheadSeconds === 'number' && !Number.isNaN(multitrack.playheadSeconds)) {
+    lastSeconds = multitrack.playheadSeconds;
+  }
+
+  multitrack.playheadSeconds = lastSeconds;
+  updatePlayheadUI(lastSeconds);
 }
 
 // 🔁 PURE WEB AUDIO MASTER CHAIN FOR OFFLINE BOUNCE
@@ -13932,14 +13944,86 @@ async function setupMultitrackListeners() {
     };
   }
 
-  // === LOOP / CLICK / COUNT ===
+    // === LOOP / CLICK / COUNT ===
   const loopBtn = document.getElementById('dawLoopBtn');
   const clickBtn = document.getElementById('dawClickBtn');
   const countInBtn = document.getElementById('dawCountInBtn');
 
-  if (loopBtn) loopBtn.onclick = () => loopBtn.classList.toggle('active');
-  if (clickBtn) clickBtn.onclick = () => clickBtn.classList.toggle('active');
-  if (countInBtn) countInBtn.onclick = () => countInBtn.classList.toggle('active');
+  // Make sure we have a loop flag in multitrack state
+  if (typeof multitrack.loopEnabled === 'undefined') {
+    multitrack.loopEnabled = false;
+  }
+
+  // 🔁 LOOP: just a flag + visual
+  if (loopBtn) {
+    // Initial state
+    loopBtn.classList.toggle('active', !!multitrack.loopEnabled);
+
+    loopBtn.onclick = () => {
+      multitrack.loopEnabled = !multitrack.loopEnabled;
+      loopBtn.classList.toggle('active', multitrack.loopEnabled);
+      showToast(
+        multitrack.loopEnabled ? '🔁 Loop Enabled (multitrack preview)' : '⏹️ Loop Disabled',
+        'info'
+      );
+    };
+  }
+
+  // 🥁 CLICK: sync with main metronome state
+  if (clickBtn) {
+    // Initial state from global metronome
+    clickBtn.classList.toggle('active', !!state.metronomeEnabled);
+
+    clickBtn.onclick = () => {
+      state.metronomeEnabled = !state.metronomeEnabled;
+      clickBtn.classList.toggle('active', state.metronomeEnabled);
+
+      const mainMetBtn = document.getElementById('metronomeBtn');
+      if (mainMetBtn) {
+        mainMetBtn.textContent = state.metronomeEnabled
+          ? '🥁 Click: On'
+          : '🥁 Click: Off';
+      }
+
+      showToast(
+        state.metronomeEnabled ? '🥁 Click ON (global)' : '🥁 Click OFF',
+        'info'
+      );
+    };
+  }
+
+  // ⏱️ COUNT-IN: share the same countInBars as main transport
+  if (countInBtn) {
+    const labels = ['⏱️ Count: Off', '⏱️ Count: 1 bar', '⏱️ Count: 2 bars'];
+
+    // Initialise label + active state from current countInBars
+    const safeCount = Number.isInteger(state.countInBars) ? state.countInBars : 0;
+    state.countInBars = safeCount;
+    countInBtn.textContent = labels[state.countInBars];
+    countInBtn.classList.toggle('active', state.countInBars > 0);
+
+    countInBtn.onclick = () => {
+      // 0 -> 1 -> 2 -> 0
+      state.countInBars =
+        state.countInBars === 1 ? 2 :
+        state.countInBars === 2 ? 0 : 1;
+
+      countInBtn.textContent = labels[state.countInBars];
+      countInBtn.classList.toggle('active', state.countInBars > 0);
+
+      const mainCountBtn = document.getElementById('countInBtn');
+      if (mainCountBtn && mainCountBtn !== countInBtn) {
+        mainCountBtn.textContent = labels[state.countInBars];
+      }
+
+      showToast(
+        state.countInBars === 0
+          ? '⏱️ Count-in OFF'
+          : `⏱️ Count-in: ${state.countInBars} bar(s)`,
+        'info'
+      );
+    };
+  }
 
   // === BPM + TIME SIG ===
   const bpmInput = document.getElementById('dawBpmInput');
