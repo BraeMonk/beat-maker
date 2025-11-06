@@ -2955,6 +2955,12 @@
       -webkit-overflow-scrolling: touch;
       scroll-behavior: smooth;
     }
+
+    /* Inside the multitrack scroll, stack ruler + grid vertically */
+    .multitrack-wrapper .timeline-ruler,
+    .multitrack-wrapper .multitrack-grid {
+      min-width: 100%;
+    }
     
     .multitrack-grid {
       display: flex;
@@ -2981,7 +2987,8 @@
       position: relative;
       background: linear-gradient(180deg, rgba(0,0,0,.1), transparent);
       padding: var(--space-2);
-      overflow: visible; /* CHANGED from overflow-x: auto */
+      overflow-x: visible;
+      overflow-y: hidden;
       min-height: 80px;
     }
     
@@ -3225,7 +3232,7 @@
       50% { opacity: 0.5; transform: scale(0.8); }
     }
     
-    /* Professional toolbar */
+    /* Professional toolbar – single row, scrollable when cramped */
     .multitrack-toolbar {
       display: flex;
       align-items: center;
@@ -3233,9 +3240,29 @@
       padding: var(--space-4);
       background: var(--surface-elevated);
       border-bottom: 1px solid var(--glass-border-strong);
-      flex-wrap: wrap;
+    
+      /* KEY: keep everything in one line and allow horizontal scroll */
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
     }
     
+    /* Nice little scrollbar on WebKit (mobile Safari, Chrome) */
+    .multitrack-toolbar::-webkit-scrollbar {
+      height: 6px;
+    }
+    
+    .multitrack-toolbar::-webkit-scrollbar-thumb {
+      background: var(--glass-border);
+      border-radius: 999px;
+    }
+    
+    .multitrack-toolbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    /* Sections a bit tighter so they fit better on phones */
     .toolbar-section {
       display: flex;
       align-items: center;
@@ -3819,11 +3846,24 @@
         padding: var(--space-2) var(--space-3);
         max-width: 90vw;
       }
-    }
     
       .multitrack-wrapper {
         touch-action: pan-x pan-y;
         -webkit-overflow-scrolling: touch;
+      }
+
+      .multitrack-toolbar {
+        padding: var(--space-3);
+        gap: var(--space-2);
+      }
+    
+      .toolbar-section {
+        padding-right: var(--space-2);
+      }
+    
+      .toolbar-section .btn,
+      .toolbar-section .zoom-btn {
+        padding: var(--space-2) var(--space-3);
       }
       
       .track-canvas-area {
@@ -3863,16 +3903,15 @@
       .region-header {
         padding: var(--space-3);
       }
-    }
     
-    /* Ensure buttons work during drag */
-    .audio-region.dragging .region-action-btn {
-      pointer-events: none;
-    }
-    
-    .audio-region:not(.dragging) .region-action-btn {
-      pointer-events: auto;
-    }
+      /* Ensure buttons work during drag */
+      .audio-region.dragging .region-action-btn {
+        pointer-events: none;
+      }
+      
+      .audio-region:not(.dragging) .region-action-btn {
+        pointer-events: auto;
+      }
     
       .track-header {
         min-width: 200px;
@@ -4575,18 +4614,20 @@
           <div class="grid grid-3" id="sampleUploadGrid"></div>
         </div>
       </section>
-      <div class="multitrack-wrapper" style="overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch;">
+            <!-- Unified timeline + tracks scroll container -->
+      <div class="multitrack-wrapper" id="multitrackScroll">
         <!-- Timeline Ruler -->
         <div class="timeline-ruler">
           <div class="timeline-markers" id="timelineMarkers"></div>
           <div class="timeline-playhead" id="timelinePlayhead" style="left: 0;"></div>
         </div>
+
+        <!-- Tracks Container -->
+        <div class="multitrack-grid" id="multitrackGrid">
+          <!-- Tracks will be dynamically inserted here -->
+        </div>
       </div>
-      
-      <!-- Tracks Container -->
-      <div class="multitrack-grid" id="multitrackGrid">
-        <!-- Tracks will be dynamically inserted here -->
-      </div>
+
       
       <!-- FX Chain Panel (Hidden by default) -->
       <div class="fx-chain-panel" id="fxChainPanel" style="display: none;">
@@ -11197,6 +11238,8 @@ function renderMultitrack() {
     wrapper.style.width = '100%';
     wrapper.style.overflowX = 'auto';
     wrapper.style.overflowY = 'visible';
+
+    wrapper.style.setProperty('--timeline-width', timelineWidth + 'px');
   }
   
   // Set timeline markers width to match
@@ -11205,6 +11248,9 @@ function renderMultitrack() {
     markers.style.minWidth = timelineWidth + 'px';
     markers.style.width = timelineWidth + 'px';
   }
+
+  grid.style.minWidth = timelineWidth + 'px';
+  grid.style.width = timelineWidth + 'px';
   
   grid.innerHTML = '';
   
