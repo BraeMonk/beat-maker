@@ -2585,7 +2585,7 @@
       border-right: none;
     }
     
-    /* On phones / narrow layouts: sections wrap to new lines instead of going off-screen */
+    /* On phones / narrow layouts: sections stack so everything stays visible */
     @media (max-width: 900px) {
       .multitrack-toolbar {
         justify-content: flex-start;
@@ -2664,6 +2664,7 @@
       border-radius: var(--radius-lg);
       border: 1px solid var(--glass-border);
       background: var(--bg-primary);
+      box-sizing: border-box;
     }
     
     /* === HORIZONTAL TIMELINE RULER === */
@@ -2688,7 +2689,7 @@
       box-sizing: border-box;
     }
     
-    /* Use a CSS variable for the unified timeline width */
+    /* Markers strip stretches horizontally; width shared via CSS var */
     .timeline-markers {
       position: relative;
       flex: 1 1 auto;
@@ -2696,12 +2697,7 @@
       min-width: var(--timeline-width, 100%);
     }
     
-    .timeline-marker.major {
-      border-left: 2px solid var(--glass-border-strong);
-      color: var(--text-primary);
-    }
-    
-    /* Playhead is a vertical line moving horizontally */
+    /* Vertical tick line moving horizontally */
     .timeline-playhead {
       position: absolute;
       top: 0;
@@ -2740,7 +2736,7 @@
     /* Individual track strip */
     .track-strip {
       display: grid;
-      grid-template-columns: 200px 1fr;
+      grid-template-columns: 200px 1fr; /* header | canvas */
       border-bottom: 1px solid var(--glass-border);
       background: var(--surface);
       transition: all var(--duration-base) var(--ease-smooth);
@@ -3098,7 +3094,6 @@
       display: grid;
       place-items: center;
       transition: all var(--duration-fast) var(--ease-smooth);
-      pointer-events: auto;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       padding: 0;
@@ -11140,32 +11135,42 @@ function renderMultitrack() {
   const grid = document.getElementById('multitrackGrid');
   if (!grid) return;
 
-  // Calculate unified timeline width - ALWAYS use project duration as base
+  // Duration in seconds
   const projectDurationSeconds = state.duration * 60;
-  const zoom = multitrack.zoom || 100;
-  const timelineWidth = projectDurationSeconds * zoom;
+
+  // zoom = pixels per second (fallback to 100px/sec if not set)
+  const pixelsPerSecond = typeof multitrack.zoom === 'number'
+    ? multitrack.zoom
+    : 100;
+
+  const timelineWidth = projectDurationSeconds * pixelsPerSecond;
 
   multitrack.timelineWidth = timelineWidth;
   multitrack.projectDuration = projectDurationSeconds;
 
-  // Keep CSS var in sync for ruler + track canvases
-  document.documentElement.style.setProperty('--timeline-width', timelineWidth + 'px');
+  // Share with CSS: .timeline-markers and .track-canvas use this var
+  document.documentElement.style.setProperty(
+    '--timeline-width',
+    timelineWidth + 'px'
+  );
 
-  // Wrapper fills the viewport, scrolling happens INSIDE
+  // Let CSS control wrapper layout; just ensure it's the scroll container
   const wrapper = document.querySelector('.multitrack-wrapper');
   if (wrapper) {
     wrapper.style.width = '100%';
     wrapper.style.maxWidth = '100%';
-    wrapper.style.overflowX = 'auto';
-    wrapper.style.overflowY = 'visible';
+    // no need to touch overflow here if CSS already does it
   }
 
-  // Markers width matches the timeline width, but no minWidth on wrapper
+  // Explicitly size markers to match the timeline width
   const markers = document.getElementById('timelineMarkers');
   if (markers) {
     markers.style.width = timelineWidth + 'px';
+    markers.style.minWidth = timelineWidth + 'px';
+    markers.style.height = '100%';
   }
 
+  // Rebuild tracks
   grid.innerHTML = '';
 
   if (multitrack.tracks.length === 0) {
@@ -11184,6 +11189,7 @@ function renderMultitrack() {
     grid.appendChild(strip);
   });
 
+  // Draw tick labels etc.
   updateTimelineRuler();
 
   // Keep playhead animation behaviour you already had
