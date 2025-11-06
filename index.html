@@ -2688,7 +2688,28 @@
       font-weight: 700;
       box-sizing: border-box;
     }
+
+    /* Each marker is an absolutely positioned vertical line */
+    .timeline-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.18); /* tick line */
+    }
     
+    /* Major tick label under the line */
+    .timeline-marker-label {
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-tertiary);
+      pointer-events: none;
+    }
+
     /* Markers strip stretches horizontally; width shared via CSS var */
     .timeline-markers {
       position: relative;
