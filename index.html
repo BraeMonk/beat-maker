@@ -3693,16 +3693,19 @@
       opacity: 1;
     }
     
-    /* Context menu for regions */
+    /* Replace .region-context-menu CSS (around line 3880) */
     .region-context-menu {
-      position: fixed;
+      position: fixed; /* ← Changed from absolute */
+      min-width: 200px;
+      max-width: 300px; /* Prevent it getting too wide */
       background: var(--surface-elevated);
       border: 1px solid var(--glass-border-strong);
       border-radius: var(--radius-lg);
-      padding: var(--space-2);
       box-shadow: var(--shadow-2xl);
+      backdrop-filter: blur(24px) saturate(150%);
+      padding: var(--space-2);
       z-index: 10000;
-      min-width: 200px;
+      animation: contextMenuAppear var(--duration-fast) var(--ease-smooth);
     }
     
     .region-context-item {
@@ -10492,36 +10495,6 @@ function setupRegionContextMenu() {
     contextMenu = document.createElement('div');
     contextMenu.className = 'region-context-menu';
     
-    // FIXED: Smart positioning to stay on screen
-    const menuWidth = 200;
-    const menuHeight = 350;
-    
-    let x = e.pageX;
-    let y = e.pageY;
-    
-    // Check right edge
-    if (x + menuWidth > window.innerWidth + window.scrollX) {
-      x = window.innerWidth + window.scrollX - menuWidth - 10;
-    }
-    
-    // Check bottom edge
-    if (y + menuHeight > window.innerHeight + window.scrollY) {
-      y = window.innerHeight + window.scrollY - menuHeight - 10;
-    }
-    
-    // Check left edge
-    if (x < window.scrollX) {
-      x = window.scrollX + 10;
-    }
-    
-    // Check top edge
-    if (y < window.scrollY) {
-      y = window.scrollY + 10;
-    }
-    
-    contextMenu.style.left = x + 'px';
-    contextMenu.style.top = y + 'px';
-    
     contextMenu.innerHTML = `
       <div class="region-context-item" data-action="split">✂️ Split at Playhead</div>
       <div class="region-context-item" data-action="duplicate">📋 Duplicate</div>
@@ -10535,6 +10508,43 @@ function setupRegionContextMenu() {
     `;
     
     document.body.appendChild(contextMenu);
+    
+    // FIXED: Better positioning that accounts for scroll
+    requestAnimationFrame(() => {
+      const menuRect = contextMenu.getBoundingClientRect();
+      const menuWidth = menuRect.width;
+      const menuHeight = menuRect.height;
+      
+      // Start with click position
+      let x = e.clientX;
+      let y = e.clientY;
+      
+      // Check right edge (viewport, not page)
+      if (x + menuWidth > window.innerWidth) {
+        x = window.innerWidth - menuWidth - 10;
+      }
+      
+      // Check bottom edge (viewport, not page)
+      if (y + menuHeight > window.innerHeight) {
+        y = window.innerHeight - menuHeight - 10;
+      }
+      
+      // Check left edge
+      if (x < 10) {
+        x = 10;
+      }
+      
+      // Check top edge
+      if (y < 10) {
+        y = 10;
+      }
+      
+      // CRITICAL: Use fixed positioning so it stays in viewport
+      contextMenu.style.position = 'fixed';
+      contextMenu.style.left = x + 'px';
+      contextMenu.style.top = y + 'px';
+      contextMenu.style.zIndex = '10000'; // Above everything
+    });
     
     // Handle menu clicks
     contextMenu.addEventListener('click', async (e) => {
@@ -11656,7 +11666,7 @@ async function toggleRecordTrack(trackId) {
   renderMultitrack();
 }
 
-// Open FX chain editor for a track
+// Replace openFxChainEditor function (around line 3285)
 function openFxChainEditor(trackId) {
   const track = multitrack.tracks.find(t => t.id === trackId);
   if (!track) return;
@@ -11670,17 +11680,8 @@ function openFxChainEditor(trackId) {
   
   renderFxChain(track);
   
-  // FIXED: Scroll panel into view properly
+  // Just show it - it's already positioned at the bottom in the HTML
   panel.style.display = 'block';
-  
-  // Use smooth scroll with better positioning
-  requestAnimationFrame(() => {
-    panel.scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'start',
-      inline: 'nearest'
-    });
-  });
   
   setupMultitrackListeners();
 }
