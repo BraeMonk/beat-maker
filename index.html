@@ -13675,19 +13675,100 @@ async function applyEdits(buffer, edits) {
 }
   
 async function setupMultitrackListeners() {
-  // === LEGACY BUTTONS (you already had these) ===
+  // === ADD TRACK BUTTON (DESKTOP) ===
   const addTrackBtn = document.getElementById('addTrackBtn');
-  if (addTrackBtn) {
-    // Remove any existing listeners first
-    const newBtn = addTrackBtn.cloneNode(true);
-    addTrackBtn.parentNode.replaceChild(newBtn, addTrackBtn);
-    
-    // Attach fresh listener
-    newBtn.addEventListener('click', () => {
+  if (addTrackBtn && !addTrackBtn.dataset._wired) {
+    addTrackBtn.dataset._wired = 'true';
+    addTrackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('🎚️ Add track clicked');
       showAddTrackDialog();
     });
   }
 
+  // === ADD TRACK BUTTON (LEFT PANEL - MOBILE/DESKTOP) ===
+  const addTrackBtnLeft = document.getElementById('addTrackBtnLeft');
+  if (addTrackBtnLeft && !addTrackBtnLeft.dataset._wired) {
+    addTrackBtnLeft.dataset._wired = 'true';
+    addTrackBtnLeft.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('🎚️ Add track (left) clicked');
+      showAddTrackDialog();
+    });
+  }
+
+  // === IMPORT STEM BUTTON ===
+  const importBtn = document.getElementById('importStemBtn');
+  if (importBtn && !importBtn.dataset._wired) {
+    importBtn.dataset._wired = 'true';
+    importBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('📁 Import stem clicked');
+      
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'audio/wav,audio/mp3,audio/mpeg,audio/ogg,audio/webm';
+
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.size > 50 * 1024 * 1024) {
+          showToast('❌ File too large (max 50MB)', 'error');
+          return;
+        }
+
+        try {
+          showToast(`⏳ Importing ${file.name}...`, 'info');
+          
+          const arrayBuffer = await file.arrayBuffer();
+          const audioCtx = Tone.context.rawContext;
+          const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+          
+          const niceName = file.name.replace(/\.[^/.]+$/, '');
+          const id = multitrack.nextTrackId++;
+          
+          // Create track
+          const track = new AudioTrack(id, niceName, 'stem', false); // Not external audio
+          
+          // Create take
+          const wavData = bufferToWavImproved(audioBuffer);
+          const blob = new Blob([wavData], { type: 'audio/wav' });
+          
+          const take = {
+            id: `take-${Date.now()}-${id}`,
+            buffer: audioBuffer,
+            blob: blob,
+            startTime: 0,
+            duration: audioBuffer.duration,
+            muted: false,
+            timestamp: new Date().toISOString(),
+            source: 'external',
+            fileName: file.name
+          };
+          
+          track.takes.push(take);
+          track.selectedTakeIndex = 0;
+          
+          multitrack.tracks.push(track);
+          
+          renderMultitrack();
+          showToast(`✅ Imported: ${niceName} (${audioBuffer.duration.toFixed(1)}s)`, 'success');
+          
+        } catch (err) {
+          console.error('Import failed:', err);
+          showToast(`❌ Import failed: ${err.message}`, 'error');
+        }
+      };
+
+      input.click();
+    });
+  }
+
+  // === LEGACY BUTTONS ===
   const previewBtn = document.getElementById('previewMultitrackBtn');
   if (previewBtn) {
     previewBtn.onclick = async () => {
@@ -13704,7 +13785,7 @@ async function setupMultitrackListeners() {
   const recordArmedBtn = document.getElementById('recordArmedBtn');
   if (recordArmedBtn) recordArmedBtn.onclick = async () => await toggleRecordAllArmed();
 
-  // === NEW DAW TRANSPORT CONTROLS ===
+  // === DAW TRANSPORT CONTROLS ===
   const playBtn = document.getElementById('dawPlayBtn');
   const stopBtn = document.getElementById('dawStopBtn');
   const rewindBtn = document.getElementById('dawRewindBtn');
@@ -13718,7 +13799,7 @@ async function setupMultitrackListeners() {
         await previewMultitrack(multitrack.playheadSeconds || 0);
       } else {
         playBtn.textContent = '▶️';
-        stopMultitrackPreview(true); // pause
+        stopMultitrackPreview(true);
       }
     };
   }
@@ -13764,7 +13845,7 @@ async function setupMultitrackListeners() {
   const countInBtn = document.getElementById('dawCountInBtn');
 
   if (loopBtn) loopBtn.onclick = () => loopBtn.classList.toggle('active');
-  if (clickBtn) clickBtn.onclick = () => toggleMetronome(clickBtn);
+  if (clickBtn) clickBtn.onclick = () => clickBtn.classList.toggle('active');
   if (countInBtn) countInBtn.onclick = () => countInBtn.classList.toggle('active');
 
   // === BPM + TIME SIG ===
@@ -13773,7 +13854,7 @@ async function setupMultitrackListeners() {
   if (bpmInput) bpmInput.onchange = e => setBPM(parseFloat(e.target.value));
   if (timeSigSelect) timeSigSelect.onchange = e => setTimeSignature(e.target.value);
 
-  // === DAW TOOLBAR ZOOM CONTROLS ===
+  // === ZOOM CONTROLS ===
   const zoomInBtn = document.getElementById('dawZoomInBtn') || document.getElementById('zoomInBtn');
   const zoomOutBtn = document.getElementById('dawZoomOutBtn') || document.getElementById('zoomOutBtn');
   const zoomFitBtn = document.getElementById('dawZoomFitBtn') || document.getElementById('zoomFitBtn');
@@ -13795,7 +13876,7 @@ async function setupMultitrackListeners() {
       });
     });
     if (maxDuration > 0) {
-      const canvasWidth = 800; // approximate visible area
+      const canvasWidth = 800;
       multitrack.zoom = canvasWidth / maxDuration;
       renderMultitrack();
       showToast('✅ Zoom to fit', 'success');
@@ -13831,7 +13912,7 @@ async function setupMultitrackListeners() {
   if (gridBtn) gridBtn.onclick = () => toggleGrid();
   if (autoBtn) autoBtn.onclick = () => toggleAutomationView();
 
-  // === EXISTING FX / BOUNCE / CLEAR ===
+  // === BOUNCE / CLEAR ===
   const bounceBtn = document.getElementById('bounceAllBtn');
   if (bounceBtn) bounceBtn.onclick = () => bounceAllTracks();
 
@@ -13866,7 +13947,6 @@ async function setupMultitrackListeners() {
 
   // === FX CHAIN EDITOR ===
   const fxAddBtn = document.getElementById('fxAddBtn');
-  const fxMenuDropdown = document.getElementById('fxAddMenu');
   const closeFxBtn = document.getElementById('closeFxPanelBtn');
   
   if (fxAddBtn && fxAddMenu) {
@@ -13875,7 +13955,6 @@ async function setupMultitrackListeners() {
       fxAddMenu.style.display = isVisible ? 'none' : 'block';
     };
     
-    // Close menu when clicking outside
     document.addEventListener('click', (e) => {
       if (!fxAddBtn.contains(e.target) && !fxAddMenu.contains(e.target)) {
         fxAddMenu.style.display = 'none';
@@ -13895,7 +13974,7 @@ async function setupMultitrackListeners() {
   setupTimelineCursor();
   updateTimelineRuler();
 }
-
+  
 // Utility
 function updatePlayheadUI(seconds) {
   const el = document.getElementById('dawPlayhead');
