@@ -5152,11 +5152,19 @@
             <button class="btn btn-secondary btn-sm" id="newSessionBtn">📄 New</button>
             <button class="btn btn-secondary btn-sm" id="saveSessionBtn">💾 Save</button>
             <button class="btn btn-secondary btn-sm" id="loadSessionBtn">📂 Load</button>
+        
             <div style="border-left: 1px solid var(--glass-border); height: 24px; margin: 0 var(--space-2);"></div>
+        
             <button class="btn btn-secondary btn-sm" id="undoBtn" disabled>↶ Undo</button>
             <button class="btn btn-secondary btn-sm" id="redoBtn" disabled>↷ Redo</button>
+        
+            <!-- 🔊 Mixdown / housekeeping -->
+            <div style="border-left: 1px solid var(--glass-border); height: 24px; margin: 0 var(--space-2);"></div>
+            <button class="btn btn-success btn-sm" id="bounceAllBtn">📦 Bounce</button>
+            <button class="btn btn-secondary btn-sm" id="clearAllTracksBtn">🧹 Clear</button>
           </div>
         </div>
+
     
         <!-- Transport Controls Bar -->
         <div class="daw-transport-bar">
@@ -5294,7 +5302,44 @@
           </div>
     
         </div>
+        
+        <!-- 🎛 FX Chain Panel -->
+        <div id="fxChainPanel" class="fx-chain-panel" style="display: none;">
+          <div class="fx-chain-header">
+            <div>
+              <div class="fx-chain-title">FX Chain</div>
+              <div class="fx-chain-subtitle">
+                Track: <span id="fxChainTrackName">—</span>
+              </div>
+            </div>
+            <div class="fx-chain-header-actions">
+              <button class="btn btn-secondary btn-sm" id="fxAddBtn">➕ Add FX</button>
+              <button class="btn btn-secondary btn-sm" id="closeFxPanelBtn">✕ Close</button>
+            </div>
+          </div>
     
+          <!-- Where each FX “card” renders -->
+          <div id="fxSlots" class="fx-chain-slots"></div>
+    
+          <!-- FX type picker -->
+          <div id="fxAddMenu" class="fx-add-menu" style="display: none;">
+            <button class="fx-add-item" data-fx-type="reverb">🌫️ Reverb</button>
+            <button class="fx-add-item" data-fx-type="delay">⏱️ Delay</button>
+            <button class="fx-add-item" data-fx-type="chorus">🌊 Chorus</button>
+            <button class="fx-add-item" data-fx-type="distortion">⚡ Distortion</button>
+            <button class="fx-add-item" data-fx-type="filter">🎚️ Filter</button>
+            <button class="fx-add-item" data-fx-type="compressor">📉 Compressor</button>
+            <button class="fx-add-item" data-fx-type="eq">🎚️ 3-Band EQ</button>
+            <button class="fx-add-item" data-fx-type="bitcrusher">🧊 Bitcrusher</button>
+          </div>
+    
+          <div class="fx-chain-footer">
+            <span class="fx-chain-hint">
+              Tip: drag to reorder, toggle to bypass, tweak sliders to dial in tone.
+            </span>
+          </div>
+        </div>
+        
         <!-- Bottom: Status Bar -->
         <div class="daw-status-bar">
           <span id="dawStatusMessage">Ready</span>
@@ -9652,8 +9697,10 @@ const multitrack = {
   globalRecordStartTime: null,
   zoom: 100, // pixels per second
   snapEnabled: true,
-  snapInterval: 0.25
+  snapInterval: 0.25,
+  currentTool: 'select'   // ✏️ timeline tool state
 };
+
 
 // ==================== ENHANCED MULTITRACK WITH EXTERNAL AUDIO ====================
 
@@ -13928,6 +13975,27 @@ async function setupMultitrackListeners() {
       showToast('✅ Zoom to fit', 'success');
     }
   };
+
+    // === TOOL BUTTONS (Select / Pencil / Split / Fade) ===
+  const toolButtons = document.querySelectorAll('.tool-btn');
+  if (toolButtons.length) {
+    toolButtons.forEach(btn => {
+      if (btn.dataset._wired) return;
+      btn.dataset._wired = 'true';
+
+      btn.addEventListener('click', () => {
+        const tool = btn.dataset.tool || 'select';
+        multitrack.currentTool = tool;
+
+        toolButtons.forEach(b =>
+          b.classList.toggle('active', b === btn)
+        );
+
+        // Optional toast so you can see it’s doing something
+        showToast(`✏️ Tool: ${tool}`, 'info');
+      });
+    });
+  }
 
   // === SNAP ===
   const snapSelect = document.getElementById('snapGrid') || document.getElementById('dawSnapSelect');
