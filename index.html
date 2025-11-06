@@ -11809,6 +11809,7 @@ function showAddTrackDialog() {
       const track = await createTrack(null, isExternal);
       if (track) {
         track.rename(name);
+        renderMultitrack();
         showToast(`✅ ${isExternal ? 'External' : 'Internal'} track "${track.name}" added!`, 'success');
         close();
       } else {
