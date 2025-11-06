@@ -9831,21 +9831,6 @@ const multitrack = {
   currentTool: 'select'   // ✏️ timeline tool state
 };
 
-const multitrack = {
-  tracks: [],
-  nextTrackId: 1,
-  recordingTracks: new Set(),
-  currentFxTrackId: null,
-  globalRecordStartTime: null,
-  zoom: 100,
-  snapEnabled: true,
-  snapInterval: 0.25,
-  loopEnabled: false,
-  loopStart: null,
-  loopEnd: null,
-  currentTool: 'select'
-};
-
 // === UNDO/REDO HISTORY SYSTEM ===
 const multitrackHistory = {
   stack: [],
