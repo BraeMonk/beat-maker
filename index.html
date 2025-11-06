@@ -2630,13 +2630,6 @@
       min-width: var(--timeline-width);
     }
     
-    /* Let the wrapper control horizontal scroll – tracks do NOT get their own x-scroll */
-    .track-canvas-area {
-      overflow-x: visible;
-      overflow-y: hidden;
-      position: relative;
-    }
-    
     /* Track timeline width matches the same CSS var as the ruler */
     .track-canvas {
       position: relative;
@@ -2988,16 +2981,6 @@
       font-weight: 700;
       min-width: 36px;
       text-align: right;
-    }
-    
-    /* FIXED: Unified timeline system */
-    .multitrack-wrapper {
-      position: relative;
-      width: 100%;
-      overflow-x: auto !important;
-      overflow-y: visible;
-      -webkit-overflow-scrolling: touch;
-      scroll-behavior: smooth;
     }
 
     /* Inside the multitrack scroll, stack ruler + grid vertically */
