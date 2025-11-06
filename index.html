@@ -4575,137 +4575,129 @@
     </section>
     
     <section class="section pro-locked" id="tab-multitrack">
-      <!-- Professional Toolbar -->
-      <div class="multitrack-toolbar">
-        <div class="toolbar-section">
-          <span class="toolbar-label">Timeline</span>
-          <div class="toolbar-value" id="timelineDuration">00:00</div>
+      <div class="panel">
+        <!-- Panel header to match other tabs -->
+        <div class="panel-header">
+          <div class="panel-title">🎧 Multitrack Recorder</div>
         </div>
-        
-        <div class="toolbar-section">
-          <span class="toolbar-label">Zoom</span>
-          <div class="zoom-controls">
-            <button class="zoom-btn" id="zoomOutBtn">−</button>
-            <div class="toolbar-value" id="zoomLevel">100%</div>
-            <button class="zoom-btn" id="zoomInBtn">+</button>
-            <button class="zoom-btn" id="zoomFitBtn">⊡</button>
-          </div>
-        </div>
-        
-        <div class="toolbar-section">
-          <span class="toolbar-label">Snap</span>
-          <select id="snapGrid" class="btn btn-secondary btn-sm" style="padding: var(--space-2) var(--space-3);">
-            <option value="off">Off</option>
-            <option value="bar" selected>Bar</option>
-            <option value="beat">Beat</option>
-            <option value="16th">16th</option>
-          </select>
-        </div>
-        
-        <div class="toolbar-section">
-          <button class="btn btn-secondary btn-sm" id="loopBtn">🔁 Loop</button>
-          <button class="btn btn-secondary btn-sm" id="clickBtn">🥁 Click</button>
-        </div>
-
-        <div class="toolbar-section">
-          <button class="btn btn-primary" id="recordArmedBtn">⏺️ Record Armed</button>
-          <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
-            Arm tracks → Click here
-          </div>
-        </div>
-        
-        <div class="toolbar-section" style="margin-left: auto; border-right: none;">
-          <button class="btn btn-success" id="previewMultitrackBtn">▶️ Preview Mix</button>
-          <button class="btn btn-primary" id="addTrackBtn">➕ Add Track</button>
-          <button id="importStemBtn" class="btn btn-sm btn-primary">📥 Import Stem</button>
-          <button class="btn btn-secondary" id="bounceAllBtn">🔽 Export Mix</button>
-          <button class="btn btn-ghost" id="clearAllTracksBtn">🗑️ Clear All</button>
-        </div>
-      </div>
-      
-      <section class="section" id="tab-samples">
-        <div class="panel">
-          <div class="panel-header">
-            <button class="btn btn-secondary btn-sm" id="restoreDefaultsBtn">↻ Restore Defaults</button>
+    
+        <!-- Professional Toolbar -->
+        <div class="multitrack-toolbar">
+          <div class="toolbar-section">
+            <span class="toolbar-label">Timeline</span>
+            <div class="toolbar-value" id="timelineDuration">00:00</div>
           </div>
           
-          <div style="padding: var(--space-4); background: var(--glass-bg); border-radius: var(--radius-md); margin-bottom: var(--space-4);">
-            <div style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-2);">
-              Upload your own WAV/MP3 samples to replace any instrument. Changes are saved automatically.
-            </div>
-            <div style="font-size: var(--text-xs); color: var(--text-tertiary);">
-              💡 Tip: Use short, punchy samples (1-2 seconds) for best results
+          <div class="toolbar-section">
+            <span class="toolbar-label">Zoom</span>
+            <div class="zoom-controls">
+              <button class="zoom-btn" id="zoomOutBtn">−</button>
+              <div class="toolbar-value" id="zoomLevel">100%</div>
+              <button class="zoom-btn" id="zoomInBtn">+</button>
+              <button class="zoom-btn" id="zoomFitBtn">⊡</button>
             </div>
           </div>
           
-          <div class="grid grid-3" id="sampleUploadGrid"></div>
-        </div>
-      </section>
-            <!-- Unified timeline + tracks scroll container -->
-      <div class="multitrack-wrapper" id="multitrackScroll">
-        <!-- Timeline Ruler -->
-        <div class="timeline-ruler">
-          <div class="timeline-markers" id="timelineMarkers"></div>
-          <div class="timeline-playhead" id="timelinePlayhead" style="left: 0;"></div>
-        </div>
-
-        <!-- Tracks Container -->
-        <div class="multitrack-grid" id="multitrackGrid">
-          <!-- Tracks will be dynamically inserted here -->
-        </div>
-      </div>
-
-      
-      <!-- FX Chain Panel (Hidden by default) -->
-      <div class="fx-chain-panel" id="fxChainPanel" style="display: none;">
-        <div class="fx-chain-header">
-          <div class="fx-chain-title">🎛️ FX Chain: <span id="fxChainTrackName">Track 1</span></div>
-          <div class="flex">
-            <div class="fx-add-dropdown" id="fxAddDropdown">
-              <button class="btn btn-primary btn-sm" id="addFxBtn">➕ Add Effect</button>
-              <div class="fx-add-menu" id="fxAddMenu" style="display: none;">
-                <div class="fx-add-item" data-fx-type="reverb">🌊 Reverb</div>
-                <div class="fx-add-item" data-fx-type="delay">🔁 Delay</div>
-                <div class="fx-add-item" data-fx-type="chorus">🎵 Chorus</div>
-                <div class="fx-add-item" data-fx-type="distortion">🔥 Distortion</div>
-                <div class="fx-add-item" data-fx-type="filter">🎚️ Filter</div>
-                <div class="fx-add-item" data-fx-type="compressor">📊 Compressor</div>
-                <div class="fx-add-item" data-fx-type="eq">🎛️ EQ</div>
-                <div class="fx-add-item" data-fx-type="bitcrusher">💾 Bitcrusher</div>
-              </div>
-            </div>
-            <button class="btn btn-ghost btn-sm" id="closeFxChainBtn">✕ Close</button>
-          </div>
-        </div>
-        
-        <div class="fx-slots" id="fxSlots">
-          <!-- FX slots will be dynamically inserted here -->
-        </div>
-      </div>
-      
-      <!-- Automation Panel -->
-      <div class="fx-chain-panel" id="automationPanel" style="display: none;">
-        <div class="fx-chain-header">
-          <div class="fx-chain-title">📈 Automation: <span id="automationTrackName">Track 1</span></div>
-          <div class="flex">
-            <select id="automationParamSelect" class="btn btn-secondary btn-sm">
-              <option value="volume">Volume</option>
-              <option value="pan">Pan</option>
-              <option value="filter">Filter Cutoff</option>
+          <div class="toolbar-section">
+            <span class="toolbar-label">Snap</span>
+            <select id="snapGrid" class="btn btn-secondary btn-sm" style="padding: var(--space-2) var(--space-3);">
+              <option value="off">Off</option>
+              <option value="bar" selected>Bar</option>
+              <option value="beat">Beat</option>
+              <option value="16th">16th</option>
             </select>
-            <button class="btn btn-secondary btn-sm" id="clearAutomationBtn">🧹 Clear</button>
-            <button class="btn btn-ghost btn-sm" id="closeAutomationBtn">✕ Close</button>
+          </div>
+          
+          <div class="toolbar-section">
+            <button class="btn btn-secondary btn-sm" id="loopBtn">🔁 Loop</button>
+            <button class="btn btn-secondary btn-sm" id="clickBtn">🥁 Click</button>
+          </div>
+    
+          <div class="toolbar-section">
+            <button class="btn btn-primary" id="recordArmedBtn">⏺️ Record Armed</button>
+            <div style="font-size: var(--text-xs); color: var(--text-tertiary); margin-top: var(--space-1);">
+              Arm tracks → Click here
+            </div>
+          </div>
+          
+          <div class="toolbar-section" style="margin-left: auto; border-right: none;">
+            <button class="btn btn-success" id="previewMultitrackBtn">▶️ Preview Mix</button>
+            <button class="btn btn-primary" id="addTrackBtn">➕ Add Track</button>
+            <button id="importStemBtn" class="btn btn-sm btn-primary">📥 Import Stem</button>
+            <button class="btn btn-secondary" id="bounceAllBtn">🔽 Export Mix</button>
+            <button class="btn btn-ghost" id="clearAllTracksBtn">🗑️ Clear All</button>
+          </div>
+        </div>
+    
+        <!-- Unified timeline + tracks scroll container -->
+        <div class="multitrack-wrapper" id="multitrackScroll">
+          <!-- Timeline Ruler -->
+          <div class="timeline-ruler">
+            <div class="timeline-markers" id="timelineMarkers"></div>
+            <div class="timeline-playhead" id="timelinePlayhead" style="left: 0;"></div>
+          </div>
+    
+          <!-- Tracks Container -->
+          <div class="multitrack-grid" id="multitrackGrid">
+            <!-- Tracks will be dynamically inserted here -->
+          </div>
+        </div>
+    
+        <!-- FX Chain Panel (Hidden by default) -->
+        <div class="fx-chain-panel" id="fxChainPanel" style="display: none;">
+          <div class="fx-chain-header">
+            <div class="fx-chain-title">
+              🎛️ FX Chain: <span id="fxChainTrackName">Track 1</span>
+            </div>
+            <div class="flex">
+              <div class="fx-add-dropdown" id="fxAddDropdown">
+                <button class="btn btn-primary btn-sm" id="addFxBtn">➕ Add Effect</button>
+                <div class="fx-add-menu" id="fxAddMenu" style="display: none;">
+                  <div class="fx-add-item" data-fx-type="reverb">🌊 Reverb</div>
+                  <div class="fx-add-item" data-fx-type="delay">🔁 Delay</div>
+                  <div class="fx-add-item" data-fx-type="chorus">🎵 Chorus</div>
+                  <div class="fx-add-item" data-fx-type="distortion">🔥 Distortion</div>
+                  <div class="fx-add-item" data-fx-type="filter">🎚️ Filter</div>
+                  <div class="fx-add-item" data-fx-type="compressor">📊 Compressor</div>
+                  <div class="fx-add-item" data-fx-type="eq">🎛️ EQ</div>
+                  <div class="fx-add-item" data-fx-type="bitcrusher">💾 Bitcrusher</div>
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-sm" id="closeFxChainBtn">✕ Close</button>
+            </div>
+          </div>
+          
+          <div class="fx-slots" id="fxSlots">
+            <!-- FX slots will be dynamically inserted here -->
           </div>
         </div>
         
-        <div style="padding: var(--space-4);">
-          <canvas id="automationCanvas" 
-                  width="800" 
-                  height="200" 
-                  style="width: 100%; height: 200px; background: var(--glass-bg); border-radius: var(--radius-md); border: 1px solid var(--glass-border); cursor: crosshair;">
-          </canvas>
-          <div style="margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--text-sm);">
-            Click to add automation points • Drag to move • Right-click to delete
+        <!-- Automation Panel -->
+        <div class="fx-chain-panel" id="automationPanel" style="display: none;">
+          <div class="fx-chain-header">
+            <div class="fx-chain-title">
+              📈 Automation: <span id="automationTrackName">Track 1</span>
+            </div>
+            <div class="flex">
+              <select id="automationParamSelect" class="btn btn-secondary btn-sm">
+                <option value="volume">Volume</option>
+                <option value="pan">Pan</option>
+                <option value="filter">Filter Cutoff</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" id="clearAutomationBtn">🧹 Clear</button>
+              <button class="btn btn-ghost btn-sm" id="closeAutomationBtn">✕ Close</button>
+            </div>
+          </div>
+          
+          <div style="padding: var(--space-4);">
+            <canvas id="automationCanvas" 
+                    width="800" 
+                    height="200" 
+                    style="width: 100%; height: 200px; background: var(--glass-bg); border-radius: var(--radius-md); border: 1px solid var(--glass-border); cursor: crosshair;">
+            </canvas>
+            <div style="margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--text-sm);">
+              Click to add automation points • Drag to move • Right-click to delete
+            </div>
           </div>
         </div>
       </div>
