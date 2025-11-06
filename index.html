@@ -11998,9 +11998,10 @@ function renderMultitrack() {
   const grid = document.getElementById('dawArrangementGrid');
   if (!grid) return;
 
-  const durationMinutes = typeof state.duration === 'number' && state.duration > 0
-    ? state.duration
-    : 1;
+  const durationMinutes =
+    typeof state.duration === 'number' && state.duration > 0
+      ? state.duration
+      : 1;
 
   const projectDurationSeconds = durationMinutes * 60;
   const zoom = multitrack.zoom || 100;
@@ -12014,7 +12015,7 @@ function renderMultitrack() {
     timelineWidth + 'px'
   );
 
-  const wrapper = document.querySelector('dawArrangementScroll');
+  const wrapper = document.getElementById('dawArrangementScroll');
   if (wrapper) {
     wrapper.style.width = '100%';
     wrapper.style.maxWidth = '100%';
@@ -12038,6 +12039,7 @@ function renderMultitrack() {
   }
 
   updateTimelineRuler();
+  updateLoopRegionHighlight();
 }
 
 function updatePlayheadAndScroll(currentSeconds) {
@@ -14019,6 +14021,10 @@ async function setupMultitrackListeners() {
 
     let dragStartX = null;
 
+    scroll.addEventListener('scroll', () => {
+      updateLoopRegionHighlight();
+    });
+    
     scroll.addEventListener('mousedown', (e) => {
       // Only left-click + Select tool
       if (e.button !== 0) return;
@@ -15089,6 +15095,34 @@ async function exportLiveRecording() {
   showToast('🎙️ Recording live output...', 'info');
 }
 
+function updateLoopRegionHighlight() {
+  const scroll = document.getElementById('dawArrangementScroll');
+  const loopHighlight = document.getElementById('loopRegionHighlight');
+  if (!scroll || !loopHighlight) return;
+
+  const zoom = multitrack.zoom || 100;
+  const { loopStart, loopEnd } = multitrack;
+
+  const hasRegion =
+    typeof loopStart === 'number' &&
+    typeof loopEnd === 'number' &&
+    loopEnd > loopStart;
+
+  if (!hasRegion) {
+    loopHighlight.style.display = 'none';
+    return;
+  }
+
+  const startPx = loopStart * zoom;
+  const widthPx = (loopEnd - loopStart) * zoom;
+
+  loopHighlight.style.display = 'block';
+  // because loopHighlight lives inside the scroll container,
+  // we compensate for scrollLeft so it lines up with content
+  loopHighlight.style.left = (startPx - scroll.scrollLeft) + 'px';
+  loopHighlight.style.width = widthPx + 'px';
+}
+
 function setLoopRegion(startSeconds, endSeconds) {
   if (typeof startSeconds !== 'number' || typeof endSeconds !== 'number') {
     showToast('⚠️ Invalid loop region.', 'warning');
@@ -15100,12 +15134,14 @@ function setLoopRegion(startSeconds, endSeconds) {
   }
   multitrack.loopStart = startSeconds;
   multitrack.loopEnd = endSeconds;
+  updateLoopRegionHighlight();
   showToast(`🔁 Loop set: ${startSeconds.toFixed(2)}s → ${endSeconds.toFixed(2)}s`, 'info');
 }
 
 function clearLoopRegion() {
   multitrack.loopStart = null;
   multitrack.loopEnd = null;
+  updateLoopRegionHighlight();
   showToast('⏹️ Loop region cleared.', 'info');
 }
 
