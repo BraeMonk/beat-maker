@@ -3669,7 +3669,7 @@
     /* Region header + actions */
     
     .region-header {
-      position: sticky;
+      position: absolute;
       left: 0;
       top: 0;
       display: flex;
@@ -3680,6 +3680,7 @@
       backdrop-filter: blur(8px);
       z-index: 100;
       border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      width: 100%;
     }
     
     .region-name {
@@ -3688,6 +3689,8 @@
       color: var(--text-primary);
       text-shadow: 0 1px 2px rgba(0,0,0,.5);
       pointer-events: none;
+      margin-left: 0;
+      order: 2;
     }
     
     .region-actions {
@@ -3696,6 +3699,8 @@
       opacity: 1;
       pointer-events: auto;
       z-index: 101;
+      order: 1;
+      margin-right: auto;
     }
     
     .region-action-btn {
