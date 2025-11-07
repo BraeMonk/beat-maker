@@ -4971,6 +4971,18 @@
       max-height: calc(3 * 220px);
     }
 
+    /* === Multitrack drag-scroll behaviour === */
+    .daw-arrangement-scroll {
+      overflow-x: auto;
+      overflow-y: auto;
+      touch-action: pan-x pan-y;
+      cursor: grab;
+    }
+    
+    .daw-arrangement-scroll.drag-scroll-active {
+      cursor: grabbing;
+    }
+
   </style>
 </head>
 <body>
@@ -11370,7 +11382,8 @@ function formatTime(seconds) {
 }
 
 function setupRegionInteractions(stripEl, track) {
-  const canvas = stripEl.querySelector('.track-canvas');
+  // 💡 Work with either the old .track-canvas or the lane itself
+  const canvas = stripEl.querySelector('.track-canvas') || stripEl;
   if (!canvas) return;
   
   let dragState = null;
@@ -11403,44 +11416,32 @@ function setupRegionInteractions(stripEl, track) {
     const region = document.elementFromPoint(clientX, clientY)?.closest('.audio-region');
     if (!region) return;
     
+    const trackId = parseInt(region.dataset.trackId);
     const takeIndex = parseInt(region.dataset.takeIndex);
+    const handle = e.target.closest('.region-resize-handle')?.dataset.handle || null;
+    
+    const track = multitrack.tracks.find(t => t.id === trackId);
+    if (!track) return;
+    
     const take = track.takes[takeIndex];
     if (!take) return;
     
-    const handle = e.target.closest('.region-resize-handle');
+    const zoom = multitrack.zoom || 100;
     
-    if (handle) {
-      dragState = {
-        mode: 'resize',
-        trackId: track.id,
-        takeIndex,
-        handle: handle.dataset.handle,
-        startX: clientX,
-        originalStart: take.startTime || 0,
-        originalDuration: take.duration
-      };
-    } else if (region && !e.target.closest('.region-action-btn')) {
-      dragState = {
-        mode: 'move',
-        trackId: track.id,
-        takeIndex,
-        startX: clientX,
-        originalStart: take.startTime || 0
-      };
-      
-      region.classList.add('dragging');
-      
-      if (isTouchDevice) {
-        document.body.classList.add('dragging-region');
-      }
-    }
+    dragState = {
+      mode: handle ? `resize-${handle}` : 'move',
+      trackId,
+      takeIndex,
+      startX: clientX,
+      originalStart: take.startTime || 0,
+      originalDuration: take.duration,
+      minStart: 0,
+      maxEnd: multitrack.projectDuration || (state.duration * 60)
+    };
     
-    if (dragState) {
-      e.preventDefault();
-    }
+    region.classList.add('dragging');
   };
   
-  // Unified move handler
   const moveDrag = (e) => {
     if (!dragState) return;
     
@@ -11457,103 +11458,72 @@ function setupRegionInteractions(stripEl, track) {
     
     if (dragState.mode === 'move') {
       let newStart = dragState.originalStart + deltaSeconds;
+      newStart = Math.max(dragState.minStart, Math.min(newStart, dragState.maxEnd - take.duration));
+      take.startTime = newStart;
+    } else if (dragState.mode === 'resize-left') {
+      let newStart = dragState.originalStart + deltaSeconds;
+      const maxStart = dragState.originalStart + dragState.originalDuration - 0.05;
+      newStart = Math.max(dragState.minStart, Math.min(newStart, maxStart));
       
-      if (multitrack.snapEnabled) {
-        const snapInterval = multitrack.snapInterval || 0.25;
-        newStart = Math.round(newStart / snapInterval) * snapInterval;
-      }
-      
-      take.startTime = Math.max(0, newStart);
-      
-      const region = document.querySelector(`.audio-region[data-take-index="${dragState.takeIndex}"][data-track-id="${track.id}"]`);
-      if (region) {
-        region.style.left = (take.startTime * zoom) + 'px';
-      }
-      
-    } else if (dragState.mode === 'resize') {
-      if (dragState.handle === 'left') {
-        let newStart = dragState.originalStart + deltaSeconds;
-        const maxStart = dragState.originalStart + dragState.originalDuration - 0.1;
-        
-        if (multitrack.snapEnabled) {
-          const snapInterval = multitrack.snapInterval || 0.25;
-          newStart = Math.round(newStart / snapInterval) * snapInterval;
-        }
-        
-        newStart = Math.max(0, Math.min(maxStart, newStart));
-        const trimAmount = newStart - dragState.originalStart;
-        
+      const newDuration = (dragState.originalStart + dragState.originalDuration) - newStart;
+      if (newDuration >= 0.05) {
         take.startTime = newStart;
-        take.trimStart = (take.trimStart || 0) + trimAmount;
-        take.duration = dragState.originalDuration - trimAmount;
-        
-      } else if (dragState.handle === 'right') {
-        let newDuration = dragState.originalDuration + deltaSeconds;
-        
-        if (multitrack.snapEnabled) {
-          const snapInterval = multitrack.snapInterval || 0.25;
-          const endPoint = dragState.originalStart + newDuration;
-          const snappedEnd = Math.round(endPoint / snapInterval) * snapInterval;
-          newDuration = snappedEnd - dragState.originalStart;
-        }
-        
-        take.duration = Math.max(0.1, newDuration);
-        take.trimEnd = take.duration;
+        take.duration = newDuration;
       }
-      
-      renderMultitrack();
+    } else if (dragState.mode === 'resize-right') {
+      let newDuration = dragState.originalDuration + deltaSeconds;
+      const maxDuration = dragState.maxEnd - dragState.originalStart;
+      newDuration = Math.max(0.05, Math.min(newDuration, maxDuration));
+      take.duration = newDuration;
     }
     
-    e.preventDefault();
+    renderMultitrack();
   };
   
-  // Unified end handler
   const endDrag = (e) => {
     if (!dragState) return;
     
-    document.querySelectorAll('.audio-region.dragging').forEach(r => {
-      r.classList.remove('dragging');
-    });
-    
-    if (isTouchDevice) {
-      document.body.classList.remove('dragging-region');
+    const track = multitrack.tracks.find(t => t.id === dragState.trackId);
+    if (track) {
+      const lane = document.querySelector(`.track-lane[data-track-id="${track.id}"]`);
+      if (lane) {
+        const regionEls = lane.querySelectorAll('.audio-region');
+        regionEls.forEach(r => r.classList.remove('dragging'));
+      }
     }
     
-    if (dragState.mode === 'move' || dragState.mode === 'resize') {
-      multitrackHistory.captureState();
-      renderMultitrack();
-      showToast('✅ Region updated', 'success');
-    }
-    
+    multitrackHistory.captureState();
     dragState = null;
   };
   
-  // Attach listeners for both mouse and touch
-  canvas.addEventListener('mousedown', startDrag);
-  canvas.addEventListener('touchstart', startDrag, { passive: false });
-  
-  document.addEventListener('mousemove', moveDrag);
-  document.addEventListener('touchmove', moveDrag, { passive: false });
-  
-  document.addEventListener('mouseup', endDrag);
-  document.addEventListener('touchend', endDrag);
-  
-  requestAnimationFrame(() => {
-    setTimeout(() => {
-      track.takes.forEach((take, idx) => {
-        const canvas = stripEl.querySelector(`canvas[data-take-id="${take.id}"]`);
-        if (canvas && take.buffer) {
-          // Ensure canvas has dimensions
-          if (canvas.width === 0 || canvas.height === 0) {
-            canvas.width = Math.max(100, take.duration * (multitrack.zoom || 100));
-            canvas.height = 20;
-          }
-          drawRegionWaveform(canvas, take.buffer);
-        }
-      });
-    }, 200); // Increased delay
-  });
+  // Mouse + touch bindings
+  if (isTouchDevice) {
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        startDrag(e);
+      }
+    }, { passive: true });
+    
+    canvas.addEventListener('touchmove', (e) => {
+      if (dragState) {
+        e.preventDefault();
+        moveDrag(e);
+      }
+    }, { passive: false });
+    
+    canvas.addEventListener('touchend', endDrag, { passive: true });
+    canvas.addEventListener('touchcancel', endDrag, { passive: true });
+  } else {
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      startDrag(e);
+    });
+    
+    window.addEventListener('mousemove', moveDrag);
+    window.addEventListener('mouseup', endDrag);
+  }
 }
+
   
 function handleRegionAction(trackId, takeIndex, action, event) {
   const track = multitrack.tracks.find(t => t.id === trackId);
@@ -14643,8 +14613,58 @@ async function applyEdits(buffer, edits) {
   
   return newBuffer;
 }
+
+function setupArrangementDragScroll() {
+  const scroll = document.getElementById('dawArrangementScroll');
+  if (!scroll || scroll.dataset._dragScrollWired) return;
+  scroll.dataset._dragScrollWired = 'true';
+
+  let isDragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startScrollLeft = 0;
+  let startScrollTop = 0;
+
+  const onMouseDown = (e) => {
+    // Only left button
+    if (e.button !== 0) return;
+
+    // Don't steal drags from regions / resize handles
+    if (e.target.closest('.audio-region') || e.target.closest('.region-resize-handle')) {
+      return;
+    }
+
+    isDragging = true;
+    scroll.classList.add('drag-scroll-active');
+    startX = e.clientX;
+    startY = e.clientY;
+    startScrollLeft = scroll.scrollLeft;
+    startScrollTop = scroll.scrollTop;
+  };
+
+  const onMouseMove = (e) => {
+    if (!isDragging) return;
+    e.preventDefault(); // so you don't select text
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    scroll.scrollLeft = startScrollLeft - dx;
+    scroll.scrollTop = startScrollTop - dy;
+  };
+
+  const endDrag = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    scroll.classList.remove('drag-scroll-active');
+  };
+
+  scroll.addEventListener('mousedown', onMouseDown);
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', endDrag);
+}
   
 async function setupMultitrackListeners() {
+  setupArrangementDragScroll();
+  
   // === ADD TRACK BUTTON (DESKTOP) ===
   const addTrackBtn = document.getElementById('addTrackBtn');
   if (addTrackBtn && !addTrackBtn.dataset._wired) {
