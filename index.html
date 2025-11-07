@@ -4983,6 +4983,17 @@
       cursor: grabbing;
     }
 
+    /* Make FX chain panel & its Add FX menu float above the footer */
+    .fx-chain-panel {
+      z-index: 600;      /* above footer (no z-index) but below modal-backdrop (999) */
+      overflow: visible; /* let the Add FX menu pop outside the panel */
+    }
+    
+    /* Ensure the FX Add dropdown itself is always above app chrome */
+    #fxAddMenu {
+      z-index: 1200;
+    }
+
   </style>
 </head>
 <body>
@@ -15108,82 +15119,110 @@ async function setupMultitrackListeners() {
   }
 
   // === FX CHAIN EDITOR ===
-  const fxAddBtn = document.getElementById('fxAddBtn');
-  const fxAddMenu = document.getElementById('fxAddMenu');
-  const closeFxBtn = document.getElementById('closeFxPanelBtn');
-  
-  // In setupMultitrackListeners, around line 4790:
-  if (fxAddBtn && fxAddMenu) {
-    // Only attach listeners once
-    if (!fxAddMenu.dataset._wired) {
-      fxAddMenu.dataset._wired = 'true';
-      
-      fxAddBtn.onclick = (e) => {
-        e.stopPropagation();
-        const isVisible = fxAddMenu.style.display === 'block';
-        fxAddMenu.style.display = isVisible ? 'none' : 'block';
-        
-        if (!isVisible) {
-          const rect = fxAddBtn.getBoundingClientRect();
-          fxAddMenu.style.position = 'absolute';
-          fxAddMenu.style.top = (rect.bottom + 5) + 'px';
-          fxAddMenu.style.right = '20px';
-        }
-      };
-      
-      // Close menu when clicking outside
-      document.addEventListener('click', (e) => {
-        if (!fxAddBtn.contains(e.target) && !fxAddMenu.contains(e.target)) {
-          fxAddMenu.style.display = 'none';
-        }
-      });
-      
-      // FX type selection - NOW ONLY ATTACHED ONCE
-      fxAddMenu.addEventListener('click', (e) => {
-        const item = e.target.closest('.fx-add-item');
-        if (!item) return;
-        
-        const fxType = item.dataset.fxType;
-        if (!fxType) return;
-        
-        const trackId = Number(multitrack.currentFxTrackId);
-        const track = multitrack.tracks.find(t => t.id === trackId);
-        if (!track) {
-          showToast('❌ No track selected', 'error');
-          return;
-        }
-        
-        const fxObj = track.addFx(fxType);
-        if (!fxObj) {
-          showToast(`❌ FX type "${fxType}" not recognized`, 'error');
-          return;
-        }
-        
-        renderFxChain(track);
-        fxAddMenu.style.display = 'none';
-        showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
-      });
-    }
-  }
+const fxAddBtn  = document.getElementById('fxAddBtn');
+const fxAddMenu = document.getElementById('fxAddMenu');
+const closeFxBtn = document.getElementById('closeFxPanelBtn');
 
+// Only wire once
+if (fxAddBtn && fxAddMenu && !fxAddMenu.dataset._wired) {
+  fxAddMenu.dataset._wired = 'true';
+
+  // Main "Add FX" button in FX chain panel
+  fxAddBtn.onclick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const isVisible = fxAddMenu.style.display === 'block';
+    if (isVisible) {
+      fxAddMenu.style.display = 'none';
+      return;
+    }
+
+    // Show first so we can measure it
+    fxAddMenu.style.display = 'block';
+
+    const rect = fxAddBtn.getBoundingClientRect();
+    const menuWidth  = fxAddMenu.offsetWidth  || 240;
+    const menuHeight = fxAddMenu.offsetHeight || 260;
+
+    const viewportWidth  = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const margin = 16;
+
+    // Default placement: BELOW the button
+    let top  = rect.bottom + 8;
+    let left = rect.right - menuWidth;
+
+    // If it would go off the bottom (behind footer), flip it ABOVE the button
+    if (top + menuHeight > viewportHeight - margin) {
+      top = rect.top - menuHeight - 8;
+    }
+
+    // Clamp horizontally so it stays inside the viewport
+    if (left < margin) left = margin;
+    if (left + menuWidth > viewportWidth - margin) {
+      left = viewportWidth - margin - menuWidth;
+    }
+
+    fxAddMenu.style.position = 'fixed';   // 🔑 use viewport coords, not inside panel
+    fxAddMenu.style.top  = `${Math.max(margin, top)}px`;
+    fxAddMenu.style.left = `${left}px`;
+    fxAddMenu.style.zIndex = '1200';
+  };
+
+  // Close menu when clicking outside
   document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('add-fx-btn')) {
-      const trackIndex = Array.from(document.querySelectorAll('.track-strip'))
-        .indexOf(e.target.closest('.track-strip'));
-      
-      // Show FX selector menu
-      showFXMenu(trackIndex, e.target);
+    if (!fxAddBtn.contains(e.target) && !fxAddMenu.contains(e.target)) {
+      fxAddMenu.style.display = 'none';
     }
   });
-    
-  // Close FX panel button
-  if (closeFxBtn) {
-    closeFxBtn.onclick = () => {
-      const panel = document.getElementById('fxChainPanel');
-      if (panel) panel.style.display = 'none';
-      multitrack.currentFxTrackId = null;
-    };
+
+  // FX type selection (unchanged logic)
+  fxAddMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.fx-add-item');
+    if (!item) return;
+
+    const fxType = item.dataset.fxType;
+    if (!fxType) return;
+
+    const trackId = Number(multitrack.currentFxTrackId);
+    const track = multitrack.tracks.find(t => t.id === trackId);
+    if (!track) {
+      showToast('❌ No track selected', 'error');
+      return;
+    }
+
+    const fxObj = track.addFx(fxType);
+    if (!fxObj) {
+      showToast(`❌ FX type "${fxType}" not recognized`, 'error');
+      return;
+    }
+
+    renderFxChain(track);
+    fxAddMenu.style.display = 'none';
+    showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
+  });
+}
+
+// Track-level "+ Add FX" buttons still open the FX panel for that track
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('add-fx-btn')) {
+    const trackIndex = Array.from(document.querySelectorAll('.track-strip'))
+      .indexOf(e.target.closest('.track-strip'));
+
+    // Your existing function that opens the FX panel for that track
+    showFXMenu(trackIndex, e.target);
   }
+});
+
+// Close FX panel button
+if (closeFxBtn) {
+  closeFxBtn.onclick = () => {
+    const panel = document.getElementById('fxChainPanel');
+    if (panel) panel.style.display = 'none';
+    multitrack.currentFxTrackId = null;
+  };
+}
 
   // === TIMELINE + RULER ===
   setupTimelineCursor();
