@@ -13491,140 +13491,164 @@ function normalizeBufferVolume(audioBuffer) {
 }
 
   
-// Make sure you have something like this in your global state:
-/// const state = { duration: 3, isPlaying: false, cursorSeconds: 0 };
-function previewMultitrack(startFrom) {
-  if (!multitrack) return;
+async function previewMultitrack(startAtSeconds) {
+  // If no explicit start is passed, use the last playhead/cursor position
+  const startFrom =
+    typeof startAtSeconds === 'number'
+      ? startAtSeconds
+      : (typeof state.cursorSeconds === 'number' ? state.cursorSeconds : 0);
 
-  // Make sure these are at least arrays so .forEach won't explode
-  if (!Array.isArray(multitrack.previewPlayers)) {
-    multitrack.previewPlayers = [];
-  }
-  if (!Array.isArray(multitrack.tracks)) {
-    multitrack.tracks = [];
-  }
-
-  if (multitrack.previewState === 'running') {
-    stopMultitrackPreview();
-    return;
-  }
-
-  if (multitrack.tracks.length === 0) {
-    alert('No tracks to preview yet. Record or import something first!');
-    return;
-  }
-
-  const previewStart = clamp(
-    typeof startFrom === 'number' ? startFrom : state.cursorSeconds || 0,
-    0,
-    multitrack.duration
+  // Only tracks that actually have a selected take and aren’t muted
+  const activeTracks = multitrack.tracks.filter(t =>
+    t.takes &&
+    t.takes.length &&
+    t.selectedTakeIndex >= 0 &&
+    !t.muted
   );
 
-  if (!multitrack.bounceBuffer && !multitrack.tracks.some(t => t.takes.length)) {
-    alert('Nothing to preview yet. Record, bounce, or import audio first.');
+  if (activeTracks.length === 0) {
+    showToast('❌ No active takes to preview', 'error');
     return;
   }
 
-  const now = Tone.now() + 0.05;
+  // Stop any existing preview first
+  stopMultitrackPreview();
 
-  // Safely dispose old preview players if any
-  multitrack.previewPlayers.forEach(p => {
-    try {
-      p.player.dispose();
-    } catch (err) {
-      console.warn('Failed to dispose preview player', err);
+  await Tone.start();
+  if (Tone.context.state !== 'running') {
+    await Tone.context.resume();
+  }
+
+  multitrack.previewPlayers = [];
+
+  const projectDurationSeconds =
+    multitrack.projectDuration || (state.duration * 60);
+
+  // Clamp start offset to project bounds
+  const previewStart = Math.max(0, Math.min(startFrom, projectDurationSeconds));
+  let previewEnd = previewStart;
+
+  // Update cursor + visually move playhead to the preview start
+  state.cursorSeconds = previewStart;
+  updatePlayheadAndScroll(previewStart);
+
+  showToast(`⏳ Loading takes (from ${previewStart.toFixed(2)}s).`, 'info');
+
+  for (const track of activeTracks) {
+    const take = track.takes[track.selectedTakeIndex];
+    if (!take || take.muted) continue;
+
+    // take.buffer is an AudioBuffer or Tone.ToneAudioBuffer
+    if (!take.buffer) {
+      console.error(`❌ ${track.name}: Missing buffer`);
+      continue;
     }
-  });
-  multitrack.previewPlayers.length = 0;
-
-  let anyPlayable = false;
-
-  // For each track / region, work out WHEN to start and FROM WHERE in the buffer
-  multitrack.tracks.forEach(track => {
-    const take = track.takes[track.selectedTakeIndex ?? 0];
-    if (!take || !take.buffer) return;
 
     const regionStart = take.startTime || 0;
-    const regionEnd = regionStart + take.duration;
+    const regionDuration =
+      typeof take.duration === 'number'
+        ? take.duration
+        : (take.buffer.duration || 0);
+    const regionEnd = regionStart + regionDuration;
 
-    // If region ends before previewStart, skip it entirely
-    if (regionEnd <= previewStart) return;
+    // Skip anything that ends before our preview start
+    if (regionEnd <= previewStart) continue;
 
-    const bufferOffset = previewStart > regionStart ? previewStart - regionStart : 0;
-    const relativeStart = Math.max(0, regionStart - previewStart);
-
-    // --- SAFE PLAYER FOR MULTITRACK ---
     try {
       const player = new Tone.Player({
         context: Tone.context,
         loop: false,
-        autostart: false,
-        fadeOut: 0.05,
-        volume: -10 // extra base pad
-      });
+        fadeOut: 0.01
+      }).connect(track.channel || multitrack.masterBus);
 
-      // Wrap raw AudioBuffer into ToneAudioBuffer
-      player.buffer = new Tone.ToneAudioBuffer(take.buffer);
+      // If it’s already a ToneAudioBuffer, just assign it.
+      // If it’s a plain AudioBuffer, wrap it in a Tone.ToneAudioBuffer.
+      if (take.buffer instanceof Tone.ToneAudioBuffer) {
+        player.buffer = take.buffer;
+      } else {
+        player.buffer = new Tone.ToneAudioBuffer(take.buffer);
+      }
 
-      // 🔉 Normalize and then add extra padding
-      let safeDb = normalizeBufferVolume(take.buffer); // your helper
-      safeDb -= 6; // extra -6 dB pad for multitrack preview
-
-      const gainNode = new Tone.Gain(Tone.dbToGain(safeDb))
-        .connect(multitrack.masterBus || Tone.Destination);
-
-      player.connect(gainNode);
-
-      player.unsync();
-      player.sync();
-
-      player.start(now + relativeStart, bufferOffset);
+      const relativeStart = Math.max(0, regionStart - previewStart);
 
       multitrack.previewPlayers.push({
         player,
         track,
         startTime: regionStart,
-        endTime: regionEnd,
-        relativeStart,
-        bufferOffset
+        relativeStart
       });
 
-      anyPlayable = true;
-    } catch (err) {
-      console.error('⚠️ Multitrack preview failed:', err);
-    }
-  });
+      if (regionEnd > previewEnd) previewEnd = regionEnd;
 
-  if (!anyPlayable) {
-    alert('No regions exist after this point in time to preview.');
+      console.log(
+        `✅ ${track.name} ready: region ${regionStart.toFixed(3)}–${regionEnd.toFixed(3)}s, ` +
+        `plays at +${relativeStart.toFixed(3)}s in preview`
+      );
+
+    } catch (err) {
+      console.error(`❌ ${track.name} failed:`, err);
+    }
+  }
+
+  if (!multitrack.previewPlayers.length) {
+    showToast('⚠️ No regions overlap this preview range', 'warning');
     return;
   }
 
-  multitrack.previewState = 'running';
-  multitrack.previewStartTime = now;
-  multitrack.previewStartCursor = previewStart;
+  const totalDuration = Math.max(0.1, previewEnd - previewStart);
+  console.log(`▶️ Preview from ${previewStart.toFixed(3)}s for ${totalDuration.toFixed(3)}s`);
 
-  console.log(`🎧 Previewing mix from ${previewStart.toFixed(2)}s`);
-  if (typeof showToast === 'function') {
-    showToast(`🎧 Previewing mix from ${previewStart.toFixed(2)}s`, 'info');
-  }
+  const now = Tone.now() + 0.1;
 
-  // Keep the DAW playhead in sync while previewing
-  const previewInterval = setInterval(() => {
-    if (multitrack.previewState !== 'running') {
-      clearInterval(previewInterval);
+  multitrack.previewPlayers.forEach(({ player, track, relativeStart }) => {
+    try {
+      player.start(now + relativeStart);
+      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
+    } catch (err) {
+      console.error(`❌ Failed to start ${track.name}:`, err);
+    }
+  });
+
+  showToast(
+    `▶️ Previewing ${multitrack.previewPlayers.length} track(s) from ${previewStart.toFixed(2)}s`,
+    'success'
+  );
+
+  // Activate playhead + follow mode
+  multitrack.isPlaying = true;
+  multitrack.playheadSeconds = previewStart;
+  initPlayheadFollow();
+  startPreviewPlayhead(previewStart, totalDuration);
+
+  // Loop support (selection or full project)
+  multitrack.previewTimeout = setTimeout(async () => {
+    stopMultitrackPreview();
+    const btn = document.getElementById('previewMultitrackBtn');
+
+    if (!multitrack.loopEnabled) {
+      if (btn) btn.textContent = '▶️ Preview Mix';
       return;
     }
 
-    const elapsed = Tone.now() - multitrack.previewStartTime;
-    const playhead = multitrack.previewStartCursor + elapsed;
+    const hasSelection =
+      typeof multitrack.loopStart === 'number' &&
+      typeof multitrack.loopEnd === 'number' &&
+      multitrack.loopEnd > multitrack.loopStart;
 
-    state.cursorSeconds = clamp(playhead, 0, multitrack.duration);
-    state.playheadSeconds = state.cursorSeconds;
+    const restartAt = hasSelection ? multitrack.loopStart : 0;
+    const endPoint = hasSelection
+      ? multitrack.loopEnd
+      : multitrack.projectDuration || state.duration * 60;
 
-    updateDAWStatus();
-    renderTimelinePlayhead();
-  }, 50);
+    console.log(
+      hasSelection
+        ? `🔁 Looping selected region: ${restartAt.toFixed(2)}s → ${endPoint.toFixed(2)}s`
+        : '🔁 Looping entire project…'
+    );
+
+    multitrack.playheadSeconds = restartAt;
+    await previewMultitrack(restartAt);
+  }, (totalDuration + 0.25) * 1000);
 }
 
 function stopMultitrackPreview(resetOrOptions) {
