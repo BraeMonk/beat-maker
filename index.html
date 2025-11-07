@@ -3464,7 +3464,7 @@
   position: relative;
   width: var(--timeline-width, 3200px);
   min-width: var(--timeline-width, 3200px);
-  min-height: 100%;
+  min-height: 216px;
   background-image: 
     repeating-linear-gradient(90deg,
       rgba(255, 255, 255, 0.03) 0px,
@@ -3497,9 +3497,10 @@
 /* === TRACK LANES === */
 .daw-track-lane {
   position: relative;
-  height: 80px;
+  height: 72px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   transition: background var(--duration-fast) var(--ease-smooth);
+  margin-bottom: 4px;
 }
 
 .daw-track-lane:hover {
@@ -13153,7 +13154,15 @@ async function previewMultitrack(startAtSeconds) {
   }, (totalDuration + 0.25) * 1000);
 }
 
-function stopMultitrackPreview() {
+function stopMultitrackPreview(resetOrOptions) {
+  // Allow both: stopMultitrackPreview(true) and stopMultitrackPreview({ resetToZero: true })
+  const resetToZero =
+    typeof resetOrOptions === 'boolean'
+      ? resetOrOptions
+      : resetOrOptions && typeof resetOrOptions.resetToZero === 'boolean'
+        ? resetOrOptions.resetToZero
+        : false;
+
   if (multitrack.previewPlayers) {
     multitrack.previewPlayers.forEach(({ player }) => {
       try {
@@ -13167,7 +13176,7 @@ function stopMultitrackPreview() {
     console.log('⏹️ Preview stopped');
   }
 
-  // 🧭 Stop playhead follow + display updates
+  // Stop playhead follow + display updates
   multitrack.isPlaying = false;
   clearInterval(playheadUpdateInterval);
   playheadUpdateInterval = null;
@@ -13179,19 +13188,27 @@ function stopMultitrackPreview() {
     multitrack.previewTimeout = null;
   }
 
-  // 🎯 NEW: remember last position so PAUSE can resume from here
+  // Remember where we stopped so PAUSE can resume
   let lastSeconds = 0;
 
-  if (typeof state.cursorSeconds === 'number' && !Number.isNaN(state.cursorSeconds)) {
+  if (resetToZero) {
+    lastSeconds = 0;
+  } else if (
+    typeof state.cursorSeconds === 'number' &&
+    !Number.isNaN(state.cursorSeconds)
+  ) {
     lastSeconds = state.cursorSeconds;
-  } else if (typeof multitrack.playheadSeconds === 'number' && !Number.isNaN(multitrack.playheadSeconds)) {
+  } else if (
+    typeof multitrack.playheadSeconds === 'number' &&
+    !Number.isNaN(multitrack.playheadSeconds)
+  ) {
     lastSeconds = multitrack.playheadSeconds;
   }
 
   multitrack.playheadSeconds = lastSeconds;
+  // This updates playhead position, scroll, and timecode/bars
   updatePlayheadAndScroll(lastSeconds);
 }
-
 
 // 🔁 PURE WEB AUDIO MASTER CHAIN FOR OFFLINE BOUNCE
 function createOfflineMasterChain(offlineContext) {
@@ -14848,23 +14865,26 @@ async function setupMultitrackListeners() {
   if (playBtn) {
     playBtn.onclick = async () => {
       if (playBtn.textContent.trim() === '▶️') {
+        // PLAY → start / resume from current playhead
         playBtn.textContent = '⏸️';
         await previewMultitrack(multitrack.playheadSeconds || 0);
       } else {
+        // PAUSE → stop audio but keep position
         playBtn.textContent = '▶️';
-        stopMultitrackPreview(true);
+        stopMultitrackPreview(); // no resetToZero → resume later
       }
     };
   }
-
+  
   if (stopBtn) {
     stopBtn.onclick = () => {
+      // STOP → full reset to 0
       playBtn.textContent = '▶️';
-      stopMultitrackPreview();
-      // 🔁 Hard reset: playhead + timeline + timecode
-      updatePlayheadAndScroll(0);
+      stopMultitrackPreview(true);      // resetToZero = true
+      updatePlayheadAndScroll(0);       // visually + timecode reset
     };
   }
+
   
   if (rewindBtn) {
     rewindBtn.onclick = () => {
@@ -15106,19 +15126,28 @@ async function setupMultitrackListeners() {
   }
 
   // === SNAP ===
-  const snapSelect = document.getElementById('snapGrid') || document.getElementById('dawSnapSelect');
-  if (snapSelect) {
-    snapSelect.onchange = (e) => {
-      const val = e.target.value;
-      if (val === 'off') {
+  const snapSelect = document.getElementById('dawSnapSelect');
+  if (snapSelect && !snapSelect.dataset._wired) {
+    snapSelect.dataset._wired = 'true';
+  
+    snapSelect.addEventListener('change', (e) => {
+      const value = e.target.value;
+      if (value === 'off') {
         multitrack.snapEnabled = false;
+        showToast('🧲 Snap OFF', 'info');
       } else {
         multitrack.snapEnabled = true;
-        const map = { bar: 4, beat: 1, '1/8': 0.5, '1/16': 0.25, '1/32': 0.125 };
-        multitrack.snapInterval = map[val] || 0.25;
+        const mapping = { bar: 4, beat: 1, '1/2': 0.5, '1/4': 0.25 };
+        multitrack.snapInterval = mapping[value] ?? 1;
+        showToast(`🧲 Snap: ${value}`, 'info');
       }
-    };
+    });
+  
+    // Make sure we start with snap ON (e.g. to beats)
+    if (!snapSelect.value) snapSelect.value = 'beat';
+    snapSelect.dispatchEvent(new Event('change'));
   }
+
 
   // === SESSION MANAGEMENT ===
   const newBtn = document.getElementById('newSessionBtn');
