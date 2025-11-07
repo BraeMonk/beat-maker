@@ -11947,24 +11947,37 @@ function setupRegionInteractions(stripEl, track) {
     if (dragState.mode === 'move') {
       let newStart = dragState.originalStart + deltaSeconds;
       newStart = Math.max(dragState.minStart, Math.min(newStart, dragState.maxEnd - take.duration));
+  
+      // 🧲 Apply snapping
+      newStart = applySnap(newStart);
+  
       take.startTime = newStart;
+  
     } else if (dragState.mode === 'resize-left') {
       let newStart = dragState.originalStart + deltaSeconds;
       const maxStart = dragState.originalStart + dragState.originalDuration - 0.05;
       newStart = Math.max(dragState.minStart, Math.min(newStart, maxStart));
-      
+  
+      // 🧲 Snap left edge if desired
+      newStart = applySnap(newStart);
+  
       const newDuration = (dragState.originalStart + dragState.originalDuration) - newStart;
       if (newDuration >= 0.05) {
         take.startTime = newStart;
         take.duration = newDuration;
       }
+  
     } else if (dragState.mode === 'resize-right') {
       let newDuration = dragState.originalDuration + deltaSeconds;
       const maxDuration = dragState.maxEnd - dragState.originalStart;
       newDuration = Math.max(0.05, Math.min(newDuration, maxDuration));
-      take.duration = newDuration;
+  
+      // 🧲 Snap right edge
+      const endTime = dragState.originalStart + newDuration;
+      const snappedEnd = applySnap(endTime);
+      take.duration = Math.max(0.05, snappedEnd - dragState.originalStart);
     }
-    
+  
     renderMultitrack();
   };
   
@@ -14188,6 +14201,12 @@ function setTimeSignature(timeSig) {
   showToast(`⏱️ Time signature: ${timeSig}`, 'info');
 }
 
+function applySnap(seconds) {
+  if (!multitrack.snapEnabled) return seconds;
+  const grid = multitrack.snapInterval * (60 / state.bpm); // convert beats→seconds
+  return Math.round(seconds / grid) * grid;
+}
+
 // Session management
 function newMultitrackSession() {
   if (!confirm('Create new session? Unsaved changes will be lost.')) return;
@@ -15397,7 +15416,7 @@ async function setupMultitrackListeners() {
     };
   }
 
-    // === LOOP REGION SELECTION (Select tool drag on empty timeline) ===
+  // === LOOP REGION SELECTION (Select tool drag on empty timeline) ===
   const scroll = document.getElementById('dawArrangementScroll');
   const loopHighlight = document.getElementById('loopRegionHighlight');
 
@@ -15586,22 +15605,36 @@ async function setupMultitrackListeners() {
   
     snapSelect.addEventListener('change', (e) => {
       const value = e.target.value;
+  
       if (value === 'off') {
         multitrack.snapEnabled = false;
         showToast('🧲 Snap OFF', 'info');
       } else {
         multitrack.snapEnabled = true;
-        const mapping = { bar: 4, beat: 1, '1/2': 0.5, '1/4': 0.25 };
+        const mapping = {
+          bars: 4,     // 4 beats per bar (main default)
+          beats: 1,
+          '1/2': 0.5,
+          '1/4': 0.25
+        };
+  
+        multitrack.snapMode = value;
         multitrack.snapInterval = mapping[value] ?? 1;
         showToast(`🧲 Snap: ${value}`, 'info');
       }
     });
   
-    // Make sure we start with snap ON (e.g. to beats)
-    if (!snapSelect.value) snapSelect.value = 'bar';
+    // 🧩 Default to snapping by bars
+    if (!snapSelect.value || snapSelect.value === 'off') {
+      snapSelect.value = 'bars';
+    }
+  
+    // Initialize state immediately
+    multitrack.snapEnabled = true;
+    multitrack.snapMode = 'bars';
+    multitrack.snapInterval = 4;
     snapSelect.dispatchEvent(new Event('change'));
   }
-
 
   // === SESSION MANAGEMENT ===
   const newBtn = document.getElementById('newSessionBtn');
