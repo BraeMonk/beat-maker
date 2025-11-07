@@ -4147,10 +4147,6 @@
     height: 60px;
   }
   
-  .daw-master-strip {
-    display: none;
-  }
-  
   .daw-meters {
     height: 80px;
   }
@@ -4200,10 +4196,6 @@
   
   .track-strip-name {
     font-size: var(--text-xs);
-  }
-
-  .daw-master-strip {
-    display: none;
   }
   
   .track-strip-fader {
@@ -7463,53 +7455,206 @@ function setupParameterControls() {
 }
 
 function setupMasterControls() {
-  document.getElementById('masterVolSlider').addEventListener('input', debounce(e => {
-    state.masterVolume = parseInt(e.target.value, 10);
-    document.getElementById('masterVolValue').textContent = state.masterVolume + 'dB';
-    Tone.Destination.volume.rampTo(state.masterVolume, 0.1); // RAMP instead of instant
-  }, 100)); // Debounce
-  
-  document.getElementById('tapeSlider').addEventListener('input', debounce(e => {
-    state.tapeSaturation = parseInt(e.target.value, 10);
-    document.getElementById('tapeValue').textContent = state.tapeSaturation + '%';
-    if (master.tapeDistortion) {
-      master.tapeDistortion.distortion = state.tapeSaturation / 100 * 0.2; // Reduced
-      master.tapeDistortion.wet.rampTo(state.tapeSaturation / 100 * 0.6, 0.1); // Ramp
+  const masterVolSlider  = document.getElementById('masterVolSlider');
+  const masterVolValue   = document.getElementById('masterVolValue');
+  const masterFader      = document.getElementById('masterFader');
+  const masterFaderLabel = document.getElementById('masterFaderLabel');
+
+  // ---- MASTER VOLUME SYNC (Mixer slider <-> Master strip fader) ----
+  function applyMasterVolume(db, source) {
+    // Persist in state
+    state.masterVolume = db;
+
+    // Mixer tab label
+    if (masterVolValue) {
+      masterVolValue.textContent = db.toFixed(0) + 'dB';
     }
-  }, 100));
-  
-  document.getElementById('vinylSlider').addEventListener('input', debounce(e => {
-    state.vinylNoise = parseInt(e.target.value, 10);
-    document.getElementById('vinylValue').textContent = state.vinylNoise + '%';
-    if (master.vinylNoise) {
-      master.vinylNoise.volume.rampTo(-50 + (state.vinylNoise / 100 * 15), 0.1); // Ramp
+
+    // Master strip label
+    if (masterFaderLabel) {
+      masterFaderLabel.textContent = db.toFixed(1) + ' dB';
     }
-  }, 100));
-  
-  document.getElementById('lowCutSlider').addEventListener('input', debounce(e => {
-    state.lowCut = parseInt(e.target.value, 10);
-    document.getElementById('lowCutValue').textContent = state.lowCut + 'Hz';
-    if (master.lowCutFilter) {
-      master.lowCutFilter.frequency.rampTo(state.lowCut, 0.15); // Slower ramp
+
+    // Keep controls in sync, but avoid loops
+    if (masterVolSlider && source !== 'slider') {
+      masterVolSlider.value = db;
     }
-  }, 100));
-  
-  document.getElementById('highCutSlider').addEventListener('input', debounce(e => {
-    state.highCut = parseInt(e.target.value, 10);
-    document.getElementById('highCutValue').textContent = 
-      (state.highCut / 1000).toFixed(1) + 'kHz';
-    if (master.highCutFilter) {
-      master.highCutFilter.frequency.rampTo(state.highCut, 0.15); // Slower ramp
+    if (masterFader && source !== 'fader') {
+      masterFader.value = db;
     }
-  }, 100));
-  
-  document.getElementById('compSlider').addEventListener('input', debounce(e => {
-    state.compressor = parseInt(e.target.value, 10);
-    document.getElementById('compValue').textContent = state.compressor + 'dB';
-    if (master.comp) {
-      master.comp.threshold.rampTo(state.compressor, 0.1); // Ramp
+
+    // Actually apply to audio
+    // (this is what you already had for the mixer slider)
+    Tone.Destination.volume.rampTo(db, 0.1);
+  }
+
+  // Initial volume (default 0 dB)
+  const initialDb =
+    typeof state.masterVolume === 'number' ? state.masterVolume : 0;
+  applyMasterVolume(initialDb);
+
+  // Mixer Master Volume slider (horizontal, existing control)
+  if (masterVolSlider) {
+    masterVolSlider.addEventListener(
+      'input',
+      debounce((e) => {
+        const db = parseInt(e.target.value, 10);
+        applyMasterVolume(Number.isFinite(db) ? db : 0, 'slider');
+      }, 100)
+    );
+  }
+
+  // NEW: Master Strip fader (vertical, in multitrack column)
+  if (masterFader) {
+    masterFader.addEventListener(
+      'input',
+      debounce((e) => {
+        const db = parseFloat(e.target.value);
+        applyMasterVolume(Number.isFinite(db) ? db : 0, 'fader');
+      }, 50)
+    );
+  }
+
+  // ---- EXISTING MASTER FX CONTROLS (unchanged, just moved under here) ----
+
+  const tapeSlider = document.getElementById('tapeSlider');
+  if (tapeSlider) {
+    tapeSlider.addEventListener(
+      'input',
+      debounce((e) => {
+        state.tapeSaturation = parseInt(e.target.value, 10);
+        document.getElementById('tapeValue').textContent =
+          state.tapeSaturation + '%';
+        if (master.tapeDistortion) {
+          master.tapeDistortion.distortion =
+            (state.tapeSaturation / 100) * 0.2; // Reduced
+          master.tapeDistortion.wet.rampTo(
+            (state.tapeSaturation / 100) * 0.6,
+            0.1
+          ); // Ramp
+        }
+      }, 100)
+    );
+  }
+
+  const vinylSlider = document.getElementById('vinylSlider');
+  if (vinylSlider) {
+    vinylSlider.addEventListener(
+      'input',
+      debounce((e) => {
+        state.vinylNoise = parseInt(e.target.value, 10);
+        document.getElementById('vinylValue').textContent =
+          state.vinylNoise + '%';
+        if (master.vinylNoise) {
+          master.vinylNoise.volume.rampTo(
+            -50 + (state.vinylNoise / 100) * 15,
+            0.1
+          ); // Ramp
+        }
+      }, 100)
+    );
+  }
+
+  const lowCutSlider = document.getElementById('lowCutSlider');
+  if (lowCutSlider) {
+    lowCutSlider.addEventListener(
+      'input',
+      debounce((e) => {
+        state.lowCut = parseInt(e.target.value, 10);
+        document.getElementById('lowCutValue').textContent =
+          state.lowCut + 'Hz';
+        if (master.lowCutFilter) {
+          master.lowCutFilter.frequency.rampTo(state.lowCut, 0.15); // Slower ramp
+        }
+      }, 100)
+    );
+  }
+
+  const highCutSlider = document.getElementById('highCutSlider');
+  if (highCutSlider) {
+    highCutSlider.addEventListener(
+      'input',
+      debounce((e) => {
+        state.highCut = parseInt(e.target.value, 10);
+        document.getElementById('highCutValue').textContent =
+          state.highCut + 'Hz';
+        if (master.highCutFilter) {
+          master.highCutFilter.frequency.rampTo(state.highCut, 0.15);
+        }
+      }, 100)
+    );
+  }
+
+  const compSlider = document.getElementById('compressorSlider');
+  if (compSlider) {
+    compSlider.addEventListener(
+      'input',
+      debounce((e) => {
+        state.compressor = parseInt(e.target.value, 10);
+        document.getElementById('compressorValue').textContent =
+          state.compressor + 'dB';
+        if (master.comp) {
+          master.comp.threshold.rampTo(state.compressor, 0.15);
+        }
+      }, 100)
+    );
+  }
+
+  // Finally: wire up the master meters
+  setupMasterMeters();
+}
+
+function setupMasterMeters() {
+  if (!master || !master.meter) return;
+
+  const meterL = document.getElementById('masterMeterL');
+  const meterR = document.getElementById('masterMeterR');
+  if (!meterL || !meterR) return;
+
+  // Ensure inner fill elements exist
+  function ensureFill(el) {
+    let fill = el.querySelector('.daw-meter-fill');
+    if (!fill) {
+      fill = document.createElement('div');
+      fill.className = 'daw-meter-fill';
+      el.appendChild(fill);
     }
-  }, 100));
+    return fill;
+  }
+
+  const fillL = ensureFill(meterL);
+  const fillR = ensureFill(meterR);
+
+  function dbToNorm(db) {
+    if (db === -Infinity) return 0;
+    const minDb = -60;
+    if (db < minDb) db = minDb;
+    const norm = (db - minDb) / -minDb; // map [-60,0] → [0,1]
+    return Math.max(0, Math.min(norm, 1));
+  }
+
+  function update() {
+    // Tone.Meter returns either a single value or an array for stereo
+    const value = master.meter.getValue();
+    let left, right;
+
+    if (Array.isArray(value)) {
+      left = value[0];
+      right = value[1] != null ? value[1] : value[0];
+    } else {
+      left = right = value;
+    }
+
+    const lNorm = dbToNorm(left);
+    const rNorm = dbToNorm(right);
+
+    fillL.style.height = (lNorm * 100).toFixed(1) + '%';
+    fillR.style.height = (rNorm * 100).toFixed(1) + '%';
+
+    requestAnimationFrame(update);
+  }
+
+  requestAnimationFrame(update);
 }
 
 function setupGeneratorButtons() {
