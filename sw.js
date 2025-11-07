@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lofi-gen-v4';
+const CACHE_NAME = 'lofi-gen-v5';
 const urlsToCache = [
   './',
   './index.html',
