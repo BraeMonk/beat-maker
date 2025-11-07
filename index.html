@@ -2207,15 +2207,14 @@
     
     @keyframes toastSlideUp {
       from {
-        transform: translate(-50%, 100px);
+        transform: translateY(100px);
         opacity: 0;
       }
       to {
-        transform: translate(-50%, 0);
+        transform: translateY(0);
         opacity: 1;
       }
     }
-
     
     .toast-icon{
       font-size: var(--text-base);
@@ -4127,6 +4126,21 @@
 
 /* === MOBILE PORTRAIT SPECIFIC === */
 @media (max-width: 768px) and (orientation: portrait) {
+  .toast-container {
+    bottom: calc(var(--space-8) + var(--inset-bottom));
+    transform: translateX(-50%);
+    flex-direction: column-reverse;
+    align-items: center;
+  }
+  
+  .toast {
+    font-size: var(--text-xs);
+    padding: var(--space-2) var(--space-3);
+    max-width: 90vw;
+    position: relative;
+    margin: 0 auto;
+  }
+
   .daw-track-strip {
     padding: var(--space-2);
   }
@@ -4346,21 +4360,6 @@
       .grid-3,
       .grid-4{
         grid-template-columns: 1fr;
-      }
-
-      .toast-container {
-        bottom: calc(var(--space-8) + var(--inset-bottom));
-        transform: translateX(-50%);
-        flex-direction: column-reverse;
-        align-items: center;
-      }
-      
-      .toast {
-        font-size: var(--text-xs);
-        padding: var(--space-2) var(--space-3);
-        max-width: 90vw;
-        position: relative; /* or absolute if they’re detached from the container */
-        margin: 0 auto;
       }
 
       .daw-arrangement-scroll {
