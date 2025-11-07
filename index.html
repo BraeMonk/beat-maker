@@ -5925,6 +5925,7 @@
                 <button class="btn btn-primary" id="previewSampleBtn">▶️ Preview</button>
                 <button class="btn btn-secondary" id="saveSampleBtn">💾 Save</button>
                 <button class="btn btn-secondary" id="exportSampleBtn">📥 Export WAV</button>
+                <button class="btn btn-secondary btn-sm" id="sendSampleToMultitrackBtn">↗ To Multitrack</button>
               </div>
             </div>
           </div>
@@ -16824,7 +16825,15 @@ function gateTabsForFreeUsers() {
 // High-quality sample synthesis engine
 class SampleSynthesizer {
   constructor() {
-    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // Prefer Tone’s context so buffers are compatible with the DAW
+    const toneCtx =
+      (window.Tone && Tone.context && Tone.context.rawContext) ||
+      (window.Tone && Tone.context) ||
+      null;
+
+    this.audioContext =
+      toneCtx || new (window.AudioContext || window.webkitAudioContext)();
+
     this.currentSource = null;
   }
 
@@ -17513,6 +17522,27 @@ function generateSampleBuffer() {
   return buffer;
 }
 
+function generateBufferForSampleConfig(config) {
+  if (!config) return null;
+
+  const { type, closed } = config;
+  let buffer = null;
+
+  if (type === 'kick') {
+    buffer = synth.generateKick(config);
+  } else if (type === 'snare') {
+    buffer = synth.generateSnare(config);
+  } else if (type === 'hihat') {
+    buffer = synth.generateHihat(config, closed);
+  } else if (type === 'clap') {
+    buffer = synth.generateClap(config);
+  } else if (type === 'tom') {
+    buffer = synth.generateTom(config, config.pitch || 0);
+  }
+
+  return buffer;
+}
+
 function previewSample(sampleKey) {
   const params = sampleKits[currentKit][sampleKey];
   const type = params.type;
@@ -17643,10 +17673,106 @@ function attachEventListeners() {
     }
   });
 
+  // Send current sample to multitrack
+  document.getElementById('sendSampleToMultitrackBtn')?.addEventListener('click', () => {
+    if (!currentBuffer || !currentSample) {
+      alert('No sample selected / generated yet.');
+      return;
+    }
+  
+    if (typeof addExternalAudioTrackFromBuffer !== 'function') {
+      alert('Multitrack system not ready yet.');
+      return;
+    }
+  
+    const name = `${currentKit}_${currentSample}_oneShot.wav`;
+  
+    try {
+      addExternalAudioTrackFromBuffer(currentBuffer, name);
+      if (typeof renderMultitrack === 'function') {
+        renderMultitrack();
+      }
+      if (typeof showToast === 'function') {
+        showToast(`📥 Sent "${name}" to the multitrack`, 'success');
+      } else {
+        alert(`📥 Sent "${name}" to the multitrack!`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to send sample to multitrack. Check the console for details.');
+    }
+  });
+
   // Load kit to sequencer
   document.getElementById('loadKitBtn')?.addEventListener('click', () => {
-    alert(`🎹 Loading ${currentKit} kit to sequencer...\n\nThis would integrate with your existing sequencer code!`);
+    if (!window.DRUM_SAMPLES || !window.synths || !window.instruments) {
+      alert('Sequencer is not ready yet. Try again after the app finishes loading.');
+      return;
+    }
+  
+    const kit = sampleKits[currentKit];
+    if (!kit) {
+      alert('No kit definition found for ' + currentKit);
+      return;
+    }
+  
+    // Sample → instrument mapping
+    const mapping = {
+      kick: 'kick',
+      snare: 'snare',
+      hihatClosed: 'hihat',
+      clap: 'clap',
+      rimshot: 'rimshot',
+      tomLow: 'tom'
+    };
+  
+    const createdUrls = [];
+  
+    Object.entries(mapping).forEach(([sampleKey, inst]) => {
+      const config = kit[sampleKey];
+      if (!config) return;
+  
+      const buffer = generateBufferForSampleConfig(config);
+      if (!buffer) return;
+  
+      // Turn buffer into a WAV blob URL
+      const wavArrayBuffer = synth.bufferToWav(buffer);
+      const blob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      createdUrls.push(url);
+  
+      // Point DRUM_SAMPLES at our new WAV
+      DRUM_SAMPLES[inst] = url;
+  
+      // Rebuild the drum synth for this instrument
+      try {
+        if (synths[inst] && typeof synths[inst].dispose === 'function') {
+          synths[inst].dispose();
+        }
+      } catch (e) {
+        console.warn('Error disposing old synth for', inst, e);
+      }
+  
+      // Create a new player using the updated DRUM_SAMPLES entry
+      const newSynth = createDrumSynth(inst);
+      synths[inst] = newSynth;
+  
+      // Reconnect it into the existing mixer channel if present
+      const instData = instruments[inst];
+      if (instData && instData.channel) {
+        newSynth.connect(instData.channel);
+      } else {
+        newSynth.toDestination();
+      }
+    });
+  
+    if (typeof showToast === 'function') {
+      showToast(`🥁 Loaded "${currentKit}" kit into the sequencer`, 'success');
+    } else {
+      alert(`🥁 Loaded "${currentKit}" kit into the sequencer!`);
+    }
   });
+
 
   // Generate pack
   document.getElementById('generatePackBtn')?.addEventListener('click', () => {
