@@ -2843,16 +2843,14 @@
 }
 
 /* === MAIN CONTAINER: 3-COLUMN LAYOUT === */
-daw-main-container {
+.daw-main-container {
   display: grid;
-  grid-template-columns: 280px 1fr 320px;
-  grid-template-rows: 1fr;
-  gap: var(--space-4);
-  height: 600px;
+  grid-template-columns: 1fr; /* Single column for responsiveness */
+  grid-template-rows: auto 1fr auto auto; /* toolbar, timeline, track headers, master */
+  gap: 0;
+  height: auto;
   min-height: 600px;
   max-height: calc(100vh - 400px);
-  margin-bottom: var(--space-4);
-  overflow: hidden; /* CRITICAL: Prevent container scroll */
 }
 
 /* Responsive: Tablet landscape */
@@ -2912,6 +2910,11 @@ daw-main-container {
   overflow: hidden; /* CRITICAL */
   height: 100%; /* Fill grid cell */
   min-height: 0; /* Allow flex shrinking */
+  grid-row: 3;
+  order: 3;
+  max-height: 300px;
+  overflow-y: auto;
+  position: static;
 }
 
 .daw-section-header {
@@ -3088,6 +3091,11 @@ daw-main-container {
   gap: var(--space-3);
   flex-shrink: 0; /* Don't shrink */
   margin-top: auto; /* Push to bottom */
+  grid-row: 4;
+  order: 4;
+  position: static; /* Remove from track list */
+  background: var(--surface-elevated);
+  border-top: 2px solid var(--glass-border-strong);
 }
 
 .daw-master-strip:hover {
@@ -3163,7 +3171,9 @@ daw-main-container {
   box-shadow: var(--shadow-md);
   overflow: hidden;
   height: 100%; /* Fill grid cell */
-  min-height: 0;
+  grid-row: 2;
+  order: 2;
+  min-height: 400px;
 }
 
 .daw-timeline-container:hover {
@@ -3762,7 +3772,7 @@ daw-main-container {
 
 /* === RIGHT: INSPECTOR PANEL AS BUBBLE === */
 .daw-inspector {
-  display: flex;
+  display: none;
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--glass-border);
@@ -3982,6 +3992,128 @@ daw-main-container {
   }
 }
 
+    .track-fx-panel {
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  border-top: 1px solid var(--glass-border);
+  margin-top: var(--space-2);
+}
+
+.fx-slots-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.fx-unit-mini {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+}
+
+.fx-unit-mini .fx-toggle {
+  width: 40px;
+  height: 20px;
+}
+
+.fx-unit-mini .fx-remove-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--error);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* === IMPROVED REGION CONTROLS (NO OVERLAP) === */
+
+.audio-region {
+  position: absolute;
+  height: 90px; /* Increased height */
+  top: 15px;
+  background: linear-gradient(135deg,
+    color-mix(in oklab, var(--accent-primary) 40%, transparent),
+    color-mix(in oklab, var(--accent-secondary) 30%, transparent));
+  border: 1px solid color-mix(in oklab, var(--accent-primary) 60%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: move;
+  overflow: visible; /* Changed from hidden */
+  display: flex;
+  flex-direction: column;
+  transition: all var(--duration-fast) var(--ease-smooth);
+  box-shadow: var(--shadow-md);
+  user-select: none;
+}
+
+.region-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: rgba(0,0,0,.9);
+  backdrop-filter: blur(12px);
+  z-index: 200;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  gap: var(--space-2);
+  min-height: 32px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.region-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  z-index: 201;
+}
+
+.region-action-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+  transition: all var(--duration-fast) var(--ease-smooth);
+  padding: 0;
+  backdrop-filter: blur(4px);
+}
+
+.region-action-btn:hover,
+.region-action-btn:active {
+  background: rgba(255,255,255,0.2);
+  transform: scale(1.15);
+}
+
+.region-name {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0,0,0,.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+    
 /* === MOBILE/TABLET TRANSPORT ADJUSTMENTS === */
 @media (max-width: 768px) {
   .daw-transport-bar {
@@ -4088,6 +4220,7 @@ daw-main-container {
     height: 70px;
   }
 }
+    
     /* -------- Responsive Breakpoints -------- */
     @media (max-width: 1024px){
       .transport{
@@ -4160,7 +4293,14 @@ daw-main-container {
         padding: var(--space-2) var(--space-3);
         max-width: 90vw;
       }
-    
+
+      .daw-arrangement-scroll {
+        overflow-x: auto;
+        overscroll-behavior: contain;
+        overflow-y: hidden;
+        scrollbar-width: thin;
+      }
+      
       .multitrack-wrapper {
         touch-action: pan-x pan-y;
         -webkit-overflow-scrolling: touch;
@@ -4169,6 +4309,8 @@ daw-main-container {
       .multitrack-toolbar {
         padding: var(--space-3);
         gap: var(--space-2);
+        grid-row: 1;
+        order: 1;
       }
     
       .toolbar-section {
@@ -4188,11 +4330,24 @@ daw-main-container {
         touch-action: none;
         -webkit-user-select: none;
         user-select: none;
+        height: 100px;
       }
       
       .audio-region.dragging {
         opacity: 0.8;
         pointer-events: none;
+      }
+
+      .timeline-playhead {
+        width: 3px;
+        box-shadow: 0 0 15px var(--error);
+      }
+    
+      .timeline-playhead::before {
+        border-width: 8px;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 10px solid var(--error);
       }
       
       /* Larger touch targets on mobile */
@@ -4203,11 +4358,11 @@ daw-main-container {
       }
 
       .region-action-btn {
-        width: 44px;
-        height: 44px;
-        min-width: 44px;
-        min-height: 44px;
-        font-size: 18px;
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        min-height: 36px;
+        font-size: 16px;
       }
       
       .region-actions {
@@ -4216,6 +4371,7 @@ daw-main-container {
       
       .region-header {
         padding: var(--space-3);
+        gap: var(--space-3);
       }
     
       /* Ensure buttons work during drag */
@@ -4277,6 +4433,22 @@ daw-main-container {
         justify-content: center;
         flex: 1 1 100%;
       }
+
+      .multitrack-toolbar .toolbar-label {
+        display: none; /* Hide labels, keep values */
+      }
+    
+      .daw-timeline-container {
+        min-height: 250px;
+      }
+    
+      .daw-track-list {
+        max-height: 150px;
+      }
+    
+      .daw-master-strip {
+        grid-template-columns: 1fr;
+      }
     
       .daw-transport-bar input[type="number"],
       .daw-transport-bar select {
@@ -4311,27 +4483,107 @@ daw-main-container {
       }
     }
     
-    @media (max-width: 900px){
-      .daw-main-container {
-        grid-template-columns: 1fr;
-        gap: var(--space-3);
-      }
-    
-      .daw-track-list,
-      .daw-inspector {
-        order: 2;
-        max-height: 250px;
-        overflow-y: auto;
-        background: var(--surface);
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--glass-border);
-        padding: var(--space-3);
-      }
-    
-      .daw-timeline-container {
-        order: 1;
-      }
-    }
+    /* === MOBILE-OPTIMIZED MULTITRACK === */
+
+@media (max-width: 900px) {
+  /* Stack everything vertically */
+  .daw-main-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto auto;
+    height: auto;
+    max-height: none;
+    gap: var(--space-3);
+  }
+
+  /* Toolbar: wrap controls, no collapse */
+  .multitrack-toolbar {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .multitrack-toolbar .toolbar-section {
+    flex: 1 1 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .multitrack-toolbar .toolbar-section:last-child {
+    border-bottom: none;
+  }
+
+  /* Timeline: full width, scrollable */
+  .daw-timeline-container {
+    min-height: 300px;
+    max-height: 50vh;
+  }
+
+  .multitrack-wrapper {
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Track list: collapsible accordion */
+  .daw-track-list {
+    max-height: 200px;
+    background: var(--surface);
+  }
+
+  .daw-section-header {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .daw-section-header::after {
+    content: '▼';
+    margin-left: auto;
+    transition: transform 0.3s;
+  }
+
+  .daw-track-list.collapsed .daw-section-header::after {
+    transform: rotate(-90deg);
+  }
+
+  .daw-track-list.collapsed .daw-track-list-scroll {
+    display: none;
+  }
+
+  /* Master strip: full width, always visible */
+  .daw-master-strip {
+    padding: var(--space-4);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--space-3);
+  }
+
+  /* Larger touch targets */
+  .transport-btn,
+  .track-strip-btn,
+  .region-action-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Region controls: prevent overlap */
+  .region-header {
+    flex-wrap: nowrap;
+    padding: var(--space-2);
+    justify-content: space-between;
+  }
+
+  .region-actions {
+    flex-shrink: 0;
+    gap: var(--space-1);
+  }
+
+  .region-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+}
 
     
     /* -------- Print Styles -------- */
@@ -10675,6 +10927,13 @@ function createTrackStrip(track, timelineWidth) {
           🗑️
         </button>
       </div>
+
+      <div class="track-fx-panel" style="display:none;">
+        <div class="fx-chain-mini">
+          <button class="btn btn-sm btn-primary add-fx-btn">+ Add FX</button>
+          <div class="fx-slots-inline"></div>
+        </div>
+      </div>
       
       <div class="track-volume-control">
         <label style="font-size: var(--text-xs); color: var(--text-tertiary); font-weight: 700; margin-bottom: var(--space-1); display: block;">
@@ -14635,6 +14894,16 @@ async function setupMultitrackListeners() {
       });
     }
   }
+
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('add-fx-btn')) {
+      const trackIndex = Array.from(document.querySelectorAll('.track-strip'))
+        .indexOf(e.target.closest('.track-strip'));
+      
+      // Show FX selector menu
+      showFXMenu(trackIndex, e.target);
+    }
+  });
     
   // Close FX panel button
   if (closeFxBtn) {
@@ -14648,6 +14917,36 @@ async function setupMultitrackListeners() {
   // === TIMELINE + RULER ===
   setupTimelineCursor();
   updateTimelineRuler();
+}
+
+function addTrackFX(trackIndex, fxType) {
+  const trackStrip = document.querySelectorAll('.track-strip')[trackIndex];
+  let fxPanel = trackStrip.querySelector('.track-fx-panel');
+  
+  if (!fxPanel) {
+    fxPanel = document.createElement('div');
+    fxPanel.className = 'track-fx-panel';
+    fxPanel.innerHTML = `
+      <div class="fx-chain-mini">
+        <button class="btn btn-sm btn-primary add-fx-btn">+ Add FX</button>
+        <div class="fx-slots-inline"></div>
+      </div>
+    `;
+    trackStrip.appendChild(fxPanel);
+  }
+  
+  fxPanel.style.display = 'block';
+  
+  const fxSlots = fxPanel.querySelector('.fx-slots-inline');
+  const fxUnit = document.createElement('div');
+  fxUnit.className = 'fx-unit-mini';
+  fxUnit.innerHTML = `
+    <span>${fxType}</span>
+    <div class="fx-toggle" onclick="this.classList.toggle('active')"></div>
+    <button class="fx-remove-btn" onclick="this.parentElement.remove()">×</button>
+  `;
+  
+  fxSlots.appendChild(fxUnit);
 }
   
 // Utility
