@@ -13524,11 +13524,21 @@ function previewMultitrack(startFrom) {
     // When (relative to "now") should we start this region?
     const relativeStart = Math.max(0, regionStart - previewStart);
 
+    // --- replace your existing Tone.Player(...) block with this ---
     const player = new Tone.Player({
-      url: take.buffer,
+      context: Tone.context,
       loop: false,
-      volume: track.volume ?? 0
-    }).connect(multitrack.masterBus);
+      fadeOut: 0.05
+    }).connect(track.channel || multitrack.masterBus);
+    
+    // ✅ Properly assign the in-memory AudioBuffer
+    player.buffer = new Tone.ToneAudioBuffer(take.buffer);
+    
+    // ✅ Add gain control to avoid clipping
+    const gainNode = new Tone.Gain(
+      track.volume != null ? track.volume : 0.4 // about -8 dB default
+    ).connect(multitrack.masterBus);
+    player.connect(gainNode);
 
     player.sync().start(now + relativeStart, bufferOffset);
     anyPlayable = true;
@@ -18343,7 +18353,8 @@ function attachEventListeners() {
           const player = new Tone.Player({
             url,
             autostart: false,
-            fadeOut: 0.03
+            fadeOut: 0.03,
+            volume: -8 // lower gain by ~8 dB to stop clipping
           });
   
           // Connect through the existing channel
