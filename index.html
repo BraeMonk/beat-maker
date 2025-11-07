@@ -17430,11 +17430,6 @@ function renderSampleList() {
   });
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-
 function selectSample(sampleKey) {
   currentSample = sampleKey;
   sampleParams = { ...sampleKits[currentKit][sampleKey] };
