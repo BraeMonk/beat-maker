@@ -2904,9 +2904,7 @@
   overflow: hidden; /* CRITICAL */
   height: 100%; /* Fill grid cell */
   min-height: 0; /* Allow flex shrinking */
-  max-height: 300px;
-  overflow-y: auto;
-  position: static;
+  max-height: none;
 }
 
 .daw-section-header {
@@ -2924,7 +2922,7 @@
 }
 
 .daw-track-list-scroll {
-  flex: 1;
+  flex: 0 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -2933,6 +2931,7 @@
   flex-direction: column;
   gap: var(--space-3);
   min-height: 0; /* CRITICAL for flexbox scrolling */
+  max-height: calc(3 * 220px);
 }
 
 .daw-track-strip {
