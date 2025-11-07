@@ -7730,6 +7730,10 @@ function handleSequencerClick(e) {
     } else if (action === 'solo') {
       instruments[inst].solo = !instruments[inst].solo;
     } else if (action === 'note') {
+      if (!isPro()) {
+        showToast('🔒 Changing note pitch is available in 8-Beat Pro.', 'info');
+        return;
+      }
       openNoteEditor(inst);
     }
     
@@ -15295,7 +15299,7 @@ async function setupMultitrackListeners() {
     });
   
     // Make sure we start with snap ON (e.g. to beats)
-    if (!snapSelect.value) snapSelect.value = 'beat';
+    if (!snapSelect.value) snapSelect.value = 'bar';
     snapSelect.dispatchEvent(new Event('change'));
   }
 
@@ -16494,7 +16498,7 @@ function initLicenseUI() {
 
 function gateTabsForFreeUsers() {
   // Tabs free for all users
-  const freeTabs = ['generate', 'sequencer', 'mixer'];
+  const freeTabs = ['generate', 'sequencer'];
 
   if (!isPro()) {
     document.querySelectorAll('.sidebar-tab').forEach(btn => {
@@ -16505,20 +16509,11 @@ function gateTabsForFreeUsers() {
         btn.classList.remove('locked');
       }
     });
-
-    // Lock only note editing inside sequencer
-    const seqGrid = document.querySelector('#tab-sequencer .seq-grid');
-    if (seqGrid) {
-      seqGrid.classList.add('pro-locked');
-    }
   } else {
     // Pro users get everything unlocked
     document.querySelectorAll('.sidebar-tab').forEach(btn => btn.classList.remove('locked'));
-    const seqGrid = document.querySelector('#tab-sequencer .seq-grid');
-    if (seqGrid) seqGrid.classList.remove('pro-locked');
   }
 }
-
 
 // === Splash / Initialization UI ===
 const splash = {
