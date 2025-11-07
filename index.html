@@ -13497,137 +13497,165 @@ function normalizeBufferVolume(audioBuffer) {
 
   
 async function previewMultitrack(startAtSeconds) {
-  // If no explicit start is passed, use the last playhead/cursor position
+  // Figure out where to start:
+  //  - explicit arg
+  //  - last multitrack.playheadSeconds
+  //  - or cursorSeconds
   const startFrom =
     typeof startAtSeconds === 'number'
       ? startAtSeconds
-      : (typeof multitrack.lastPreviewCursor === 'number'
-          ? multitrack.lastPreviewCursor
+      : (typeof multitrack.playheadSeconds === 'number'
+          ? multitrack.playheadSeconds
           : (typeof state.cursorSeconds === 'number'
               ? state.cursorSeconds
               : 0));
 
-  // Only tracks that actually have a selected take and aren’t muted
-  const activeTracks = multitrack.tracks.filter(t =>
-    t.takes &&
-    t.takes.length &&
-    t.selectedTakeIndex >= 0 &&
-    !t.muted
+  const activeTracks = multitrack.tracks.filter(
+    t => t.selectedTakeIndex != null && t.selectedTakeIndex >= 0 && !t.muted
   );
 
-  if (activeTracks.length === 0) {
+  if (!activeTracks.length) {
     showToast('❌ No active takes to preview', 'error');
     return;
   }
 
-  // Stop any existing preview first
-  stopMultitrackPreview();
+  // Stop any existing preview but KEEP the position (pause)
+  stopMultitrackPreview({ resetToZero: false });
 
+  // Make sure Tone is allowed to play
   await Tone.start();
   if (Tone.context.state !== 'running') {
     await Tone.context.resume();
   }
 
   multitrack.previewPlayers = [];
+  multitrack.previewState = 'running';
 
-  const projectDurationSeconds =
-    multitrack.projectDuration || (state.duration * 60);
+  const projectDuration =
+    multitrack.projectDuration || (state.duration * 60) || 0;
 
-  // Clamp start offset to project bounds
-  const previewStart = Math.max(0, Math.min(startFrom, projectDurationSeconds));
+  const previewStart = clamp(startFrom || 0, 0, projectDuration);
   let previewEnd = previewStart;
 
-  // Update cursor + visually move playhead to the preview start
+  // Sync the cursor / playhead visually
+  multitrack.playheadSeconds = previewStart;
   state.cursorSeconds = previewStart;
   updatePlayheadAndScroll(previewStart);
 
-  showToast(`⏳ Loading takes (from ${previewStart.toFixed(2)}s).`, 'info');
+  const now = Tone.now() + 0.1;
 
-  try {
-    // Pass the AudioBuffer directly to Tone.Player – same pattern as your edit modal
-    const player = new Tone.Player(take.buffer).connect(track.channel);
-    player.loop = false;
-    player.fadeOut = 0.01;
+  // Build players for each active track/take
+  for (const track of activeTracks) {
+    const take = track.takes[track.selectedTakeIndex];
+    if (!take || take.muted) continue;
 
+    const buf = take.buffer;
+    if (!buf) {
+      console.warn(`❌ ${track.name}: missing buffer for take`);
+      continue;
+    }
+
+    const regionStart = take.startTime || 0;
+    const regionEnd = regionStart + take.duration;
+
+    // Region ends before preview start → skip
+    if (regionEnd <= previewStart) continue;
+
+    // How far into the buffer to start (if we start mid-region)
+    const bufferOffset =
+      previewStart > regionStart ? previewStart - regionStart : 0;
+
+    // When (from "now") to start this region
     const relativeStart = Math.max(0, regionStart - previewStart);
 
-    multitrack.previewPlayers.push({
-      player,
-      track,
-      startTime: regionStart,
-      relativeStart
-    });
+    try {
+      const player = new Tone.Player({
+        buffer: buf,
+        loop: false,
+        autostart: false,
+        fadeOut: 0.03
+      });
 
-    if (regionEnd > previewEnd) previewEnd = regionEnd;
+      // Route through track.channel if it exists, else master
+      if (track.channel) {
+        player.connect(track.channel);
+      } else if (multitrack.masterBus) {
+        player.connect(multitrack.masterBus);
+      } else {
+        player.toDestination();
+      }
 
-    console.log(
-      `✅ ${track.name} ready: region ${regionStart.toFixed(3)}–${regionEnd.toFixed(3)}s, ` +
-      `plays at +${relativeStart.toFixed(3)}s in preview`
-    );
-  } catch (err) {
-    console.error(`❌ Failed to prepare ${track.name}:`, err);
+      // Start with per-region time + offset inside buffer
+      player.start(now + relativeStart, bufferOffset);
+
+      multitrack.previewPlayers.push({
+        player,
+        track,
+        startTime: regionStart,
+        endTime: regionEnd,
+        relativeStart,
+        bufferOffset
+      });
+
+      if (regionEnd > previewEnd) previewEnd = regionEnd;
+
+      console.log(
+        `✅ ${track.name} region ${regionStart.toFixed(3)}–${regionEnd.toFixed(
+          3
+        )}s → start +${relativeStart.toFixed(3)}s (offset ${
+          bufferOffset.toFixed(3)
+        }s)`
+      );
+    } catch (err) {
+      console.error(`❌ ${track.name} failed to preview:`, err);
+    }
   }
 
-
   if (!multitrack.previewPlayers.length) {
+    multitrack.previewState = 'stopped';
     showToast('⚠️ No regions overlap this preview range', 'warning');
     return;
   }
 
   const totalDuration = Math.max(0.1, previewEnd - previewStart);
-  console.log(`▶️ Preview from ${previewStart.toFixed(3)}s for ${totalDuration.toFixed(3)}s`);
 
-  const now = Tone.now() + 0.1;
-
-  multitrack.previewPlayers.forEach(({ player, track, relativeStart }) => {
-    try {
-      player.start(now + relativeStart, bufferOffset);
-      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
-    } catch (err) {
-      console.error(`❌ Failed to start ${track.name}:`, err);
-    }
-  });
-
-  showToast(
-    `▶️ Previewing ${multitrack.previewPlayers.length} track(s) from ${previewStart.toFixed(2)}s`,
-    'success'
-  );
-
-  // Activate playhead + follow mode
+  // Mark state for pause/resume + playhead sync
+  multitrack.previewStartTime = Tone.now();
+  multitrack.previewStartCursor = previewStart;
   multitrack.isPlaying = true;
-  multitrack.playheadSeconds = previewStart;
+
+  // Kick your existing UI helpers
   initPlayheadFollow();
   startPreviewPlayhead(previewStart, totalDuration);
 
-  // Loop support (selection or full project)
-  multitrack.previewTimeout = setTimeout(async () => {
-    stopMultitrackPreview();
-    const btn = document.getElementById('previewMultitrackBtn');
+  console.log(
+    `▶️ Multitrack preview from ${previewStart.toFixed(
+      3
+    )}s for ${totalDuration.toFixed(3)}s`
+  );
 
-    if (!multitrack.loopEnabled) {
-      if (btn) btn.textContent = '▶️ Preview Mix';
-      return;
-    }
-
-    const hasSelection =
-      typeof multitrack.loopStart === 'number' &&
-      typeof multitrack.loopEnd === 'number' &&
-      multitrack.loopEnd > multitrack.loopStart;
-
-    const restartAt = hasSelection ? multitrack.loopStart : 0;
-    const endPoint = hasSelection
-      ? multitrack.loopEnd
-      : multitrack.projectDuration || state.duration * 60;
-
-    console.log(
-      hasSelection
-        ? `🔁 Looping selected region: ${restartAt.toFixed(2)}s → ${endPoint.toFixed(2)}s`
-        : '🔁 Looping entire project…'
+  if (typeof showToast === 'function') {
+    showToast(
+      `🎧 Previewing ${multitrack.previewPlayers.length} track(s) from ${previewStart.toFixed(
+        2
+      )}s`,
+      'info'
     );
+  }
 
-    multitrack.playheadSeconds = restartAt;
-    await previewMultitrack(restartAt);
-  }, (totalDuration + 0.25) * 1000);
+  // Auto-stop once we hit the end of the preview span
+  if (multitrack.previewTimeout) {
+    clearTimeout(multitrack.previewTimeout);
+  }
+  multitrack.previewTimeout = setTimeout(() => {
+    stopMultitrackPreview({ resetToZero: false });
+    multitrack.previewState = 'stopped';
+    multitrack.isPlaying = false;
+    const playBtn = document.getElementById('previewMultitrackBtn');
+    if (playBtn && playBtn.textContent.trim() !== '▶️') {
+      playBtn.textContent = '▶️';
+    }
+  }, totalDuration * 1000 + 250);
 }
 
 function stopMultitrackPreview(resetOrOptions) {
@@ -18400,13 +18428,11 @@ function attachEventListeners() {
       return;
     }
   
-    // Use the same synth engine as the Samples tab
-    // (if for some reason "synth" doesn't exist, fall back to a new one)
-    const synthEngine = window.synth instanceof SampleSynthesizer
-      ? window.synth
-      : new SampleSynthesizer();
+    const synthEngine =
+      window.synth instanceof SampleSynthesizer
+        ? window.synth
+        : new SampleSynthesizer();
   
-    // Loop through every element of the kit — drums *and* instruments
     Object.entries(kit).forEach(([sampleKey, cfg]) => {
       let buffer = null;
   
@@ -18416,7 +18442,6 @@ function attachEventListeners() {
         case 'hihat':  buffer = synthEngine.generateHihat(cfg, cfg.closed); break;
         case 'clap':   buffer = synthEngine.generateClap(cfg); break;
         case 'tom':    buffer = synthEngine.generateTom(cfg, cfg.pitch || 0); break;
-  
         case 'bass':   buffer = synthEngine.generateBass(cfg); break;
         case 'guitar': buffer = synthEngine.generateGuitar(cfg); break;
         case 'keys':   buffer = synthEngine.generateKeys(cfg); break;
@@ -18428,91 +18453,57 @@ function attachEventListeners() {
       }
   
       if (!buffer) return;
-
-      // 🔉 Give this generated sample some headroom *before* we encode it
-      normalizeBufferInPlace(buffer, -6);  // ⬅️ add this line
   
-      // 1) Convert to WAV URL for anything that uses URLs (DRUM_SAMPLES / Players)
+      // 🔊 tame the offline-generated sample BEFORE we feed it anywhere
+      normalizeBufferInPlace(buffer, -10); // -10dB peak is a nice safe-ish default
+  
+      // 1) Convert to WAV URL for DRUM_SAMPLES / Tone.Player
       const url = bufferToObjectUrlFromSynth(buffer);
-
   
-      // 2) Update DRUM_SAMPLES if it’s a drum-ish key
-      if (['kick', 'snare', 'hihat', 'clap', 'tom', 'rimshot', 'crash', 'ride'].includes(sampleKey)) {
+      // 2) Route into DRUM_SAMPLES (for your drum sequencer)
+      if (
+        ['kick', 'snare', 'hihat', 'clap', 'tom', 'rimshot', 'crash', 'ride']
+          .includes(sampleKey)
+      ) {
         DRUM_SAMPLES[sampleKey] = url;
       }
   
-      // 3) If it exists as a sequencer instrument, rebuild its synth as a Player
+      // 3) If it’s a known sequencer instrument, rebuild as a Player
       if (instruments[sampleKey]) {
         const instMeta = instruments[sampleKey];
-        const instType = instMeta.type; // 'drum' | 'melodic' | 'atmospheric' etc.
+        const instType = instMeta.type;
   
         if (instType === 'drum' || instType === 'melodic' || instType === 'atmospheric') {
-          // Dispose existing synth if any
           if (synths[sampleKey]?.dispose) {
             synths[sampleKey].dispose();
           }
   
-          // Build a Tone.Player for this new sample
           const player = new Tone.Player({
             url,
             autostart: false,
             fadeOut: 0.05,
-            volume: -14 // global safe baseline
+            volume: -14 // extra safety for summed hits
           });
-          
-          // --- Normalize the buffer volume before connecting ---
-          player.buffer.onload = () => {
-            const buffer = player.buffer.get();
-            if (!buffer) return;
-          
-            let safeDb = normalizeBufferVolume(buffer);
-          
-            // Extra pad so sequencer hits are calm by default
-            safeDb -= 6; // you can go to -8 if it's still spicy
-          
-            const gainNode = new Tone.Gain(Tone.dbToGain(safeDb));
-          
-            if (instMeta.channel) {
-              gainNode.connect(instMeta.channel);
-            } else if (window.SEQUENCER_MASTER_BUS) {
-              gainNode.connect(window.SEQUENCER_MASTER_BUS);
-            } else {
-              gainNode.toDestination();
-            }
-          
-            player.connect(gainNode);
-          };
-
-          
-          // Attach to synths map so sequencer uses it
-          synths[sampleKey] = {
-            triggerAttackRelease: (note, duration, time, velocity = 1) => {
-              if (player.loaded) {
-                player.stop(time);
-                // Use velocity as gain by adjusting the player volume
-                const gain = new Tone.Gain(velocity).toDestination();
-                player.connect(gain);
-                player.start(time);
-              }
-            },
-            connect: (node) => {
-              player.disconnect();
-              player.connect(node);
-              return player;
-            },
-            toDestination: () => player.toDestination(),
-            dispose: () => player.dispose(),
-            get loaded() {
-              return player.loaded;
-            },
-            player
-          };
+  
+          // Route into instrument channel or master
+          if (instMeta.channel) {
+            player.connect(instMeta.channel);
+          } else if (window.SEQUENCER_MASTER_BUS) {
+            player.connect(window.SEQUENCER_MASTER_BUS);
+          } else {
+            player.toDestination();
+          }
+  
+          synths[sampleKey] = player;
         }
       }
     });
   
     if (typeof showToast === 'function') {
-      showToast(`🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`, 'success');
+      showToast(
+        `🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`,
+        'success'
+      );
     } else {
       alert(`🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`);
     }
