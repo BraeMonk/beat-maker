@@ -16782,6 +16782,17 @@ function gateTabsForFreeUsers() {
   }
 }
 
+// --- global sample helpers (must be outside any class/function) ---
+function fastSmooth(last, sample, amt) { 
+  return last + amt * (sample - last);
+}
+
+function envAD(t, attack, decay) {
+  const a = attack > 0 ? Math.min(1, t / attack) : 1;
+  const d = Math.exp(-t / Math.max(0.000001, decay));
+  return a * d;
+}
+
 // High-quality sample synthesis engine
 class SampleSynthesizer {
   constructor() {
@@ -16795,16 +16806,6 @@ class SampleSynthesizer {
       toneCtx || new (window.AudioContext || window.webkitAudioContext)();
 
     this.currentSource = null;
-  }
-
-  // --- helper used in all generators (top of class or file) ---
-  function fastSmooth(last, sample, amt) { // amt 0..1
-    return last + amt * (sample - last);
-  }
-  function envAD(t, attack, decay) {
-    const a = attack > 0 ? Math.min(1, t / attack) : 1;
-    const d = Math.exp(-t / Math.max(0.000001, decay));
-    return a * d;
   }
   
   // KICK: sine body + sub + very light noise, attack ramp + smoothing
