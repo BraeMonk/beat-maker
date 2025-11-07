@@ -2156,7 +2156,6 @@
       width: auto;
       pointer-events: none;
       align-items: center;
-      justify-content: center;
     }
     
     .toast{
@@ -4354,7 +4353,6 @@
         transform: translateX(-50%);
         flex-direction: column-reverse;
         align-items: center;
-        max-width: calc(100vw - 2rem);
       }
       
       .toast {
@@ -16823,674 +16821,798 @@ function gateTabsForFreeUsers() {
   }
 }
 
-// Sample Library Implementation
-(function() {
-  'use strict';
+// High-quality sample synthesis engine
+class SampleSynthesizer {
+  constructor() {
+    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    this.currentSource = null;
+  }
 
-  // High-quality sample synthesis engine
-  class SampleSynthesizer {
-    constructor() {
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  // Generate kick drum with advanced synthesis
+  generateKick(params = {}) {
+    const {
+      pitch = 0,
+      decay = 0.2,
+      tone = 50,
+      noise = 30,
+      attack = 0.001,
+      lofi = 0,
+      dist = 0
+    } = params;
+
+    const sampleRate = this.audioContext.sampleRate;
+    const duration = Math.max(0.05, decay);
+    const samples = Math.floor(sampleRate * duration);
+    const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    const basePitch = 55 * Math.pow(2, pitch / 12); // E1 note
+    
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      const envelope = Math.exp(-t / decay);
+      
+      // Pitch envelope for kick thump
+      const pitchEnv = basePitch * (1 + 4 * Math.exp(-40 * t));
+      
+      // Tone component (sine wave)
+      const toneComponent = Math.sin(2 * Math.PI * pitchEnv * t) * (tone / 100);
+      
+      // Sub component (low rumble)
+      const subComponent = Math.sin(2 * Math.PI * (pitchEnv / 2) * t) * 0.3;
+      
+      // Noise component (attack transient)
+      const noiseComponent = (Math.random() * 2 - 1) * (noise / 100) * Math.exp(-t * 50);
+      
+      // Mix components
+      let sample = (toneComponent * 0.6 + subComponent * 0.3 + noiseComponent * 0.1) * envelope;
+      
+      // Apply distortion
+      if (dist > 0) {
+        const distAmount = dist / 100;
+        sample = Math.tanh(sample * (1 + distAmount * 5)) / (1 + distAmount);
+      }
+      
+      // Apply lo-fi effect
+      if (lofi > 0) {
+        const bitDepth = 16 - (lofi / 100) * 12;
+        const steps = Math.pow(2, bitDepth);
+        sample = Math.round(sample * steps) / steps;
+      }
+      
+      data[i] = sample * 0.9;
+    }
+
+    return buffer;
+  }
+
+  // Generate snare with realistic shell resonance
+  generateSnare(params = {}) {
+    const {
+      pitch = 0,
+      decay = 0.15,
+      tone = 50,
+      noise = 70,
+      attack = 0.001,
+      lofi = 0,
+      dist = 0
+    } = params;
+
+    const sampleRate = this.audioContext.sampleRate;
+    const duration = Math.max(0.05, decay);
+    const samples = Math.floor(sampleRate * duration);
+    const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    const basePitch = 200 * Math.pow(2, pitch / 12);
+    
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      const envelope = Math.exp(-t / decay);
+      
+      // Tonal components (shell modes)
+      const tone1 = Math.sin(2 * Math.PI * basePitch * t);
+      const tone2 = Math.sin(2 * Math.PI * basePitch * 1.5 * t);
+      const toneComponent = (tone1 * 0.6 + tone2 * 0.4) * (tone / 100);
+      
+      // Snare rattle (filtered noise)
+      const noiseComponent = (Math.random() * 2 - 1) * (noise / 100);
+      
+      // Mix with envelope
+      let sample = (toneComponent * 0.3 + noiseComponent * 0.7) * envelope;
+      
+      // Apply effects
+      if (dist > 0) {
+        const distAmount = dist / 100;
+        sample = Math.tanh(sample * (1 + distAmount * 3)) / (1 + distAmount);
+      }
+      
+      if (lofi > 0) {
+        const bitDepth = 16 - (lofi / 100) * 12;
+        const steps = Math.pow(2, bitDepth);
+        sample = Math.round(sample * steps) / steps;
+      }
+      
+      data[i] = sample * 0.85;
+    }
+
+    return buffer;
+  }
+
+  // Generate hi-hat with realistic metallic shimmer
+  generateHihat(params = {}, closed = true) {
+    const {
+      pitch = 0,
+      decay = closed ? 0.05 : 0.2,
+      tone = 50,
+      noise = 90,
+      attack = 0.001,
+      lofi = 0,
+      dist = 0
+    } = params;
+
+    const sampleRate = this.audioContext.sampleRate;
+    const duration = Math.max(0.02, decay);
+    const samples = Math.floor(sampleRate * duration);
+    const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    const pitchMult = Math.pow(2, pitch / 12);
+    
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      const envelope = Math.exp(-t / decay);
+      
+      // High-frequency metallic components
+      let sample = 0;
+      
+      // Multiple sine components for metallic shimmer
+      const freqs = [3000, 4200, 5100, 7300, 9000, 11000].map(f => f * pitchMult);
+      freqs.forEach((freq, idx) => {
+        sample += Math.sin(2 * Math.PI * freq * t) * (1 / (idx + 1)) * (tone / 100);
+      });
+      
+      // High-passed noise
+      const noiseComp = (Math.random() * 2 - 1) * (noise / 100);
+      sample = (sample * 0.3 + noiseComp * 0.7) * envelope;
+      
+      // Apply effects
+      if (dist > 0) {
+        const distAmount = dist / 100;
+        sample = Math.tanh(sample * (1 + distAmount * 2)) / (1 + distAmount);
+      }
+      
+      if (lofi > 0) {
+        const bitDepth = 16 - (lofi / 100) * 12;
+        const steps = Math.pow(2, bitDepth);
+        sample = Math.round(sample * steps) / steps;
+      }
+      
+      data[i] = sample * 0.6;
+    }
+
+    return buffer;
+  }
+
+  // Generate clap with multiple attack transients
+  generateClap(params = {}) {
+    const {
+      pitch = 0,
+      decay = 0.12,
+      tone = 30,
+      noise = 90,
+      attack = 0.001,
+      lofi = 0,
+      dist = 0
+    } = params;
+
+    const sampleRate = this.audioContext.sampleRate;
+    const duration = Math.max(0.05, decay);
+    const samples = Math.floor(sampleRate * duration);
+    const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    const pitchMult = Math.pow(2, pitch / 12);
+    
+    // Multiple attack transients for realistic clap
+    const clapTimes = [0, 0.01, 0.02, 0.03];
+    
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      const mainEnv = Math.exp(-t / decay);
+      
+      let sample = 0;
+      
+      // Add multiple transients
+      clapTimes.forEach(clapTime => {
+        if (t >= clapTime) {
+          const localT = t - clapTime;
+          const localEnv = Math.exp(-localT * 80);
+          sample += (Math.random() * 2 - 1) * localEnv * 0.25;
+        }
+      });
+      
+      // Body noise
+      const bodyNoise = (Math.random() * 2 - 1) * (noise / 100) * mainEnv;
+      sample = sample + bodyNoise * 0.3;
+      
+      // Apply effects
+      if (dist > 0) {
+        const distAmount = dist / 100;
+        sample = Math.tanh(sample * (1 + distAmount * 3)) / (1 + distAmount);
+      }
+      
+      if (lofi > 0) {
+        const bitDepth = 16 - (lofi / 100) * 12;
+        const steps = Math.pow(2, bitDepth);
+        sample = Math.round(sample * steps) / steps;
+      }
+      
+      data[i] = sample * 0.75;
+    }
+
+    return buffer;
+  }
+
+  // Generate tom with resonant body
+  generateTom(params = {}, pitch = 0) {
+    const {
+      decay = 0.3,
+      tone = 60,
+      noise = 20,
+      attack = 0.001,
+      lofi = 0,
+      dist = 0
+    } = params;
+
+    const sampleRate = this.audioContext.sampleRate;
+    const duration = Math.max(0.1, decay);
+    const samples = Math.floor(sampleRate * duration);
+    const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    const basePitch = (80 + pitch * 20) * Math.pow(2, params.pitch / 12 || 0);
+    
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      const envelope = Math.exp(-t / decay);
+      
+      // Tom fundamental and harmonics
+      const fundamental = Math.sin(2 * Math.PI * basePitch * t);
+      const harmonic = Math.sin(2 * Math.PI * basePitch * 1.5 * t);
+      const toneComponent = (fundamental * 0.7 + harmonic * 0.3) * (tone / 100);
+      
+      // Attack transient
+      const noiseComponent = (Math.random() * 2 - 1) * (noise / 100) * Math.exp(-t * 30);
+      
+      let sample = (toneComponent * 0.8 + noiseComponent * 0.2) * envelope;
+      
+      // Apply effects
+      if (dist > 0) {
+        const distAmount = dist / 100;
+        sample = Math.tanh(sample * (1 + distAmount * 4)) / (1 + distAmount);
+      }
+      
+      if (lofi > 0) {
+        const bitDepth = 16 - (lofi / 100) * 12;
+        const steps = Math.pow(2, bitDepth);
+        sample = Math.round(sample * steps) / steps;
+      }
+      
+      data[i] = sample * 0.8;
+    }
+
+    return buffer;
+  }
+
+  // Play sample with volume control
+  play(buffer, volume = 0) {
+    if (this.currentSource) {
+      this.currentSource.stop();
+    }
+
+    const source = this.audioContext.createBufferSource();
+    const gainNode = this.audioContext.createGain();
+    
+    source.buffer = buffer;
+    gainNode.gain.value = Math.pow(10, volume / 20); // dB to linear
+    
+    source.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+    
+    source.start();
+    this.currentSource = source;
+    
+    // Clean up after playback
+    source.onended = () => {
       this.currentSource = null;
+    };
+  }
+
+  // Export buffer as WAV file
+  exportWAV(buffer, filename) {
+    const wav = this.bufferToWav(buffer);
+    const blob = new Blob([wav], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    
+    URL.revokeObjectURL(url);
+  }
+
+  bufferToWav(buffer) {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    
+    const data = buffer.getChannelData(0);
+    const dataLength = data.length * bytesPerSample;
+    const headerLength = 44;
+    const totalLength = headerLength + dataLength;
+    
+    const arrayBuffer = new ArrayBuffer(totalLength);
+    const view = new DataView(arrayBuffer);
+    
+    // Write WAV header
+    this.writeString(view, 0, 'RIFF');
+    view.setUint32(4, totalLength - 8, true);
+    this.writeString(view, 8, 'WAVE');
+    this.writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    this.writeString(view, 36, 'data');
+    view.setUint32(40, dataLength, true);
+    
+    // Write audio data
+    let offset = 44;
+    for (let i = 0; i < data.length; i++) {
+      const sample = Math.max(-1, Math.min(1, data[i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
     }
+    
+    return arrayBuffer;
+  }
 
-    // Generate kick drum with advanced synthesis
-    generateKick(params = {}) {
-      const {
-        pitch = 0,
-        decay = 0.2,
-        tone = 50,
-        noise = 30,
-        attack = 0.001,
-        lofi = 0,
-        dist = 0
-      } = params;
-
-      const sampleRate = this.audioContext.sampleRate;
-      const duration = Math.max(0.05, decay);
-      const samples = Math.floor(sampleRate * duration);
-      const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
-      const data = buffer.getChannelData(0);
-
-      const basePitch = 55 * Math.pow(2, pitch / 12); // E1 note
-      
-      for (let i = 0; i < samples; i++) {
-        const t = i / sampleRate;
-        const envelope = Math.exp(-t / decay);
-        
-        // Pitch envelope for kick thump
-        const pitchEnv = basePitch * (1 + 4 * Math.exp(-40 * t));
-        
-        // Tone component (sine wave)
-        const toneComponent = Math.sin(2 * Math.PI * pitchEnv * t) * (tone / 100);
-        
-        // Sub component (low rumble)
-        const subComponent = Math.sin(2 * Math.PI * (pitchEnv / 2) * t) * 0.3;
-        
-        // Noise component (attack transient)
-        const noiseComponent = (Math.random() * 2 - 1) * (noise / 100) * Math.exp(-t * 50);
-        
-        // Mix components
-        let sample = (toneComponent * 0.6 + subComponent * 0.3 + noiseComponent * 0.1) * envelope;
-        
-        // Apply distortion
-        if (dist > 0) {
-          const distAmount = dist / 100;
-          sample = Math.tanh(sample * (1 + distAmount * 5)) / (1 + distAmount);
-        }
-        
-        // Apply lo-fi effect
-        if (lofi > 0) {
-          const bitDepth = 16 - (lofi / 100) * 12;
-          const steps = Math.pow(2, bitDepth);
-          sample = Math.round(sample * steps) / steps;
-        }
-        
-        data[i] = sample * 0.9;
-      }
-
-      return buffer;
-    }
-
-    // Generate snare with realistic shell resonance
-    generateSnare(params = {}) {
-      const {
-        pitch = 0,
-        decay = 0.15,
-        tone = 50,
-        noise = 70,
-        attack = 0.001,
-        lofi = 0,
-        dist = 0
-      } = params;
-
-      const sampleRate = this.audioContext.sampleRate;
-      const duration = Math.max(0.05, decay);
-      const samples = Math.floor(sampleRate * duration);
-      const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
-      const data = buffer.getChannelData(0);
-
-      const basePitch = 200 * Math.pow(2, pitch / 12);
-      
-      for (let i = 0; i < samples; i++) {
-        const t = i / sampleRate;
-        const envelope = Math.exp(-t / decay);
-        
-        // Tonal components (shell modes)
-        const tone1 = Math.sin(2 * Math.PI * basePitch * t);
-        const tone2 = Math.sin(2 * Math.PI * basePitch * 1.5 * t);
-        const toneComponent = (tone1 * 0.6 + tone2 * 0.4) * (tone / 100);
-        
-        // Snare rattle (filtered noise)
-        const noiseComponent = (Math.random() * 2 - 1) * (noise / 100);
-        
-        // Mix with envelope
-        let sample = (toneComponent * 0.3 + noiseComponent * 0.7) * envelope;
-        
-        // Apply effects
-        if (dist > 0) {
-          const distAmount = dist / 100;
-          sample = Math.tanh(sample * (1 + distAmount * 3)) / (1 + distAmount);
-        }
-        
-        if (lofi > 0) {
-          const bitDepth = 16 - (lofi / 100) * 12;
-          const steps = Math.pow(2, bitDepth);
-          sample = Math.round(sample * steps) / steps;
-        }
-        
-        data[i] = sample * 0.85;
-      }
-
-      return buffer;
-    }
-
-    // Generate hi-hat with realistic metallic shimmer
-    generateHihat(params = {}, closed = true) {
-      const {
-        pitch = 0,
-        decay = closed ? 0.05 : 0.2,
-        tone = 50,
-        noise = 90,
-        attack = 0.001,
-        lofi = 0,
-        dist = 0
-      } = params;
-
-      const sampleRate = this.audioContext.sampleRate;
-      const duration = Math.max(0.02, decay);
-      const samples = Math.floor(sampleRate * duration);
-      const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
-      const data = buffer.getChannelData(0);
-
-      const pitchMult = Math.pow(2, pitch / 12);
-      
-      for (let i = 0; i < samples; i++) {
-        const t = i / sampleRate;
-        const envelope = Math.exp(-t / decay);
-        
-        // High-frequency metallic components
-        let sample = 0;
-        
-        // Multiple sine components for metallic shimmer
-        const freqs = [3000, 4200, 5100, 7300, 9000, 11000].map(f => f * pitchMult);
-        freqs.forEach((freq, idx) => {
-          sample += Math.sin(2 * Math.PI * freq * t) * (1 / (idx + 1)) * (tone / 100);
-        });
-        
-        // High-passed noise
-        const noiseComp = (Math.random() * 2 - 1) * (noise / 100);
-        sample = (sample * 0.3 + noiseComp * 0.7) * envelope;
-        
-        // Apply effects
-        if (dist > 0) {
-          const distAmount = dist / 100;
-          sample = Math.tanh(sample * (1 + distAmount * 2)) / (1 + distAmount);
-        }
-        
-        if (lofi > 0) {
-          const bitDepth = 16 - (lofi / 100) * 12;
-          const steps = Math.pow(2, bitDepth);
-          sample = Math.round(sample * steps) / steps;
-        }
-        
-        data[i] = sample * 0.6;
-      }
-
-      return buffer;
-    }
-
-    // Generate clap with multiple attack transients
-    generateClap(params = {}) {
-      const {
-        pitch = 0,
-        decay = 0.12,
-        tone = 30,
-        noise = 90,
-        attack = 0.001,
-        lofi = 0,
-        dist = 0
-      } = params;
-
-      const sampleRate = this.audioContext.sampleRate;
-      const duration = Math.max(0.05, decay);
-      const samples = Math.floor(sampleRate * duration);
-      const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
-      const data = buffer.getChannelData(0);
-
-      const pitchMult = Math.pow(2, pitch / 12);
-      
-      // Multiple attack transients for realistic clap
-      const clapTimes = [0, 0.01, 0.02, 0.03];
-      
-      for (let i = 0; i < samples; i++) {
-        const t = i / sampleRate;
-        const mainEnv = Math.exp(-t / decay);
-        
-        let sample = 0;
-        
-        // Add multiple transients
-        clapTimes.forEach(clapTime => {
-          if (t >= clapTime) {
-            const localT = t - clapTime;
-            const localEnv = Math.exp(-localT * 80);
-            sample += (Math.random() * 2 - 1) * localEnv * 0.25;
-          }
-        });
-        
-        // Body noise
-        const bodyNoise = (Math.random() * 2 - 1) * (noise / 100) * mainEnv;
-        sample = sample + bodyNoise * 0.3;
-        
-        // Apply effects
-        if (dist > 0) {
-          const distAmount = dist / 100;
-          sample = Math.tanh(sample * (1 + distAmount * 3)) / (1 + distAmount);
-        }
-        
-        if (lofi > 0) {
-          const bitDepth = 16 - (lofi / 100) * 12;
-          const steps = Math.pow(2, bitDepth);
-          sample = Math.round(sample * steps) / steps;
-        }
-        
-        data[i] = sample * 0.75;
-      }
-
-      return buffer;
-    }
-
-    // Generate tom with resonant body
-    generateTom(params = {}, pitch = 0) {
-      const {
-        decay = 0.3,
-        tone = 60,
-        noise = 20,
-        attack = 0.001,
-        lofi = 0,
-        dist = 0
-      } = params;
-
-      const sampleRate = this.audioContext.sampleRate;
-      const duration = Math.max(0.1, decay);
-      const samples = Math.floor(sampleRate * duration);
-      const buffer = this.audioContext.createBuffer(1, samples, sampleRate);
-      const data = buffer.getChannelData(0);
-
-      const basePitch = (80 + pitch * 20) * Math.pow(2, params.pitch / 12 || 0);
-      
-      for (let i = 0; i < samples; i++) {
-        const t = i / sampleRate;
-        const envelope = Math.exp(-t / decay);
-        
-        // Tom fundamental and harmonics
-        const fundamental = Math.sin(2 * Math.PI * basePitch * t);
-        const harmonic = Math.sin(2 * Math.PI * basePitch * 1.5 * t);
-        const toneComponent = (fundamental * 0.7 + harmonic * 0.3) * (tone / 100);
-        
-        // Attack transient
-        const noiseComponent = (Math.random() * 2 - 1) * (noise / 100) * Math.exp(-t * 30);
-        
-        let sample = (toneComponent * 0.8 + noiseComponent * 0.2) * envelope;
-        
-        // Apply effects
-        if (dist > 0) {
-          const distAmount = dist / 100;
-          sample = Math.tanh(sample * (1 + distAmount * 4)) / (1 + distAmount);
-        }
-        
-        if (lofi > 0) {
-          const bitDepth = 16 - (lofi / 100) * 12;
-          const steps = Math.pow(2, bitDepth);
-          sample = Math.round(sample * steps) / steps;
-        }
-        
-        data[i] = sample * 0.8;
-      }
-
-      return buffer;
-    }
-
-    // Play sample with volume control
-    play(buffer, volume = 0) {
-      if (this.currentSource) {
-        this.currentSource.stop();
-      }
-
-      const source = this.audioContext.createBufferSource();
-      const gainNode = this.audioContext.createGain();
-      
-      source.buffer = buffer;
-      gainNode.gain.value = Math.pow(10, volume / 20); // dB to linear
-      
-      source.connect(gainNode);
-      gainNode.connect(this.audioContext.destination);
-      
-      source.start();
-      this.currentSource = source;
-      
-      // Clean up after playback
-      source.onended = () => {
-        this.currentSource = null;
-      };
-    }
-
-    // Export buffer as WAV file
-    exportWAV(buffer, filename) {
-      const wav = this.bufferToWav(buffer);
-      const blob = new Blob([wav], { type: 'audio/wav' });
-      const url = URL.createObjectURL(blob);
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      
-      URL.revokeObjectURL(url);
-    }
-
-    bufferToWav(buffer) {
-      const numChannels = buffer.numberOfChannels;
-      const sampleRate = buffer.sampleRate;
-      const format = 1; // PCM
-      const bitDepth = 16;
-      
-      const bytesPerSample = bitDepth / 8;
-      const blockAlign = numChannels * bytesPerSample;
-      
-      const data = buffer.getChannelData(0);
-      const dataLength = data.length * bytesPerSample;
-      const headerLength = 44;
-      const totalLength = headerLength + dataLength;
-      
-      const arrayBuffer = new ArrayBuffer(totalLength);
-      const view = new DataView(arrayBuffer);
-      
-      // Write WAV header
-      this.writeString(view, 0, 'RIFF');
-      view.setUint32(4, totalLength - 8, true);
-      this.writeString(view, 8, 'WAVE');
-      this.writeString(view, 12, 'fmt ');
-      view.setUint32(16, 16, true);
-      view.setUint16(20, format, true);
-      view.setUint16(22, numChannels, true);
-      view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate * blockAlign, true);
-      view.setUint16(32, blockAlign, true);
-      view.setUint16(34, bitDepth, true);
-      this.writeString(view, 36, 'data');
-      view.setUint32(40, dataLength, true);
-      
-      // Write audio data
-      let offset = 44;
-      for (let i = 0; i < data.length; i++) {
-        const sample = Math.max(-1, Math.min(1, data[i]));
-        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-        offset += 2;
-      }
-      
-      return arrayBuffer;
-    }
-
-    writeString(view, offset, string) {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
-    }
-
-    // Draw waveform to canvas
-    drawWaveform(buffer, canvas) {
-      const ctx = canvas.getContext('2d');
-      const width = canvas.width;
-      const height = canvas.height;
-      const data = buffer.getChannelData(0);
-      
-      ctx.clearRect(0, 0, width, height);
-      
-      // Draw waveform
-      ctx.beginPath();
-      ctx.strokeStyle = '#8b5cf6';
-      ctx.lineWidth = 2;
-      
-      const step = Math.ceil(data.length / width);
-      const amp = height / 2;
-      
-      for (let i = 0; i < width; i++) {
-        const min = Math.min(...Array.from({length: step}, (_, j) => data[i * step + j] || 0));
-        const max = Math.max(...Array.from({length: step}, (_, j) => data[i * step + j] || 0));
-        
-        if (i === 0) {
-          ctx.moveTo(i, amp - max * amp);
-        } else {
-          ctx.lineTo(i, amp - max * amp);
-        }
-      }
-      
-      ctx.stroke();
-      
-      // Draw center line
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-      ctx.lineWidth = 1;
-      ctx.moveTo(0, amp);
-      ctx.lineTo(width, amp);
-      ctx.stroke();
+  writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
     }
   }
 
-  // Initialize sample library
-  const synth = new SampleSynthesizer();
+  // Draw waveform to canvas
+  drawWaveform(buffer, canvas) {
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const data = buffer.getChannelData(0);
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw waveform
+    ctx.beginPath();
+    ctx.strokeStyle = '#8b5cf6';
+    ctx.lineWidth = 2;
+    
+    const step = Math.ceil(data.length / width);
+    const amp = height / 2;
+    
+    for (let i = 0; i < width; i++) {
+      const min = Math.min(...Array.from({length: step}, (_, j) => data[i * step + j] || 0));
+      const max = Math.max(...Array.from({length: step}, (_, j) => data[i * step + j] || 0));
+      
+      if (i === 0) {
+        ctx.moveTo(i, amp - max * amp);
+      } else {
+        ctx.lineTo(i, amp - max * amp);
+      }
+    }
+    
+    ctx.stroke();
+    
+    // Draw center line
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.moveTo(0, amp);
+    ctx.lineTo(width, amp);
+    ctx.stroke();
+  }
+}
+
+// Initialize sample library
+const synth = new SampleSynthesizer();
+
+// Sample kits database
+const sampleKits = {
+  lofi: {
+    kick: { type: 'kick', pitch: -2, decay: 0.25, tone: 40, noise: 20, lofi: 40, dist: 20 },
+    snare: { type: 'snare', pitch: -1, decay: 0.15, tone: 45, noise: 75, lofi: 35, dist: 15 },
+    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.04, tone: 40, noise: 85, lofi: 30, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.15, tone: 45, noise: 80, lofi: 30, closed: false },
+    clap: { type: 'clap', pitch: 0, decay: 0.12, tone: 30, noise: 90, lofi: 25, dist: 10 },
+    rimshot: { type: 'snare', pitch: 8, decay: 0.05, tone: 60, noise: 40, lofi: 20 },
+    tomLow: { type: 'tom', pitch: -4, decay: 0.35, tone: 65, noise: 15, lofi: 25 },
+    tomHigh: { type: 'tom', pitch: 2, decay: 0.25, tone: 60, noise: 18, lofi: 25 }
+  },
+  hiphop: {
+    kick: { type: 'kick', pitch: -3, decay: 0.4, tone: 50, noise: 15, lofi: 15, dist: 30 },
+    snare: { type: 'snare', pitch: 0, decay: 0.18, tone: 50, noise: 80, lofi: 10, dist: 25 },
+    hihatClosed: { type: 'hihat', pitch: 1, decay: 0.05, tone: 45, noise: 90, lofi: 15, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 1, decay: 0.2, tone: 50, noise: 85, lofi: 15, closed: false },
+    clap: { type: 'clap', pitch: 0, decay: 0.15, tone: 35, noise: 95, lofi: 5, dist: 20 },
+    rimshot: { type: 'snare', pitch: 10, decay: 0.06, tone: 70, noise: 35, lofi: 10 },
+    tomLow: { type: 'tom', pitch: -3, decay: 0.3, tone: 70, noise: 12, lofi: 15 },
+    tomHigh: { type: 'tom', pitch: 3, decay: 0.22, tone: 65, noise: 15, lofi: 15 }
+  },
+  trap: {
+    kick: { type: 'kick', pitch: -5, decay: 0.6, tone: 60, noise: 10, lofi: 0, dist: 40 },
+    snare: { type: 'snare', pitch: 2, decay: 0.12, tone: 40, noise: 85, lofi: 0, dist: 35 },
+    hihatClosed: { type: 'hihat', pitch: 3, decay: 0.03, tone: 50, noise: 95, lofi: 0, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 3, decay: 0.25, tone: 55, noise: 90, lofi: 0, closed: false },
+    clap: { type: 'clap', pitch: 1, decay: 0.1, tone: 25, noise: 95, lofi: 0, dist: 30 },
+    rimshot: { type: 'snare', pitch: 12, decay: 0.04, tone: 80, noise: 30, lofi: 0 },
+    tomLow: { type: 'tom', pitch: -2, decay: 0.4, tone: 75, noise: 10, lofi: 0 },
+    tomHigh: { type: 'tom', pitch: 4, decay: 0.28, tone: 70, noise: 12, lofi: 0 }
+  },
+  house: {
+    kick: { type: 'kick', pitch: 0, decay: 0.35, tone: 65, noise: 8, lofi: 5, dist: 15 },
+    snare: { type: 'snare', pitch: 1, decay: 0.14, tone: 55, noise: 75, lofi: 5, dist: 10 },
+    hihatClosed: { type: 'hihat', pitch: 2, decay: 0.04, tone: 60, noise: 88, lofi: 5, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 2, decay: 0.18, tone: 65, noise: 82, lofi: 5, closed: false },
+    clap: { type: 'clap', pitch: 0, decay: 0.13, tone: 40, noise: 90, lofi: 0, dist: 15 },
+    rimshot: { type: 'snare', pitch: 9, decay: 0.05, tone: 75, noise: 32, lofi: 5 },
+    tomLow: { type: 'tom', pitch: -1, decay: 0.32, tone: 72, noise: 10, lofi: 5 },
+    tomHigh: { type: 'tom', pitch: 5, decay: 0.24, tone: 68, noise: 12, lofi: 5 }
+  },
+  techno: {
+    kick: { type: 'kick', pitch: 1, decay: 0.3, tone: 70, noise: 5, lofi: 0, dist: 25 },
+    snare: { type: 'snare', pitch: 3, decay: 0.1, tone: 48, noise: 82, lofi: 0, dist: 20 },
+    hihatClosed: { type: 'hihat', pitch: 4, decay: 0.03, tone: 65, noise: 92, lofi: 0, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 4, decay: 0.15, tone: 68, noise: 88, lofi: 0, closed: false },
+    clap: { type: 'clap', pitch: 2, decay: 0.11, tone: 30, noise: 93, lofi: 0, dist: 25 },
+    rimshot: { type: 'snare', pitch: 11, decay: 0.04, tone: 82, noise: 28, lofi: 0 },
+    tomLow: { type: 'tom', pitch: 0, decay: 0.35, tone: 78, noise: 8, lofi: 0 },
+    tomHigh: { type: 'tom', pitch: 6, decay: 0.26, tone: 75, noise: 10, lofi: 0 }
+  },
+  dnb: {
+    kick: { type: 'kick', pitch: -1, decay: 0.25, tone: 58, noise: 12, lofi: 0, dist: 35 },
+    snare: { type: 'snare', pitch: 4, decay: 0.11, tone: 42, noise: 88, lofi: 0, dist: 30 },
+    hihatClosed: { type: 'hihat', pitch: 5, decay: 0.025, tone: 58, noise: 94, lofi: 0, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 5, decay: 0.12, tone: 62, noise: 90, lofi: 0, closed: false },
+    clap: { type: 'clap', pitch: 1, decay: 0.09, tone: 28, noise: 94, lofi: 0, dist: 28 },
+    rimshot: { type: 'snare', pitch: 13, decay: 0.035, tone: 85, noise: 25, lofi: 0 },
+    tomLow: { type: 'tom', pitch: 1, decay: 0.28, tone: 72, noise: 9, lofi: 0 },
+    tomHigh: { type: 'tom', pitch: 7, decay: 0.2, tone: 70, noise: 11, lofi: 0 }
+  },
+  ambient: {
+    kick: { type: 'kick', pitch: -4, decay: 0.8, tone: 35, noise: 25, lofi: 50, dist: 5 },
+    snare: { type: 'snare', pitch: -2, decay: 0.4, tone: 38, noise: 70, lofi: 45, dist: 8 },
+    hihatClosed: { type: 'hihat', pitch: -1, decay: 0.08, tone: 35, noise: 78, lofi: 40, closed: true },
+    hihatOpen: { type: 'hihat', pitch: -1, decay: 0.35, tone: 40, noise: 75, lofi: 40, closed: false },
+    clap: { type: 'clap', pitch: -1, decay: 0.2, tone: 32, noise: 85, lofi: 35, dist: 5 },
+    rimshot: { type: 'snare', pitch: 6, decay: 0.08, tone: 55, noise: 45, lofi: 30 },
+    tomLow: { type: 'tom', pitch: -5, decay: 0.6, tone: 58, noise: 20, lofi: 35 },
+    tomHigh: { type: 'tom', pitch: 1, decay: 0.4, tone: 55, noise: 22, lofi: 35 }
+  },
+  rock: {
+    kick: { type: 'kick', pitch: -1, decay: 0.3, tone: 55, noise: 18, lofi: 10, dist: 20 },
+    snare: { type: 'snare', pitch: 0, decay: 0.16, tone: 52, noise: 78, lofi: 8, dist: 18 },
+    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.045, tone: 48, noise: 86, lofi: 10, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.22, tone: 52, noise: 82, lofi: 10, closed: false },
+    clap: { type: 'clap', pitch: 0, decay: 0.14, tone: 38, noise: 88, lofi: 8, dist: 12 },
+    rimshot: { type: 'snare', pitch: 8, decay: 0.055, tone: 68, noise: 38, lofi: 8 },
+    tomLow: { type: 'tom', pitch: -3, decay: 0.38, tone: 68, noise: 14, lofi: 10 },
+    tomHigh: { type: 'tom', pitch: 3, decay: 0.28, tone: 65, noise: 16, lofi: 10 }
+  },
+  jazz: {
+    kick: { type: 'kick', pitch: -2, decay: 0.35, tone: 45, noise: 22, lofi: 20, dist: 10 },
+    snare: { type: 'snare', pitch: -1, decay: 0.2, tone: 48, noise: 72, lofi: 18, dist: 8 },
+    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.05, tone: 42, noise: 84, lofi: 15, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.28, tone: 48, noise: 80, lofi: 15, closed: false },
+    clap: { type: 'clap', pitch: -1, decay: 0.16, tone: 35, noise: 86, lofi: 15, dist: 6 },
+    rimshot: { type: 'snare', pitch: 7, decay: 0.06, tone: 65, noise: 42, lofi: 12 },
+    tomLow: { type: 'tom', pitch: -4, decay: 0.42, tone: 62, noise: 16, lofi: 18 },
+    tomHigh: { type: 'tom', pitch: 2, decay: 0.32, tone: 60, noise: 18, lofi: 18 }
+  },
+  vintage: {
+    kick: { type: 'kick', pitch: -3, decay: 0.28, tone: 38, noise: 28, lofi: 55, dist: 25 },
+    snare: { type: 'snare', pitch: -2, decay: 0.17, tone: 42, noise: 75, lofi: 50, dist: 20 },
+    hihatClosed: { type: 'hihat', pitch: -2, decay: 0.055, tone: 38, noise: 82, lofi: 45, closed: true },
+    hihatOpen: { type: 'hihat', pitch: -2, decay: 0.24, tone: 42, noise: 78, lofi: 45, closed: false },
+    clap: { type: 'clap', pitch: -1, decay: 0.15, tone: 32, noise: 88, lofi: 40, dist: 15 },
+    rimshot: { type: 'snare', pitch: 6, decay: 0.065, tone: 58, noise: 48, lofi: 35 },
+    tomLow: { type: 'tom', pitch: -5, decay: 0.4, tone: 55, noise: 20, lofi: 40 },
+    tomHigh: { type: 'tom', pitch: 1, decay: 0.3, tone: 52, noise: 22, lofi: 40 }
+  }
+};
+
+const sampleInfo = {
+  kick: { icon: '🥁', name: 'Kick', category: 'drums' },
+  snare: { icon: '🎯', name: 'Snare', category: 'drums' },
+  hihatClosed: { icon: '🔒', name: 'Hi-Hat (Closed)', category: 'cymbals' },
+  hihatOpen: { icon: '🔓', name: 'Hi-Hat (Open)', category: 'cymbals' },
+  clap: { icon: '👏', name: 'Clap', category: 'percussion' },
+  rimshot: { icon: '🎪', name: 'Rimshot', category: 'percussion' },
+  tomLow: { icon: '🥁', name: 'Tom (Low)', category: 'drums' },
+  tomHigh: { icon: '🥁', name: 'Tom (High)', category: 'drums' }
+};
+
+let currentKit = 'lofi';
+let currentSample = null;
+let currentBuffer = null;
+let sampleParams = {};
+
+// Initialize UI
+function initSampleLibrary() {
+  renderSampleList();
+  attachEventListeners();
+  updateSampleCount();
+}
+
+function renderSampleList() {
+  const kit = sampleKits[currentKit];
+  const sampleList = document.getElementById('sampleList');
   
-  // Sample kits database
-  const sampleKits = {
-    lofi: {
-      kick: { type: 'kick', pitch: -2, decay: 0.25, tone: 40, noise: 20, lofi: 40, dist: 20 },
-      snare: { type: 'snare', pitch: -1, decay: 0.15, tone: 45, noise: 75, lofi: 35, dist: 15 },
-      hihatClosed: { type: 'hihat', pitch: 0, decay: 0.04, tone: 40, noise: 85, lofi: 30, closed: true },
-      hihatOpen: { type: 'hihat', pitch: 0, decay: 0.15, tone: 45, noise: 80, lofi: 30, closed: false },
-      clap: { type: 'clap', pitch: 0, decay: 0.12, tone: 30, noise: 90, lofi: 25, dist: 10 },
-      rimshot: { type: 'snare', pitch: 8, decay: 0.05, tone: 60, noise: 40, lofi: 20 },
-      tomLow: { type: 'tom', pitch: -4, decay: 0.35, tone: 65, noise: 15, lofi: 25 },
-      tomHigh: { type: 'tom', pitch: 2, decay: 0.25, tone: 60, noise: 18, lofi: 25 }
-    },
-    hiphop: {
-      kick: { type: 'kick', pitch: -3, decay: 0.4, tone: 50, noise: 15, lofi: 15, dist: 30 },
-      snare: { type: 'snare', pitch: 0, decay: 0.18, tone: 50, noise: 80, lofi: 10, dist: 25 },
-      hihatClosed: { type: 'hihat', pitch: 1, decay: 0.05, tone: 45, noise: 90, lofi: 15, closed: true },
-      hihatOpen: { type: 'hihat', pitch: 1, decay: 0.2, tone: 50, noise: 85, lofi: 15, closed: false },
-      clap: { type: 'clap', pitch: 0, decay: 0.15, tone: 35, noise: 95, lofi: 5, dist: 20 },
-      rimshot: { type: 'snare', pitch: 10, decay: 0.06, tone: 70, noise: 35, lofi: 10 },
-      tomLow: { type: 'tom', pitch: -3, decay: 0.3, tone: 70, noise: 12, lofi: 15 },
-      tomHigh: { type: 'tom', pitch: 3, decay: 0.22, tone: 65, noise: 15, lofi: 15 }
-    },
-    trap: {
-      kick: { type: 'kick', pitch: -5, decay: 0.6, tone: 60, noise: 10, lofi: 0, dist: 40 },
-      snare: { type: 'snare', pitch: 2, decay: 0.12, tone: 40, noise: 85, lofi: 0, dist: 35 },
-      hihatClosed: { type: 'hihat', pitch: 3, decay: 0.03, tone: 50, noise: 95, lofi: 0, closed: true },
-      hihatOpen: { type: 'hihat', pitch: 3, decay: 0.25, tone: 55, noise: 90, lofi: 0, closed: false },
-      clap: { type: 'clap', pitch: 1, decay: 0.1, tone: 25, noise: 95, lofi: 0, dist: 30 },
-      rimshot: { type: 'snare', pitch: 12, decay: 0.04, tone: 80, noise: 30, lofi: 0 },
-      tomLow: { type: 'tom', pitch: -2, decay: 0.4, tone: 75, noise: 10, lofi: 0 },
-      tomHigh: { type: 'tom', pitch: 4, decay: 0.28, tone: 70, noise: 12, lofi: 0 }
-    },
-    house: {
-      kick: { type: 'kick', pitch: 0, decay: 0.35, tone: 65, noise: 8, lofi: 5, dist: 15 },
-      snare: { type: 'snare', pitch: 1, decay: 0.14, tone: 55, noise: 75, lofi: 5, dist: 10 },
-      hihatClosed: { type: 'hihat', pitch: 2, decay: 0.04, tone: 60, noise: 88, lofi: 5, closed: true },
-      hihatOpen: { type: 'hihat', pitch: 2, decay: 0.18, tone: 65, noise: 82, lofi: 5, closed: false },
-      clap: { type: 'clap', pitch: 0, decay: 0.13, tone: 40, noise: 90, lofi: 0, dist: 15 },
-      rimshot: { type: 'snare', pitch: 9, decay: 0.05, tone: 75, noise: 32, lofi: 5 },
-      tomLow: { type: 'tom', pitch: -1, decay: 0.32, tone: 72, noise: 10, lofi: 5 },
-      tomHigh: { type: 'tom', pitch: 5, decay: 0.24, tone: 68, noise: 12, lofi: 5 }
-    },
-    techno: {
-      kick: { type: 'kick', pitch: 1, decay: 0.3, tone: 70, noise: 5, lofi: 0, dist: 25 },
-      snare: { type: 'snare', pitch: 3, decay: 0.1, tone: 48, noise: 82, lofi: 0, dist: 20 },
-      hihatClosed: { type: 'hihat', pitch: 4, decay: 0.03, tone: 65, noise: 92, lofi: 0, closed: true },
-      hihatOpen: { type: 'hihat', pitch: 4, decay: 0.15, tone: 68, noise: 88, lofi: 0, closed: false },
-      clap: { type: 'clap', pitch: 2, decay: 0.11, tone: 30, noise: 93, lofi: 0, dist: 25 },
-      rimshot: { type: 'snare', pitch: 11, decay: 0.04, tone: 82, noise: 28, lofi: 0 },
-      tomLow: { type: 'tom', pitch: 0, decay: 0.35, tone: 78, noise: 8, lofi: 0 },
-      tomHigh: { type: 'tom', pitch: 6, decay: 0.26, tone: 75, noise: 10, lofi: 0 }
-    },
-    dnb: {
-      kick: { type: 'kick', pitch: -1, decay: 0.25, tone: 58, noise: 12, lofi: 0, dist: 35 },
-      snare: { type: 'snare', pitch: 4, decay: 0.11, tone: 42, noise: 88, lofi: 0, dist: 30 },
-      hihatClosed: { type: 'hihat', pitch: 5, decay: 0.025, tone: 58, noise: 94, lofi: 0, closed: true },
-      hihatOpen: { type: 'hihat', pitch: 5, decay: 0.12, tone: 62, noise: 90, lofi: 0, closed: false },
-      clap: { type: 'clap', pitch: 1, decay: 0.09, tone: 28, noise: 94, lofi: 0, dist: 28 },
-      rimshot: { type: 'snare', pitch: 13, decay: 0.035, tone: 85, noise: 25, lofi: 0 },
-      tomLow: { type: 'tom', pitch: 1, decay: 0.28, tone: 72, noise: 9, lofi: 0 },
-      tomHigh: { type: 'tom', pitch: 7, decay: 0.2, tone: 70, noise: 11, lofi: 0 }
-    },
-    ambient: {
-      kick: { type: 'kick', pitch: -4, decay: 0.8, tone: 35, noise: 25, lofi: 50, dist: 5 },
-      snare: { type: 'snare', pitch: -2, decay: 0.4, tone: 38, noise: 70, lofi: 45, dist: 8 },
-      hihatClosed: { type: 'hihat', pitch: -1, decay: 0.08, tone: 35, noise: 78, lofi: 40, closed: true },
-      hihatOpen: { type: 'hihat', pitch: -1, decay: 0.35, tone: 40, noise: 75, lofi: 40, closed: false },
-      clap: { type: 'clap', pitch: -1, decay: 0.2, tone: 32, noise: 85, lofi: 35, dist: 5 },
-      rimshot: { type: 'snare', pitch: 6, decay: 0.08, tone: 55, noise: 45, lofi: 30 },
-      tomLow: { type: 'tom', pitch: -5, decay: 0.6, tone: 58, noise: 20, lofi: 35 },
-      tomHigh: { type: 'tom', pitch: 1, decay: 0.4, tone: 55, noise: 22, lofi: 35 }
-    },
-    rock: {
-      kick: { type: 'kick', pitch: -1, decay: 0.3, tone: 55, noise: 18, lofi: 10, dist: 20 },
-      snare: { type: 'snare', pitch: 0, decay: 0.16, tone: 52, noise: 78, lofi: 8, dist: 18 },
-      hihatClosed: { type: 'hihat', pitch: 0, decay: 0.045, tone: 48, noise: 86, lofi: 10, closed: true },
-      hihatOpen: { type: 'hihat', pitch: 0, decay: 0.22, tone: 52, noise: 82, lofi: 10, closed: false },
-      clap: { type: 'clap', pitch: 0, decay: 0.14, tone: 38, noise: 88, lofi: 8, dist: 12 },
-      rimshot: { type: 'snare', pitch: 8, decay: 0.055, tone: 68, noise: 38, lofi: 8 },
-      tomLow: { type: 'tom', pitch: -3, decay: 0.38, tone: 68, noise: 14, lofi: 10 },
-      tomHigh: { type: 'tom', pitch: 3, decay: 0.28, tone: 65, noise: 16, lofi: 10 }
-    },
-    jazz: {
-      kick: { type: 'kick', pitch: -2, decay: 0.35, tone: 45, noise: 22, lofi: 20, dist: 10 },
-      snare: { type: 'snare', pitch: -1, decay: 0.2, tone: 48, noise: 72, lofi: 18, dist: 8 },
-      hihatClosed: { type: 'hihat', pitch: 0, decay: 0.05, tone: 42, noise: 84, lofi: 15, closed: true },
-      hihatOpen: { type: 'hihat', pitch: 0, decay: 0.28, tone: 48, noise: 80, lofi: 15, closed: false },
-      clap: { type: 'clap', pitch: -1, decay: 0.16, tone: 35, noise: 86, lofi: 15, dist: 6 },
-      rimshot: { type: 'snare', pitch: 7, decay: 0.06, tone: 65, noise: 42, lofi: 12 },
-      tomLow: { type: 'tom', pitch: -4, decay: 0.42, tone: 62, noise: 16, lofi: 18 },
-      tomHigh: { type: 'tom', pitch: 2, decay: 0.32, tone: 60, noise: 18, lofi: 18 }
-    },
-    vintage: {
-      kick: { type: 'kick', pitch: -3, decay: 0.28, tone: 38, noise: 28, lofi: 55, dist: 25 },
-      snare: { type: 'snare', pitch: -2, decay: 0.17, tone: 42, noise: 75, lofi: 50, dist: 20 },
-      hihatClosed: { type: 'hihat', pitch: -2, decay: 0.055, tone: 38, noise: 82, lofi: 45, closed: true },
-      hihatOpen: { type: 'hihat', pitch: -2, decay: 0.24, tone: 42, noise: 78, lofi: 45, closed: false },
-      clap: { type: 'clap', pitch: -1, decay: 0.15, tone: 32, noise: 88, lofi: 40, dist: 15 },
-      rimshot: { type: 'snare', pitch: 6, decay: 0.065, tone: 58, noise: 48, lofi: 35 },
-      tomLow: { type: 'tom', pitch: -5, decay: 0.4, tone: 55, noise: 20, lofi: 40 },
-      tomHigh: { type: 'tom', pitch: 1, decay: 0.3, tone: 52, noise: 22, lofi: 40 }
-    }
-  };
-
-  const sampleInfo = {
-    kick: { icon: '🥁', name: 'Kick', category: 'drums' },
-    snare: { icon: '🎯', name: 'Snare', category: 'drums' },
-    hihatClosed: { icon: '🔒', name: 'Hi-Hat (Closed)', category: 'cymbals' },
-    hihatOpen: { icon: '🔓', name: 'Hi-Hat (Open)', category: 'cymbals' },
-    clap: { icon: '👏', name: 'Clap', category: 'percussion' },
-    rimshot: { icon: '🎪', name: 'Rimshot', category: 'percussion' },
-    tomLow: { icon: '🥁', name: 'Tom (Low)', category: 'drums' },
-    tomHigh: { icon: '🥁', name: 'Tom (High)', category: 'drums' }
-  };
-
-  let currentKit = 'lofi';
-  let currentSample = null;
-  let currentBuffer = null;
-  let sampleParams = {};
-
-  // Initialize UI
-  function initSampleLibrary() {
-    renderSampleList();
-    attachEventListeners();
-    updateSampleCount();
-  }
-
-  function renderSampleList() {
-    const kit = sampleKits[currentKit];
-    const sampleList = document.getElementById('sampleList');
+  sampleList.innerHTML = '';
+  
+  Object.keys(kit).forEach(sampleKey => {
+    const info = sampleInfo[sampleKey];
+    const params = kit[sampleKey];
     
-    sampleList.innerHTML = '';
+    const item = document.createElement('div');
+    item.className = 'sample-item';
+    item.dataset.sample = sampleKey;
     
-    Object.keys(kit).forEach(sampleKey => {
-      const info = sampleInfo[sampleKey];
-      const params = kit[sampleKey];
-      
-      const item = document.createElement('div');
-      item.className = 'sample-item';
-      item.dataset.sample = sampleKey;
-      
-      item.innerHTML = `
-        <div class="sample-icon">${info.icon}</div>
-        <div class="sample-info">
-          <div class="sample-name">${info.name}</div>
-          <div class="sample-meta">${info.category} • ${currentKit}</div>
-        </div>
-        <div class="sample-actions">
-          <button class="sample-action-btn" data-action="preview" title="Preview">▶️</button>
-          <button class="sample-action-btn" data-action="edit" title="Edit">✏️</button>
-          <button class="sample-action-btn" data-action="export" title="Export">📥</button>
-        </div>
-      `;
-      
-      // Click to select
-      item.addEventListener('click', (e) => {
-        if (!e.target.closest('.sample-action-btn')) {
-          selectSample(sampleKey);
-        }
-      });
-      
-      // Action buttons
-      item.querySelector('[data-action="preview"]').addEventListener('click', (e) => {
-        e.stopPropagation();
-        previewSample(sampleKey);
-      });
-      
-      item.querySelector('[data-action="edit"]').addEventListener('click', (e) => {
-        e.stopPropagation();
+    item.innerHTML = `
+      <div class="sample-icon">${info.icon}</div>
+      <div class="sample-info">
+        <div class="sample-name">${info.name}</div>
+        <div class="sample-meta">${info.category} • ${currentKit}</div>
+      </div>
+      <div class="sample-actions">
+        <button class="sample-action-btn" data-action="preview" title="Preview">▶️</button>
+        <button class="sample-action-btn" data-action="edit" title="Edit">✏️</button>
+        <button class="sample-action-btn" data-action="export" title="Export">📥</button>
+      </div>
+    `;
+    
+    // Click to select
+    item.addEventListener('click', (e) => {
+      if (!e.target.closest('.sample-action-btn')) {
         selectSample(sampleKey);
-      });
-      
-      item.querySelector('[data-action="export"]').addEventListener('click', (e) => {
-        e.stopPropagation();
-        exportSample(sampleKey);
-      });
-      
-      sampleList.appendChild(item);
-    });
-  }
-
-  function selectSample(sampleKey) {
-    currentSample = sampleKey;
-    sampleParams = { ...sampleKits[currentKit][sampleKey] };
-    
-    // Update UI
-    document.querySelectorAll('.sample-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.sample === sampleKey);
+      }
     });
     
-    // Update editor
-    updateEditor();
-    generateAndDisplayWaveform();
-  }
+    // Action buttons
+    item.querySelector('[data-action="preview"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      previewSample(sampleKey);
+    });
+    
+    item.querySelector('[data-action="edit"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectSample(sampleKey);
+    });
+    
+    item.querySelector('[data-action="export"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      exportSample(sampleKey);
+    });
+    
+    sampleList.appendChild(item);
+  });
+}
 
-  function updateEditor() {
-    if (!currentSample) return;
-    
-    const info = sampleInfo[currentSample];
-    document.getElementById('selectedSampleName').textContent = info.name;
-    document.getElementById('selectedSampleInfo').textContent = 
-      `${info.category} • ${currentKit} kit`;
-    
-    // Update sliders
-    document.getElementById('samplePitch').value = sampleParams.pitch || 0;
-    document.getElementById('sampleDecay').value = sampleParams.decay || 0.2;
-    document.getElementById('sampleTone').value = sampleParams.tone || 50;
-    document.getElementById('sampleNoise').value = sampleParams.noise || 30;
-    document.getElementById('sampleAttack').value = sampleParams.attack || 0.001;
-    document.getElementById('sampleVolume').value = 0;
-    document.getElementById('sampleLofi').value = sampleParams.lofi || 0;
-    document.getElementById('sampleDist').value = sampleParams.dist || 0;
-    
-    updateEditorValues();
-  }
+function selectSample(sampleKey) {
+  currentSample = sampleKey;
+  sampleParams = { ...sampleKits[currentKit][sampleKey] };
+  
+  // Update UI
+  document.querySelectorAll('.sample-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.sample === sampleKey);
+  });
+  
+  // Update editor
+  updateEditor();
+  generateAndDisplayWaveform();
+}
 
-  function updateEditorValues() {
-    document.getElementById('samplePitchValue').textContent = 
-      (parseFloat(document.getElementById('samplePitch').value)).toFixed(1);
-    document.getElementById('sampleDecayValue').textContent = 
-      (parseFloat(document.getElementById('sampleDecay').value)).toFixed(3) + 's';
-    document.getElementById('sampleToneValue').textContent = 
-      Math.round(document.getElementById('sampleTone').value) + '%';
-    document.getElementById('sampleNoiseValue').textContent = 
-      Math.round(document.getElementById('sampleNoise').value) + '%';
-    document.getElementById('sampleAttackValue').textContent = 
-      (parseFloat(document.getElementById('sampleAttack').value)).toFixed(3) + 's';
-    document.getElementById('sampleVolumeValue').textContent = 
-      parseFloat(document.getElementById('sampleVolume').value).toFixed(1) + 'dB';
-    document.getElementById('sampleLofiValue').textContent = 
-      Math.round(document.getElementById('sampleLofi').value) + '%';
-    document.getElementById('sampleDistValue').textContent = 
-      Math.round(document.getElementById('sampleDist').value) + '%';
-  }
+function updateEditor() {
+  if (!currentSample) return;
+  
+  const info = sampleInfo[currentSample];
+  document.getElementById('selectedSampleName').textContent = info.name;
+  document.getElementById('selectedSampleInfo').textContent = 
+    `${info.category} • ${currentKit} kit`;
+  
+  // Update sliders
+  document.getElementById('samplePitch').value = sampleParams.pitch || 0;
+  document.getElementById('sampleDecay').value = sampleParams.decay || 0.2;
+  document.getElementById('sampleTone').value = sampleParams.tone || 50;
+  document.getElementById('sampleNoise').value = sampleParams.noise || 30;
+  document.getElementById('sampleAttack').value = sampleParams.attack || 0.001;
+  document.getElementById('sampleVolume').value = 0;
+  document.getElementById('sampleLofi').value = sampleParams.lofi || 0;
+  document.getElementById('sampleDist').value = sampleParams.dist || 0;
+  
+  updateEditorValues();
+}
 
-  function generateAndDisplayWaveform() {
-    if (!currentSample) return;
-    
-    currentBuffer = generateSampleBuffer();
-    
-    const canvas = document.getElementById('sampleWaveform');
-    if (canvas && currentBuffer) {
-      synth.drawWaveform(currentBuffer, canvas);
+function updateEditorValues() {
+  document.getElementById('samplePitchValue').textContent = 
+    (parseFloat(document.getElementById('samplePitch').value)).toFixed(1);
+  document.getElementById('sampleDecayValue').textContent = 
+    (parseFloat(document.getElementById('sampleDecay').value)).toFixed(3) + 's';
+  document.getElementById('sampleToneValue').textContent = 
+    Math.round(document.getElementById('sampleTone').value) + '%';
+  document.getElementById('sampleNoiseValue').textContent = 
+    Math.round(document.getElementById('sampleNoise').value) + '%';
+  document.getElementById('sampleAttackValue').textContent = 
+    (parseFloat(document.getElementById('sampleAttack').value)).toFixed(3) + 's';
+  document.getElementById('sampleVolumeValue').textContent = 
+    parseFloat(document.getElementById('sampleVolume').value).toFixed(1) + 'dB';
+  document.getElementById('sampleLofiValue').textContent = 
+    Math.round(document.getElementById('sampleLofi').value) + '%';
+  document.getElementById('sampleDistValue').textContent = 
+    Math.round(document.getElementById('sampleDist').value) + '%';
+}
+
+function generateAndDisplayWaveform() {
+  if (!currentSample) return;
+  
+  currentBuffer = generateSampleBuffer();
+  
+  const canvas = document.getElementById('sampleWaveform');
+  if (canvas && currentBuffer) {
+    synth.drawWaveform(currentBuffer, canvas);
+  }
+}
+
+function generateSampleBuffer() {
+  if (!currentSample) return null;
+  
+  const params = {
+    pitch: parseFloat(document.getElementById('samplePitch').value),
+    decay: parseFloat(document.getElementById('sampleDecay').value),
+    tone: parseFloat(document.getElementById('sampleTone').value),
+    noise: parseFloat(document.getElementById('sampleNoise').value),
+    attack: parseFloat(document.getElementById('sampleAttack').value),
+    lofi: parseFloat(document.getElementById('sampleLofi').value),
+    dist: parseFloat(document.getElementById('sampleDist').value)
+  };
+  
+  const type = sampleParams.type;
+  const closed = sampleParams.closed;
+  
+  let buffer;
+  if (type === 'kick') {
+    buffer = synth.generateKick(params);
+  } else if (type === 'snare') {
+    buffer = synth.generateSnare(params);
+  } else if (type === 'hihat') {
+    buffer = synth.generateHihat(params, closed);
+  } else if (type === 'clap') {
+    buffer = synth.generateClap(params);
+  } else if (type === 'tom') {
+    buffer = synth.generateTom(params, sampleParams.pitch || 0);
+  }
+  
+  return buffer;
+}
+
+function previewSample(sampleKey) {
+  const params = sampleKits[currentKit][sampleKey];
+  const type = params.type;
+  const closed = params.closed;
+  
+  let buffer;
+  if (type === 'kick') {
+    buffer = synth.generateKick(params);
+  } else if (type === 'snare') {
+    buffer = synth.generateSnare(params);
+  } else if (type === 'hihat') {
+    buffer = synth.generateHihat(params, closed);
+  } else if (type === 'clap') {
+    buffer = synth.generateClap(params);
+  } else if (type === 'tom') {
+    buffer = synth.generateTom(params, params.pitch || 0);
+  }
+  
+  if (buffer) {
+    synth.play(buffer, 0);
+  }
+}
+
+function exportSample(sampleKey) {
+  const params = sampleKits[currentKit][sampleKey];
+  const info = sampleInfo[sampleKey];
+  const type = params.type;
+  const closed = params.closed;
+  
+  let buffer;
+  if (type === 'kick') {
+    buffer = synth.generateKick(params);
+  } else if (type === 'snare') {
+    buffer = synth.generateSnare(params);
+  } else if (type === 'hihat') {
+    buffer = synth.generateHihat(params, closed);
+  } else if (type === 'clap') {
+    buffer = synth.generateClap(params);
+  } else if (type === 'tom') {
+    buffer = synth.generateTom(params, params.pitch || 0);
+  }
+  
+  if (buffer) {
+    const filename = `${currentKit}_${sampleKey}.wav`;
+    synth.exportWAV(buffer, filename);
+  }
+}
+
+function updateSampleCount() {
+  const count = Object.keys(sampleKits[currentKit]).length;
+  document.getElementById('sampleCount').textContent = `${count} sounds`;
+}
+
+function attachEventListeners() {
+  // Kit selector
+  document.querySelectorAll('[data-kit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-kit]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentKit = btn.dataset.kit;
+      renderSampleList();
+      updateSampleCount();
+      currentSample = null;
+      currentBuffer = null;
+      
+      document.getElementById('selectedSampleName').textContent = 'Select a sample';
+      document.getElementById('selectedSampleInfo').textContent = 'Click any sample to edit';
+    });
+  });
+
+  // Editor sliders
+  const sliders = [
+    'samplePitch', 'sampleDecay', 'sampleTone', 'sampleNoise',
+    'sampleAttack', 'sampleVolume', 'sampleLofi', 'sampleDist'
+  ];
+  
+  sliders.forEach(id => {
+    const slider = document.getElementById(id);
+    if (slider) {
+      slider.addEventListener('input', () => {
+        updateEditorValues();
+        generateAndDisplayWaveform();
+      });
     }
-  }
+  });
 
-  function generateSampleBuffer() {
-    if (!currentSample) return null;
+  // Preview button
+  document.getElementById('previewSampleBtn')?.addEventListener('click', () => {
+    if (currentBuffer) {
+      const volume = parseFloat(document.getElementById('sampleVolume').value);
+      synth.play(currentBuffer, volume);
+    }
+  });
+
+  // Save button
+  document.getElementById('saveSampleBtn')?.addEventListener('click', () => {
+    if (!currentSample) return;
     
-    const params = {
+    sampleKits[currentKit][currentSample] = {
+      ...sampleParams,
       pitch: parseFloat(document.getElementById('samplePitch').value),
       decay: parseFloat(document.getElementById('sampleDecay').value),
       tone: parseFloat(document.getElementById('sampleTone').value),
@@ -17500,198 +17622,69 @@ function gateTabsForFreeUsers() {
       dist: parseFloat(document.getElementById('sampleDist').value)
     };
     
-    const type = sampleParams.type;
-    const closed = sampleParams.closed;
-    
-    let buffer;
-    if (type === 'kick') {
-      buffer = synth.generateKick(params);
-    } else if (type === 'snare') {
-      buffer = synth.generateSnare(params);
-    } else if (type === 'hihat') {
-      buffer = synth.generateHihat(params, closed);
-    } else if (type === 'clap') {
-      buffer = synth.generateClap(params);
-    } else if (type === 'tom') {
-      buffer = synth.generateTom(params, sampleParams.pitch || 0);
+    alert('✓ Sample saved to kit!');
+  });
+
+  // Export button
+  document.getElementById('exportSampleBtn')?.addEventListener('click', () => {
+    if (currentBuffer && currentSample) {
+      const info = sampleInfo[currentSample];
+      const filename = `${currentKit}_${currentSample}_custom.wav`;
+      synth.exportWAV(currentBuffer, filename);
     }
-    
-    return buffer;
-  }
+  });
 
-  function previewSample(sampleKey) {
-    const params = sampleKits[currentKit][sampleKey];
-    const type = params.type;
-    const closed = params.closed;
-    
-    let buffer;
-    if (type === 'kick') {
-      buffer = synth.generateKick(params);
-    } else if (type === 'snare') {
-      buffer = synth.generateSnare(params);
-    } else if (type === 'hihat') {
-      buffer = synth.generateHihat(params, closed);
-    } else if (type === 'clap') {
-      buffer = synth.generateClap(params);
-    } else if (type === 'tom') {
-      buffer = synth.generateTom(params, params.pitch || 0);
+  // Reset button
+  document.getElementById('resetSampleBtn')?.addEventListener('click', () => {
+    if (currentSample) {
+      sampleParams = { ...sampleKits[currentKit][currentSample] };
+      updateEditor();
+      generateAndDisplayWaveform();
     }
+  });
+
+  // Load kit to sequencer
+  document.getElementById('loadKitBtn')?.addEventListener('click', () => {
+    alert(`🎹 Loading ${currentKit} kit to sequencer...\n\nThis would integrate with your existing sequencer code!`);
+  });
+
+  // Generate pack
+  document.getElementById('generatePackBtn')?.addEventListener('click', () => {
+    const character = document.getElementById('genCharacter').value;
+    const variation = document.getElementById('genVariation').value;
+    const lofi = document.getElementById('genLofi').value;
     
-    if (buffer) {
-      synth.play(buffer, 0);
-    }
-  }
+    alert(`🎲 Generating custom pack...\n\nCharacter: ${character}%\nVariation: ${variation}%\nLo-Fi: ${lofi}%\n\nThis creates a unique kit based on your parameters!`);
+  });
 
-  function exportSample(sampleKey) {
-    const params = sampleKits[currentKit][sampleKey];
-    const info = sampleInfo[sampleKey];
-    const type = params.type;
-    const closed = params.closed;
-    
-    let buffer;
-    if (type === 'kick') {
-      buffer = synth.generateKick(params);
-    } else if (type === 'snare') {
-      buffer = synth.generateSnare(params);
-    } else if (type === 'hihat') {
-      buffer = synth.generateHihat(params, closed);
-    } else if (type === 'clap') {
-      buffer = synth.generateClap(params);
-    } else if (type === 'tom') {
-      buffer = synth.generateTom(params, params.pitch || 0);
-    }
-    
-    if (buffer) {
-      const filename = `${currentKit}_${sampleKey}.wav`;
-      synth.exportWAV(buffer, filename);
-    }
-  }
+  // Download pack
+  document.getElementById('downloadPackBtn')?.addEventListener('click', () => {
+    alert(`📦 Downloading ${currentKit} kit as ZIP...\n\nAll 8 samples would be exported!`);
+  });
 
-  function updateSampleCount() {
-    const count = Object.keys(sampleKits[currentKit]).length;
-    document.getElementById('sampleCount').textContent = `${count} sounds`;
-  }
+  // Generator sliders
+  document.getElementById('genCharacter')?.addEventListener('input', (e) => {
+    const val = e.target.value;
+    const label = val < 33 ? 'Warm' : val < 66 ? 'Balanced' : 'Bright';
+    document.getElementById('genCharacterValue').textContent = label;
+  });
 
-  function attachEventListeners() {
-    // Kit selector
-    document.querySelectorAll('[data-kit]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('[data-kit]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentKit = btn.dataset.kit;
-        renderSampleList();
-        updateSampleCount();
-        currentSample = null;
-        currentBuffer = null;
-        
-        document.getElementById('selectedSampleName').textContent = 'Select a sample';
-        document.getElementById('selectedSampleInfo').textContent = 'Click any sample to edit';
-      });
-    });
+  document.getElementById('genVariation')?.addEventListener('input', (e) => {
+    const val = e.target.value;
+    const label = val < 33 ? 'Low' : val < 66 ? 'Medium' : 'High';
+    document.getElementById('genVariationValue').textContent = label;
+  });
 
-    // Editor sliders
-    const sliders = [
-      'samplePitch', 'sampleDecay', 'sampleTone', 'sampleNoise',
-      'sampleAttack', 'sampleVolume', 'sampleLofi', 'sampleDist'
-    ];
-    
-    sliders.forEach(id => {
-      const slider = document.getElementById(id);
-      if (slider) {
-        slider.addEventListener('input', () => {
-          updateEditorValues();
-          generateAndDisplayWaveform();
-        });
-      }
-    });
+  document.getElementById('genLofi')?.addEventListener('input', (e) => {
+    document.getElementById('genLofiValue').textContent = e.target.value + '%';
+  });
 
-    // Preview button
-    document.getElementById('previewSampleBtn')?.addEventListener('click', () => {
-      if (currentBuffer) {
-        const volume = parseFloat(document.getElementById('sampleVolume').value);
-        synth.play(currentBuffer, volume);
-      }
-    });
-
-    // Save button
-    document.getElementById('saveSampleBtn')?.addEventListener('click', () => {
-      if (!currentSample) return;
-      
-      sampleKits[currentKit][currentSample] = {
-        ...sampleParams,
-        pitch: parseFloat(document.getElementById('samplePitch').value),
-        decay: parseFloat(document.getElementById('sampleDecay').value),
-        tone: parseFloat(document.getElementById('sampleTone').value),
-        noise: parseFloat(document.getElementById('sampleNoise').value),
-        attack: parseFloat(document.getElementById('sampleAttack').value),
-        lofi: parseFloat(document.getElementById('sampleLofi').value),
-        dist: parseFloat(document.getElementById('sampleDist').value)
-      };
-      
-      alert('✓ Sample saved to kit!');
-    });
-
-    // Export button
-    document.getElementById('exportSampleBtn')?.addEventListener('click', () => {
-      if (currentBuffer && currentSample) {
-        const info = sampleInfo[currentSample];
-        const filename = `${currentKit}_${currentSample}_custom.wav`;
-        synth.exportWAV(currentBuffer, filename);
-      }
-    });
-
-    // Reset button
-    document.getElementById('resetSampleBtn')?.addEventListener('click', () => {
-      if (currentSample) {
-        sampleParams = { ...sampleKits[currentKit][currentSample] };
-        updateEditor();
-        generateAndDisplayWaveform();
-      }
-    });
-
-    // Load kit to sequencer
-    document.getElementById('loadKitBtn')?.addEventListener('click', () => {
-      alert(`🎹 Loading ${currentKit} kit to sequencer...\n\nThis would integrate with your existing sequencer code!`);
-    });
-
-    // Generate pack
-    document.getElementById('generatePackBtn')?.addEventListener('click', () => {
-      const character = document.getElementById('genCharacter').value;
-      const variation = document.getElementById('genVariation').value;
-      const lofi = document.getElementById('genLofi').value;
-      
-      alert(`🎲 Generating custom pack...\n\nCharacter: ${character}%\nVariation: ${variation}%\nLo-Fi: ${lofi}%\n\nThis creates a unique kit based on your parameters!`);
-    });
-
-    // Download pack
-    document.getElementById('downloadPackBtn')?.addEventListener('click', () => {
-      alert(`📦 Downloading ${currentKit} kit as ZIP...\n\nAll 8 samples would be exported!`);
-    });
-
-    // Generator sliders
-    document.getElementById('genCharacter')?.addEventListener('input', (e) => {
-      const val = e.target.value;
-      const label = val < 33 ? 'Warm' : val < 66 ? 'Balanced' : 'Bright';
-      document.getElementById('genCharacterValue').textContent = label;
-    });
-
-    document.getElementById('genVariation')?.addEventListener('input', (e) => {
-      const val = e.target.value;
-      const label = val < 33 ? 'Low' : val < 66 ? 'Medium' : 'High';
-      document.getElementById('genVariationValue').textContent = label;
-    });
-
-    document.getElementById('genLofi')?.addEventListener('input', (e) => {
-      document.getElementById('genLofiValue').textContent = e.target.value + '%';
-    });
-
-    // Refresh button
-    document.getElementById('refreshSamplesBtn')?.addEventListener('click', () => {
-      renderSampleList();
-      alert('✓ Sample library refreshed!');
-    });
-  }
-})();
+  // Refresh button
+  document.getElementById('refreshSamplesBtn')?.addEventListener('click', () => {
+    renderSampleList();
+    alert('✓ Sample library refreshed!');
+  });
+}
 
 // === Splash / Initialization UI ===
 const splash = {
