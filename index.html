@@ -8243,39 +8243,41 @@ function openNoteEditor(inst) {
   }
   
   modal.innerHTML = `
-    <div class="modal-header">
-      <div class="modal-title">🎵 ${instruments[inst].icon} ${instruments[inst].name} - Select Note</div>
-      <button class="modal-close" id="closeNoteModal">✕</button>
-    </div>
-    <div class="modal-body">
-      <p style="margin-bottom: var(--space-4); color: var(--text-secondary);">
-        Choose the default note for <strong>${instruments[inst].name}</strong>. 
-        This will apply to all active steps that don't have a custom note set.
-      </p>
-      
-      <div style="display: grid; gap: var(--space-3);">
-        <label style="display: flex; flex-direction: column; gap: var(--space-2);">
-          <span style="font-weight: 700; color: var(--text-primary);">Note</span>
-          <select id="noteSelect" style="font-size: var(--text-base); padding: var(--space-4);">
-            ${allNotes.map(note => 
-              `<option value="${note}" ${note === currentNote ? 'selected' : ''}>${note}</option>`
-            ).join('')}
-          </select>
-        </label>
+    <div class="pro-locked">
+      <div class="modal-header">
+        <div class="modal-title">🎵 ${instruments[inst].icon} ${instruments[inst].name} - Select Note</div>
+        <button class="modal-close" id="closeNoteModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: var(--space-4); color: var(--text-secondary);">
+          Choose the default note for <strong>${instruments[inst].name}</strong>. 
+          This will apply to all active steps that don't have a custom note set.
+        </p>
         
-        <div style="padding: var(--space-4); background: var(--glass-bg); border-radius: var(--radius-md); border: 1px solid var(--glass-border);">
-          <div style="font-weight: 700; margin-bottom: var(--space-2); color: var(--text-primary);">Current: ${currentNote}</div>
-          <div style="font-size: var(--text-sm); color: var(--text-tertiary);">
-            Lower octaves (1-2) = Bass range<br>
-            Mid octaves (3-4) = Chord/melody range<br>
-            High octaves (5-6) = Lead range
+        <div style="display: grid; gap: var(--space-3);">
+          <label style="display: flex; flex-direction: column; gap: var(--space-2);">
+            <span style="font-weight: 700; color: var(--text-primary);">Note</span>
+            <select id="noteSelect" style="font-size: var(--text-base); padding: var(--space-4);">
+              ${allNotes.map(note => 
+                `<option value="${note}" ${note === currentNote ? 'selected' : ''}>${note}</option>`
+              ).join('')}
+            </select>
+          </label>
+          
+          <div style="padding: var(--space-4); background: var(--glass-bg); border-radius: var(--radius-md); border: 1px solid var(--glass-border);">
+            <div style="font-weight: 700; margin-bottom: var(--space-2); color: var(--text-primary);">Current: ${currentNote}</div>
+            <div style="font-size: var(--text-sm); color: var(--text-tertiary);">
+              Lower octaves (1-2) = Bass range<br>
+              Mid octaves (3-4) = Chord/melody range<br>
+              High octaves (5-6) = Lead range
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" id="cancelNoteBtn">Cancel</button>
-      <button class="btn btn-primary" id="applyNoteBtn">Apply Note</button>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelNoteBtn">Cancel</button>
+        <button class="btn btn-primary" id="applyNoteBtn">Apply Note</button>
+      </div>
     </div>
   `;
   
