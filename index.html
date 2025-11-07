@@ -17350,6 +17350,9 @@ const sampleKits = {
   }
 };
 
+// Keep an immutable copy of the original kits so we can randomize around them
+const baseSampleKits = JSON.parse(JSON.stringify(sampleKits));
+
 const sampleInfo = {
   kick: { icon: '🥁', name: 'Kick', category: 'drums' },
   snare: { icon: '🎯', name: 'Snare', category: 'drums' },
@@ -17426,6 +17429,11 @@ function renderSampleList() {
     sampleList.appendChild(item);
   });
 }
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 
 function selectSample(sampleKey) {
   currentSample = sampleKey;
@@ -17543,6 +17551,65 @@ function generateBufferForSampleConfig(config) {
   }
 
   return buffer;
+}
+
+function generateRandomizedKit(kitName) {
+  const baseKit = baseSampleKits[kitName];
+  if (!baseKit) return null;
+
+  // Read generator controls
+  const character = parseFloat(document.getElementById('genCharacter')?.value || 50); // 0–100
+  const variation = parseFloat(document.getElementById('genVariation')?.value || 0);  // 0–100
+  const lofi = parseFloat(document.getElementById('genLofi')?.value || 0);            // 0–100
+
+  const charNorm = (character - 50) / 50; // -1 (warm/dark) .. +1 (bright/punchy)
+  const varNorm = variation / 100;        // 0..1 how wild to go
+  const lofiNorm = lofi / 100;            // 0..1 lo-fi intensity
+
+  const newKit = {};
+
+  Object.entries(baseKit).forEach(([sampleKey, base]) => {
+    const cfg = { ...base };
+
+    // 1) Pitch: more variation = more semitone wander
+    const maxPitchSpread = 2 + 6 * varNorm; // up to ±8 semis at 100% variation
+    const randPitchOffset = (Math.random() * 2 - 1) * maxPitchSpread;
+    cfg.pitch = (base.pitch || 0) + randPitchOffset;
+
+    // 2) Decay: ± up to 40% depending on variation
+    const decayFactor = 1 + (Math.random() * 2 - 1) * (0.4 * varNorm);
+    cfg.decay = +(base.decay * decayFactor).toFixed(3);
+
+    // 3) Tone: "Character" biases darker or brighter + some random
+    const toneBaseShift = charNorm * 25;                       // -25 to +25
+    const toneRand = (Math.random() * 2 - 1) * (10 * varNorm); // extra spice
+    cfg.tone = clamp(base.tone + toneBaseShift + toneRand, 0, 100);
+
+    // 4) Noise: mostly driven by variation (more variation = more chaos)
+    const noiseRand = (Math.random() * 2 - 1) * (20 * varNorm);
+    cfg.noise = clamp(base.noise + noiseRand, 0, 100);
+
+    // 5) Distortion: mostly increases as Character goes “bright”
+    const distBase = base.dist || 0;
+    const distChar = Math.max(0, charNorm) * 30;              // up to +30 from character
+    const distRand = (Math.random() * 2 - 1) * (10 * varNorm);
+    cfg.dist = clamp(distBase + distChar + distRand, 0, 100);
+
+    // 6) Lo-Fi: blend base lo-fi with slider value, biasing toward slider
+    const baseLofi = base.lofi || 0;
+    const mix = 0.4 + 0.6 * lofiNorm; // 40–100% influence from slider
+    cfg.lofi = clamp(baseLofi * (1 - mix) + lofi * mix, 0, 100);
+
+    // Preserve type/closed flags
+    cfg.type = base.type;
+    if (base.closed !== undefined) {
+      cfg.closed = base.closed;
+    }
+
+    newKit[sampleKey] = cfg;
+  });
+
+  return newKit;
 }
 
 async function buildKitZip(kitName = currentKit) {
@@ -17805,13 +17872,32 @@ function attachEventListeners() {
   });
 
 
-  // Generate pack
+  // Generate pack (real randomizer)
   document.getElementById('generatePackBtn')?.addEventListener('click', () => {
-    const character = document.getElementById('genCharacter').value;
-    const variation = document.getElementById('genVariation').value;
-    const lofi = document.getElementById('genLofi').value;
-    
-    alert(`🎲 Generating custom pack...\n\nCharacter: ${character}%\nVariation: ${variation}%\nLo-Fi: ${lofi}%\n\nThis creates a unique kit based on your parameters!`);
+    const newKit = generateRandomizedKit(currentKit);
+    if (!newKit) {
+      alert('Unable to generate kit – base kit not found.');
+      return;
+    }
+  
+    // Overwrite the working kit with the new randomized one
+    sampleKits[currentKit] = newKit;
+  
+    // Re-render the list so meta text stays fresh
+    renderSampleList();
+  
+    // Clear selection so user intentionally picks a sample to edit
+    currentSample = null;
+    currentBuffer = null;
+    document.getElementById('selectedSampleName').textContent = 'Select a sample';
+    document.getElementById('selectedSampleInfo').textContent =
+      `Randomized ${currentKit} kit — click any sample to edit`;
+  
+    if (typeof showToast === 'function') {
+      showToast(`🎲 Generated a new ${currentKit} kit`, 'info');
+    } else {
+      alert(`🎲 Generated a new variant of the "${currentKit}" kit!`);
+    }
   });
 
   // Download pack (real ZIP export)
