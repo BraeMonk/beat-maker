@@ -6671,7 +6671,8 @@ function createDrumSynth(inst) {
   });
   
   // Create volume control for this player
-  const playerGain = new Tone.Gain(1);
+  const BASE_GAIN = 0.6; // ~-4 dB
+  const playerGain = new Tone.Gain(BASE_GAIN);
   player.connect(playerGain);
   
   // Return proxy that matches synth interface
@@ -6679,7 +6680,9 @@ function createDrumSynth(inst) {
     triggerAttackRelease: (note, duration, time, velocity = 1) => {
       if (player.loaded) {
         player.stop(time);
-        playerGain.gain.setValueAtTime(velocity, time);
+        // Clamp velocity and keep overall gain under control
+        const safeVel = Math.min(velocity, 0.9); // just in case
+        playerGain.gain.setValueAtTime(BASE_GAIN * safeVel, time);
         player.start(time);
       }
     },
@@ -6964,6 +6967,8 @@ function createMelodicSynth(inst) {
       console.log(`✅ ${inst} samples loaded`);
     }
   });
+
+  sampler.volume.value = -6;
   
   switch (inst) {
     case 'bass':
@@ -13538,61 +13543,31 @@ async function previewMultitrack(startAtSeconds) {
 
   showToast(`⏳ Loading takes (from ${previewStart.toFixed(2)}s).`, 'info');
 
-  for (const track of activeTracks) {
-    const take = track.takes[track.selectedTakeIndex];
-    if (!take || take.muted) continue;
+  try {
+    // Pass the AudioBuffer directly to Tone.Player – same pattern as your edit modal
+    const player = new Tone.Player(take.buffer).connect(track.channel);
+    player.loop = false;
+    player.fadeOut = 0.01;
 
-    // take.buffer is an AudioBuffer or Tone.ToneAudioBuffer
-    if (!take.buffer) {
-      console.error(`❌ ${track.name}: Missing buffer`);
-      continue;
-    }
+    const relativeStart = Math.max(0, regionStart - previewStart);
 
-    const regionStart = take.startTime || 0;
-    const regionDuration =
-      typeof take.duration === 'number'
-        ? take.duration
-        : (take.buffer.duration || 0);
-    const regionEnd = regionStart + regionDuration;
+    multitrack.previewPlayers.push({
+      player,
+      track,
+      startTime: regionStart,
+      relativeStart
+    });
 
-    // Skip anything that ends before our preview start
-    if (regionEnd <= previewStart) continue;
+    if (regionEnd > previewEnd) previewEnd = regionEnd;
 
-    try {
-      const player = new Tone.Player({
-        context: Tone.context,
-        loop: false,
-        fadeOut: 0.01
-      }).connect(track.channel || multitrack.masterBus);
-
-      // If it’s already a ToneAudioBuffer, just assign it.
-      // If it’s a plain AudioBuffer, wrap it in a Tone.ToneAudioBuffer.
-      if (take.buffer instanceof Tone.ToneAudioBuffer) {
-        player.buffer = take.buffer;
-      } else {
-        player.buffer = new Tone.ToneAudioBuffer(take.buffer);
-      }
-
-      const relativeStart = Math.max(0, regionStart - previewStart);
-
-      multitrack.previewPlayers.push({
-        player,
-        track,
-        startTime: regionStart,
-        relativeStart
-      });
-
-      if (regionEnd > previewEnd) previewEnd = regionEnd;
-
-      console.log(
-        `✅ ${track.name} ready: region ${regionStart.toFixed(3)}–${regionEnd.toFixed(3)}s, ` +
-        `plays at +${relativeStart.toFixed(3)}s in preview`
-      );
-
-    } catch (err) {
-      console.error(`❌ ${track.name} failed:`, err);
-    }
+    console.log(
+      `✅ ${track.name} ready: region ${regionStart.toFixed(3)}–${regionEnd.toFixed(3)}s, ` +
+      `plays at +${relativeStart.toFixed(3)}s in preview`
+    );
+  } catch (err) {
+    console.error(`❌ Failed to prepare ${track.name}:`, err);
   }
+
 
   if (!multitrack.previewPlayers.length) {
     showToast('⚠️ No regions overlap this preview range', 'warning');
@@ -16882,6 +16857,28 @@ function gateTabsForFreeUsers() {
   }
 }
 
+// Simple in-place normaliser with headroom
+function normalizeBufferInPlace(buffer, targetDb = -6) {
+  if (!buffer) return;
+  const ch = buffer.getChannelData(0);
+  if (!ch || !ch.length) return;
+
+  // Find peak
+  let peak = 0;
+  for (let i = 0; i < ch.length; i++) {
+    const v = Math.abs(ch[i]);
+    if (v > peak) peak = v;
+  }
+  if (peak === 0) return;
+
+  const targetLinear = Math.pow(10, targetDb / 20); // dB → linear
+  const gain = targetLinear / peak;
+
+  for (let i = 0; i < ch.length; i++) {
+    ch[i] *= gain;
+  }
+}
+
 // High-quality sample synthesis engine (more natural, less buzzy)
 class SampleSynthesizer {
   constructor() {
@@ -18431,9 +18428,13 @@ function attachEventListeners() {
       }
   
       if (!buffer) return;
+
+      // 🔉 Give this generated sample some headroom *before* we encode it
+      normalizeBufferInPlace(buffer, -6);  // ⬅️ add this line
   
       // 1) Convert to WAV URL for anything that uses URLs (DRUM_SAMPLES / Players)
       const url = bufferToObjectUrlFromSynth(buffer);
+
   
       // 2) Update DRUM_SAMPLES if it’s a drum-ish key
       if (['kick', 'snare', 'hihat', 'clap', 'tom', 'rimshot', 'crash', 'ride'].includes(sampleKey)) {
