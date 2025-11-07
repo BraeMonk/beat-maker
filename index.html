@@ -6054,6 +6054,8 @@
   <!-- Add before closing </body> tag -->
   <div id="waveformEditorModal" style="display: none;"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
 <script>
 // ========================================
 // 8-Beat Studio - Fully Optimized JS
@@ -17543,6 +17545,35 @@ function generateBufferForSampleConfig(config) {
   return buffer;
 }
 
+async function buildKitZip(kitName = currentKit) {
+  if (!window.JSZip) {
+    alert('ZIP library (JSZip) is not loaded.');
+    return null;
+  }
+
+  const kit = sampleKits[kitName];
+  if (!kit) {
+    alert('No kit found for "' + kitName + '".');
+    return null;
+  }
+
+  const zip = new JSZip();
+  const folder = zip.folder(`${kitName}_kit`);
+
+  for (const [sampleKey, config] of Object.entries(kit)) {
+    const buffer = generateBufferForSampleConfig(config);
+    if (!buffer) continue;
+
+    const wavArrayBuffer = synth.bufferToWav(buffer);
+    const filename = `${kitName}_${sampleKey}.wav`;
+    folder.file(filename, wavArrayBuffer); // ArrayBuffer is fine
+  }
+
+  // Generate zip as a Blob
+  const blob = await zip.generateAsync({ type: 'blob' });
+  return blob;
+}
+
 function previewSample(sampleKey) {
   const params = sampleKits[currentKit][sampleKey];
   const type = params.type;
@@ -17783,9 +17814,45 @@ function attachEventListeners() {
     alert(`🎲 Generating custom pack...\n\nCharacter: ${character}%\nVariation: ${variation}%\nLo-Fi: ${lofi}%\n\nThis creates a unique kit based on your parameters!`);
   });
 
-  // Download pack
-  document.getElementById('downloadPackBtn')?.addEventListener('click', () => {
-    alert(`📦 Downloading ${currentKit} kit as ZIP...\n\nAll 8 samples would be exported!`);
+  // Download pack (real ZIP export)
+  document.getElementById('downloadPackBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('downloadPackBtn');
+  
+    try {
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Building pack...';
+      }
+  
+      const zipBlob = await buildKitZip(currentKit);
+      if (!zipBlob) return;
+  
+      const dateStamp = new Date().toISOString().slice(0, 10); // e.g. 2025-11-07
+      const filename = `${currentKit}_kit_${dateStamp}.zip`;
+  
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+  
+      if (typeof showToast === 'function') {
+        showToast(`📦 Downloaded "${currentKit}" kit as ZIP`, 'success');
+      } else {
+        alert(`📦 Downloaded "${currentKit}" kit as ${filename}`);
+      }
+    } catch (err) {
+      console.error('Error building kit ZIP:', err);
+      alert('Failed to build sample pack ZIP. Check console for details.');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '📦 Download Pack';
+      }
+    }
   });
 
   // Generator sliders
