@@ -2904,8 +2904,6 @@
   overflow: hidden; /* CRITICAL */
   height: 100%; /* Fill grid cell */
   min-height: 0; /* Allow flex shrinking */
-  grid-row: 3;
-  order: 3;
   max-height: 300px;
   overflow-y: auto;
   position: static;
@@ -3085,9 +3083,6 @@
   flex-direction: column;
   gap: var(--space-3);
   flex-shrink: 0; /* Don't shrink */
-  margin-top: auto; /* Push to bottom */
-  grid-row: 4;
-  order: 4;
   position: static; /* Remove from track list */
   background: var(--surface-elevated);
   border-top: 2px solid var(--glass-border-strong);
@@ -5245,16 +5240,16 @@
             <div class="daw-track-list-scroll" id="dawTrackList">
               <!-- Track strips will be dynamically inserted here -->
             </div>
-    
-            <div class="daw-master-strip">
-              <div class="daw-section-header">Master</div>
-              <div class="daw-meters">
-                <div class="daw-meter-bar" id="masterMeterL"></div>
-                <div class="daw-meter-bar" id="masterMeterR"></div>
-              </div>
-              <input type="range" orient="vertical" id="masterFader" min="-60" max="6" value="0" step="0.1">
-              <div class="daw-fader-label" id="masterFaderLabel">0.0 dB</div>
+          </div>
+          
+          <div class="daw-master-strip">
+            <div class="daw-section-header">Master</div>
+            <div class="daw-meters">
+              <div class="daw-meter-bar" id="masterMeterL"></div>
+              <div class="daw-meter-bar" id="masterMeterR"></div>
             </div>
+            <input type="range" orient="vertical" id="masterFader" min="-60" max="6" value="0" step="0.1">
+            <div class="daw-fader-label" id="masterFaderLabel">0.0 dB</div>
           </div>
     
           <!-- CENTER: Timeline / Arrangement View -->
