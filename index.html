@@ -13473,6 +13473,25 @@ function setupPreviewButton() {
   });
 }
 
+// --- GLOBAL MASTER BUS SAFETY NET ---
+const masterGain = new Tone.Gain(0.8); // master volume ~ -2dB
+const limiter = new Tone.Limiter(-1);  // prevents 0dBFS overload
+masterGain.connect(limiter).toDestination();
+
+// Attach to both systems
+if (!multitrack.masterBus) multitrack.masterBus = masterGain;
+window.SEQUENCER_MASTER_BUS = masterGain;
+
+// Normalizes based on measured RMS (~perceived loudness)
+function normalizeBufferVolume(audioBuffer) {
+  const data = audioBuffer.getChannelData(0);
+  let sumSq = 0;
+  for (let i = 0; i < data.length; i++) sumSq += data[i] * data[i];
+  const rms = Math.sqrt(sumSq / data.length);
+  const targetRms = 0.25; // safe loudness
+  return Tone.gainToDb(targetRms / (rms || 1e-6));
+}
+  
 // Make sure you have something like this in your global state:
 /// const state = { duration: 3, isPlaying: false, cursorSeconds: 0 };
 
@@ -13487,7 +13506,6 @@ function previewMultitrack(startFrom) {
     return;
   }
 
-  // Where do we start in project time?
   const previewStart = clamp(
     typeof startFrom === 'number' ? startFrom : state.cursorSeconds || 0,
     0,
@@ -13516,43 +13534,49 @@ function previewMultitrack(startFrom) {
     // If region ends before previewStart, skip it entirely
     if (regionEnd <= previewStart) return;
 
-    // How far into the take buffer should we jump?
-    const bufferOffset = previewStart > regionStart
-      ? previewStart - regionStart
-      : 0;
-
-    // When (relative to "now") should we start this region?
+    const bufferOffset = previewStart > regionStart ? previewStart - regionStart : 0;
     const relativeStart = Math.max(0, regionStart - previewStart);
 
-    // --- replace your existing Tone.Player(...) block with this ---
-    const player = new Tone.Player({
-      context: Tone.context,
-      loop: false,
-      fadeOut: 0.05
-    }).connect(track.channel || multitrack.masterBus);
+    // --- SAFE PLAYER FOR MULTITRACK ---
+    try {
+      const player = new Tone.Player({
+        context: Tone.context,
+        loop: false,
+        autostart: false,
+        fadeOut: 0.05,
+        volume: -10 // start ~10 dB quieter
+      });
     
-    // ✅ Properly assign the in-memory AudioBuffer
-    player.buffer = new Tone.ToneAudioBuffer(take.buffer);
+      // Properly wrap the AudioBuffer
+      player.buffer = new Tone.ToneAudioBuffer(take.buffer);
     
-    // ✅ Add gain control to avoid clipping
-    const gainNode = new Tone.Gain(
-      track.volume != null ? track.volume : 0.4 // about -8 dB default
-    ).connect(multitrack.masterBus);
-    player.connect(gainNode);
+      // --- Normalize buffer volume before routing ---
+      const safeDb = normalizeBufferVolume(take.buffer); // <- call your helper here
+      const gainNode = new Tone.Gain(Tone.dbToGain(safeDb)).connect(multitrack.masterBus);
+    
+      player.connect(gainNode);
+    
+      player.unsync();
+      player.sync();
+    
+      player.start(now + relativeStart, bufferOffset);
+    
+      multitrack.previewPlayers.push({
+        player,
+        track,
+        startTime: regionStart,
+        endTime: regionEnd,
+        relativeStart,
+        bufferOffset
+      });
+    
+      anyPlayable = true;
+    } catch (err) {
+      console.error("⚠️ Multitrack preview failed:", err);
+    }
+  }); // <-- ✅ correctly closes forEach
 
-    player.sync().start(now + relativeStart, bufferOffset);
-    anyPlayable = true;
-
-    multitrack.previewPlayers.push({
-      player,
-      track,
-      startTime: regionStart,
-      endTime: regionEnd,
-      relativeStart,
-      bufferOffset
-    });
-  });
-
+  // --- after loop ---
   if (!anyPlayable) {
     alert('No regions exist after this point in time to preview.');
     return;
@@ -13563,12 +13587,9 @@ function previewMultitrack(startFrom) {
   multitrack.previewStartCursor = previewStart;
 
   console.log(`🎧 Previewing mix from ${previewStart.toFixed(2)}s`);
+  showToast?.(`🎧 Previewing mix from ${previewStart.toFixed(2)}s`, 'info');
 
-  if (typeof showToast === 'function') {
-    showToast(`🎧 Previewing mix from ${previewStart.toFixed(2)}s`, 'info');
-  }
-
-  // Keep the DAW playhead in sync while previewing
+  // Keep the DAW playhead in sync
   const previewInterval = setInterval(() => {
     if (multitrack.previewState !== 'running') {
       clearInterval(previewInterval);
@@ -13585,6 +13606,7 @@ function previewMultitrack(startFrom) {
     renderTimelinePlayhead();
   }, 50);
 }
+
 
 function stopMultitrackPreview(resetOrOptions) {
   // Allow both: stopMultitrackPreview(true) and stopMultitrackPreview({ resetToZero: true })
@@ -18353,18 +18375,31 @@ function attachEventListeners() {
           const player = new Tone.Player({
             url,
             autostart: false,
-            fadeOut: 0.03,
-            volume: -8 // lower gain by ~8 dB to stop clipping
+            fadeOut: 0.05,
+            volume: -10 // global safe baseline
           });
-  
-          // Connect through the existing channel
-          if (instMeta.channel) {
-            player.connect(instMeta.channel);
-          } else {
-            // fallback: go straight to master if no channel yet
-            player.toDestination();
-          }
-  
+          
+          // --- Normalize the buffer volume before connecting ---
+          player.buffer.onload = () => {
+            // Wait until Tone.Player has loaded its sample
+            const buffer = player.buffer.get();
+            if (buffer) {
+              const safeDb = normalizeBufferVolume(buffer);
+              const gainNode = new Tone.Gain(Tone.dbToGain(safeDb));
+          
+              // Connect gain node into the instrument’s channel or master bus
+              if (instMeta.channel) {
+                gainNode.connect(instMeta.channel);
+              } else if (window.SEQUENCER_MASTER_BUS) {
+                gainNode.connect(window.SEQUENCER_MASTER_BUS);
+              } else {
+                gainNode.toDestination();
+              }
+          
+              player.connect(gainNode);
+            }
+          };
+          
           // Attach to synths map so sequencer uses it
           synths[sampleKey] = {
             triggerAttackRelease: (note, duration, time, velocity = 1) => {
