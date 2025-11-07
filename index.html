@@ -10622,6 +10622,12 @@ function createTrackStrip(track, timelineWidth) {
     track.takes[track.selectedTakeIndex].duration.toFixed(1) + 's' : 
     '0.0s';
   
+  // Format pan display
+  const formatPan = (pan) => {
+    if (pan === 0) return 'C';
+    return (pan > 0 ? 'R' : 'L') + Math.abs(pan);
+  };
+  
   strip.innerHTML = `
     <div class="track-header">
       <div class="track-header-top">
@@ -10669,9 +10675,21 @@ function createTrackStrip(track, timelineWidth) {
       </div>
       
       <div class="track-volume-control">
+        <label style="font-size: var(--text-xs); color: var(--text-tertiary); font-weight: 700; margin-bottom: var(--space-1); display: block;">
+          VOL
+        </label>
         <input type="range" min="-40" max="10" value="${track.volume}" 
-               class="track-volume-slider" data-param="volume">
-        <span class="track-volume-value">${track.volume}dB</span>
+               class="track-volume-slider" data-param="volume" data-track-id="${track.id}">
+        <span class="track-volume-value">${track.volume.toFixed(1)}dB</span>
+      </div>
+      
+      <div class="track-volume-control">
+        <label style="font-size: var(--text-xs); color: var(--text-tertiary); font-weight: 700; margin-bottom: var(--space-1); display: block;">
+          PAN
+        </label>
+        <input type="range" min="-100" max="100" value="${track.pan}" 
+               class="track-pan-slider" data-param="pan" data-track-id="${track.id}">
+        <span class="track-pan-value">${formatPan(track.pan)}</span>
       </div>
     </div>
     
@@ -10702,25 +10720,40 @@ function createTrackStrip(track, timelineWidth) {
     });
   });
   
-  // Volume/pan sliders
-  strip.querySelectorAll('.track-volume-slider').forEach(slider => {
-    slider.addEventListener('input', (e) => {
-      const param = e.target.dataset.param;
+  // Volume slider
+  const volumeSlider = strip.querySelector('.track-volume-slider');
+  if (volumeSlider) {
+    volumeSlider.addEventListener('input', (e) => {
       const value = parseFloat(e.target.value);
+      track.volume = value;
       
-      track[param] = value;
+      if (track.channel && track.channel.volume) {
+        track.channel.volume.rampTo(value, 0.05);
+      }
       
-      if (param === 'volume') {
-        track.channel.volume.value = value;
-        const label = slider.parentElement.querySelector('.track-volume-value');
-        if (label) label.textContent = value + 'dB';
-      } else if (param === 'pan') {
-        track.channel.pan.value = value / 100;
+      const label = strip.querySelector('.track-volume-value');
+      if (label) label.textContent = value.toFixed(1) + 'dB';
+    });
+  }
+  
+  // Pan slider - FIXED
+  const panSlider = strip.querySelector('.track-pan-slider');
+  if (panSlider) {
+    panSlider.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      track.pan = value;
+      
+      if (track.channel && track.channel.pan) {
+        track.channel.pan.rampTo(value / 100, 0.05);
+      }
+      
+      const label = strip.querySelector('.track-pan-value');
+      if (label) {
+        label.textContent = formatPan(value);
       }
     });
-  });
+  }
   
-  // Setup region drag interactions
   setupRegionInteractions(strip, track);
   
   // Start meter animation
@@ -12079,22 +12112,13 @@ function renderMultitrack() {
     container.style.visibility = 'visible';
   }
 
-  // Continue with existing code...
   const trackHeaders = document.getElementById('dawTrackList');
   const arrangementGrid = document.getElementById('dawArrangementGrid');
   const arrangementScroll = document.getElementById('dawArrangementScroll');
-
-  // RULER STRIP (you have #dawRuler, not .daw-ruler-container)
   const rulerContainer = document.getElementById('dawRuler');
 
-  // Only hard-require the ones we actually use here
   if (!trackHeaders || !arrangementGrid) {
-    console.warn('renderMultitrack: missing containers', {
-      trackHeaders,
-      arrangementGrid,
-      arrangementScroll,
-      rulerContainer
-    });
+    console.warn('renderMultitrack: missing containers');
     return;
   }
 
@@ -12108,16 +12132,20 @@ function renderMultitrack() {
 
   document.documentElement.style.setProperty('--timeline-width', timelineWidth + 'px');
 
-  // Clear both containers
   trackHeaders.innerHTML = '';
   arrangementGrid.innerHTML = '';
 
-  // Make sure the arrangement grid & ruler visually match the timeline width
   arrangementGrid.style.width = timelineWidth + 'px';
-  const ruler = rulerContainer.querySelector('.daw-ruler');
+  const ruler = rulerContainer?.querySelector('.daw-ruler');
   if (ruler) {
     ruler.style.width = timelineWidth + 'px';
   }
+
+  // Format pan display helper
+  const formatPan = (pan) => {
+    if (pan === 0) return 'C';
+    return (pan > 0 ? 'R' : 'L') + Math.abs(pan);
+  };
 
   // Render each track
   multitrack.tracks.forEach(track => {
@@ -12125,7 +12153,7 @@ function renderMultitrack() {
       { icon: '🎤', name: 'External' } : 
       instruments[track.instrument];
     
-    // === CREATE TRACK HEADER (LEFT SIDE) ===
+    // CREATE TRACK HEADER (LEFT SIDE)
     const headerDiv = document.createElement('div');
     headerDiv.className = 'track-header';
     if (track.recording) headerDiv.classList.add('recording');
@@ -12178,19 +12206,31 @@ function renderMultitrack() {
       </div>
       
       <div class="track-volume-control">
-        <input type="range" min="-40" max="10" value="${track.volume}" 
+        <label style="font-size: var(--text-xs); color: var(--text-tertiary); font-weight: 700; margin-bottom: var(--space-1); display: block;">
+          VOL
+        </label>
+        <input type="range" min="-40" max="10" value="${track.volume}" step="0.1"
                class="track-volume-slider" data-track-id="${track.id}" data-param="volume">
-        <span class="track-volume-value">${track.volume}dB</span>
+        <span class="track-volume-value">${track.volume.toFixed(1)}dB</span>
+      </div>
+      
+      <div class="track-volume-control">
+        <label style="font-size: var(--text-xs); color: var(--text-tertiary); font-weight: 700; margin-bottom: var(--space-1); display: block;">
+          PAN
+        </label>
+        <input type="range" min="-100" max="100" value="${track.pan}" step="1"
+               class="track-pan-slider" data-track-id="${track.id}" data-param="pan">
+        <span class="track-pan-value">${formatPan(track.pan)}</span>
       </div>
     `;
     
     trackHeaders.appendChild(headerDiv);
     
-    // === CREATE TRACK LANE (RIGHT SIDE) ===
+    // CREATE TRACK LANE (RIGHT SIDE)
     const laneDiv = document.createElement('div');
     laneDiv.className = 'track-lane';
     laneDiv.dataset.trackId = track.id;
-    laneDiv.style.width = timelineWidth + 'px'; // ensure lane matches timeline
+    laneDiv.style.width = timelineWidth + 'px';
     
     // Add regions
     track.takes.forEach((take, idx) => {
@@ -12272,15 +12312,36 @@ function renderMultitrack() {
     });
     
     // Volume slider
-    headerDiv.querySelector('.track-volume-slider')?.addEventListener('input', (e) => {
-      const value = parseFloat(e.target.value);
-      track.volume = value;
-      if (track.channel && track.channel.volume) {
-        track.channel.volume.value = value;
-      }
-      const label = headerDiv.querySelector('.track-volume-value');
-      if (label) label.textContent = value + 'dB';
-    });
+    const volumeSlider = headerDiv.querySelector('.track-volume-slider');
+    if (volumeSlider) {
+      volumeSlider.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        track.volume = value;
+        if (track.channel && track.channel.volume) {
+          track.channel.volume.rampTo(value, 0.05);
+        }
+        const label = headerDiv.querySelector('.track-volume-value');
+        if (label) label.textContent = value.toFixed(1) + 'dB';
+      });
+    }
+    
+    // Pan slider - WORKING VERSION
+    const panSlider = headerDiv.querySelector('.track-pan-slider');
+    if (panSlider) {
+      panSlider.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        track.pan = value;
+        
+        if (track.channel && track.channel.pan) {
+          track.channel.pan.rampTo(value / 100, 0.05);
+        }
+        
+        const label = headerDiv.querySelector('.track-pan-value');
+        if (label) {
+          label.textContent = formatPan(value);
+        }
+      });
+    }
     
     // Setup region interactions
     setupRegionInteractions(laneDiv, track);
@@ -12309,7 +12370,6 @@ function renderMultitrack() {
     }
   });
 
-  // If you have a separate ruler update helper, keep it in sync
   if (typeof updateTimelineRuler === 'function') {
     updateTimelineRuler();
   }
