@@ -13487,7 +13487,7 @@ function setupPreviewButton() {
 }
 
 // --- GLOBAL MASTER BUS SAFETY NET ---
-const masterGain = new Tone.Gain(0.8); // master volume ~ -2dB
+const masterGain = new Tone.Gain(0.6); // master volume ~ -4dB
 const limiter = new Tone.Limiter(-1);  // prevents 0dBFS overload
 masterGain.connect(limiter).toDestination();
 
@@ -13499,22 +13499,39 @@ window.SEQUENCER_MASTER_BUS = masterGain;
 function normalizeBufferVolume(audioBuffer) {
   const data = audioBuffer.getChannelData(0);
   let sumSq = 0;
-  for (let i = 0; i < data.length; i++) sumSq += data[i] * data[i];
-  const rms = Math.sqrt(sumSq / data.length);
-  const targetRms = 0.25; // safe loudness
-  return Tone.gainToDb(targetRms / (rms || 1e-6));
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i];
+    sumSq += v * v;
+  }
+  const rms = Math.sqrt(sumSq / data.length) || 1e-6;
+
+  // Much more conservative target
+  const targetRms = 0.12; // was 0.25
+
+  // Convert gain ratio → dB
+  return Tone.gainToDb(targetRms / rms);
 }
+
   
 // Make sure you have something like this in your global state:
 /// const state = { duration: 3, isPlaying: false, cursorSeconds: 0 };
-
 function previewMultitrack(startFrom) {
+  if (!multitrack) return;
+
+  // Make sure these are at least arrays so .forEach won't explode
+  if (!Array.isArray(multitrack.previewPlayers)) {
+    multitrack.previewPlayers = [];
+  }
+  if (!Array.isArray(multitrack.tracks)) {
+    multitrack.tracks = [];
+  }
+
   if (multitrack.previewState === 'running') {
     stopMultitrackPreview();
     return;
   }
 
-  if (!multitrack.tracks.length) {
+  if (multitrack.tracks.length === 0) {
     alert('No tracks to preview yet. Record or import something first!');
     return;
   }
@@ -13531,7 +13548,15 @@ function previewMultitrack(startFrom) {
   }
 
   const now = Tone.now() + 0.05;
-  multitrack.previewPlayers.forEach(p => p.player.dispose());
+
+  // Safely dispose old preview players if any
+  multitrack.previewPlayers.forEach(p => {
+    try {
+      p.player.dispose();
+    } catch (err) {
+      console.warn('Failed to dispose preview player', err);
+    }
+  });
   multitrack.previewPlayers.length = 0;
 
   let anyPlayable = false;
@@ -13557,23 +13582,26 @@ function previewMultitrack(startFrom) {
         loop: false,
         autostart: false,
         fadeOut: 0.05,
-        volume: -10 // start ~10 dB quieter
+        volume: -10 // extra base pad
       });
-    
-      // Properly wrap the AudioBuffer
+
+      // Wrap raw AudioBuffer into ToneAudioBuffer
       player.buffer = new Tone.ToneAudioBuffer(take.buffer);
-    
-      // --- Normalize buffer volume before routing ---
-      const safeDb = normalizeBufferVolume(take.buffer); // <- call your helper here
-      const gainNode = new Tone.Gain(Tone.dbToGain(safeDb)).connect(multitrack.masterBus);
-    
+
+      // 🔉 Normalize and then add extra padding
+      let safeDb = normalizeBufferVolume(take.buffer); // your helper
+      safeDb -= 6; // extra -6 dB pad for multitrack preview
+
+      const gainNode = new Tone.Gain(Tone.dbToGain(safeDb))
+        .connect(multitrack.masterBus || Tone.Destination);
+
       player.connect(gainNode);
-    
+
       player.unsync();
       player.sync();
-    
+
       player.start(now + relativeStart, bufferOffset);
-    
+
       multitrack.previewPlayers.push({
         player,
         track,
@@ -13582,14 +13610,13 @@ function previewMultitrack(startFrom) {
         relativeStart,
         bufferOffset
       });
-    
+
       anyPlayable = true;
     } catch (err) {
-      console.error("⚠️ Multitrack preview failed:", err);
+      console.error('⚠️ Multitrack preview failed:', err);
     }
-  }); // <-- ✅ correctly closes forEach
+  });
 
-  // --- after loop ---
   if (!anyPlayable) {
     alert('No regions exist after this point in time to preview.');
     return;
@@ -13600,9 +13627,11 @@ function previewMultitrack(startFrom) {
   multitrack.previewStartCursor = previewStart;
 
   console.log(`🎧 Previewing mix from ${previewStart.toFixed(2)}s`);
-  showToast?.(`🎧 Previewing mix from ${previewStart.toFixed(2)}s`, 'info');
+  if (typeof showToast === 'function') {
+    showToast(`🎧 Previewing mix from ${previewStart.toFixed(2)}s`, 'info');
+  }
 
-  // Keep the DAW playhead in sync
+  // Keep the DAW playhead in sync while previewing
   const previewInterval = setInterval(() => {
     if (multitrack.previewState !== 'running') {
       clearInterval(previewInterval);
@@ -13619,7 +13648,6 @@ function previewMultitrack(startFrom) {
     renderTimelinePlayhead();
   }, 50);
 }
-
 
 function stopMultitrackPreview(resetOrOptions) {
   // Allow both: stopMultitrackPreview(true) and stopMultitrackPreview({ resetToZero: true })
@@ -18141,39 +18169,51 @@ async function buildKitZip(kitName = currentKit) {
 }
 
 async function previewSample(sampleKey) {
-  const params = sampleKits[currentKit][sampleKey];
+  const kit = sampleKits[currentKit];
+  if (!kit) return;
+
+  const params = kit[sampleKey];
   if (!params) return;
 
   const type = params.type;
   const closed = params.closed;
 
-  // Ensure Tone is running
-  await Tone.start();
-  if (Tone.context.state !== "running") await Tone.context.resume();
-
   // Generate audio buffer from SampleSynthesizer
-  let buffer;
+  let buffer = null;
   switch (type) {
-    case "kick":  buffer = synth.generateKick(params); break;
-    case "snare": buffer = synth.generateSnare(params); break;
-    case "hihat": buffer = synth.generateHihat(params, closed); break;
-    case "clap":  buffer = synth.generateClap(params); break;
-    case "tom":   buffer = synth.generateTom(params, params.pitch || 0); break;
-    case "bass":  buffer = synth.generateBass(params); break;
-    case "guitar":buffer = synth.generateGuitar(params); break;
-    case "keys":  buffer = synth.generateKeys(params); break;
-    case "lead":  buffer = synth.generateLead(params); break;
-    case "riser": buffer = synth.generateRiser(params); break;
-    case "fx":    buffer = synth.generateFX(params); break;
+    case 'kick':   buffer = synth.generateKick(params); break;
+    case 'snare':  buffer = synth.generateSnare(params); break;
+    case 'hihat':  buffer = synth.generateHihat(params, closed); break;
+    case 'clap':   buffer = synth.generateClap(params); break;
+    case 'tom':    buffer = synth.generateTom(params, params.pitch || 0); break;
+    case 'bass':   buffer = synth.generateBass(params); break;
+    case 'guitar': buffer = synth.generateGuitar(params); break;
+    case 'keys':   buffer = synth.generateKeys(params); break;
+    case 'lead':   buffer = synth.generateLead(params); break;
+    case 'riser':  buffer = synth.generateRiser(params); break;
+    case 'fx':     buffer = synth.generateFX(params); break;
+    default:       return;
   }
 
   if (!buffer) return;
 
-  // Convert AudioBuffer → Tone.Buffer
-  const toneBuf = new Tone.Buffer().fromArray(buffer.getChannelData(0));
-  const player = new Tone.Player(toneBuf).toDestination();
-  player.autostart = true;
+  // Make sure the synth's AudioContext is running
+  const ac = synth.audioContext;
+  if (ac && ac.state === 'suspended') {
+    try {
+      await ac.resume();
+    } catch (err) {
+      console.warn('Could not resume audio context for preview', err);
+    }
+  }
+
+  // Play at a safe level (dB)
+  //   0  dB = full blast
+  //  -6 dB = half power
+  // -12 dB = nice safe preview
+  synth.play(buffer, -12);
 }
+
 
 function exportSample(sampleKey) {
   const params = sampleKits[currentKit][sampleKey];
@@ -18409,29 +18449,32 @@ function attachEventListeners() {
             url,
             autostart: false,
             fadeOut: 0.05,
-            volume: -10 // global safe baseline
+            volume: -14 // global safe baseline
           });
           
           // --- Normalize the buffer volume before connecting ---
           player.buffer.onload = () => {
-            // Wait until Tone.Player has loaded its sample
             const buffer = player.buffer.get();
-            if (buffer) {
-              const safeDb = normalizeBufferVolume(buffer);
-              const gainNode = new Tone.Gain(Tone.dbToGain(safeDb));
+            if (!buffer) return;
           
-              // Connect gain node into the instrument’s channel or master bus
-              if (instMeta.channel) {
-                gainNode.connect(instMeta.channel);
-              } else if (window.SEQUENCER_MASTER_BUS) {
-                gainNode.connect(window.SEQUENCER_MASTER_BUS);
-              } else {
-                gainNode.toDestination();
-              }
+            let safeDb = normalizeBufferVolume(buffer);
           
-              player.connect(gainNode);
+            // Extra pad so sequencer hits are calm by default
+            safeDb -= 6; // you can go to -8 if it's still spicy
+          
+            const gainNode = new Tone.Gain(Tone.dbToGain(safeDb));
+          
+            if (instMeta.channel) {
+              gainNode.connect(instMeta.channel);
+            } else if (window.SEQUENCER_MASTER_BUS) {
+              gainNode.connect(window.SEQUENCER_MASTER_BUS);
+            } else {
+              gainNode.toDestination();
             }
+          
+            player.connect(gainNode);
           };
+
           
           // Attach to synths map so sequencer uses it
           synths[sampleKey] = {
