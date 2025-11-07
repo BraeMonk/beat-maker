@@ -16794,6 +16794,7 @@ function envAD(t, attack, decay) {
 }
 
 // High-quality sample synthesis engine
+// High-quality sample synthesis engine (more natural, less buzzy)
 class SampleSynthesizer {
   constructor() {
     // Prefer Tone’s context so buffers are compatible with the DAW
@@ -16807,443 +16808,584 @@ class SampleSynthesizer {
 
     this.currentSource = null;
   }
-  
-  // KICK: sine body + sub + very light noise, attack ramp + smoothing
+
+  // --- small helpers ------------------------------------
+
+  envAD(t, attack, decay) {
+    const a = attack > 0 ? Math.min(1, t / attack) : 1;
+    const d = Math.exp(-t / Math.max(0.000001, decay));
+    return a * d;
+  }
+
+  fastSmooth(last, sample, amt) {
+    return last + amt * (sample - last);
+  }
+
+  applyLoFi(sample, lofi) {
+    if (!lofi || lofi <= 0) return sample;
+    const depth = 16 - (lofi / 100) * 12; // 16 → 4 bits
+    const bitDepth = Math.max(4, depth);
+    const steps = Math.pow(2, bitDepth);
+    return Math.round(sample * steps) / steps;
+  }
+
+  applyDist(sample, dist, driveFactor) {
+    if (!dist || dist <= 0) return sample;
+    const norm = Math.pow(dist / 100, 1.3); // tame curve
+    const drive = 1 + driveFactor * norm;
+    return Math.tanh(sample * drive) / (1 + norm * 1.5);
+  }
+
+  // --- DRUMS --------------------------------------------
+
+  // Kick: smooth 808-ish, subby, minimal noise
   generateKick(params = {}) {
-    const { pitch = 0, decay = 0.25, tone = 50, noise = 18, attack = 0.002, lofi = 0, dist = 8 } = params;
+    const {
+      pitch = 0,
+      decay = 0.25,
+      tone = 60,
+      noise = 10,
+      attack = 0.003,
+      lofi = 0,
+      dist = 5
+    } = params;
+
     const sr = this.audioContext.sampleRate;
-    const dur = Math.max(0.05, decay);
+    const dur = Math.max(0.06, decay);
     const n = Math.floor(sr * dur);
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
-    const f0 = 55 * Math.pow(2, pitch / 12);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
+    const base = 55 * Math.pow(2, pitch / 12); // around A1
     let last = 0;
-    const SMOOTH = 0.12;
-  
+    const SMOOTH = 0.15;
+
+    const noiseNorm = Math.pow(noise / 100, 2); // softer curve
+
     for (let i = 0; i < n; i++) {
       const t = i / sr;
-      const e = envAD(t, attack, decay);
-      const fEnv = f0 * (1 + 3.8 * Math.exp(-42 * t)); // thump
-      const body = Math.sin(2 * Math.PI * fEnv * t) * (tone / 100);
-      const sub  = Math.sin(2 * Math.PI * (fEnv * 0.5) * t) * 0.35;
-      const trans = (Math.random() * 2 - 1) * (noise / 100) * Math.exp(-t * 60);
-  
-      let s = (body * 0.6 + sub * 0.35 + trans * 0.05) * e;
-  
-      if (dist > 0) {
-        const k = dist / 100;
-        s = Math.tanh(s * (1 + k * 4)) / (1 + k);
-      }
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-  
-      last = fastSmooth(last, s, SMOOTH);
-      ch[i] = last * 0.9;
+      const env = this.envAD(t, attack, decay);
+
+      // pitch sweep for thump
+      const f = base * (1 + 3.5 * Math.exp(-50 * t));
+
+      const body = Math.sin(2 * Math.PI * f * t) * (tone / 100);
+      const sub = Math.sin(2 * Math.PI * (f * 0.5) * t) * 0.4;
+
+      const nSample =
+        (Math.random() * 2 - 1) *
+        noiseNorm *
+        Math.exp(-t * 80); // very short transient
+
+      let s = (body * 0.6 + sub * 0.35 + nSample * 0.05) * env;
+
+      s = this.applyDist(s, dist, 4);
+      s = this.applyLoFi(s, lofi);
+
+      last = this.fastSmooth(last, s, SMOOTH);
+      data[i] = last * 0.95;
     }
-    return buf;
+
+    return buffer;
   }
-  
-  // SNARE: ring modes + softer noise, ramp + smoothing
+
+  // Snare: shell modes + noise, but softer and less hissy
   generateSnare(params = {}) {
-    const { pitch = 0, decay = 0.18, tone = 48, noise = 72, attack = 0.002, lofi = 0, dist = 10 } = params;
+    const {
+      pitch = 0,
+      decay = 0.18,
+      tone = 50,
+      noise = 70,
+      attack = 0.002,
+      lofi = 0,
+      dist = 8
+    } = params;
+
     const sr = this.audioContext.sampleRate;
-    const n = Math.floor(sr * Math.max(0.07, decay));
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
-    const f = 180 * Math.pow(2, pitch / 12);
-    let last = 0; const SMOOTH = 0.14;
-  
+    const dur = Math.max(0.08, decay);
+    const n = Math.floor(sr * dur);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
+    const f0 = 180 * Math.pow(2, pitch / 12);
+    let last = 0;
+    const SMOOTH = 0.18;
+    const noiseNorm = Math.pow(noise / 100, 1.2);
+
     for (let i = 0; i < n; i++) {
       const t = i / sr;
-      const e = envAD(t, attack, decay);
-      const m1 = Math.sin(2 * Math.PI * f * t);
-      const m2 = Math.sin(2 * Math.PI * f * 1.5 * t);
-      const tonal = (m1 * 0.7 + m2 * 0.3) * (tone / 100) * e;
-  
-      const rattle = (Math.random() * 2 - 1) * (noise / 100) * Math.exp(-t * 65);
-      let s = tonal * 0.35 + rattle * 0.65;
-  
-      if (dist > 0) {
-        const k = dist / 100;
-        s = Math.tanh(s * (1 + k * 3)) / (1 + k);
-      }
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-  
-      last = fastSmooth(last, s, SMOOTH);
-      ch[i] = last * 0.85;
+      const env = this.envAD(t, attack, decay);
+
+      const m1 = Math.sin(2 * Math.PI * f0 * t);
+      const m2 = Math.sin(2 * Math.PI * f0 * 1.5 * t);
+      const tonal = (m1 * 0.7 + m2 * 0.3) * (tone / 100);
+
+      const rattle =
+        (Math.random() * 2 - 1) *
+        noiseNorm *
+        Math.exp(-t * 65);
+
+      let s = (tonal * 0.35 + rattle * 0.65) * env;
+
+      s = this.applyDist(s, dist, 3);
+      s = this.applyLoFi(s, lofi);
+
+      last = this.fastSmooth(last, s, SMOOTH);
+      data[i] = last * 0.9;
     }
-    return buf;
+
+    return buffer;
   }
-  
-  // HIHAT: mostly filtered noise + a few quiet partials, ramp + smoothing
+
+  // Hihat: mostly filtered noise + a few partials, not piercing
   generateHihat(params = {}, closed = true) {
-    const { pitch = 0, decay = closed ? 0.05 : 0.2, tone = 55, noise = 88, attack = 0.001, lofi = 0, dist = 6 } = params;
+    const {
+      pitch = 0,
+      decay = closed ? 0.05 : 0.18,
+      tone = 55,
+      noise = 85,
+      attack = 0.001,
+      lofi = 0,
+      dist = 5
+    } = params;
+
     const sr = this.audioContext.sampleRate;
-    const n = Math.floor(sr * Math.max(0.03, decay));
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
+    const dur = Math.max(0.03, decay);
+    const n = Math.floor(sr * dur);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
     const p = Math.pow(2, pitch / 12);
-    let last = 0; const SMOOTH = closed ? 0.10 : 0.08;
-    const partials = [3500, 4700, 6200, 8800, 11000].map(f => f * p);
-  
+    const basePartials = [4000, 6000, 9000, 12000];
+    const partials = basePartials.map(f => f * p);
+
+    let last = 0;
+    const SMOOTH = closed ? 0.12 : 0.1;
+    const noiseNorm = Math.pow(noise / 100, 1.1);
+
     for (let i = 0; i < n; i++) {
       const t = i / sr;
-      const e = envAD(t, attack, decay);
-      let s = 0;
-  
-      // subtle metallic components
+      const env = this.envAD(t, attack, decay);
+
+      let metallic = 0;
       for (let j = 0; j < partials.length; j++) {
-        s += Math.sin(2 * Math.PI * partials[j] * t) * (1 / (j + 2)) * (tone / 100);
+        metallic +=
+          Math.sin(2 * Math.PI * partials[j] * t) * (1 / (j + 2));
       }
-  
-      // high-passed noise body
-      const white = (Math.random() * 2 - 1);
-      const hp = white - (last * 0.7); // crude HP
-      s = s * 0.25 + hp * (noise / 100) * 0.75;
-      s *= e;
-  
-      if (dist > 0) {
-        const k = dist / 100;
-        s = Math.tanh(s * (1 + k * 2)) / (1 + k);
-      }
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-  
-      last = fastSmooth(last, s, SMOOTH);
-      ch[i] = last * 0.6;
+      metallic *= (tone / 100) * 0.4;
+
+      const white = Math.random() * 2 - 1;
+      // crude high-pass-ish feel using last as a sort of low shelf
+      const hp = white - last * 0.6;
+
+      let s = metallic + hp * noiseNorm * 0.9;
+      s *= env;
+
+      s = this.applyDist(s, dist, 2);
+      s = this.applyLoFi(s, lofi);
+
+      last = this.fastSmooth(last, s, SMOOTH);
+      data[i] = last * 0.7;
     }
-    return buf;
+
+    return buffer;
   }
-  
-  // CLAP: multi-slap with softer body + smoothing
+
+  // Clap: 3–4 short slaps plus body noise, smoother
   generateClap(params = {}) {
-    const { pitch = 0, decay = 0.14, tone = 35, noise = 85, attack = 0.001, lofi = 0, dist = 8 } = params;
+    const {
+      pitch = 0, // not really used here, but kept for UI
+      decay = 0.14,
+      tone = 35,
+      noise = 85,
+      attack = 0.001,
+      lofi = 0,
+      dist = 6
+    } = params;
+
     const sr = this.audioContext.sampleRate;
-    const n = Math.floor(sr * Math.max(0.07, decay));
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
+    const dur = Math.max(0.09, decay);
+    const n = Math.floor(sr * dur);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
     const taps = [0, 0.012, 0.022, 0.034];
-    let last = 0; const SMOOTH = 0.12;
-  
+    let last = 0;
+    const SMOOTH = 0.15;
+    const noiseNorm = Math.pow(noise / 100, 1.1);
+
     for (let i = 0; i < n; i++) {
       const t = i / sr;
-      const e = envAD(t, attack, decay);
+      const env = this.envAD(t, attack, decay);
+
       let s = 0;
-  
       for (const tt of taps) {
         if (t >= tt) {
           const lt = t - tt;
-          s += (Math.random() * 2 - 1) * Math.exp(-lt * 90) * 0.22;
+          s +=
+            (Math.random() * 2 - 1) *
+            Math.exp(-lt * 90) *
+            0.22;
         }
       }
-      const body = (Math.random() * 2 - 1) * (noise / 100) * e * 0.35;
-      s = (s + body) * (1 + (tone - 50) / 400);
-  
-      if (dist > 0) {
-        const k = dist / 100;
-        s = Math.tanh(s * (1 + k * 3)) / (1 + k);
-      }
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-  
-      last = fastSmooth(last, s, SMOOTH);
-      ch[i] = last * 0.75;
+
+      const body =
+        (Math.random() * 2 - 1) *
+        noiseNorm *
+        env *
+        0.4;
+
+      const toneFactor = 1 + (tone - 50) / 400;
+      s = (s + body) * toneFactor;
+
+      s = this.applyDist(s, dist, 3);
+      s = this.applyLoFi(s, lofi);
+
+      last = this.fastSmooth(last, s, SMOOTH);
+      data[i] = last * 0.8;
     }
-    return buf;
-  }
-  
-  // TOM: cleaner body + smoothing
-  generateTom(params = {}, pitch = 0) {
-    const { decay = 0.32, tone = 62, noise = 16, attack = 0.001, lofi = 0, dist = 6 } = params;
-    const sr = this.audioContext.sampleRate;
-    const n = Math.floor(sr * Math.max(0.12, decay));
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
-    const f0 = (95 + pitch * 20) * Math.pow(2, (params.pitch || 0) / 12);
-    let last = 0; const SMOOTH = 0.12;
-  
-    for (let i = 0; i < n; i++) {
-      const t = i / sr;
-      const e = envAD(t, attack, decay);
-      const fund = Math.sin(2 * Math.PI * f0 * t);
-      const harm = Math.sin(2 * Math.PI * f0 * 1.45 * t);
-      const tonal = (fund * 0.75 + harm * 0.25) * (tone / 100);
-      const trans = (Math.random() * 2 - 1) * (noise / 100) * Math.exp(-t * 35);
-  
-      let s = (tonal * 0.85 + trans * 0.15) * e;
-  
-      if (dist > 0) {
-        const k = dist / 100;
-        s = Math.tanh(s * (1 + k * 4)) / (1 + k);
-      }
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-  
-      last = fastSmooth(last, s, SMOOTH);
-      ch[i] = last * 0.8;
-    }
-    return buf;
+
+    return buffer;
   }
 
-  // BASS: warm sine+2nd harmonic, tiny pitch thump, gentle LP smoothing
-  generateBass(params = {}) {
-    const { pitch = -12, decay = 0.8, tone = 55, attack = 0.003, dist = 8, lofi = 0 } = params;
+  // Tom: cleaner, more “drummy” body
+  generateTom(params = {}, pitch = 0) {
+    const {
+      decay = 0.32,
+      tone = 60,
+      noise = 18,
+      attack = 0.002,
+      lofi = 0,
+      dist = 6
+    } = params;
+
     const sr = this.audioContext.sampleRate;
-    const n = Math.floor(sr * Math.max(0.2, decay));
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
-    const f0 = 55 * Math.pow(2, pitch / 12);
-    let last = 0; const SMOOTH = 0.10;
-  
+    const dur = Math.max(0.12, decay);
+    const n = Math.floor(sr * dur);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
+    const f0 =
+      (110 + pitch * 25) * Math.pow(2, (params.pitch || 0) / 12);
+    let last = 0;
+    const SMOOTH = 0.16;
+    const noiseNorm = Math.pow(noise / 100, 1.1);
+
     for (let i = 0; i < n; i++) {
       const t = i / sr;
-      const e = envAD(t, attack, decay);
-      const fEnv = f0 * (1 + 0.35 * Math.exp(-t * 30)); // soft thump
-      const s1 = Math.sin(2 * Math.PI * fEnv * t);
-      const s2 = Math.sin(2 * Math.PI * fEnv * 2 * t);
-      let s = (s1 * 0.85 + s2 * 0.15 * (tone / 100)) * e;
-  
-      if (dist > 0) {
-        const k = dist / 100;
-        s = Math.tanh(s * (1 + k * 3)) / (1 + k);
-      }
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-  
-      last = fastSmooth(last, s, SMOOTH);
-      ch[i] = last * 0.9;
+      const env = this.envAD(t, attack, decay);
+
+      const fund = Math.sin(2 * Math.PI * f0 * t);
+      const harm = Math.sin(2 * Math.PI * f0 * 1.45 * t);
+      const tonal = (fund * 0.8 + harm * 0.2) * (tone / 100);
+
+      const trans =
+        (Math.random() * 2 - 1) *
+        noiseNorm *
+        Math.exp(-t * 35);
+
+      let s = (tonal * 0.85 + trans * 0.15) * env;
+
+      s = this.applyDist(s, dist, 4);
+      s = this.applyLoFi(s, lofi);
+
+      last = this.fastSmooth(last, s, SMOOTH);
+      data[i] = last * 0.85;
     }
-    return buf;
+
+    return buffer;
   }
-  
-  // GUITAR (Karplus–Strong pluck)
-  generateGuitar(params = {}) {
-    const { pitch = 0, decay = 0.9, tone = 60, attack = 0.001, lofi = 0 } = params;
+
+  // --- INSTRUMENTS --------------------------------------
+
+  // Bass: smooth sub + 2nd harmonic, gentle pitch drop
+  generateBass(params = {}) {
+    const {
+      pitch = -12,
+      decay = 0.9,
+      tone = 55,
+      attack = 0.004,
+      lofi = 0,
+      dist = 8
+    } = params;
+
     const sr = this.audioContext.sampleRate;
-    const f0 = 110 * Math.pow(2, pitch / 12); // A2 base
-    const dur = Math.max(0.3, decay);
+    const dur = Math.max(0.25, decay);
     const n = Math.floor(sr * dur);
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
-    // KS delay length
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
+    const fBase = 55 * Math.pow(2, pitch / 12);
+    let last = 0;
+    const SMOOTH = 0.12;
+
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      const env = this.envAD(t, attack, decay);
+      const f = fBase * (1 + 0.35 * Math.exp(-t * 30));
+
+      const s1 = Math.sin(2 * Math.PI * f * t);
+      const s2 = Math.sin(2 * Math.PI * 2 * f * t);
+      const toneNorm = tone / 100;
+      let s = (s1 * (1 - toneNorm * 0.3) + s2 * (toneNorm * 0.25)) * env;
+
+      s = this.applyDist(s, dist, 3);
+      s = this.applyLoFi(s, lofi);
+
+      last = this.fastSmooth(last, s, SMOOTH);
+      data[i] = last * 0.95;
+    }
+
+    return buffer;
+  }
+
+  // Guitar-ish pluck (Karplus–Strong style)
+  generateGuitar(params = {}) {
+    const {
+      pitch = 0,
+      decay = 1.1,
+      tone = 60,
+      attack = 0.001,
+      lofi = 0
+    } = params;
+
+    const sr = this.audioContext.sampleRate;
+    const f0 = 110 * Math.pow(2, pitch / 12); // A2-ish
+    const dur = Math.max(0.35, decay);
+    const n = Math.floor(sr * dur);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
     const L = Math.max(2, Math.floor(sr / f0));
     const delay = new Float32Array(L);
-    for (let i = 0; i < L; i++) delay[i] = (Math.random() * 2 - 1) * 0.5;
-  
+    for (let i = 0; i < L; i++) {
+      delay[i] = (Math.random() * 2 - 1) * 0.5;
+    }
+
     let idx = 0;
-    const DAMP = 0.496 + (1 - tone / 100) * 0.08; // brighter tone = less damping
-  
-    let s = 0;
+    const DAMP = 0.498 + (1 - tone / 100) * 0.08; // brighter tone = less damping
+
     for (let i = 0; i < n; i++) {
-      // simple KS: average two taps + damping
-      const y = (delay[idx] + delay[(idx + 1) % L]) * 0.5 * DAMP;
+      const y =
+        ((delay[idx] + delay[(idx + 1) % L]) * 0.5) * DAMP;
       delay[idx] = y;
       idx = (idx + 1) % L;
-  
+
       const t = i / sr;
-      const e = envAD(t, attack, decay);
-      s = y * e;
-  
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-  
-      ch[i] = s * 0.95;
+      const env = this.envAD(t, attack, decay);
+
+      let s = y * env;
+
+      s = this.applyLoFi(s, lofi);
+
+      data[i] = s * 0.95;
     }
-    return buf;
+
+    return buffer;
   }
-  
-  // KEYS (Rhodes-y modal: two partials + soft tremolo)
+
+  // Keys: simple Rhodes-ish modal sound
   generateKeys(params = {}) {
-    const { pitch = 0, decay = 1.2, tone = 55, attack = 0.004, lofi = 0, trem = 0.2 } = params;
+    const {
+      pitch = 0,
+      decay = 1.2,
+      tone = 55,
+      attack = 0.006,
+      lofi = 0
+    } = params;
+
     const sr = this.audioContext.sampleRate;
     const f0 = 220 * Math.pow(2, pitch / 12);
-    const n = Math.floor(sr * Math.max(0.4, decay));
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
-    const tremHz = 5.2;
+    const dur = Math.max(0.4, decay);
+    const n = Math.floor(sr * dur);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
+    const tremHz = 5.5;
+    const toneNorm = tone / 100;
+
     for (let i = 0; i < n; i++) {
       const t = i / sr;
-      const e = envAD(t, attack, decay);
+      const env = this.envAD(t, attack, decay);
+
       const p1 = Math.sin(2 * Math.PI * f0 * t);
-      const p2 = Math.sin(2 * Math.PI * (f0 * 2.005) * t);
-      const toneMix = tone / 100;
-      let s = (p1 * (1 - toneMix * 0.4) + p2 * (toneMix * 0.35)) * e;
-  
-      // subtle tremolo
-      const tremEnv = 1 + trem * 0.5 * Math.sin(2 * Math.PI * tremHz * t);
-      s *= tremEnv;
-  
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-      ch[i] = s * 0.9;
+      const p2 = Math.sin(2 * Math.PI * (f0 * 2.01) * t);
+      let s = (p1 * (1 - toneNorm * 0.4) + p2 * (toneNorm * 0.35)) * env;
+
+      const trem = 1 + 0.25 * Math.sin(2 * Math.PI * tremHz * t);
+      s *= trem;
+
+      s = this.applyLoFi(s, lofi);
+
+      data[i] = s * 0.9;
     }
-    return buf;
+
+    return buffer;
   }
-  
-  // LEAD (additive triangle-ish, soft attack)
+
+  // Lead: triangle-ish with a bit of vibrato
   generateLead(params = {}) {
-    const { pitch = 0, decay = 0.8, tone = 65, attack = 0.012, lofi = 0, vibrato = 0.15 } = params;
+    const {
+      pitch = 0,
+      decay = 0.85,
+      tone = 65,
+      attack = 0.01,
+      lofi = 0
+    } = params;
+
     const sr = this.audioContext.sampleRate;
     const f0 = 440 * Math.pow(2, pitch / 12);
-    const n = Math.floor(sr * Math.max(0.3, decay));
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
-    const vibHz = 6.5;
-    const harmonics = 7; // odd harmonics → triangle-ish
+    const dur = Math.max(0.3, decay);
+    const n = Math.floor(sr * dur);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
+    const harmonics = 7;
+    const toneNorm = tone / 100;
+    const vibHz = 6;
+    const vibDepth = 0.015; // ±1.5%
+
     for (let i = 0; i < n; i++) {
       const t = i / sr;
-      const e = envAD(t, attack, decay);
-      const vib = Math.sin(2 * Math.PI * vibHz * t) * vibrato * 0.02; // ±2% depth
-      const f = f0 * (1 + vib);
-  
+      const env = this.envAD(t, attack, decay);
+
+      const vib = 1 + vibDepth * Math.sin(2 * Math.PI * vibHz * t);
+      const f = f0 * vib;
+
       let s = 0;
-      let ksum = 0;
+      let norm = 0;
       for (let k = 1; k <= harmonics; k += 2) {
         const a = 1 / (k * k);
         s += a * Math.sin(2 * Math.PI * f * k * t);
-        ksum += a;
+        norm += a;
       }
-      s = (s / ksum) * (tone / 100) * e;
-  
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-      ch[i] = s * 0.9;
+      s = (s / norm) * (toneNorm) * env;
+
+      s = this.applyLoFi(s, lofi);
+
+      data[i] = s * 0.95;
     }
-    return buf;
-  }
-  
-  // RISER (noise + tone with up-sweep + band emphasis)
-  generateRiser(params = {}) {
-    const { pitch = 0, decay = 2.5, tone = 60, attack = 0.02, lofi = 0 } = params;
-    const sr = this.audioContext.sampleRate;
-    const dur = Math.max(0.8, decay);
-    const n = Math.floor(sr * dur);
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
-    const fStart = 120 * Math.pow(2, pitch / 12);
-    const fEnd   = 4200 * Math.pow(2, pitch / 12);
-  
-    let last = 0; const SMOOTH = 0.07;
-    for (let i = 0; i < n; i++) {
-      const t = i / sr;
-      const e = envAD(t, attack, decay) * Math.min(1, t / (dur * 0.9)); // ramp up
-      const frac = t / dur;
-      const f = fStart * Math.pow(fEnd / fStart, frac);
-  
-      const toneComp = Math.sin(2 * Math.PI * f * t) * (tone / 100);
-      const white = (Math.random() * 2 - 1);
-      const band = Math.sin(2 * Math.PI * (f * 0.25) * t) * white; // crude moving emphasis
-  
-      let s = (toneComp * 0.5 + band * 0.5) * e;
-  
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-      last = fastSmooth(last, s, SMOOTH);
-      ch[i] = last * 0.9;
-    }
-    return buf;
-  }
-  
-  // FX (impact/downlifter hybrid)
-  generateFX(params = {}) {
-    const { pitch = -12, decay = 1.4, tone = 45, attack = 0.001, lofi = 0, dist = 12 } = params;
-    const sr = this.audioContext.sampleRate;
-    const n = Math.floor(sr * Math.max(0.4, decay));
-    const buf = this.audioContext.createBuffer(1, n, sr);
-    const ch = buf.getChannelData(0);
-  
-    const f0 = 80 * Math.pow(2, pitch / 12);
-    let last = 0; const SMOOTH = 0.1;
-  
-    for (let i = 0; i < n; i++) {
-      const t = i / sr;
-      const e = envAD(t, attack, decay);
-  
-      // boom + down-sweep
-      const sweep = f0 * (1 - 0.6 * Math.min(1, t / decay));
-      const boom  = Math.sin(2 * Math.PI * sweep * t);
-      const crack = (Math.random() * 2 - 1) * Math.exp(-t * 120);
-  
-      let s = (boom * 0.7 + crack * 0.3 * (tone / 100)) * e;
-  
-      if (dist > 0) {
-        const k = dist / 100;
-        s = Math.tanh(s * (1 + k * 4)) / (1 + k);
-      }
-      if (lofi > 0) {
-        const bit = Math.max(2, 16 - (lofi / 100) * 12);
-        const steps = Math.pow(2, bit);
-        s = Math.round(s * steps) / steps;
-      }
-  
-      last = fastSmooth(last, s, SMOOTH);
-      ch[i] = last * 0.9;
-    }
-    return buf;
+
+    return buffer;
   }
 
-  // Play sample with volume control
+  // Riser: smoother sweep, not harsh noise
+  generateRiser(params = {}) {
+    const {
+      pitch = 0,
+      decay = 2.5,
+      tone = 60,
+      attack = 0.02,
+      lofi = 0
+    } = params;
+
+    const sr = this.audioContext.sampleRate;
+    const dur = Math.max(0.9, decay);
+    const n = Math.floor(sr * dur);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
+    const fStart = 120 * Math.pow(2, pitch / 12);
+    const fEnd = 4200 * Math.pow(2, pitch / 12);
+    let last = 0;
+    const SMOOTH = 0.1;
+    const toneNorm = tone / 100;
+
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      const frac = t / dur;
+      const env = this.envAD(t, attack, decay) * Math.min(1, frac * 1.2);
+
+      const f = fStart * Math.pow(fEnd / fStart, frac);
+
+      const toneComp = Math.sin(2 * Math.PI * f * t) * toneNorm;
+      const white = Math.random() * 2 - 1;
+      const band =
+        Math.sin(2 * Math.PI * (f * 0.3) * t) * white;
+
+      let s = (toneComp * 0.5 + band * 0.5) * env;
+
+      s = this.applyLoFi(s, lofi);
+
+      last = this.fastSmooth(last, s, SMOOTH);
+      data[i] = last * 0.95;
+    }
+
+    return buffer;
+  }
+
+  // FX: impact-ish boom + crack, smoother
+  generateFX(params = {}) {
+    const {
+      pitch = -12,
+      decay = 1.4,
+      tone = 45,
+      attack = 0.001,
+      lofi = 0,
+      dist = 10
+    } = params;
+
+    const sr = this.audioContext.sampleRate;
+    const dur = Math.max(0.5, decay);
+    const n = Math.floor(sr * dur);
+    const buffer = this.audioContext.createBuffer(1, n, sr);
+    const data = buffer.getChannelData(0);
+
+    const f0 = 80 * Math.pow(2, pitch / 12);
+    let last = 0;
+    const SMOOTH = 0.12;
+    const toneNorm = tone / 100;
+
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      const env = this.envAD(t, attack, decay);
+
+      const sweep = f0 * (1 - 0.6 * Math.min(1, t / decay));
+      const boom = Math.sin(2 * Math.PI * sweep * t);
+      const crack =
+        (Math.random() * 2 - 1) *
+        Math.exp(-t * 120) *
+        (0.6 + toneNorm * 0.4);
+
+      let s = (boom * 0.75 + crack * 0.25) * env;
+
+      s = this.applyDist(s, dist, 4);
+      s = this.applyLoFi(s, lofi);
+
+      last = this.fastSmooth(last, s, SMOOTH);
+      data[i] = last * 0.95;
+    }
+
+    return buffer;
+  }
+
+  // --- playback / export / drawing ----------------------
+
+  // Play sample with volume in dB
   play(buffer, volume = 0) {
     if (this.currentSource) {
-      this.currentSource.stop();
+      try {
+        this.currentSource.stop();
+      } catch (e) {}
+      this.currentSource = null;
     }
 
     const source = this.audioContext.createBufferSource();
     const gainNode = this.audioContext.createGain();
-    
+
     source.buffer = buffer;
-    gainNode.gain.value = Math.pow(10, volume / 20); // dB to linear
-    
+    gainNode.gain.value = Math.pow(10, volume / 20); // dB → linear
+
     source.connect(gainNode);
     gainNode.connect(this.audioContext.destination);
-    
+
     source.start();
     this.currentSource = source;
-    
-    // Clean up after playback
+
     source.onended = () => {
-      this.currentSource = null;
+      if (this.currentSource === source) {
+        this.currentSource = null;
+      }
     };
   }
 
@@ -17252,12 +17394,12 @@ class SampleSynthesizer {
     const wav = this.bufferToWav(buffer);
     const blob = new Blob([wav], { type: 'audio/wav' });
     const url = URL.createObjectURL(blob);
-    
+
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
     a.click();
-    
+
     URL.revokeObjectURL(url);
   }
 
@@ -17266,18 +17408,18 @@ class SampleSynthesizer {
     const sampleRate = buffer.sampleRate;
     const format = 1; // PCM
     const bitDepth = 16;
-    
+
     const bytesPerSample = bitDepth / 8;
     const blockAlign = numChannels * bytesPerSample;
-    
+
     const data = buffer.getChannelData(0);
     const dataLength = data.length * bytesPerSample;
     const headerLength = 44;
     const totalLength = headerLength + dataLength;
-    
+
     const arrayBuffer = new ArrayBuffer(totalLength);
     const view = new DataView(arrayBuffer);
-    
+
     // Write WAV header
     this.writeString(view, 0, 'RIFF');
     view.setUint32(4, totalLength - 8, true);
@@ -17292,15 +17434,19 @@ class SampleSynthesizer {
     view.setUint16(34, bitDepth, true);
     this.writeString(view, 36, 'data');
     view.setUint32(40, dataLength, true);
-    
+
     // Write audio data
     let offset = 44;
     for (let i = 0; i < data.length; i++) {
       const sample = Math.max(-1, Math.min(1, data[i]));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      view.setInt16(
+        offset,
+        sample < 0 ? sample * 0x8000 : sample * 0x7fff,
+        true
+      );
       offset += 2;
     }
-    
+
     return arrayBuffer;
   }
 
@@ -17316,31 +17462,32 @@ class SampleSynthesizer {
     const width = canvas.width;
     const height = canvas.height;
     const data = buffer.getChannelData(0);
-    
+
     ctx.clearRect(0, 0, width, height);
-    
-    // Draw waveform
+
     ctx.beginPath();
     ctx.strokeStyle = '#8b5cf6';
     ctx.lineWidth = 2;
-    
+
     const step = Math.ceil(data.length / width);
     const amp = height / 2;
-    
+
     for (let i = 0; i < width; i++) {
-      const min = Math.min(...Array.from({length: step}, (_, j) => data[i * step + j] || 0));
-      const max = Math.max(...Array.from({length: step}, (_, j) => data[i * step + j] || 0));
-      
-      if (i === 0) {
-        ctx.moveTo(i, amp - max * amp);
-      } else {
-        ctx.lineTo(i, amp - max * amp);
+      const start = i * step;
+      let min = 1, max = -1;
+      for (let j = 0; j < step && start + j < data.length; j++) {
+        const v = data[start + j];
+        if (v < min) min = v;
+        if (v > max) max = v;
       }
+
+      const y = amp - max * amp;
+      if (i === 0) ctx.moveTo(i, y);
+      else ctx.lineTo(i, y);
     }
-    
+
     ctx.stroke();
-    
-    // Draw center line
+
     ctx.beginPath();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.lineWidth = 1;
