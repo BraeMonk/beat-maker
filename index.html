@@ -15483,48 +15483,57 @@ function updateGenrePresets() {
 
 // -------------------- Transport Controls --------------------
 async function togglePlay() {
-  if (state.isPlaying) {
-    Tone.Transport.pause();
-    state.isPlaying = false;
-    document.getElementById('playBtn').innerHTML = '▶️ Play';
-    stopTimer();
-    stopVisualizer();
-    stopPlayheadAnimation(); // Add this line
-    return;
-  }
-  
-  const hasActive = Object.keys(patterns).some(inst => 
-    patterns[inst].some(s => s.active)
-  );
-  
-  if (!hasActive) {
-    alert('No active notes — click "Generate Beat" or add steps.');
-    return;
-  }
-  
   try {
+    // Ensure audio context is running
     await Tone.start();
     const raw = Tone.getContext().rawContext;
     if (raw.state !== 'running') await raw.resume();
-    console.log('🎵 Audio started:', raw.state);
   } catch (e) {
     console.error('Could not start audio:', e);
     alert('Could not start audio. Click anywhere on the page, then press Play again.');
     return;
   }
-  
+
+  if (state.isPlaying) {
+    // 🟡 Pause
+    Tone.Transport.pause();
+    state.pausedAt = Tone.Transport.seconds; // remember position
+    state.isPlaying = false;
+    document.getElementById('playBtn').innerHTML = '▶️ Play';
+    stopTimer();
+    stopVisualizer();
+    stopPlayheadAnimation();
+    return;
+  }
+
+  // 🟢 If not playing, check for active steps
+  const hasActive = Object.keys(patterns).some(inst =>
+    patterns[inst].some(s => s.active)
+  );
+  if (!hasActive) {
+    alert('No active notes — click "Generate Beat" or add steps.');
+    return;
+  }
+
+  // 🟢 Resume from where you left off (or start fresh)
+  const resumeTime = state.pausedAt || 0;
+  Tone.Transport.seconds = resumeTime;
   Tone.Transport.start();
+
   state.isPlaying = true;
+  state.startTime = performance.now() - (resumeTime * 1000); // keep timer in sync
   document.getElementById('playBtn').innerHTML = '⏸️ Pause';
   startTimer();
-  startPlayheadAnimation(); // Add this line
+  startPlayheadAnimation();
   document.getElementById('vizOverlay').style.display = 'none';
   updateVisualizer();
 }
 
 function stop() {
+  // 🔴 Fully stop and reset playback
   Tone.Transport.stop();
   state.isPlaying = false;
+  state.pausedAt = 0;
   state.currentStep = 0;
   document.getElementById('playBtn').innerHTML = '▶️ Play';
   document.getElementById('timeDisplay').textContent = '00:00';
@@ -15532,17 +15541,18 @@ function stop() {
   document.querySelectorAll('.step').forEach(el => el.classList.remove('playing'));
   stopTimer();
   stopVisualizer();
-  stopPlayheadAnimation(); // Add this line
-  
+  stopPlayheadAnimation();
+
   // Reset playhead to start
   const playhead = document.getElementById('dawPlayhead');
   if (playhead) playhead.style.left = '0px';
-  
+
   // Stop multitrack preview
   stopMultitrackPreview();
   const previewBtn = document.getElementById('previewMultitrackBtn');
   if (previewBtn) previewBtn.textContent = '▶️ Preview Mix';
 }
+
 
 // -------------------- Timer System --------------------
 let progressRAF = 0;
@@ -16483,16 +16493,32 @@ function initLicenseUI() {
 }
 
 function gateTabsForFreeUsers() {
-  // Disable non-Generate tabs in free mode
+  // Tabs free for all users
+  const freeTabs = ['generate', 'sequencer', 'mixer'];
+
   if (!isPro()) {
     document.querySelectorAll('.sidebar-tab').forEach(btn => {
       const tab = btn.getAttribute('data-tab');
-      if (tab && tab !== 'generate') {
+      if (!freeTabs.includes(tab)) {
         btn.classList.add('locked');
+      } else {
+        btn.classList.remove('locked');
       }
     });
+
+    // Lock only note editing inside sequencer
+    const seqGrid = document.querySelector('#tab-sequencer .seq-grid');
+    if (seqGrid) {
+      seqGrid.classList.add('pro-locked');
+    }
+  } else {
+    // Pro users get everything unlocked
+    document.querySelectorAll('.sidebar-tab').forEach(btn => btn.classList.remove('locked'));
+    const seqGrid = document.querySelector('#tab-sequencer .seq-grid');
+    if (seqGrid) seqGrid.classList.remove('pro-locked');
   }
 }
+
 
 // === Splash / Initialization UI ===
 const splash = {
