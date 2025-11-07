@@ -13496,7 +13496,11 @@ async function previewMultitrack(startAtSeconds) {
   const startFrom =
     typeof startAtSeconds === 'number'
       ? startAtSeconds
-      : (typeof state.cursorSeconds === 'number' ? state.cursorSeconds : 0);
+      : (typeof multitrack.lastPreviewCursor === 'number'
+          ? multitrack.lastPreviewCursor
+          : (typeof state.cursorSeconds === 'number'
+              ? state.cursorSeconds
+              : 0));
 
   // Only tracks that actually have a selected take and aren’t muted
   const activeTracks = multitrack.tracks.filter(t =>
@@ -13602,7 +13606,7 @@ async function previewMultitrack(startAtSeconds) {
 
   multitrack.previewPlayers.forEach(({ player, track, relativeStart }) => {
     try {
-      player.start(now + relativeStart);
+      player.start(now + relativeStart, bufferOffset);
       console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
     } catch (err) {
       console.error(`❌ Failed to start ${track.name}:`, err);
@@ -13703,6 +13707,7 @@ function stopMultitrackPreview(resetOrOptions) {
   }
 
   multitrack.playheadSeconds = lastSeconds;
+  multitrack.lastPreviewCursor = lastSeconds;
   // This updates playhead position, scroll, and timecode/bars
   updatePlayheadAndScroll(lastSeconds);
 }
