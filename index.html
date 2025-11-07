@@ -2843,14 +2843,16 @@
 }
 
 /* === MAIN CONTAINER: 3-COLUMN LAYOUT === */
-.daw-main-container {
+daw-main-container {
   display: grid;
   grid-template-columns: 280px 1fr 320px;
+  grid-template-rows: 1fr;
   gap: var(--space-4);
   height: 600px;
   min-height: 600px;
   max-height: calc(100vh - 400px);
   margin-bottom: var(--space-4);
+  overflow: hidden; /* CRITICAL: Prevent container scroll */
 }
 
 /* Responsive: Tablet landscape */
@@ -2903,13 +2905,13 @@
 .daw-track-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   background: var(--surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  overflow: hidden;
   box-shadow: var(--shadow-md);
+  overflow: hidden; /* CRITICAL */
+  height: 100%; /* Fill grid cell */
+  min-height: 0; /* Allow flex shrinking */
 }
 
 .daw-section-header {
@@ -2935,7 +2937,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-height: 0; /* Critical for flexbox scrolling */
+  min-height: 0; /* CRITICAL for flexbox scrolling */
 }
 
 .daw-track-strip {
@@ -3076,16 +3078,16 @@
 
 /* === MASTER STRIP AS BUBBLE === */
 .daw-master-strip {
-  padding: var(--space-5);
+  padding: var(--space-4);
   background: var(--surface-elevated);
   border: 1px solid var(--glass-border-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  flex-shrink: 0;
-  margin-top: var(--space-3);
+  gap: var(--space-3);
+  flex-shrink: 0; /* Don't shrink */
+  margin-top: auto; /* Push to bottom */
 }
 
 .daw-master-strip:hover {
@@ -3106,7 +3108,7 @@
 .daw-meters {
   display: flex;
   gap: var(--space-2);
-  height: 120px;
+  height: 100px; /* Fixed height for consistency */
 }
 
 .daw-meter-bar {
@@ -3135,7 +3137,7 @@
 
 #masterFader {
   width: 100%;
-  height: 120px;
+  height: 100px; /* Match meters */
   writing-mode: bt-lr;
   -webkit-appearance: slider-vertical;
   appearance: slider-vertical;
@@ -3160,8 +3162,8 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;
-  min-height: 400px;
-  height: 100%;
+  height: 100%; /* Fill grid cell */
+  min-height: 0;
 }
 
 .daw-timeline-container:hover {
@@ -3439,7 +3441,7 @@
   position: relative;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
-  min-height: 200px;
+  min-height: 0; /* CRITICAL */
 }
 
 .daw-arrangement-scroll::-webkit-scrollbar {
@@ -3767,7 +3769,8 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   overflow: hidden;
-  min-height: 0; /* Critical for flexbox */
+  height: 100%; /* Fill grid cell */
+  min-height: 0;
 }
 
 .daw-inspector:hover {
@@ -3818,7 +3821,7 @@
   overflow-x: hidden;
   padding: var(--space-5);
   -webkit-overflow-scrolling: touch;
-  min-height: 0; /* Critical for flexbox scrolling */
+  min-height: 0; /* CRITICAL */
 }
 
 .inspector-section {
@@ -5554,7 +5557,6 @@ const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 function initAudioContext() {
   if (Tone.getContext && Tone.getContext().rawContext) return;
 
-  // Detect device type
   const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
   
   const ctx = new (window.AudioContext || window.webkitAudioContext)({
@@ -5564,15 +5566,15 @@ function initAudioContext() {
   
   Tone.setContext(new Tone.Context(ctx));
   
-  // CRITICAL: Desktop needs LESS lookahead to avoid message handler violations
-  Tone.context.lookAhead = isMobile ? 0.05 : 0.02;
-  Tone.context.updateInterval = isMobile ? 0.03 : 0.01;
+  // CRITICAL: Desktop needs LESS lookahead to avoid timing issues
+  Tone.context.lookAhead = isMobile ? 0.05 : 0.015; // Reduced from 0.02
+  Tone.context.updateInterval = isMobile ? 0.03 : 0.008; // Reduced from 0.01
   
   console.log('🎧 Device:', isMobile ? 'Mobile' : 'Desktop');
   console.log('🎵 Lookahead:', Tone.context.lookAhead.toFixed(3) + 's');
   console.log('🎵 Update:', Tone.context.updateInterval.toFixed(3) + 's');
 }
-
+  
 function unlockAudioOnce() {
   const unlock = async () => {
     try {
@@ -10864,12 +10866,12 @@ function setupRegionInteractions(stripEl, track) {
   let dragState = null;
   let isTouchDevice = 'ontouchstart' in window;
   
-  // === CRITICAL: Handle region action buttons FIRST (before drag logic) ===
+  // === CRITICAL: Use event delegation for action buttons ===
   canvas.addEventListener('click', (e) => {
     const btn = e.target.closest('.region-action-btn');
     if (!btn) return;
     
-    e.stopPropagation();
+    e.stopPropagation(); // CRITICAL: Prevent drag logic
     e.preventDefault();
     
     const region = btn.closest('.audio-region');
@@ -10879,17 +10881,11 @@ function setupRegionInteractions(stripEl, track) {
     const takeIndex = parseInt(region.dataset.takeIndex);
     const action = btn.dataset.action;
     
-    console.log(`🎛️ Region action: ${action} on track ${trackId}, take ${takeIndex}`);
-    
     handleRegionAction(trackId, takeIndex, action, e);
-  }, true); // Use capture phase to catch clicks before drag logic
-  
-  // Unified start handler for mouse and touch
+  }, { capture: true }); // Use capture phase
+
   const startDrag = (e) => {
-    // Ignore if clicking on action buttons
-    if (e.target.closest('.region-action-btn')) {
-      return;
-    }
+    if (e.target.closest('.region-action-btn')) return; // Skip buttons
     
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
@@ -12045,31 +12041,36 @@ function initPlayheadFollow() {
 
   if (!playheadEl || !arrangementScroll) return;
 
-  // Stop any previous timer
   clearInterval(playheadUpdateInterval);
 
   playheadUpdateInterval = setInterval(() => {
-    if (!multitrack.isPlaying) return; // only update while playing or recording
+    if (!multitrack.isPlaying) return;
 
     const ctx = Tone?.Transport || null;
     const seconds = ctx ? ctx.seconds : (multitrack.playheadSeconds || 0);
     multitrack.playheadSeconds = seconds;
 
-    // === 1. Update playhead position ===
     updatePlayheadUI(seconds);
 
-    // === 2. Follow mode scroll ===
+    // IMPROVED: Smoother scroll with lookahead
     if (playheadFollowActive) {
       const projDur = multitrack.projectDuration || (state.duration * 60);
       const pct = (seconds / projDur);
       const scrollWidth = arrangementScroll.scrollWidth - arrangementScroll.clientWidth;
-      arrangementScroll.scrollLeft = pct * scrollWidth;
+      const targetScroll = pct * scrollWidth;
+      
+      // Smooth lerp instead of instant jump
+      const currentScroll = arrangementScroll.scrollLeft;
+      const diff = targetScroll - currentScroll;
+      
+      if (Math.abs(diff) > 5) { // Only update if significant difference
+        arrangementScroll.scrollLeft = currentScroll + (diff * 0.3); // Smooth 30% lerp
+      }
     }
 
-    // === 3. Update displays ===
     if (timecodeEl) timecodeEl.textContent = formatTimecode(seconds);
     if (barsEl) barsEl.textContent = formatBars(seconds);
-  }, 50); // updates ~20 fps
+  }, 50); // Keep at 20fps for balance
 }
 
 function formatTimecode(sec) {
