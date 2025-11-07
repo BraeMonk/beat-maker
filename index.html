@@ -4840,12 +4840,19 @@
       opacity: 0.5;
     }
     
-    /* The little “+ Add FX” pop-up menu */
+    /* The little “+ Add FX” pop-up menu – now pops ABOVE the header */
+    .fx-chain-header {
+      position: relative; /* anchor for the menu */
+    }
+    
     .fx-add-menu {
       position: absolute;
-      top: 100%;
-      left: 0;
-      margin-top: 6px;
+      bottom: 100%;       /* sit ABOVE the header */
+      right: 0;
+      top: auto;
+      left: auto;
+      margin-bottom: 8px;
+      margin-top: 0;
       min-width: 220px;
       max-width: 260px;
       padding: 6px 0;
@@ -4855,10 +4862,11 @@
       box-shadow:
         0 18px 50px rgba(0, 0, 0, 0.8),
         0 0 0 1px rgba(15, 23, 42, 0.8);
-      z-index: 9999;
+      z-index: 1200;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
     }
+
     
     .fx-add-menu h4 {
       margin: 0;
@@ -12281,27 +12289,41 @@ function applyFadeCurve(progress, curve) {
 
 function setupTimelineCursor() {
   const wrapper = document.getElementById('dawArrangementScroll');
-  const ruler = document.querySelector('.timeline-ruler');
+  const ruler   = document.getElementById('dawRuler');
   if (!wrapper || !ruler) return;
 
   ruler.addEventListener('click', (e) => {
     const zoom = multitrack.zoom || 100;
-    const rect = ruler.getBoundingClientRect();
+
+    const rect   = ruler.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
+
+    // account for horizontal scroll
     const timelineX = clickX + wrapper.scrollLeft;
-    const seconds = timelineX / zoom;
 
-    const projectDurationSeconds = multitrack.projectDuration || (state.duration * 60);
-    state.cursorSeconds = Math.max(0, Math.min(seconds, projectDurationSeconds));
+    const projectDurationSeconds =
+      multitrack.projectDuration || (state.duration * 60);
 
-    updatePlayheadAndScroll(state.cursorSeconds);
-    console.log('🕒 Cursor set to', state.cursorSeconds.toFixed(3), 's');
+    let seconds = timelineX / zoom;
+    if (!Number.isFinite(seconds)) seconds = 0;
+
+    // clamp inside project range
+    seconds = Math.max(0, Math.min(seconds, projectDurationSeconds));
+
+    state.cursorSeconds = seconds;
+    multitrack.playheadSeconds = seconds;
+
+    // this already moves the playhead & updates timestamp
+    updatePlayheadAndScroll(seconds);
+
+    console.log('🕒 Cursor set to', seconds.toFixed(3), 's');
   });
 }
+
   
 function updateTimelineRuler() {
-  const ruler = document.querySelector('.timeline-ruler');
-  const markers = document.getElementById('timelineMarkers');
+  const ruler   = document.getElementById('dawRuler');
+  const markers = document.getElementById('dawRulerMarkers');
   if (!markers || !ruler) return;
 
   markers.innerHTML = '';
@@ -12310,22 +12332,20 @@ function updateTimelineRuler() {
   const durationMinutes = typeof state.duration === 'number' && state.duration > 0
     ? state.duration
     : 1;
+
   const projectDurationSeconds = durationMinutes * 60;
   const totalWidth = projectDurationSeconds * zoom;
 
   multitrack.projectDuration = projectDurationSeconds;
-  multitrack.timelineWidth = totalWidth;
+  multitrack.timelineWidth   = totalWidth;
   document.documentElement.style.setProperty('--timeline-width', totalWidth + 'px');
 
-  ruler.style.width = totalWidth + 'px';
+  ruler.style.width    = totalWidth + 'px';
   ruler.style.minWidth = totalWidth + 'px';
 
-  markers.style.width = totalWidth + 'px';
+  markers.style.width    = totalWidth + 'px';
   markers.style.minWidth = totalWidth + 'px';
-  markers.style.position = 'relative';
-  markers.style.height = '100%';
 
-  // Choose tick spacing based on zoom
   let interval = 1;
   if (zoom < 25) interval = 10;
   else if (zoom < 50) interval = 5;
@@ -12336,14 +12356,14 @@ function updateTimelineRuler() {
     const isMajor = t % (interval * 4) === 0;
 
     const marker = document.createElement('div');
-    marker.className = 'timeline-marker' + (isMajor ? ' bar' : '');
+    marker.className = 'daw-ruler-marker' + (isMajor ? ' bar' : '');
     marker.style.left = x + 'px';
 
     if (isMajor) {
       const label = document.createElement('div');
-      label.className = 'timeline-marker-label';
+      label.className = 'daw-ruler-label';
       const full = formatTime(t);
-      label.textContent = full.split('.')[0];
+      label.textContent = full.split('.')[0]; // drop fractional seconds
       marker.appendChild(label);
     }
 
@@ -12525,8 +12545,6 @@ let playheadUpdateInterval = null;
 
 // Call this once after your DAW tab is ready
 function initPlayheadFollow() {
-  const timecodeEl = document.getElementById('dawTimecode');
-  const barsEl = document.getElementById('dawBars');
   const arrangementScroll = document.getElementById('dawArrangementScroll');
   const playheadEl = document.getElementById('dawPlayhead');
 
@@ -12538,31 +12556,17 @@ function initPlayheadFollow() {
     if (!multitrack.isPlaying) return;
 
     const ctx = Tone?.Transport || null;
-    const seconds = ctx ? ctx.seconds : (multitrack.playheadSeconds || 0);
-    multitrack.playheadSeconds = seconds;
+    let seconds = multitrack.playheadSeconds || 0;
 
-    updatePlayheadUI(seconds);
-
-    // IMPROVED: Smoother scroll with lookahead
-    if (playheadFollowActive) {
-      const projDur = multitrack.projectDuration || (state.duration * 60);
-      const pct = (seconds / projDur);
-      const scrollWidth = arrangementScroll.scrollWidth - arrangementScroll.clientWidth;
-      const targetScroll = pct * scrollWidth;
-      
-      // Smooth lerp instead of instant jump
-      const currentScroll = arrangementScroll.scrollLeft;
-      const diff = targetScroll - currentScroll;
-      
-      if (Math.abs(diff) > 5) { // Only update if significant difference
-        arrangementScroll.scrollLeft = currentScroll + (diff * 0.3); // Smooth 30% lerp
-      }
+    // 🎛 For recording: follow the Transport clock if it's actually running
+    if (ctx && ctx.state === 'started') {
+      seconds = ctx.seconds;
     }
 
-    if (timecodeEl) timecodeEl.textContent = formatTimecode(seconds);
-    if (barsEl) barsEl.textContent = formatBars(seconds);
-  }, 50); // Keep at 20fps for balance
+    updatePlayheadAndScroll(seconds);
+  }, 50); // ~20fps is plenty
 }
+
 
 function formatTimecode(sec) {
   const ms = Math.floor((sec % 1) * 1000);
@@ -12719,10 +12723,12 @@ function renderMultitrack() {
     trackHeaders.appendChild(headerDiv);
     
     // CREATE TRACK LANE (RIGHT SIDE)
+    // CREATE TRACK LANE (RIGHT SIDE)
     const laneDiv = document.createElement('div');
-    laneDiv.className = 'track-lane';
+    laneDiv.className = 'daw-track-lane';
     laneDiv.dataset.trackId = track.id;
     laneDiv.style.width = timelineWidth + 'px';
+
     
     // Add regions
     track.takes.forEach((take, idx) => {
@@ -12870,13 +12876,27 @@ function renderMultitrack() {
 function updatePlayheadAndScroll(currentSeconds) {
   const wrapper = document.getElementById('dawArrangementScroll');
   const playhead = document.getElementById('dawPlayhead');
+  const timecodeEl = document.getElementById('dawTimecode');
+  const barsEl = document.getElementById('dawBars');
+
   if (!wrapper || !playhead) return;
 
-  const zoom = multitrack.zoom || 100;
-  const x = currentSeconds * zoom;
+  const projDur = multitrack.projectDuration || (state.duration * 60);
+  let sec = Number(currentSeconds);
 
+  if (!Number.isFinite(sec) || sec < 0) sec = 0;
+  if (projDur > 0) sec = Math.min(sec, projDur);
+
+  // 🔑 Remember this globally so PAUSE / SKIM can use it
+  multitrack.playheadSeconds = sec;
+  state.cursorSeconds = sec;
+
+  // Position playhead in pixels
+  const zoom = multitrack.zoom || 100;
+  const x = sec * zoom;
   playhead.style.left = x + 'px';
 
+  // Auto-scroll to keep playhead visible
   const padding = 80;
   const visibleStart = wrapper.scrollLeft;
   const visibleEnd = visibleStart + wrapper.clientWidth;
@@ -12886,7 +12906,12 @@ function updatePlayheadAndScroll(currentSeconds) {
   } else if (x > visibleEnd - padding) {
     wrapper.scrollLeft = x - wrapper.clientWidth + padding;
   }
+
+  // ⏱️ Update transport displays
+  if (timecodeEl) timecodeEl.textContent = formatTimecode(sec);
+  if (barsEl) barsEl.textContent = formatBars(sec);
 }
+
 
 let playheadAnimationId = null;
 
@@ -13164,8 +13189,9 @@ function stopMultitrackPreview() {
   }
 
   multitrack.playheadSeconds = lastSeconds;
-  updatePlayheadUI(lastSeconds);
+  updatePlayheadAndScroll(lastSeconds);
 }
+
 
 // 🔁 PURE WEB AUDIO MASTER CHAIN FOR OFFLINE BOUNCE
 function createOfflineMasterChain(offlineContext) {
@@ -14835,25 +14861,31 @@ async function setupMultitrackListeners() {
     stopBtn.onclick = () => {
       playBtn.textContent = '▶️';
       stopMultitrackPreview();
-      multitrack.playheadSeconds = 0;
-      updatePlayheadUI(0);
+      // 🔁 Hard reset: playhead + timeline + timecode
+      updatePlayheadAndScroll(0);
     };
   }
-
+  
   if (rewindBtn) {
     rewindBtn.onclick = () => {
-      multitrack.playheadSeconds = Math.max(0, (multitrack.playheadSeconds || 0) - 5);
-      updatePlayheadUI(multitrack.playheadSeconds);
+      const projDur = multitrack.projectDuration || (state.duration * 60);
+      const current = multitrack.playheadSeconds || 0;
+      const target = Math.max(0, current - 5);
+  
+      updatePlayheadAndScroll(target);
     };
   }
-
+  
   if (forwardBtn) {
     forwardBtn.onclick = () => {
       const projDur = multitrack.projectDuration || (state.duration * 60);
-      multitrack.playheadSeconds = Math.min(projDur, (multitrack.playheadSeconds || 0) + 5);
-      updatePlayheadUI(multitrack.playheadSeconds);
+      const current = multitrack.playheadSeconds || 0;
+      const target = Math.min(projDur, current + 5);
+  
+      updatePlayheadAndScroll(target);
     };
   }
+
 
   if (recordBtn) {
     recordBtn.onclick = () => {
@@ -15127,47 +15159,13 @@ const closeFxBtn = document.getElementById('closeFxPanelBtn');
 if (fxAddBtn && fxAddMenu && !fxAddMenu.dataset._wired) {
   fxAddMenu.dataset._wired = 'true';
 
-  // Main "Add FX" button in FX chain panel
-  fxAddBtn.onclick = (e) => {
+    fxAddBtn.onclick = (e) => {
     e.stopPropagation();
     e.preventDefault();
 
     const isVisible = fxAddMenu.style.display === 'block';
-    if (isVisible) {
-      fxAddMenu.style.display = 'none';
-      return;
-    }
-
-    // Show first so we can measure it
-    fxAddMenu.style.display = 'block';
-
-    const rect = fxAddBtn.getBoundingClientRect();
-    const menuWidth  = fxAddMenu.offsetWidth  || 240;
-    const menuHeight = fxAddMenu.offsetHeight || 260;
-
-    const viewportWidth  = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const margin = 16;
-
-    // Default placement: BELOW the button
-    let top  = rect.bottom + 8;
-    let left = rect.right - menuWidth;
-
-    // If it would go off the bottom (behind footer), flip it ABOVE the button
-    if (top + menuHeight > viewportHeight - margin) {
-      top = rect.top - menuHeight - 8;
-    }
-
-    // Clamp horizontally so it stays inside the viewport
-    if (left < margin) left = margin;
-    if (left + menuWidth > viewportWidth - margin) {
-      left = viewportWidth - margin - menuWidth;
-    }
-
-    fxAddMenu.style.position = 'fixed';   // 🔑 use viewport coords, not inside panel
-    fxAddMenu.style.top  = `${Math.max(margin, top)}px`;
-    fxAddMenu.style.left = `${left}px`;
-    fxAddMenu.style.zIndex = '1200';
+    fxAddMenu.style.display = isVisible ? 'none' : 'block';
+    // Placement is now purely handled by CSS (.fx-add-menu above the header)
   };
 
   // Close menu when clicking outside
