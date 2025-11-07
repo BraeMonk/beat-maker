@@ -16782,22 +16782,10 @@ function gateTabsForFreeUsers() {
   }
 }
 
-// --- global sample helpers (must be outside any class/function) ---
-function fastSmooth(last, sample, amt) { 
-  return last + amt * (sample - last);
-}
-
-function envAD(t, attack, decay) {
-  const a = attack > 0 ? Math.min(1, t / attack) : 1;
-  const d = Math.exp(-t / Math.max(0.000001, decay));
-  return a * d;
-}
-
-// High-quality sample synthesis engine
 // High-quality sample synthesis engine (more natural, less buzzy)
 class SampleSynthesizer {
   constructor() {
-    // Prefer Tone’s context so buffers are compatible with the DAW
+    // Prefer Tone's context so buffers are compatible with the DAW
     const toneCtx =
       (window.Tone && Tone.context && Tone.context.rawContext) ||
       (window.Tone && Tone.context) ||
@@ -16831,14 +16819,14 @@ class SampleSynthesizer {
 
   applyDist(sample, dist, driveFactor) {
     if (!dist || dist <= 0) return sample;
-    const norm = Math.pow(dist / 100, 1.3); // tame curve
+    const norm = Math.pow(dist / 100, 1.3);
     const drive = 1 + driveFactor * norm;
     return Math.tanh(sample * drive) / (1 + norm * 1.5);
   }
 
   // --- DRUMS --------------------------------------------
 
-  // Kick: smooth 808-ish, subby, minimal noise
+  // Kick: authentic 808/909-style with proper phase modeling
   generateKick(params = {}) {
     const {
       pitch = 0,
@@ -16856,28 +16844,35 @@ class SampleSynthesizer {
     const buffer = this.audioContext.createBuffer(1, n, sr);
     const data = buffer.getChannelData(0);
 
-    const base = 55 * Math.pow(2, pitch / 12); // around A1
+    const base = 55 * Math.pow(2, pitch / 12);
+    let phase = 0;
     let last = 0;
-    const SMOOTH = 0.15;
+    const SMOOTH = 0.08;
 
-    const noiseNorm = Math.pow(noise / 100, 2); // softer curve
+    const noiseNorm = Math.pow(noise / 100, 2);
 
     for (let i = 0; i < n; i++) {
       const t = i / sr;
       const env = this.envAD(t, attack, decay);
+      
+      // Multi-stage pitch envelope for realistic thump
+      const pitchEnv1 = Math.exp(-t * 80);
+      const pitchEnv2 = Math.exp(-t * 15);
+      const f = base * (1 + 4.5 * pitchEnv1 + 1.2 * pitchEnv2);
+      
+      // Phase accumulation for cleaner sine generation
+      phase += (2 * Math.PI * f) / sr;
+      
+      const body = Math.sin(phase) * (tone / 100);
+      const sub = Math.sin(phase * 0.5) * 0.45;
+      
+      // Click transient for attack
+      const click = Math.sin(phase * 8) * Math.exp(-t * 200) * 0.15;
 
-      // pitch sweep for thump
-      const f = base * (1 + 3.5 * Math.exp(-50 * t));
+      // Shaped noise burst
+      const nSample = (Math.random() * 2 - 1) * noiseNorm * Math.exp(-t * 120);
 
-      const body = Math.sin(2 * Math.PI * f * t) * (tone / 100);
-      const sub = Math.sin(2 * Math.PI * (f * 0.5) * t) * 0.4;
-
-      const nSample =
-        (Math.random() * 2 - 1) *
-        noiseNorm *
-        Math.exp(-t * 80); // very short transient
-
-      let s = (body * 0.6 + sub * 0.35 + nSample * 0.05) * env;
+      let s = (body * 0.55 + sub * 0.35 + click + nSample * 0.1) * env;
 
       s = this.applyDist(s, dist, 4);
       s = this.applyLoFi(s, lofi);
@@ -16889,7 +16884,7 @@ class SampleSynthesizer {
     return buffer;
   }
 
-  // Generate snare with softer, filtered noise
+  // Snare: layered approach with realistic shell resonance
   generateSnare(params = {}) {
     const {
       pitch  = 0,
@@ -16909,25 +16904,39 @@ class SampleSynthesizer {
   
     const basePitch = 200 * Math.pow(2, pitch / 12);
   
-    // 1-pole low-pass on the noise to make it less hissy / static
-    let lastNoise = 0;
+    // Multi-pole filter for noise (more realistic snare wire sound)
+    let noiseHP1 = 0, noiseHP2 = 0;
+    let noiseBP = 0;
   
     for (let i = 0; i < samples; i++) {
       const t        = i / sampleRate;
       const envelope = Math.exp(-t / decay);
   
-      // Tonal shell
-      const tone1 = Math.sin(2 * Math.PI * basePitch * t);
-      const tone2 = Math.sin(2 * Math.PI * basePitch * 1.5 * t);
-      const toneComponent = (tone1 * 0.6 + tone2 * 0.4) * (tone / 100);
+      // Shell resonance - multiple partials
+      const shell1 = Math.sin(2 * Math.PI * basePitch * t);
+      const shell2 = Math.sin(2 * Math.PI * basePitch * 1.47 * t);
+      const shell3 = Math.sin(2 * Math.PI * basePitch * 1.89 * t);
+      const toneComponent = (shell1 * 0.5 + shell2 * 0.3 + shell3 * 0.2) * (tone / 100);
   
-      // Smoothed noise – way less “TV static”
-      const rawNoise    = Math.random() * 2 - 1;
-      lastNoise         = lastNoise + 0.4 * (rawNoise - lastNoise);
-      const noiseAmount = (noise / 100) * 0.7;
-      const noiseComponent = lastNoise * noiseAmount;
+      // Snare wire simulation with bandpass filtering
+      const rawNoise = Math.random() * 2 - 1;
+      
+      // High-pass filter cascade
+      noiseHP1 = noiseHP1 + 0.7 * (rawNoise - noiseHP1);
+      noiseHP2 = noiseHP2 + 0.7 * (noiseHP1 - noiseHP2);
+      
+      // Band-emphasis around 3-5kHz
+      const hpOut = rawNoise - noiseHP2;
+      noiseBP = noiseBP + 0.15 * (hpOut - noiseBP);
+      
+      const noiseAmount = (noise / 100) * 0.8;
+      const noiseComponent = noiseBP * noiseAmount;
   
-      let sample = (toneComponent * 0.4 + noiseComponent * 0.6) * envelope;
+      // Mix with emphasis on noise body
+      let sample = (toneComponent * 0.35 + noiseComponent * 0.65) * envelope;
+      
+      // Transient click
+      sample += Math.sin(2 * Math.PI * basePitch * 4 * t) * Math.exp(-t * 150) * 0.2;
   
       if (dist > 0) {
         const distAmount = dist / 100;
@@ -16946,7 +16955,7 @@ class SampleSynthesizer {
     return buffer;
   }
 
-  // Generate hi-hat with brighter but less harsh noise
+  // Hi-hat: metallic resonator model (more realistic cymbal sound)
   generateHihat(params = {}, closed = true) {
     const {
       pitch  = 0,
@@ -16966,29 +16975,38 @@ class SampleSynthesizer {
   
     const pitchMult = Math.pow(2, pitch / 12);
   
-    // Smoothed noise again, but mixed with bright partials
-    let lastNoise = 0;
+    // Resonator banks for metallic character
+    let res1 = 0, res2 = 0, res3 = 0, res4 = 0;
+    let noiseState = 0;
   
     for (let i = 0; i < samples; i++) {
       const t        = i / sampleRate;
       const envelope = Math.exp(-t / decay);
   
-      let sample = 0;
-  
-      // Metallic partials (909-ish)
-      const freqs = [6000, 8200, 10300, 12500].map(f => f * pitchMult);
-      freqs.forEach((freq, idx) => {
-        sample += Math.sin(2 * Math.PI * freq * t) * (1 / (idx + 2)) * (tone / 100);
-      });
-  
-      // Smoothed, high-passed-ish noise
-      const rawNoise    = Math.random() * 2 - 1;
-      lastNoise         = lastNoise + 0.35 * (rawNoise - lastNoise);
-      const noiseAmount = (noise / 100) * 0.75;
-      const noiseComp   = lastNoise * noiseAmount;
-  
-      // More tone, less brutal noise
-      sample = (sample * 0.5 + noiseComp * 0.5) * envelope;
+      // Inharmonic metallic partials (909-style ratios)
+      const freqs = [
+        5500 * pitchMult,
+        7234 * pitchMult,
+        9891 * pitchMult,
+        12456 * pitchMult
+      ];
+      
+      const excitation = (Math.random() * 2 - 1) * (noise / 100);
+      
+      // Resonator simulation
+      res1 = res1 * 0.996 + Math.sin(2 * Math.PI * freqs[0] / sampleRate) * excitation * 0.3;
+      res2 = res2 * 0.994 + Math.sin(2 * Math.PI * freqs[1] / sampleRate) * excitation * 0.25;
+      res3 = res3 * 0.992 + Math.sin(2 * Math.PI * freqs[2] / sampleRate) * excitation * 0.2;
+      res4 = res4 * 0.990 + Math.sin(2 * Math.PI * freqs[3] / sampleRate) * excitation * 0.15;
+      
+      const metallic = (res1 + res2 + res3 + res4) * (tone / 100);
+      
+      // High-passed noise
+      const rawNoise = Math.random() * 2 - 1;
+      noiseState = noiseState + 0.25 * (rawNoise - noiseState);
+      const noiseHP = rawNoise - noiseState;
+      
+      let sample = (metallic * 0.6 + noiseHP * 0.4) * envelope;
   
       if (dist > 0) {
         const distAmount = dist / 100;
@@ -17007,8 +17025,7 @@ class SampleSynthesizer {
     return buffer;
   }
 
-
-  // Generate clap with softer body noise
+  // Clap: realistic hand clap with proper layering
   generateClap(params = {}) {
     const {
       pitch  = 0,
@@ -17026,10 +17043,10 @@ class SampleSynthesizer {
     const buffer     = this.audioContext.createBuffer(1, samples, sampleRate);
     const data       = buffer.getChannelData(0);
   
-    const clapTimes = [0, 0.01, 0.02, 0.03];
+    // More realistic clap timing (slightly randomized)
+    const clapTimes = [0, 0.008, 0.019, 0.027, 0.035];
   
-    //Again, slightly smoothed noise for the body
-    let lastNoise = 0;
+    let noiseBP = 0;
   
     for (let i = 0; i < samples; i++) {
       const t      = i / sampleRate;
@@ -17037,19 +17054,22 @@ class SampleSynthesizer {
   
       let sample = 0;
   
-      // Transient clusters
-      clapTimes.forEach(clapTime => {
+      // Individual clap transients
+      clapTimes.forEach((clapTime, idx) => {
         if (t >= clapTime) {
           const localT   = t - clapTime;
-          const localEnv = Math.exp(-localT * 80);
-          sample += (Math.random() * 2 - 1) * localEnv * 0.22;
+          const localEnv = Math.exp(-localT * (60 + idx * 10));
+          
+          // Each clap has slightly different frequency content
+          const burst = (Math.random() * 2 - 1) * localEnv * (0.18 + idx * 0.02);
+          sample += burst;
         }
       });
   
-      // Body noise
+      // Body noise with bandpass character
       const rawNoise  = Math.random() * 2 - 1;
-      lastNoise       = lastNoise + 0.4 * (rawNoise - lastNoise);
-      const bodyNoise = lastNoise * (noise / 100) * 0.4 * mainEnv;
+      noiseBP = noiseBP + 0.3 * (rawNoise - noiseBP);
+      const bodyNoise = noiseBP * (noise / 100) * 0.5 * mainEnv;
   
       sample = sample + bodyNoise;
   
@@ -17070,10 +17090,10 @@ class SampleSynthesizer {
     return buffer;
   }
   
-  // Generate tom with resonant body (more natural, less sub-bass / static)
+  // Tom: acoustic drum modeling with realistic overtones
   generateTom(params = {}, kitPitch = 0) {
     const {
-      pitch = 0,        // UI pitch (semitones)
+      pitch = 0,
       decay = 0.3,
       tone  = 60,
       noise = 20,
@@ -17088,33 +17108,41 @@ class SampleSynthesizer {
     const buffer     = this.audioContext.createBuffer(1, samples, sampleRate);
     const data       = buffer.getChannelData(0);
   
-    // Combine kit pitch (second arg) + slider pitch (params.pitch) into a musical tom range
     const semitoneOffset = (kitPitch || 0) + (pitch || 0);
-    // Around A2 by default; this keeps toms in a realistic range
     const basePitch = 110 * Math.pow(2, semitoneOffset / 12);
+  
+    let phase1 = 0, phase2 = 0, phase3 = 0;
   
     for (let i = 0; i < samples; i++) {
       const t        = i / sampleRate;
       const envelope = Math.exp(-t / decay);
   
-      // Fundamental + small harmonic
-      const fundamental   = Math.sin(2 * Math.PI * basePitch * t);
-      const harmonic      = Math.sin(2 * Math.PI * basePitch * 1.5 * t);
-      const toneComponent = (fundamental * 0.8 + harmonic * 0.2) * (tone / 100);
+      // Pitch drop on attack (realistic tom behavior)
+      const pitchEnv = 1 + 0.15 * Math.exp(-t * 40);
+      const f = basePitch * pitchEnv;
   
-      // Short noise click, much softer than before
-      const noiseEnv       = Math.exp(-t * 30);
-      const noiseComponent = (Math.random() * 2 - 1) * (noise / 100) * noiseEnv * 0.3;
+      // Multiple modes of drum head
+      phase1 += (2 * Math.PI * f) / sampleRate;
+      phase2 += (2 * Math.PI * f * 1.5) / sampleRate;
+      phase3 += (2 * Math.PI * f * 2.0) / sampleRate;
+      
+      const mode1 = Math.sin(phase1);
+      const mode2 = Math.sin(phase2) * 0.3;
+      const mode3 = Math.sin(phase3) * 0.15;
+      
+      const toneComponent = (mode1 + mode2 + mode3) * (tone / 100);
   
-      let sample = (toneComponent * 0.9 + noiseComponent * 0.1) * envelope;
+      // Attack transient
+      const clickEnv = Math.exp(-t * 80);
+      const click = (Math.random() * 2 - 1) * (noise / 100) * clickEnv * 0.4;
   
-      // Distortion (kept the same style, just re-used)
+      let sample = (toneComponent * 0.85 + click * 0.15) * envelope;
+  
       if (dist > 0) {
         const distAmount = dist / 100;
         sample = Math.tanh(sample * (1 + distAmount * 4)) / (1 + distAmount);
       }
   
-      // Lo-fi (bit crush) – same logic, just used after everything
       if (lofi > 0) {
         const bitDepth = 16 - (lofi / 100) * 12;
         const steps    = Math.pow(2, bitDepth);
@@ -17127,10 +17155,9 @@ class SampleSynthesizer {
     return buffer;
   }
 
-
   // --- INSTRUMENTS --------------------------------------
 
-  // Bass: smooth sub + 2nd harmonic, gentle pitch drop
+  // Bass: analog-style with proper filter modeling
   generateBass(params = {}) {
     const {
       pitch = -12,
@@ -17148,19 +17175,35 @@ class SampleSynthesizer {
     const data = buffer.getChannelData(0);
 
     const fBase = 55 * Math.pow(2, pitch / 12);
+    let phase = 0;
+    let filterState = 0;
     let last = 0;
-    const SMOOTH = 0.12;
+    const SMOOTH = 0.1;
 
     for (let i = 0; i < n; i++) {
       const t = i / sr;
       const env = this.envAD(t, attack, decay);
-      const f = fBase * (1 + 0.35 * Math.exp(-t * 30));
+      
+      // Slight pitch drop (analog VCO behavior)
+      const f = fBase * (1 + 0.25 * Math.exp(-t * 35));
+      phase += (2 * Math.PI * f) / sr;
 
-      const s1 = Math.sin(2 * Math.PI * f * t);
-      const s2 = Math.sin(2 * Math.PI * 2 * f * t);
+      // Sawtooth-ish wave (richer harmonics)
+      const sawPhase = (phase % (2 * Math.PI)) / (2 * Math.PI);
+      const saw = 2 * sawPhase - 1;
+      
+      // Add sine fundamental for warmth
+      const sine = Math.sin(phase);
+      
       const toneNorm = tone / 100;
-      let s = (s1 * (1 - toneNorm * 0.3) + s2 * (toneNorm * 0.25)) * env;
-
+      let s = saw * toneNorm + sine * (1 - toneNorm * 0.5);
+      
+      // Low-pass filter envelope
+      const cutoffEnv = 0.3 + 0.7 * env;
+      filterState = filterState + cutoffEnv * 0.15 * (s - filterState);
+      s = filterState;
+      
+      s = s * env;
       s = this.applyDist(s, dist, 3);
       s = this.applyLoFi(s, lofi);
 
@@ -17171,7 +17214,7 @@ class SampleSynthesizer {
     return buffer;
   }
 
-  // Guitar-ish pluck (Karplus–Strong style)
+  // Guitar: improved Karplus-Strong with realistic damping
   generateGuitar(params = {}) {
     const {
       pitch = 0,
@@ -17182,7 +17225,7 @@ class SampleSynthesizer {
     } = params;
 
     const sr = this.audioContext.sampleRate;
-    const f0 = 110 * Math.pow(2, pitch / 12); // A2-ish
+    const f0 = 110 * Math.pow(2, pitch / 12);
     const dur = Math.max(0.35, decay);
     const n = Math.floor(sr * dur);
     const buffer = this.audioContext.createBuffer(1, n, sr);
@@ -17190,24 +17233,36 @@ class SampleSynthesizer {
 
     const L = Math.max(2, Math.floor(sr / f0));
     const delay = new Float32Array(L);
+    
+    // Richer initial excitation
     for (let i = 0; i < L; i++) {
-      delay[i] = (Math.random() * 2 - 1) * 0.5;
+      delay[i] = (Math.random() * 2 - 1) * 0.5 * (1 - i / L);
     }
 
     let idx = 0;
-    const DAMP = 0.498 + (1 - tone / 100) * 0.08; // brighter tone = less damping
+    const toneNorm = tone / 100;
+    const DAMP = 0.495 + (1 - toneNorm) * 0.1;
+    
+    // Allpass for tuning
+    let allpassState = 0;
 
     for (let i = 0; i < n; i++) {
-      const y =
-        ((delay[idx] + delay[(idx + 1) % L]) * 0.5) * DAMP;
+      // Improved averaging for warmer tone
+      const y0 = delay[idx];
+      const y1 = delay[(idx + 1) % L];
+      let y = (y0 + y1) * 0.5 * DAMP;
+      
+      // Allpass tuning adjustment
+      allpassState = allpassState * 0.5 + y * 0.5;
+      y = y + (allpassState - y) * 0.3;
+      
       delay[idx] = y;
       idx = (idx + 1) % L;
 
       const t = i / sr;
-      const env = this.envAD(t, attack, decay);
+      const env = this.envAD(t, attack, decay * 1.5);
 
       let s = y * env;
-
       s = this.applyLoFi(s, lofi);
 
       data[i] = s * 0.95;
@@ -17216,7 +17271,7 @@ class SampleSynthesizer {
     return buffer;
   }
 
-  // Keys: simple Rhodes-ish modal sound
+  // Keys: FM Rhodes-style with authentic character
   generateKeys(params = {}) {
     const {
       pitch = 0,
@@ -17235,27 +17290,40 @@ class SampleSynthesizer {
 
     const tremHz = 5.5;
     const toneNorm = tone / 100;
+    
+    let modPhase = 0;
+    let carPhase = 0;
 
     for (let i = 0; i < n; i++) {
       const t = i / sr;
       const env = this.envAD(t, attack, decay);
 
-      const p1 = Math.sin(2 * Math.PI * f0 * t);
-      const p2 = Math.sin(2 * Math.PI * (f0 * 2.01) * t);
-      let s = (p1 * (1 - toneNorm * 0.4) + p2 * (toneNorm * 0.35)) * env;
+      // FM synthesis for bell-like tone
+      const modIndex = 2.5 * env;
+      modPhase += (2 * Math.PI * f0) / sr;
+      const mod = Math.sin(modPhase) * modIndex;
+      
+      carPhase += (2 * Math.PI * f0 * (1 + mod)) / sr;
+      let s = Math.sin(carPhase);
+      
+      // Add slight detuned harmonic
+      const detune = Math.sin(carPhase * 2.01) * 0.3 * toneNorm;
+      s = s * (1 - toneNorm * 0.3) + detune;
+      
+      s = s * env;
 
+      // Tremolo
       const trem = 1 + 0.25 * Math.sin(2 * Math.PI * tremHz * t);
       s *= trem;
 
       s = this.applyLoFi(s, lofi);
-
       data[i] = s * 0.9;
     }
 
     return buffer;
   }
 
-  // Lead: triangle-ish with a bit of vibrato
+  // Lead: improved wavetable-style synthesis
   generateLead(params = {}) {
     const {
       pitch = 0,
@@ -17272,10 +17340,12 @@ class SampleSynthesizer {
     const buffer = this.audioContext.createBuffer(1, n, sr);
     const data = buffer.getChannelData(0);
 
-    const harmonics = 7;
     const toneNorm = tone / 100;
     const vibHz = 6;
-    const vibDepth = 0.015; // ±1.5%
+    const vibDepth = 0.015;
+    
+    let phase = 0;
+    let pwmPhase = 0;
 
     for (let i = 0; i < n; i++) {
       const t = i / sr;
@@ -17283,16 +17353,19 @@ class SampleSynthesizer {
 
       const vib = 1 + vibDepth * Math.sin(2 * Math.PI * vibHz * t);
       const f = f0 * vib;
-
-      let s = 0;
-      let norm = 0;
-      for (let k = 1; k <= harmonics; k += 2) {
-        const a = 1 / (k * k);
-        s += a * Math.sin(2 * Math.PI * f * k * t);
-        norm += a;
-      }
-      s = (s / norm) * (toneNorm) * env;
-
+      
+      phase += (2 * Math.PI * f) / sr;
+      
+      // PWM-style wave morphing
+      pwmPhase = (phase % (2 * Math.PI)) / (2 * Math.PI);
+      const pulseWidth = 0.5 + 0.3 * toneNorm;
+      const pulse = pwmPhase < pulseWidth ? 1 : -1;
+      
+      // Mix with sine for smoothness
+      const sine = Math.sin(phase);
+      let s = pulse * toneNorm + sine * (1 - toneNorm * 0.5);
+      
+      s = s * env;
       s = this.applyLoFi(s, lofi);
 
       data[i] = s * 0.95;
@@ -17301,7 +17374,7 @@ class SampleSynthesizer {
     return buffer;
   }
 
-  // Riser: smoother sweep, not harsh noise
+  // Riser: formant-filtered sweep for realistic buildup
   generateRiser(params = {}) {
     const {
       pitch = 0,
@@ -17319,8 +17392,11 @@ class SampleSynthesizer {
 
     const fStart = 120 * Math.pow(2, pitch / 12);
     const fEnd = 4200 * Math.pow(2, pitch / 12);
+    
+    let filterLP = 0;
+    let filterBP = 0;
     let last = 0;
-    const SMOOTH = 0.1;
+    const SMOOTH = 0.08;
     const toneNorm = tone / 100;
 
     for (let i = 0; i < n; i++) {
@@ -17330,13 +17406,18 @@ class SampleSynthesizer {
 
       const f = fStart * Math.pow(fEnd / fStart, frac);
 
-      const toneComp = Math.sin(2 * Math.PI * f * t) * toneNorm;
-      const white = Math.random() * 2 - 1;
-      const band =
-        Math.sin(2 * Math.PI * (f * 0.3) * t) * white;
-
-      let s = (toneComp * 0.5 + band * 0.5) * env;
-
+      // Sawtooth oscillator
+      const sawPhase = (2 * Math.PI * f * t) % (2 * Math.PI);
+      const saw = 2 * (sawPhase / (2 * Math.PI)) - 1;
+      
+      // Resonant filter sweep
+      const cutoff = 0.1 + 0.3 * frac;
+      filterLP = filterLP + cutoff * (saw - filterLP);
+      filterBP = filterBP + cutoff * 0.5 * (filterLP - filterBP);
+      
+      const filtered = filterBP * toneNorm + saw * (1 - toneNorm);
+      
+      let s = filtered * env;
       s = this.applyLoFi(s, lofi);
 
       last = this.fastSmooth(last, s, SMOOTH);
@@ -17346,7 +17427,7 @@ class SampleSynthesizer {
     return buffer;
   }
 
-  // FX: impact-ish boom + crack, smoother
+  // FX: cinematic impact with layered textures
   generateFX(params = {}) {
     const {
       pitch = -12,
@@ -17364,22 +17445,29 @@ class SampleSynthesizer {
     const data = buffer.getChannelData(0);
 
     const f0 = 80 * Math.pow(2, pitch / 12);
+    let phase = 0;
+    let noiseHP = 0;
     let last = 0;
-    const SMOOTH = 0.12;
+    const SMOOTH = 0.1;
     const toneNorm = tone / 100;
 
     for (let i = 0; i < n; i++) {
       const t = i / sr;
       const env = this.envAD(t, attack, decay);
 
-      const sweep = f0 * (1 - 0.6 * Math.min(1, t / decay));
-      const boom = Math.sin(2 * Math.PI * sweep * t);
-      const crack =
-        (Math.random() * 2 - 1) *
-        Math.exp(-t * 120) *
-        (0.6 + toneNorm * 0.4);
+      // Downward pitch sweep
+      const sweep = f0 * (1 - 0.7 * Math.min(1, t / decay));
+      phase += (2 * Math.PI * sweep) / sr;
+      
+      const boom = Math.sin(phase);
+      const subBoom = Math.sin(phase * 0.5) * 0.4;
+      
+      // Filtered noise crack
+      const rawNoise = Math.random() * 2 - 1;
+      noiseHP = noiseHP + 0.4 * (rawNoise - noiseHP);
+      const crack = (rawNoise - noiseHP) * Math.exp(-t * 100) * (0.5 + toneNorm * 0.5);
 
-      let s = (boom * 0.75 + crack * 0.25) * env;
+      let s = (boom * 0.6 + subBoom * 0.25 + crack * 0.15) * env;
 
       s = this.applyDist(s, dist, 4);
       s = this.applyLoFi(s, lofi);
