@@ -17222,8 +17222,6 @@ class SampleSynthesizer {
     return buf;
   }
 
-
-
   // Play sample with volume control
   play(buffer, volume = 0) {
     if (this.currentSource) {
@@ -17349,6 +17347,51 @@ class SampleSynthesizer {
     ctx.lineTo(width, amp);
     ctx.stroke();
   }
+}
+
+async function bufferToWavBlob(audioBuffer) {
+  const numOfChan = audioBuffer.numberOfChannels;
+  const length = audioBuffer.length * numOfChan * 2 + 44;
+  const buffer = new ArrayBuffer(length);
+  const view = new DataView(buffer);
+  const channels = [];
+  let offset = 0;
+  let pos = 0;
+
+  // write WAVE header
+  setUint32(0x46464952); // "RIFF"
+  setUint32(length - 8);
+  setUint32(0x45564157); // "WAVE"
+
+  setUint32(0x20746d66); // "fmt "
+  setUint32(16);
+  setUint16(1);
+  setUint16(numOfChan);
+  setUint32(audioBuffer.sampleRate);
+  setUint32(audioBuffer.sampleRate * 2 * numOfChan);
+  setUint16(numOfChan * 2);
+  setUint16(16);
+
+  setUint32(0x61746164); // "data"
+  setUint32(length - pos - 4);
+
+  // interleave channels
+  for (let i = 0; i < audioBuffer.numberOfChannels; i++)
+    channels.push(audioBuffer.getChannelData(i));
+
+  while (pos < length) {
+    for (let i = 0; i < numOfChan; i++) {
+      const sample = Math.max(-1, Math.min(1, channels[i][offset]));
+      view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      pos += 2;
+    }
+    offset++;
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+
+  function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+  function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
 }
 
 // Initialize sample library
@@ -17956,9 +17999,8 @@ function attachEventListeners() {
     }
   });
 
-  // Load kit to sequencer
-  document.getElementById('loadKitBtn')?.addEventListener('click', () => {
-    // Only guard if those globals really don't exist
+  // ==================== LOAD KIT (DRUMS + INSTRUMENTS) ====================
+  document.getElementById('loadKitBtn')?.addEventListener('click', async () => {
     if (
       typeof DRUM_SAMPLES === 'undefined' ||
       typeof synths === 'undefined' ||
@@ -17968,39 +18010,70 @@ function attachEventListeners() {
       return;
     }
   
-    // From here on we assume sequencer is ready
     const kit = sampleKits[currentKit];
     if (!kit) {
       alert(`No kit found for "${currentKit}".`);
       return;
     }
   
-    // Map sample configs into your DRUM_SAMPLES & instrument synths
-    Object.keys(kit).forEach(sampleKey => {
-      const cfg = kit[sampleKey];
+    // 🎛️ Create a temporary SampleSynthesizer to render buffers
+    const synthEngine = new SampleSynthesizer();
   
-      // 1) Update DRUM_SAMPLES for that instrument if you use it
-      if (DRUM_SAMPLES[sampleKey]) {
-        DRUM_SAMPLES[sampleKey].pitch = cfg.pitch ?? DRUM_SAMPLES[sampleKey].pitch;
-        DRUM_SAMPLES[sampleKey].decay = cfg.decay ?? DRUM_SAMPLES[sampleKey].decay;
-        DRUM_SAMPLES[sampleKey].tone = cfg.tone ?? DRUM_SAMPLES[sampleKey].tone;
-        DRUM_SAMPLES[sampleKey].noise = cfg.noise ?? DRUM_SAMPLES[sampleKey].noise;
-        DRUM_SAMPLES[sampleKey].lofi = cfg.lofi ?? DRUM_SAMPLES[sampleKey].lofi;
-        DRUM_SAMPLES[sampleKey].dist = cfg.dist ?? DRUM_SAMPLES[sampleKey].dist;
+    // Loop through every element of the kit — drums *and* instruments
+    for (const [sampleKey, cfg] of Object.entries(kit)) {
+      // --- 1. Generate buffer for this sound
+      let buffer = null;
+      switch (cfg.type) {
+        case 'kick':  buffer = synthEngine.generateKick(cfg); break;
+        case 'snare': buffer = synthEngine.generateSnare(cfg); break;
+        case 'hihat': buffer = synthEngine.generateHihat(cfg, cfg.closed); break;
+        case 'clap':  buffer = synthEngine.generateClap(cfg); break;
+        case 'tom':   buffer = synthEngine.generateTom(cfg, cfg.pitch || 0); break;
+        case 'bass':  buffer = synthEngine.generateBass(cfg); break;
+        case 'guitar':buffer = synthEngine.generateGuitar(cfg); break;
+        case 'keys':  buffer = synthEngine.generateKeys(cfg); break;
+        case 'lead':  buffer = synthEngine.generateLead(cfg); break;
+        case 'riser': buffer = synthEngine.generateRiser(cfg); break;
+        case 'fx':    buffer = synthEngine.generateFX(cfg); break;
       }
   
-      // 2) Also update your main instrument map so the sequencer picks it up
-      if (instruments[sampleKey]) {
-        instruments[sampleKey].sampleConfig = { ...cfg };
-      }
-    });
+      // --- 2. Convert buffer → blob → URL so Tone.Player/Sampler can use it
+      if (buffer) {
+        const wavBlob = await bufferToWavBlob(buffer);
+        const url = URL.createObjectURL(wavBlob);
   
-    if (typeof showToast === 'function') {
-      showToast(`🥁 Loaded "${currentKit}" kit into the sequencer.`, 'success');
-    } else {
-      alert(`🥁 Loaded "${currentKit}" kit into the sequencer.`);
+        // --- 3. Update DRUM_SAMPLES if it’s a drum-type sound
+        if (['kick', 'snare', 'hihat', 'clap', 'tom', 'rimshot', 'crash', 'ride'].includes(sampleKey)) {
+          DRUM_SAMPLES[sampleKey] = url;
+        }
+  
+        // --- 4. If it exists as a sequencer instrument, reload it as a Player
+        if (instruments[sampleKey]) {
+          const instType = instruments[sampleKey].type;
+          if (instType === 'drum' || instType === 'melodic' || instType === 'atmospheric') {
+            // Disconnect old synth and create a new Player using the sample
+            if (synths[sampleKey]?.dispose) synths[sampleKey].dispose();
+  
+            const player = new Tone.Player({
+              url,
+              autostart: false,
+              fadeOut: 0.03
+            });
+  
+            // Connect through the existing channel
+            if (instruments[sampleKey].channel) {
+              player.connect(instruments[sampleKey].channel);
+            }
+  
+            synths[sampleKey] = player;
+          }
+        }
+      }
     }
+  
+    showToast(`🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`, 'success');
   });
+
 
   // Generate pack (real randomizer)
   document.getElementById('generatePackBtn')?.addEventListener('click', () => {
