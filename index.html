@@ -13566,7 +13566,7 @@ function setupPreviewButton() {
 }
 
 // --- GLOBAL MASTER BUS SAFETY NET ---
-const masterGain = new Tone.Gain(0.6); // master volume ~ -4dB
+const masterGain = new Tone.Gain(0.8); // master volume ~ -4dB
 const limiter = new Tone.Limiter(-1);  // prevents 0dBFS overload
 masterGain.connect(limiter).toDestination();
 
