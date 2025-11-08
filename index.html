@@ -6509,9 +6509,9 @@ function initAudio() {
   master.mediaRecorder = null;
   master.recordedChunks = [];
   
-  // Start with all FX completely dry
-  Object.values(effects).forEach(fx => {
-    if (fx.wet) fx.wet.value = 0;
+  // Start FX states from fxConfig
+  Object.keys(fxConfig).forEach(name => {
+    applyFxActiveState(name, fxConfig[name].active);
   });
   
   // Create synths and channels
@@ -10408,8 +10408,156 @@ function renderFX() {
   
   grid.innerHTML = '';
   grid.appendChild(fragment);
+
+  wireGlobalFXControls();
 }
 
+function wireGlobalFXControls() {
+  const grid = document.getElementById('fxGrid');
+  if (!grid) return;
+
+  // Avoid double binding if renderFX runs multiple times
+  if (grid.dataset._wired === 'true') return;
+  grid.dataset._wired = 'true';
+
+  // --- Slider changes ---
+  grid.addEventListener('input', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.type !== 'range') return;
+
+    const fxName = target.dataset.fx;
+    const param  = target.dataset.param;
+    if (!fxName || !param) return;
+
+    const raw = parseFloat(target.value);
+    const mapped = sliderToFxValue(fxName, param, raw);
+
+    // Update config
+    const cfg = fxConfig[fxName];
+    if (cfg) cfg[param] = mapped;
+
+    // Push into Tone node
+    applyFxParamToNode(fxName, param, mapped);
+
+    // Update displayed text
+    const label = target.closest('.param-control')?.querySelector('.param-value');
+    if (label) {
+      label.textContent = formatFxDisplay(param, mapped);
+    }
+  });
+
+  // --- Toggle active on/off ---
+  grid.addEventListener('click', (e) => {
+    const toggle = e.target.closest('.fx-toggle');
+    if (!toggle) return;
+
+    const fxName = toggle.dataset.fx;
+    const cfg = fxConfig[fxName];
+    if (!cfg) return;
+
+    cfg.active = !cfg.active;
+    toggle.classList.toggle('active', cfg.active);
+
+    applyFxActiveState(fxName, cfg.active);
+  });
+}
+
+// Map 0–100 slider → actual useful value
+function sliderToFxValue(fxName, param, raw) {
+  // Normalized 0–1
+  if (['wet', 'feedback', 'depth', 'amount'].includes(param)) {
+    return raw / 100;
+  }
+
+  if (param === 'decay') {
+    // 0–5 seconds
+    return raw / 20;
+  }
+
+  if (param === 'time') {
+    const steps = ['16n', '8n', '4n', '2n'];
+    return steps[Math.round(raw / 33)] || '4n';
+  }
+
+  if (param === 'frequency') {
+    // 100 Hz → 8000 Hz
+    return 100 + (raw / 100) * (8000 - 100);
+  }
+
+  if (param === 'octaves') {
+    // 1 → 6 octaves
+    return 1 + (raw / 20);
+  }
+
+  if (param === 'bits') {
+    // 4 → 16 bits
+    return Math.round(4 + (raw / 100) * 12);
+  }
+
+  return raw;
+}
+
+// Actually update the Tone.js nodes you created in initAudio
+function applyFxParamToNode(fxName, param, value) {
+  const fx = effects[fxName];
+  if (!fx) return;
+
+  const ramp = 0.05;
+
+  try {
+    if (fxName === 'reverb') {
+      if (param === 'decay' && fx.decay !== undefined) fx.decay = value;
+      if (param === 'wet' && fx.wet) fx.wet.rampTo(value, ramp);
+    }
+    else if (fxName === 'delay') {
+      if (param === 'time' && fx.delayTime) fx.delayTime.value = Tone.Time(value);
+      if (param === 'feedback' && fx.feedback) fx.feedback.rampTo(value, ramp);
+    }
+    else if (fxName === 'chorus' || fxName === 'flanger') {
+      if (param === 'frequency' && fx.frequency) fx.frequency.rampTo(value, ramp);
+      if (param === 'depth' && fx.depth !== undefined) fx.depth = value;
+    }
+    else if (fxName === 'phaser') {
+      if (param === 'frequency' && fx.frequency) fx.frequency.rampTo(value, ramp);
+      if (param === 'octaves' && fx.octaves !== undefined) fx.octaves = value;
+    }
+    else if (fxName === 'distortion') {
+      if (param === 'amount' && fx.distortion !== undefined) fx.distortion = value;
+    }
+    else if (fxName === 'bitcrusher') {
+      if (param === 'bits' && fx.bits !== undefined) fx.bits = value;
+      if (param === 'frequency' && fx.frequency) fx.frequency.rampTo(value, ramp);
+    }
+    else if (fxName === 'filter') {
+      if (param === 'frequency' && fx.frequency) fx.frequency.rampTo(value, ramp);
+      if (param === 'type' && typeof fx.type === 'string') fx.type = value;
+    }
+  } catch (err) {
+    console.warn(`FX param update failed for ${fxName}.${param}`, err);
+  }
+}
+
+// Turn FX "on/off" based on fxConfig.active
+function applyFxActiveState(fxName, active) {
+  const fx = effects[fxName];
+  if (!fx) return;
+
+  // Most of your effects in initAudio are Tone.Effect subclasses, so they have .wet
+  if (fx.wet) {
+    const cfg = fxConfig[fxName];
+    const wet = cfg && typeof cfg.wet === 'number' ? cfg.wet : (active ? 0.3 : 0);
+    fx.wet.value = active ? wet : 0;
+    return;
+  }
+
+  // Special case: filter has no .wet - "off" = wide open
+  if (fxName === 'filter' && fx.frequency) {
+    const targetFreq = active ? (fxConfig.filter.frequency || 5000) : 20000;
+    fx.frequency.rampTo(targetFreq, 0.05);
+  }
+}
+  
 // -------------------- Harmony System --------------------
 function renderHarmony() {
   const keySelect = document.getElementById('keySelect');
