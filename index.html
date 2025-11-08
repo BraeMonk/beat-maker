@@ -19157,7 +19157,21 @@ function init() {
 }
   
 // -------------------- Entry Point --------------------
-document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('load', () => {
+  if (typeof window.Tonal === 'undefined') {
+    console.warn('⚠️ Tonal.js failed to load — injecting fallback.');
+    window.Tonal = {
+      Scale: {
+        get: () => ({ notes: ['C','D','E','F','G','A','B'] })
+      },
+      Chord: {
+        get: () => ({ notes: ['C','E','G'] })
+      }
+    };
+  }
+  init();
+});
+
 </script>
 
 </body>
