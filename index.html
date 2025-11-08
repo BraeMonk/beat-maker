@@ -8941,43 +8941,48 @@ function generateArpeggiation() {
 }
 
 function generateHarmonicVariation() {
-  // Change chord voicings/extensions
+  // Change chord voicings/extensions on melodic instruments
   const scaleIntervals = scales[state.scale];
-  const keyIndex = keysArr.indexOf(state.key);
-  const octave = state.octave;
-  
-  patterns.keys.forEach((step, idx) => {
-    if (!step.active) return;
-    
-    // Add 9ths and 11ths for color
-    if (Math.random() > 0.5) {
+
+  // Instruments we want to treat harmonically
+  const chordInsts = ['keys', 'guitar', 'lead'];
+
+  chordInsts.forEach(inst => {
+    const pattern = patterns[inst];
+    if (!pattern) return;
+
+    pattern.forEach(step => {
+      if (!step.active || !step.note) return;
+
       const baseNote = Array.isArray(step.note) ? step.note[0] : step.note;
       const match = baseNote.match(/^([A-G]#?)(\d+)$/);
       if (!match) return;
-      
+
       const [, noteName, oct] = match;
       const noteIndex = keysArr.indexOf(noteName);
-      
-      // Add extensions
+      if (noteIndex < 0) return;
+
       const extensions = [];
-      
+
       // 9th
       if (Math.random() > 0.3) {
-        const ninth = keysArr[(noteIndex + scaleIntervals[1]) % 12] + (parseInt(oct) + 1);
+        const ninthName = keysArr[(noteIndex + scaleIntervals[1]) % 12];
+        const ninth = ninthName + (parseInt(oct, 10) + 1);
         extensions.push(ninth);
       }
-      
+
       // 11th
       if (Math.random() > 0.5) {
-        const eleventh = keysArr[(noteIndex + scaleIntervals[3]) % 12] + (parseInt(oct) + 1);
+        const eleventhName = keysArr[(noteIndex + scaleIntervals[3]) % 12];
+        const eleventh = eleventhName + (parseInt(oct, 10) + 1);
         extensions.push(eleventh);
       }
-      
-      if (extensions.length > 0) {
-        const originalChord = Array.isArray(step.note) ? step.note : [step.note];
-        step.note = [...originalChord, ...extensions];
-      }
-    }
+
+      if (!extensions.length) return;
+
+      const originalChord = Array.isArray(step.note) ? step.note : [step.note];
+      step.note = [...originalChord, ...extensions];
+    });
   });
 }
 
@@ -17933,72 +17938,72 @@ const sampleKits = {
   metal: {
     kick: {
       type: 'kick',
-      pitch: -2,        // slightly low + punchy
-      decay: 0.34,
-      tone: 68,         // bright click
-      noise: 32,
-      lofi: 10,
-      dist: 32
+      pitch: -6,       // low-tuned chug kick
+      decay: 0.22,     // tight but not 808-short
+      tone: 72,        // lots of click
+      noise: 18,
+      lofi: 5,
+      dist: 35
     },
     snare: {
       type: 'snare',
-      pitch: 2,
-      decay: 0.22,
-      tone: 74,         // cutting top
-      noise: 68,
-      lofi: 8,
-      dist: 36
+      pitch: 4,        // high, cracking snare
+      decay: 0.18,
+      tone: 75,
+      noise: 80,
+      lofi: 5,
+      dist: 30
     },
     hihatClosed: {
       type: 'hihat',
-      pitch: 4,
-      decay: 0.050,
-      tone: 82,
-      noise: 55,
-      lofi: 5,
+      pitch: 6,
+      decay: 0.03,
+      tone: 85,
+      noise: 92,
+      lofi: 0,
       closed: true
     },
     hihatOpen: {
       type: 'hihat',
-      pitch: 4,
-      decay: 0.24,
-      tone: 80,
-      noise: 60,
-      lofi: 5,
+      pitch: 6,
+      decay: 0.16,
+      tone: 83,
+      noise: 88,
+      lofi: 0,
       closed: false
     },
     clap: {
       type: 'clap',
-      pitch: 0,
-      decay: 0.13,
-      tone: 66,
-      noise: 72,
-      lofi: 8,
-      dist: 22
+      pitch: 1,
+      decay: 0.11,
+      tone: 40,
+      noise: 90,
+      lofi: 0,
+      dist: 20
     },
     rimshot: {
       type: 'snare',
-      pitch: 8,
-      decay: 0.055,
+      pitch: 12,
+      decay: 0.05,
       tone: 82,
-      noise: 50,
-      lofi: 8
+      noise: 30,
+      lofi: 0
     },
     tomLow: {
       type: 'tom',
-      pitch: -5,
-      decay: 0.48,
-      tone: 60,
-      noise: 30,
-      lofi: 12
+      pitch: -3,
+      decay: 0.42,
+      tone: 68,
+      noise: 14,
+      lofi: 5
     },
     tomHigh: {
       type: 'tom',
-      pitch: 1,
-      decay: 0.40,
-      tone: 64,
-      noise: 28,
-      lofi: 12
+      pitch: 2,
+      decay: 0.36,
+      tone: 66,
+      noise: 16,
+      lofi: 5
     }
   },
   hiphop: {
@@ -18749,16 +18754,39 @@ function attachEventListeners() {
 
   // ==================== RESET TO DEFAULT KIT ====================
   document.getElementById('defaultKitBtn')?.addEventListener('click', () => {
-    currentKit = 'default';
-    showToast('🎹 Restoring default samples...', 'info');
+    const baseKit = baseSampleKits[currentKit];
+    if (!baseKit) {
+      alert('No default kit found for this style yet.');
+      return;
+    }
   
-    // Visually reset the grid highlight
-    document.querySelectorAll('#kitSelector .preset').forEach(btn => btn.classList.remove('active'));
-    const defaultBtn = document.querySelector('#kitSelector .preset[data-kit="lofi"]'); // or data-kit="default" if you have one
-    if (defaultBtn) defaultBtn.classList.add('active');
+    // Deep-clone the original kit back into the working kits
+    sampleKits[currentKit] = JSON.parse(JSON.stringify(baseKit));
   
-    // Load the default kit
+    // ✅ Also restore the global DRUM_SAMPLES (factory defaults)
+    const factoryDrums = {
+      kick: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/kick.mp3',
+      snare: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
+      hihat: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
+      tom: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/tom1.mp3',
+      clap: 'https://tonejs.github.io/audio/drum-samples/CR78/clap.mp3',
+      rimshot: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
+      crash: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
+      ride: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
+      fx: null,
+      riser: null,
+      ambience: null
+    };
+  
+    Object.keys(factoryDrums).forEach(k => (DRUM_SAMPLES[k] = factoryDrums[k]));
+  
+    // Re-render the sample list so params + meta refresh
+    renderSampleList();
+  
+    // 🔁 Reload the kit into sequencer/multitrack
     document.getElementById('loadKitBtn').click();
+  
+    showToast(`🎹 Restored default "${currentKit}" kit and samples.`, 'success');
   });
 
   // Generate pack (real randomizer)
