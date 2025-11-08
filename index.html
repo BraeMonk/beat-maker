@@ -18869,39 +18869,37 @@ function attachEventListeners() {
 
   // ==================== RESET TO DEFAULT KIT ====================
   document.getElementById('defaultKitBtn')?.addEventListener('click', () => {
-    const baseKit = baseSampleKits[currentKit];
-    if (!baseKit) {
-      alert('No default kit found for this style yet.');
-      return;
-    }
-  
-    // Deep-clone the original kit back into the working kits
-    sampleKits[currentKit] = JSON.parse(JSON.stringify(baseKit));
-  
-    // ✅ Also restore the global DRUM_SAMPLES (factory defaults)
-    const factoryDrums = {
-      kick: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/kick.mp3',
-      snare: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
-      hihat: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
-      tom: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/tom1.mp3',
-      clap: 'https://tonejs.github.io/audio/drum-samples/CR78/clap.mp3',
-      rimshot: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
-      crash: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
-      ride: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
-      fx: null,
-      riser: null,
-      ambience: null
+    // Use your global DRUM_SAMPLES object as the true defaults
+    const defaultDrums = {
+      kick: DRUM_SAMPLES.kick,
+      snare: DRUM_SAMPLES.snare,
+      hihatClosed: DRUM_SAMPLES.hihat,
+      hihatOpen: DRUM_SAMPLES.hihat,
+      clap: DRUM_SAMPLES.clap,
+      rimshot: DRUM_SAMPLES.rimshot,
+      tomLow: DRUM_SAMPLES.tom,
+      tomHigh: DRUM_SAMPLES.tom
     };
   
-    Object.keys(factoryDrums).forEach(k => (DRUM_SAMPLES[k] = factoryDrums[k]));
+    // Reset all drum mappings to default URLs
+    Object.entries(defaultDrums).forEach(([key, url]) => {
+      DRUM_SAMPLES[key] = url;
+    });
   
-    // Re-render the sample list so params + meta refresh
+    // (Optional) Also reset the current kit entry if desired
+    if (sampleKits[currentKit]) {
+      Object.keys(sampleKits[currentKit]).forEach(name => {
+        if (defaultDrums[name]) {
+          sampleKits[currentKit][name] = { type: name, url: defaultDrums[name] };
+        }
+      });
+    }
+  
+    showToast('🥁 Restored default drum samples.', 'success');
+  
+    // Refresh sample list UI + reapply to sequencer
     renderSampleList();
-  
-    // 🔁 Reload the kit into sequencer/multitrack
-    document.getElementById('loadKitBtn').click();
-  
-    showToast(`🎹 Restored default "${currentKit}" kit and samples.`, 'success');
+    document.getElementById('loadKitBtn')?.click();
   });
 
   // Generate pack (real randomizer)
