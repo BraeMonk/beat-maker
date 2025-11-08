@@ -18802,20 +18802,20 @@ function attachEventListeners() {
       if (['bass', 'guitar', 'keys', 'lead', 'fx', 'riser'].includes(name)) {
         const inst = instruments[name];
         if (!inst) return;
-  
+      
         // Dispose old synth if present
         if (synths[name]?.dispose) {
           try { synths[name].dispose(); } catch {}
         }
-  
+      
         const player = new Tone.Player({
           url,
           autostart: false,
           fadeOut: 0.05,
           volume: -6
         });
-  
-        // Wire through the existing channel -> mixer already handles routing
+      
+        // Wire through existing channel -> mixer already handles routing
         if (inst.channel) {
           player.connect(inst.channel);
         } else if (window.SEQUENCER_MASTER_BUS) {
@@ -18823,20 +18823,38 @@ function attachEventListeners() {
         } else {
           player.toDestination();
         }
-  
-        // Maintain the synth interface the sequencer expects
+      
         synths[name] = {
           player,
+      
+          // 🎹 Theory-aware trigger
           triggerAttackRelease: (note, duration, time, velocity = 1) => {
             if (!player.loaded) return;
+      
             const when = time ?? Tone.now();
+      
+            // Pick a harmony-based note for this instrument
+            const currentChord =
+              state.currentChord ||
+              (state.progression && state.progression[0]) ||
+              null;
+      
+            const noteName = getInstrumentNote(name, 0, currentChord);
+            const rate = getPlaybackRateForNote(noteName);
+      
+            // Apply pitch via playbackRate
+            player.playbackRate = rate;
+      
+            // (optional) map velocity -> volume if you want later
             player.start(when);
           },
+      
           connect: (node) => {
             player.disconnect();
             player.connect(node);
             return player;
           },
+      
           toDestination: () => player.toDestination(),
           dispose: () => player.dispose(),
           get loaded() {
