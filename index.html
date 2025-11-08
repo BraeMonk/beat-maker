@@ -6667,6 +6667,9 @@ const DRUM_SAMPLES = {
   ambience: null // Will use synth
 };
 
+// Immutable copy of factory drum samples (for "Default" reset)
+const DEFAULT_DRUM_SAMPLES = { ...DRUM_SAMPLES };
+
 // ====================================================
 // 🎹 MUSIC-THEORY AWARE INSTRUMENT VARIATION SYSTEM
 // ====================================================
@@ -18867,41 +18870,39 @@ function attachEventListeners() {
     showToast?.(`🎹 Loaded "${currentKit}" kit (drums + instruments) into the sequencer.`, 'success');
   });
 
-  // ==================== RESET TO DEFAULT KIT ====================
+  // ==================== RESET TO FACTORY DRUM SAMPLES ====================
   document.getElementById('defaultKitBtn')?.addEventListener('click', () => {
-    // Use your global DRUM_SAMPLES object as the true defaults
-    const defaultDrums = {
-      kick: DRUM_SAMPLES.kick,
-      snare: DRUM_SAMPLES.snare,
-      hihatClosed: DRUM_SAMPLES.hihat,
-      hihatOpen: DRUM_SAMPLES.hihat,
-      clap: DRUM_SAMPLES.clap,
-      rimshot: DRUM_SAMPLES.rimshot,
-      tomLow: DRUM_SAMPLES.tom,
-      tomHigh: DRUM_SAMPLES.tom
-    };
-  
-    // Reset all drum mappings to default URLs
-    Object.entries(defaultDrums).forEach(([key, url]) => {
-      DRUM_SAMPLES[key] = url;
+    // 1) Restore the original drum sample URLs
+    Object.keys(DEFAULT_DRUM_SAMPLES).forEach(key => {
+      DRUM_SAMPLES[key] = DEFAULT_DRUM_SAMPLES[key];
     });
   
-    // (Optional) Also reset the current kit entry if desired
-    if (sampleKits[currentKit]) {
-      Object.keys(sampleKits[currentKit]).forEach(name => {
-        if (defaultDrums[name]) {
-          sampleKits[currentKit][name] = { type: name, url: defaultDrums[name] };
+    // 2) Rebuild the drum synths so the sequencer uses the factory sounds again
+    const drumNames = ['kick','snare','hihat','tom','clap','rimshot','crash','ride','fx','riser','ambience'];
+  
+    drumNames.forEach(name => {
+      const inst = instruments[name];
+      if (!inst) return;
+  
+      // dispose old synth if present
+      if (synths[name]?.dispose) {
+        try { synths[name].dispose(); } catch (e) {
+          console.warn(`Error disposing old synth for ${name}`, e);
         }
-      });
-    }
+      }
   
-    showToast('🥁 Restored default drum samples.', 'success');
+      const s = createDrumSynth(name);
+      synths[name] = s;
   
-    // Refresh sample list UI + reapply to sequencer
-    renderSampleList();
-    document.getElementById('loadKitBtn')?.click();
+      // reconnect through existing channel / mixer
+      if (inst.channel && s.connect) {
+        s.connect(inst.channel);
+      }
+    });
+  
+    showToast('🥁 Restored factory drum samples.', 'success');
   });
-
+  
   // Generate pack (real randomizer)
   document.getElementById('generatePackBtn')?.addEventListener('click', () => {
     const newKit = generateRandomizedKit(currentKit);
