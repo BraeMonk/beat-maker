@@ -10917,132 +10917,80 @@ class AudioTrack {
   }
   
   reconnectFxChain() {
+    const masterBus = window.master?.fxIn || Tone.Destination;
+
+    // Disconnect previous flow safely
+    try { this.channel.disconnect(); } catch {}
+  
+    // Determine source
+    let sourceNode = null;
     if (this.isExternalAudio && this.externalInput) {
-      // Disconnect all first
-      this.fxChain.forEach(fx => {
-        if (fx.node && typeof fx.node.disconnect === 'function') {
-          try {
-            fx.node.disconnect();
-          } catch (e) {
-            console.warn('FX already disconnected:', e);
-          }
-        }
-      });
-      
-      // CRITICAL: Disconnect input before reconnecting
-      try {
-        this.externalInput.disconnect();
-      } catch (e) {
-        console.warn('Input already disconnected:', e);
-      }
-      
-      let lastNode = this.externalInput;
-      
-      this.fxChain.forEach(fx => {
-        if (fx.enabled && fx.node) {
-          lastNode.connect(fx.node);
-          lastNode = fx.node;
-        }
-      });
-      
-      lastNode.connect(this.channel);
-      
+      sourceNode = this.externalInput;
     } else {
-      // Internal audio track logic (unchanged)
       const instSynth = synths[this.instrument];
       if (!instSynth) return;
-      
-      this.fxChain.forEach(fx => {
-        if (fx.node && typeof fx.node.disconnect === 'function') {
-          try {
-            fx.node.disconnect();
-          } catch (e) {}
-        }
-      });
-      
-      let sourceNode = null;
-      
-      if (typeof instSynth.disconnect === 'function') {
-        try {
-          instSynth.disconnect();
-        } catch (e) {}
-        sourceNode = instSynth;
-      } else if (instSynth.gain && typeof instSynth.gain.disconnect === 'function') {
-        try {
-          instSynth.gain.disconnect();
-        } catch (e) {}
-        sourceNode = instSynth.gain;
-      }
-      
-      if (!sourceNode) return;
-      
-      let lastNode = sourceNode;
-      
-      this.fxChain.forEach(fx => {
-        if (fx.enabled && fx.node) {
-          lastNode.connect(fx.node);
-          lastNode = fx.node;
-        }
-      });
-      
-      lastNode.connect(this.channel);
+      sourceNode = instSynth.gain || instSynth;
     }
+
+    if (!sourceNode) return;
+
+    // Disconnect old chain nodes
+    this.fxChain.forEach(fx => {
+      if (fx.node && typeof fx.node.disconnect === 'function') {
+        try { fx.node.disconnect(); } catch {}
+      }
+    });
+
+    // Reconnect the chain
+    let lastNode = sourceNode;
+    this.fxChain.forEach(fx => {
+      if (fx.enabled && fx.node) {
+        lastNode.connect(fx.node);
+        lastNode = fx.node;
+      }
+    });
+
+    // Always connect to the channel → master bus
+    lastNode.connect(this.channel);
+    this.channel.connect(masterBus);
   }
   
   updateFxParam(fxId, param, value) {
     const fx = this.fxChain.find(f => f.id === fxId);
     if (!fx) return;
-    
-    fx.params[param] = value;
     const node = fx.node;
-    
-    // FIXED: Faster ramp time for more responsive feel
-    const rampTime = 0.01; // Reduced from 0.05
-    
+    fx.params[param] = value;
+
+    const fastRamp = 0.01; 
+
     try {
-      if (param === 'wet' && node.wet) {
-        node.wet.rampTo(value, rampTime);
-      } else if (param === 'decay' && node.decay !== undefined) {
-        node.decay = value;
-      } else if (param === 'time' && node.delayTime) {
-        node.delayTime.value = Tone.Time(value);
-      } else if (param === 'feedback' && node.feedback) {
-        node.feedback.rampTo(value, rampTime);
-      } else if (param === 'frequency') {
-        if (node.frequency) {
-          node.frequency.rampTo(value, rampTime);
-        }
-      } else if (param === 'delayTime' && node.delayTime && fx.type === 'chorus') {
-        node.delayTime = value;
-      } else if (param === 'depth' && node.depth !== undefined) {
-        node.depth = value;
-      } else if (param === 'amount' && node.distortion !== undefined) {
-        node.distortion = value;
-      } else if (param === 'threshold' && node.threshold) {
-        node.threshold.rampTo(value, rampTime);
-      } else if (param === 'ratio' && node.ratio) {
-        node.ratio.rampTo(value, rampTime);
-      } else if (param === 'attack' && node.attack) {
-        node.attack.rampTo(value, rampTime);
-      } else if (param === 'release' && node.release) {
-        node.release.rampTo(value, rampTime);
-      } else if (param === 'low' && node.low) {
-        node.low.rampTo(value, rampTime);
-      } else if (param === 'mid' && node.mid) {
-        node.mid.rampTo(value, rampTime);
-      } else if (param === 'high' && node.high) {
-        node.high.rampTo(value, rampTime);
-      } else if (param === 'bits' && node.bits !== undefined) {
-        node.bits = Math.round(value);
-      } else if (param === 'q' && node.Q) {
-        node.Q.rampTo(value, rampTime);
-      } else if (param === 'type' && node.type !== undefined) {
-        node.type = value;
+      // Generic Tone.Param
+      if (node[param] && node[param].rampTo) {
+        node[param].rampTo(value, fastRamp);
       }
-      
-      console.log(`🎛️ ${fx.type}.${param} = ${value}`);
+      // Common FX types
+      else if (param === 'wet' && node.wet) node.wet.rampTo(value, fastRamp);
+      else if (param === 'decay' && node.decay !== undefined) node.decay = value;
+      else if (param === 'time' && node.delayTime) node.delayTime.value = Tone.Time(value);
+      else if (param === 'feedback' && node.feedback) node.feedback.rampTo(value, fastRamp);
+      else if (param === 'frequency' && node.frequency) node.frequency.rampTo(value, fastRamp);
+      else if (param === 'depth' && node.depth !== undefined) node.depth = value;
+      else if (param === 'amount' && node.distortion !== undefined) node.distortion = value;
+      else if (param === 'bits' && node.bits !== undefined) node.bits = Math.round(value);
+      else if (param === 'threshold' && node.threshold) node.threshold.rampTo(value, fastRamp);
+      else if (param === 'ratio' && node.ratio) node.ratio.rampTo(value, fastRamp);
+      else if (param === 'attack' && node.attack) node.attack.rampTo(value, fastRamp);
+      else if (param === 'release' && node.release) node.release.rampTo(value, fastRamp);
+      else if (param === 'low' && node.low) node.low.rampTo(value, fastRamp);
+      else if (param === 'mid' && node.mid) node.mid.rampTo(value, fastRamp);
+      else if (param === 'high' && node.high) node.high.rampTo(value, fastRamp);
+      else if (param === 'q' && node.Q) node.Q.rampTo(value, fastRamp);
+      else if (param === 'type' && node.type !== undefined) node.type = value;
+      else if (node.set) node.set({ [param]: value }); // Fallback for Tone.js node.set()
+
+      console.log(`🎛️ Live FX: ${fx.type}.${param} → ${value}`);
     } catch (err) {
-      console.warn(`⚠️ Could not update ${param}:`, err);
+      console.warn(`⚠️ FX param update failed: ${param}`, err);
     }
   }
   
