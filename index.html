@@ -7185,7 +7185,7 @@ function setupEventListeners() {
   setupGeneratorButtons();
   setupSequencerControls();
   setupMixerListeners();
-  setupFXListeners();
+  //setupFXListeners();
   setupHarmonyControls();
   setupProjectManagement();
   setupKeyboardShortcuts();
@@ -8121,39 +8121,6 @@ function setupMixerListeners() {
       const preset = btn.dataset.masterPreset;
       applyMasteringPreset(preset);
     });
-  });
-}
-
-function setupFXListeners() {
-  const fxGrid = document.getElementById('fxGrid');
-  
-  fxGrid.addEventListener('click', e => {
-    const toggle = e.target.closest('.fx-toggle');
-    if (!toggle) return;
-    
-    const fx = toggle.dataset.fx;
-    fxConfig[fx].active = !fxConfig[fx].active;
-    
-    if (effects[fx] && effects[fx].wet) {
-      effects[fx].wet.value = fxConfig[fx].active ? 0.5 : 0;
-    }
-    
-    renderFX();
-  });
-  
-  fxGrid.addEventListener('input', e => {
-    if (e.target.type !== 'range') return;
-    
-    const fx = e.target.dataset.fx;
-    const param = e.target.dataset.param;
-    const raw = parseInt(e.target.value, 10);
-    const value = mapFxParam(param, raw);
-    
-    fxConfig[fx][param] = value;
-    applyFxParam(fx, param, value);
-    
-    const label = e.target.closest('.param-control').querySelector('.param-value');
-    label.textContent = formatFxDisplay(param, value);
   });
 }
 
@@ -11066,43 +11033,52 @@ class AudioTrack {
   
   reconnectFxChain() {
     const masterBus = window.master?.fxIn || Tone.Destination;
-
-    // Disconnect previous flow safely
-    try { this.channel.disconnect(); } catch {}
   
-    // Determine source
-    let sourceNode = null;
-    if (this.isExternalAudio && this.externalInput) {
-      sourceNode = this.externalInput;
-    } else {
-      const instSynth = synths[this.instrument];
-      if (!instSynth) return;
-      sourceNode = instSynth.gain || instSynth;
+    // 1) Disconnect channel from previous routing
+    try {
+      this.channel.disconnect();
+    } catch (err) {
+      console.warn('Channel disconnect failed:', err);
     }
-
-    if (!sourceNode) return;
-
-    // Disconnect old chain nodes
+  
+    // 2) Keep the meter tapped off the channel (pre-FX)
+    if (this.meter) {
+      try {
+        this.channel.connect(this.meter);
+      } catch (err) {
+        console.warn('Meter reconnect failed:', err);
+      }
+    }
+  
+    // 3) Clear old FX connections
     this.fxChain.forEach(fx => {
       if (fx.node && typeof fx.node.disconnect === 'function') {
-        try { fx.node.disconnect(); } catch {}
+        try { fx.node.disconnect(); } catch (err) {
+          console.warn('FX disconnect failed:', err);
+        }
       }
     });
-
-    // Reconnect the chain
-    let lastNode = sourceNode;
-    this.fxChain.forEach(fx => {
-      if (fx.enabled && fx.node) {
-        lastNode.connect(fx.node);
-        lastNode = fx.node;
-      }
-    });
-
-    // Always connect to the channel → master bus
-    lastNode.connect(this.channel);
-    this.channel.connect(masterBus);
-  }
   
+    // 4) Only use enabled FX with actual nodes
+    const activeFx = this.fxChain.filter(fx => fx.enabled && fx.node);
+  
+    // No FX? Channel goes straight to master
+    if (activeFx.length === 0) {
+      this.channel.connect(masterBus);
+      return;
+    }
+  
+    // 5) Rebuild: channel -> fx1 -> fx2 -> ... -> master
+    let lastNode = this.channel;
+    activeFx.forEach(fx => {
+      if (!fx.node) return;
+      lastNode.connect(fx.node);
+      lastNode = fx.node;
+    });
+  
+    lastNode.connect(masterBus);
+  }
+
   updateFxParam(fxId, param, value) {
     const fx = this.fxChain.find(f => f.id === fxId);
     if (!fx) return;
@@ -11236,9 +11212,37 @@ class AudioTrack {
       if (!audioBuffer || audioBuffer.length === 0 || audioBuffer.numberOfChannels === 0) {
         throw new Error('Decoded buffer is invalid');
       }
-  
+      
+      // 🔊 Auto-normalize recorded takes so bounced samples aren't super quiet
+      (function normalizeBuffer(buf) {
+        let peak = 0;
+        const channels = buf.numberOfChannels;
+      
+        // Find peak
+        for (let ch = 0; ch < channels; ch++) {
+          const data = buf.getChannelData(ch);
+          for (let i = 0; i < data.length; i++) {
+            const v = Math.abs(data[i]);
+            if (v > peak) peak = v;
+          }
+        }
+      
+        if (peak > 0) {
+          // Target ≈ -1 dBFS
+          const targetLinear = Math.pow(10, -1 / 20); // ~0.891
+          const gain = targetLinear / peak;
+      
+          for (let ch = 0; ch < channels; ch++) {
+            const data = buf.getChannelData(ch);
+            for (let i = 0; i < data.length; i++) {
+              data[i] *= gain;
+            }
+          }
+        }
+      })(audioBuffer);
+      
       const duration = audioBuffer.duration;
-  
+
       // 🔥 Compute timeline start based on global record start
       let startTime = 0;
       if (multitrack.globalRecordStartTime != null && this.recordStartTime != null) {
