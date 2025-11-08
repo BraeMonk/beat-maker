@@ -4103,6 +4103,24 @@
   flex: 1;
   min-width: 0;
 }
+
+/* Active kit highlight */
+.preset.active {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
+  transform: scale(1.03);
+  transition: all 0.25s ease;
+}
+
+.preset.active .preset-icon {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
+}
+
+.preset:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
     
 /* === MOBILE/TABLET TRANSPORT ADJUSTMENTS === */
 @media (max-width: 768px) {
@@ -5738,6 +5756,7 @@
           <div class="flex">
             <button class="btn btn-secondary btn-sm" id="refreshSamplesBtn">↻ Refresh</button>
             <button class="btn btn-success btn-sm" id="loadKitBtn">📥 Load Kit to Sequencer</button>
+            <button id="defaultKitBtn" class="btn-secondary">Default</button>
           </div>
         </div>
     
@@ -18515,7 +18534,28 @@ function attachEventListeners() {
     const blob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
     return URL.createObjectURL(blob);
   }
+
+  // ==================== KIT SELECTOR GRID ====================
+  const kitSelector = document.getElementById('kitSelector');
+  if (kitSelector) {
+    kitSelector.addEventListener('click', (e) => {
+      const preset = e.target.closest('.preset');
+      if (!preset) return;
   
+      // Remove active class from all presets
+      kitSelector.querySelectorAll('.preset').forEach(btn => btn.classList.remove('active'));
+  
+      // Mark this one active
+      preset.classList.add('active');
+  
+      // Set the currentKit from data-kit
+      currentKit = preset.dataset.kit || 'default';
+  
+      // Feedback
+      showToast(`🎛 Selected "${currentKit}" kit`, 'info');
+    });
+  }
+
   // ==================== LOAD KIT (DRUMS + INSTRUMENTS) ====================
   document.getElementById('loadKitBtn')?.addEventListener('click', () => {
     if (
@@ -18630,6 +18670,20 @@ function attachEventListeners() {
     } else {
       alert(`🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`);
     }
+  });
+
+  // ==================== RESET TO DEFAULT KIT ====================
+  document.getElementById('defaultKitBtn')?.addEventListener('click', () => {
+    currentKit = 'default';
+    showToast('🎹 Restoring default samples...', 'info');
+  
+    // Visually reset the grid highlight
+    document.querySelectorAll('#kitSelector .preset').forEach(btn => btn.classList.remove('active'));
+    const defaultBtn = document.querySelector('#kitSelector .preset[data-kit="lofi"]'); // or data-kit="default" if you have one
+    if (defaultBtn) defaultBtn.classList.add('active');
+  
+    // Load the default kit
+    document.getElementById('loadKitBtn').click();
   });
 
   // Generate pack (real randomizer)
