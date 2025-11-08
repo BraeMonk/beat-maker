@@ -13497,168 +13497,152 @@ function normalizeBufferVolume(audioBuffer) {
 
   
 async function previewMultitrack(startAtSeconds) {
-  // Figure out where to start:
-  //  - explicit arg
-  //  - last multitrack.playheadSeconds
-  //  - or cursorSeconds
+  // If no explicit start is passed, use the last playhead/cursor position
   const startFrom =
     typeof startAtSeconds === 'number'
       ? startAtSeconds
-      : (typeof multitrack.playheadSeconds === 'number'
-          ? multitrack.playheadSeconds
-          : (typeof state.cursorSeconds === 'number'
-              ? state.cursorSeconds
-              : 0));
+      : (typeof state.cursorSeconds === 'number' ? state.cursorSeconds : 0);
 
-  const activeTracks = multitrack.tracks.filter(
-    t => t.selectedTakeIndex != null && t.selectedTakeIndex >= 0 && !t.muted
+  const activeTracks = multitrack.tracks.filter(t =>
+    t.selectedTakeIndex >= 0 && !t.muted
   );
-
-  if (!activeTracks.length) {
+  
+  if (activeTracks.length === 0) {
     showToast('❌ No active takes to preview', 'error');
     return;
   }
 
-  // Stop any existing preview but KEEP the position (pause)
-  stopMultitrackPreview({ resetToZero: false });
+  // 🧩 Stop any existing preview first - CRITICAL for looping
+  await stopMultitrackPreview(); // Make this async if it isn't already
 
-  // Make sure Tone is allowed to play
   await Tone.start();
   if (Tone.context.state !== 'running') {
     await Tone.context.resume();
   }
 
   multitrack.previewPlayers = [];
-  multitrack.previewState = 'running';
 
-  const projectDuration =
-    multitrack.projectDuration || (state.duration * 60) || 0;
-
-  const previewStart = clamp(startFrom || 0, 0, projectDuration);
+  const projectDurationSeconds = multitrack.projectDuration || (state.duration * 60);
+  
+  // 🔑 Clamp start offset to project bounds
+  const previewStart = Math.max(0, Math.min(startFrom, projectDurationSeconds));
   let previewEnd = previewStart;
 
-  // Sync the cursor / playhead visually
-  multitrack.playheadSeconds = previewStart;
+  // Update cursor + visually move playhead to the preview start
   state.cursorSeconds = previewStart;
   updatePlayheadAndScroll(previewStart);
 
-  const now = Tone.now() + 0.1;
+  showToast(`⏳ Loading takes (from ${previewStart.toFixed(2)}s)...`, 'info');
 
-  // Build players for each active track/take
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted) continue;
 
-    const buf = take.buffer;
-    if (!buf) {
-      console.warn(`❌ ${track.name}: missing buffer for take`);
+    if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
+      console.error(`❌ ${track.name}: Invalid buffer`);
       continue;
     }
 
     const regionStart = take.startTime || 0;
     const regionEnd = regionStart + take.duration;
 
-    // Region ends before preview start → skip
     if (regionEnd <= previewStart) continue;
-
-    // How far into the buffer to start (if we start mid-region)
-    const bufferOffset =
-      previewStart > regionStart ? previewStart - regionStart : 0;
-
-    // When (from "now") to start this region
-    const relativeStart = Math.max(0, regionStart - previewStart);
 
     try {
       const player = new Tone.Player({
-        buffer: buf,
+        context: Tone.context,
         loop: false,
-        autostart: false,
-        fadeOut: 0.03
-      });
+        fadeOut: 0.01
+      }).connect(track.channel);
 
-      // Route through track.channel if it exists, else master
-      if (track.channel) {
-        player.connect(track.channel);
-      } else if (multitrack.masterBus) {
-        player.connect(multitrack.masterBus);
-      } else {
-        player.toDestination();
-      }
+      player.buffer = take.buffer;
 
-      // Start with per-region time + offset inside buffer
-      player.start(now + relativeStart, bufferOffset);
+      const relativeStart = Math.max(0, regionStart - previewStart);
 
       multitrack.previewPlayers.push({
         player,
         track,
         startTime: regionStart,
-        endTime: regionEnd,
-        relativeStart,
-        bufferOffset
+        relativeStart
       });
 
       if (regionEnd > previewEnd) previewEnd = regionEnd;
 
       console.log(
-        `✅ ${track.name} region ${regionStart.toFixed(3)}–${regionEnd.toFixed(
-          3
-        )}s → start +${relativeStart.toFixed(3)}s (offset ${
-          bufferOffset.toFixed(3)
-        }s)`
+        `✅ ${track.name} ready: region ${regionStart.toFixed(3)}–${regionEnd.toFixed(3)}s, ` +
+        `plays at +${relativeStart.toFixed(3)}s in preview`
       );
+
     } catch (err) {
-      console.error(`❌ ${track.name} failed to preview:`, err);
+      console.error(`❌ ${track.name} failed:`, err);
     }
   }
 
   if (!multitrack.previewPlayers.length) {
-    multitrack.previewState = 'stopped';
     showToast('⚠️ No regions overlap this preview range', 'warning');
     return;
   }
 
   const totalDuration = Math.max(0.1, previewEnd - previewStart);
+  console.log(`▶️ Preview from ${previewStart.toFixed(3)}s for ${totalDuration.toFixed(3)}s`);
 
-  // Mark state for pause/resume + playhead sync
-  multitrack.previewStartTime = Tone.now();
-  multitrack.previewStartCursor = previewStart;
+  const now = Tone.now() + 0.1;
+
+  multitrack.previewPlayers.forEach(({ player, track, relativeStart }) => {
+    try {
+      player.start(now + relativeStart);
+      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
+    } catch (err) {
+      console.error(`❌ Failed to start ${track.name}:`, err);
+    }
+  });
+
+  showToast(
+    `▶️ Previewing ${multitrack.previewPlayers.length} track(s) from ${previewStart.toFixed(2)}s`,
+    'success'
+  );
+
+  // === 🧭 Activate playhead + follow mode ===
   multitrack.isPlaying = true;
-
-  // Kick your existing UI helpers
+  multitrack.playheadSeconds = previewStart;
   initPlayheadFollow();
   startPreviewPlayhead(previewStart, totalDuration);
 
-  console.log(
-    `▶️ Multitrack preview from ${previewStart.toFixed(
-      3
-    )}s for ${totalDuration.toFixed(3)}s`
-  );
+  // === 🌀 LOOP SUPPORT (Selection or Full Project) ===
+  multitrack.previewTimeout = setTimeout(async () => {
+    // Stop current preview and WAIT for cleanup
+    await stopMultitrackPreview();
+    
+    const btn = document.getElementById('previewMultitrackBtn');
 
-  if (typeof showToast === 'function') {
-    showToast(
-      `🎧 Previewing ${multitrack.previewPlayers.length} track(s) from ${previewStart.toFixed(
-        2
-      )}s`,
-      'info'
-    );
-  }
-
-  // Auto-stop once we hit the end of the preview span
-  if (multitrack.previewTimeout) {
-    clearTimeout(multitrack.previewTimeout);
-  }
-  multitrack.previewTimeout = setTimeout(() => {
-    stopMultitrackPreview({ resetToZero: false });
-    multitrack.previewState = 'stopped';
-    multitrack.isPlaying = false;
-    const playBtn = document.getElementById('previewMultitrackBtn');
-    if (playBtn && playBtn.textContent.trim() !== '▶️') {
-      playBtn.textContent = '▶️';
+    if (!multitrack.loopEnabled) {
+      if (btn) btn.textContent = '▶️ Preview Mix';
+      return;
     }
-  }, totalDuration * 1000 + 250);
+
+    const hasSelection =
+      typeof multitrack.loopStart === 'number' &&
+      typeof multitrack.loopEnd === 'number' &&
+      multitrack.loopEnd > multitrack.loopStart;
+
+    const restartAt = hasSelection ? multitrack.loopStart : 0;
+
+    console.log(
+      hasSelection
+        ? `🔁 Looping selected region: ${restartAt.toFixed(2)}s → ${multitrack.loopEnd.toFixed(2)}s`
+        : '🔁 Looping entire project…'
+    );
+
+    multitrack.playheadSeconds = restartAt;
+    
+    // Small buffer to ensure Tone.js is ready
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    await previewMultitrack(restartAt);
+  }, (totalDuration + 0.25) * 1000);
 }
 
-function stopMultitrackPreview(resetOrOptions) {
+async function stopMultitrackPreview(resetOrOptions) {
   // Allow both: stopMultitrackPreview(true) and stopMultitrackPreview({ resetToZero: true })
   const resetToZero =
     typeof resetOrOptions === 'boolean'
@@ -13667,15 +13651,29 @@ function stopMultitrackPreview(resetOrOptions) {
         ? resetOrOptions.resetToZero
         : false;
 
-  if (multitrack.previewPlayers) {
+  if (multitrack.previewPlayers && multitrack.previewPlayers.length > 0) {
+    // Stop all players first (synchronous)
     multitrack.previewPlayers.forEach(({ player }) => {
       try {
-        if (player.state === 'started') player.stop();
-        player.dispose();
+        if (player.state === 'started') {
+          player.stop();
+        }
       } catch (err) {
         console.warn('Error stopping preview player:', err);
       }
     });
+
+    // Then dispose all players (async) - wait for all to complete
+    await Promise.all(
+      multitrack.previewPlayers.map(async ({ player }) => {
+        try {
+          await player.dispose();
+        } catch (err) {
+          console.warn('Error disposing preview player:', err);
+        }
+      })
+    );
+
     multitrack.previewPlayers = [];
     console.log('⏹️ Preview stopped');
   }
