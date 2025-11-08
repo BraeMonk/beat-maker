@@ -5770,6 +5770,10 @@
               <div class="preset-icon">📻</div>
               <div class="preset-name">Lo-Fi</div>
             </button>
+            <button class="preset" data-kit="metal">
+              <div class="preset-icon">🤘</div>
+              <div class="preset-name">Metal</div>
+            </button>
             <button class="preset" data-kit="hiphop">
               <div class="preset-icon">🎤</div>
               <div class="preset-name">Hip-Hop</div>
@@ -17925,6 +17929,77 @@ const sampleKits = {
     rimshot: { type: 'snare', pitch: 8, decay: 0.05, tone: 60, noise: 40, lofi: 20 },
     tomLow: { type: 'tom', pitch: -4, decay: 0.35, tone: 65, noise: 15, lofi: 25 },
     tomHigh: { type: 'tom', pitch: 2, decay: 0.25, tone: 60, noise: 18, lofi: 25 }
+  },
+  metal: {
+    kick: {
+      type: 'kick',
+      pitch: -2,        // slightly low + punchy
+      decay: 0.34,
+      tone: 68,         // bright click
+      noise: 32,
+      lofi: 10,
+      dist: 32
+    },
+    snare: {
+      type: 'snare',
+      pitch: 2,
+      decay: 0.22,
+      tone: 74,         // cutting top
+      noise: 68,
+      lofi: 8,
+      dist: 36
+    },
+    hihatClosed: {
+      type: 'hihat',
+      pitch: 4,
+      decay: 0.050,
+      tone: 82,
+      noise: 55,
+      lofi: 5,
+      closed: true
+    },
+    hihatOpen: {
+      type: 'hihat',
+      pitch: 4,
+      decay: 0.24,
+      tone: 80,
+      noise: 60,
+      lofi: 5,
+      closed: false
+    },
+    clap: {
+      type: 'clap',
+      pitch: 0,
+      decay: 0.13,
+      tone: 66,
+      noise: 72,
+      lofi: 8,
+      dist: 22
+    },
+    rimshot: {
+      type: 'snare',
+      pitch: 8,
+      decay: 0.055,
+      tone: 82,
+      noise: 50,
+      lofi: 8
+    },
+    tomLow: {
+      type: 'tom',
+      pitch: -5,
+      decay: 0.48,
+      tone: 60,
+      noise: 30,
+      lofi: 12
+    },
+    tomHigh: {
+      type: 'tom',
+      pitch: 1,
+      decay: 0.40,
+      tone: 64,
+      noise: 28,
+      lofi: 12
+    }
   },
   hiphop: {
     kick: { type: 'kick', pitch: -3, decay: 0.4, tone: 50, noise: 15, lofi: 15, dist: 30 },
