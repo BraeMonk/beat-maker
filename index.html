@@ -19056,27 +19056,6 @@ document.getElementById('keySelect')?.addEventListener('change', e => state.key 
 document.getElementById('scaleSelect')?.addEventListener('change', e => state.scale = e.target.value);
 document.getElementById('octaveSelect')?.addEventListener('change', e => state.octave = parseInt(e.target.value, 10));
 
-// --- 5. Optional: Auto-cycle chords per bar during playback ---
-let harmonyCycle = null;
-
-function startHarmonyCycle() {
-  if (harmonyCycle) return; // already running
-  let barIndex = 0;
-  harmonyCycle = Tone.Transport.scheduleRepeat((time) => {
-    if (state.progression.length > 0) {
-      state.currentChord = state.progression[barIndex % state.progression.length];
-      barIndex++;
-    }
-  }, `${state.timeSignature || 4}m`); // one chord per bar
-}
-
-function stopHarmonyCycle() {
-  if (harmonyCycle) {
-    Tone.Transport.clear(harmonyCycle);
-    harmonyCycle = null;
-  }
-}
-
 // === Splash / Initialization UI ===
 const splash = {
   el: null,
