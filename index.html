@@ -18555,7 +18555,7 @@ function attachEventListeners() {
       if (!buffer) return;
   
       // 🔊 THIS is the only new thing:
-      normalizeBufferInPlace(buffer, -8);  // ~8 dB of headroom
+      normalizeBufferInPlace(buffer, -1);  // ~8 dB of headroom
   
       // 1) Convert to WAV URL for anything that uses URLs (DRUM_SAMPLES / Players)
       const url = bufferToObjectUrlFromSynth(buffer);
@@ -18581,7 +18581,7 @@ function attachEventListeners() {
             url,
             autostart: false,
             fadeOut: 0.05,
-            volume: -14 // global safe baseline
+            volume: -6 // global safe baseline
           });
   
           // Connect through the existing channel if present
