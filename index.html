@@ -6666,24 +6666,79 @@ const DRUM_SAMPLES = {
   ambience: null // Will use synth
 };
 
+// ====================================================
+// 🎹 MUSIC-THEORY AWARE INSTRUMENT VARIATION SYSTEM
+// ====================================================
+
+// Use Tonal.js for proper theory (it’s already in your project)
+function getScaleNotes(baseKey = 'C', scaleType = 'minor', octave = 3) {
+  try {
+    const scale = Tonal.Scale.get(`${baseKey} ${scaleType}`);
+    return scale.notes.map(n => `${n}${octave}`);
+  } catch (err) {
+    console.warn('Scale generation failed, falling back to C minor', err);
+    return ['C3','D3','Eb3','F3','G3','Ab3','Bb3'];
+  }
+}
+
+// If your Harmony tab defines a chord progression array like: 
+// state.progression = [ ['C', 'E', 'G'], ['A', 'C', 'E'], ... ]
+function getChordForBar(barIndex = 0) {
+  if (!state.progression || !state.progression.length) return null;
+  return state.progression[barIndex % state.progression.length];
+}
+
+// Return a note appropriate for instrument & current harmony
+function getInstrumentNote(instName, stepIndex = 0, currentChord = null) {
+  if (currentChord && Array.isArray(currentChord)) {
+    const note = currentChord[Math.floor(Math.random() * currentChord.length)];
+    const octave = instName === 'bass' ? state.octave - 2 : state.octave;
+    return `${note.replace(/\d/, '')}${octave}`;
+  }
+
+  const scaleNotes = Tonal.Scale.get(`${state.key} ${state.scale}`).notes.map(n => `${n}${state.octave}`);
+  return scaleNotes[Math.floor(Math.random() * scaleNotes.length)];
+}
+
+
+// Convert note to pitch shift
+function getPlaybackRateForNote(note) {
+  const semitones = Tone.Frequency(note).toMidi() - Tone.Frequency('C4').toMidi();
+  return Math.pow(2, semitones / 12);
+}
+
+// Wrapper for triggering a sample with key variation
+function triggerSampleWithVariation(instName, time) {
+  const player = samplePlayers?.[instName];
+  if (!player) return;
+
+  if (INSTRUMENT_VARIATIONS[instName]) {
+    const note = getInstrumentNote(instName);
+    const rate = getPlaybackRateForNote(note);
+    player.playbackRate = rate;
+  } else {
+    player.playbackRate = 1; // drums stay neutral
+  }
+
+  player.start(time);
+}
+
 function createDrumSynth(inst) {
   const sampleUrl = DRUM_SAMPLES[inst];
-  
+
   if (!sampleUrl) {
     console.warn(`No sample for ${inst}, using fallback synth`);
     return createFallbackDrumSynth(inst);
   }
-  
+
   // Use Tone.Player for single-shot samples
   const player = new Tone.Player({
     url: sampleUrl,
     fadeOut: 0.01,
-    onload: () => {
-      console.log(`✅ ${inst} loaded`);
-    },
+    onload: () => console.log(`✅ ${inst} loaded`),
     onerror: (err) => {
       console.error(`❌ ${inst} failed to load:`, err);
-      // Replace with fallback
+      // Replace with fallback after short delay
       setTimeout(() => {
         if (!player.loaded) {
           synths[inst] = createFallbackDrumSynth(inst);
@@ -6692,28 +6747,41 @@ function createDrumSynth(inst) {
       }, 3000);
     }
   });
-  
-  // Create volume control for this player
+
+  // Per-player gain
   const BASE_GAIN = 0.6; // ~-4 dB
   const playerGain = new Tone.Gain(BASE_GAIN);
   player.connect(playerGain);
-  
-  // Return proxy that matches synth interface
+
   return {
+    // ==========================================================
+    // Trigger with pitch variation for instruments
+    // ==========================================================
     triggerAttackRelease: (note, duration, time, velocity = 1) => {
-      if (player.loaded) {
-        player.stop(time);
-        // Clamp velocity and keep overall gain under control
-        const safeVel = Math.min(velocity, 0.9); // just in case
-        playerGain.gain.setValueAtTime(BASE_GAIN * safeVel, time);
-        player.start(time);
+      if (!player.loaded) return;
+    
+      player.stop(time);
+      const safeVel = Math.min(velocity, 0.9);
+      playerGain.gain.setValueAtTime(BASE_GAIN * safeVel, time);
+    
+      // 🎹 Apply music-theory-based pitch variation
+      if (['piano','guitar','bass','synth','strings','pad','lead'].includes(inst)) {
+        const noteName = getInstrumentNote(inst, 0, state.currentChord || state.progression[0]);
+        const rate = getPlaybackRateForNote(noteName);
+        player.playbackRate = rate;
+      } else {
+        player.playbackRate = 1; // keep drums neutral
       }
-    },
+    
+      player.start(time);
+    }
+
     connect: (node) => {
       playerGain.disconnect();
       playerGain.connect(node);
       return playerGain;
     },
+
     toDestination: () => playerGain.toDestination(),
     dispose: () => {
       player.dispose();
@@ -6722,7 +6790,7 @@ function createDrumSynth(inst) {
     get loaded() {
       return player.loaded;
     },
-    player: player,
+    player,
     gain: playerGain
   };
 }
@@ -18882,6 +18950,109 @@ function attachEventListeners() {
   });
 }
 
+// ===================================================
+// 🎼 HARMONY TAB INTEGRATION
+// ===================================================
+
+// --- 1. Initialize selectors ---
+function populateHarmonySelectors() {
+  const keySelect = document.getElementById('keySelect');
+  const scaleSelect = document.getElementById('scaleSelect');
+  const octaveSelect = document.getElementById('octaveSelect');
+
+  const keys = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const scales = ['major','minor','dorian','mixolydian','lydian','phrygian','locrian'];
+  const octaves = [2,3,4,5];
+
+  keySelect.innerHTML = keys.map(k => `<option value="${k}">${k}</option>`).join('');
+  scaleSelect.innerHTML = scales.map(s => `<option value="${s}">${s}</option>`).join('');
+  octaveSelect.innerHTML = octaves.map(o => `<option value="${o}">${o}</option>`).join('');
+
+  keySelect.value = state.key;
+  scaleSelect.value = state.scale;
+  octaveSelect.value = state.octave;
+}
+
+// --- 2. Generate chords based on selected key/scale ---
+function generateAvailableChords() {
+  const key = document.getElementById('keySelect').value;
+  const scale = document.getElementById('scaleSelect').value;
+  const octave = parseInt(document.getElementById('octaveSelect').value, 10);
+
+  const scaleData = Tonal.Scale.get(`${key} ${scale}`);
+  const triads = scaleData.notes.map((n, i) => {
+    const third = scaleData.notes[(i + 2) % scaleData.notes.length];
+    const fifth = scaleData.notes[(i + 4) % scaleData.notes.length];
+    return [n + octave, third + octave, fifth + octave];
+  });
+
+  const chordChips = document.getElementById('chordChips');
+  chordChips.innerHTML = '';
+
+  triads.forEach((chord) => {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.textContent = chord.map(n => n.replace(/\d/, '')).join('-');
+    chip.addEventListener('click', () => addChordToProgression(chord));
+    chordChips.appendChild(chip);
+  });
+}
+
+document.getElementById('genProgBtn')?.addEventListener('click', generateAvailableChords);
+
+// --- 3. Manage active progression ---
+function addChordToProgression(chord) {
+  state.progression.push(chord);
+  renderProgressionChips();
+}
+
+function renderProgressionChips() {
+  const container = document.getElementById('progressionChips');
+  container.innerHTML = '';
+
+  state.progression.forEach((chord, i) => {
+    const chip = document.createElement('button');
+    chip.className = 'chip active';
+    chip.textContent = chord.map(n => n.replace(/\d/, '')).join('-');
+    chip.addEventListener('click', () => {
+      state.progression.splice(i, 1);
+      renderProgressionChips();
+    });
+    container.appendChild(chip);
+  });
+}
+
+document.getElementById('clearProgBtn')?.addEventListener('click', () => {
+  state.progression = [];
+  renderProgressionChips();
+});
+
+// --- 4. Apply harmony settings ---
+document.getElementById('keySelect')?.addEventListener('change', e => state.key = e.target.value);
+document.getElementById('scaleSelect')?.addEventListener('change', e => state.scale = e.target.value);
+document.getElementById('octaveSelect')?.addEventListener('change', e => state.octave = parseInt(e.target.value, 10));
+
+// --- 5. Optional: Auto-cycle chords per bar during playback ---
+let harmonyCycle = null;
+
+function startHarmonyCycle() {
+  if (harmonyCycle) return; // already running
+  let barIndex = 0;
+  harmonyCycle = Tone.Transport.scheduleRepeat((time) => {
+    if (state.progression.length > 0) {
+      state.currentChord = state.progression[barIndex % state.progression.length];
+      barIndex++;
+    }
+  }, `${state.timeSignature || 4}m`); // one chord per bar
+}
+
+function stopHarmonyCycle() {
+  if (harmonyCycle) {
+    Tone.Transport.clear(harmonyCycle);
+    harmonyCycle = null;
+  }
+}
+
 // === Splash / Initialization UI ===
 const splash = {
   el: null,
@@ -18967,6 +19138,11 @@ function init() {
   initSampleLibrary();
   setupPreviewButton();
   updateUndoRedoButtons();
+
+  // --- 6. Init Harmony tab on load ---
+  populateHarmonySelectors();
+  generateAvailableChords();
+  renderProgressionChips();
 
   updateSplash('Ready! Have fun ✨', 100);
 
