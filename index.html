@@ -18428,11 +18428,12 @@ function attachEventListeners() {
       return;
     }
   
-    const synthEngine =
-      window.synth instanceof SampleSynthesizer
-        ? window.synth
-        : new SampleSynthesizer();
+    // Use the same synth engine as the Samples tab
+    const synthEngine = window.synth instanceof SampleSynthesizer
+      ? window.synth
+      : new SampleSynthesizer();
   
+    // Loop through every element of the kit — drums *and* instruments
     Object.entries(kit).forEach(([sampleKey, cfg]) => {
       let buffer = null;
   
@@ -18442,6 +18443,7 @@ function attachEventListeners() {
         case 'hihat':  buffer = synthEngine.generateHihat(cfg, cfg.closed); break;
         case 'clap':   buffer = synthEngine.generateClap(cfg); break;
         case 'tom':    buffer = synthEngine.generateTom(cfg, cfg.pitch || 0); break;
+  
         case 'bass':   buffer = synthEngine.generateBass(cfg); break;
         case 'guitar': buffer = synthEngine.generateGuitar(cfg); break;
         case 'keys':   buffer = synthEngine.generateKeys(cfg); break;
@@ -18454,38 +18456,37 @@ function attachEventListeners() {
   
       if (!buffer) return;
   
-      // 🔊 tame the offline-generated sample BEFORE we feed it anywhere
-      normalizeBufferInPlace(buffer, -10); // -10dB peak is a nice safe-ish default
+      // 🔊 THIS is the only new thing:
+      normalizeBufferInPlace(buffer, -8);  // ~8 dB of headroom
   
-      // 1) Convert to WAV URL for DRUM_SAMPLES / Tone.Player
+      // 1) Convert to WAV URL for anything that uses URLs (DRUM_SAMPLES / Players)
       const url = bufferToObjectUrlFromSynth(buffer);
   
-      // 2) Route into DRUM_SAMPLES (for your drum sequencer)
-      if (
-        ['kick', 'snare', 'hihat', 'clap', 'tom', 'rimshot', 'crash', 'ride']
-          .includes(sampleKey)
-      ) {
+      // 2) Update DRUM_SAMPLES if it’s a drum-ish key
+      if (['kick', 'snare', 'hihat', 'clap', 'tom', 'rimshot', 'crash', 'ride'].includes(sampleKey)) {
         DRUM_SAMPLES[sampleKey] = url;
       }
   
-      // 3) If it’s a known sequencer instrument, rebuild as a Player
+      // 3) If it exists as a sequencer instrument, rebuild its synth as a Player
       if (instruments[sampleKey]) {
         const instMeta = instruments[sampleKey];
-        const instType = instMeta.type;
+        const instType = instMeta.type; // 'drum' | 'melodic' | 'atmospheric' etc.
   
         if (instType === 'drum' || instType === 'melodic' || instType === 'atmospheric') {
+          // Dispose existing synth if any
           if (synths[sampleKey]?.dispose) {
             synths[sampleKey].dispose();
           }
   
+          // Build a Tone.Player for this new sample
           const player = new Tone.Player({
             url,
             autostart: false,
             fadeOut: 0.05,
-            volume: -14 // extra safety for summed hits
+            volume: -14 // global safe baseline
           });
   
-          // Route into instrument channel or master
+          // Connect through the existing channel if present
           if (instMeta.channel) {
             player.connect(instMeta.channel);
           } else if (window.SEQUENCER_MASTER_BUS) {
@@ -18494,16 +18495,33 @@ function attachEventListeners() {
             player.toDestination();
           }
   
-          synths[sampleKey] = player;
+          // ❗ Keep your expected synths[*] API, don't replace it with a raw Player
+          synths[sampleKey] = {
+            player,
+            triggerAttackRelease: (note, duration, time, velocity = 1) => {
+              if (player.loaded) {
+                // Don't recreate gains, just rely on channel gain + player volume
+                const when = time ?? Tone.now();
+                player.start(when);
+              }
+            },
+            connect: (node) => {
+              player.disconnect();
+              player.connect(node);
+              return player;
+            },
+            toDestination: () => player.toDestination(),
+            dispose: () => player.dispose(),
+            get loaded() {
+              return player.loaded;
+            }
+          };
         }
       }
     });
   
     if (typeof showToast === 'function') {
-      showToast(
-        `🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`,
-        'success'
-      );
+      showToast(`🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`, 'success');
     } else {
       alert(`🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`);
     }
