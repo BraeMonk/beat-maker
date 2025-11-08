@@ -16057,9 +16057,31 @@ function updateGenrePresets() {
 }
 
 // -------------------- Transport Controls --------------------
+
+// keep this near top of file so it's globally available
+let harmonyCycle = null;
+
+function startHarmonyCycle() {
+  if (harmonyCycle) return; // already running
+  let barIndex = 0;
+
+  harmonyCycle = Tone.Transport.scheduleRepeat((time) => {
+    if (state.progression && state.progression.length > 0) {
+      state.currentChord = state.progression[barIndex % state.progression.length];
+      barIndex++;
+    }
+  }, `${state.timeSignature || 4}m`); // one chord per bar
+}
+
+function stopHarmonyCycle() {
+  if (harmonyCycle) {
+    Tone.Transport.clear(harmonyCycle);
+    harmonyCycle = null;
+  }
+}
+
 async function togglePlay() {
   try {
-    // Ensure audio context is running
     await Tone.start();
     const raw = Tone.getContext().rawContext;
     if (raw.state !== 'running') await raw.resume();
@@ -16072,16 +16094,17 @@ async function togglePlay() {
   if (state.isPlaying) {
     // 🟡 Pause
     Tone.Transport.pause();
-    state.pausedAt = Tone.Transport.seconds; // remember position
+    state.pausedAt = Tone.Transport.seconds;
     state.isPlaying = false;
     document.getElementById('playBtn').innerHTML = '▶️ Play';
     stopTimer();
     stopVisualizer();
     stopPlayheadAnimation();
+    stopHarmonyCycle();              // ⏹️ stop chord cycling
     return;
   }
 
-  // 🟢 If not playing, check for active steps
+  // 🟢 Check for active steps
   const hasActive = Object.keys(patterns).some(inst =>
     patterns[inst].some(s => s.active)
   );
@@ -16090,13 +16113,15 @@ async function togglePlay() {
     return;
   }
 
-  // 🟢 Resume from where you left off (or start fresh)
+  // 🟢 Resume playback
   const resumeTime = state.pausedAt || 0;
   Tone.Transport.seconds = resumeTime;
   Tone.Transport.start();
 
+  startHarmonyCycle();               // 🎼 begin chord progression cycling
+
   state.isPlaying = true;
-  state.startTime = performance.now() - (resumeTime * 1000); // keep timer in sync
+  state.startTime = performance.now() - (resumeTime * 1000);
   document.getElementById('playBtn').innerHTML = '⏸️ Pause';
   startTimer();
   startPlayheadAnimation();
@@ -16105,7 +16130,7 @@ async function togglePlay() {
 }
 
 function stop() {
-  // 🔴 Fully stop and reset playback
+  // 🔴 Full stop
   Tone.Transport.stop();
   state.isPlaying = false;
   state.pausedAt = 0;
@@ -16118,16 +16143,15 @@ function stop() {
   stopVisualizer();
   stopPlayheadAnimation();
 
-  // Reset playhead to start
   const playhead = document.getElementById('dawPlayhead');
   if (playhead) playhead.style.left = '0px';
 
-  // Stop multitrack preview
+  stopHarmonyCycle();                // ⏹️ ensure progression stops
+
   stopMultitrackPreview();
   const previewBtn = document.getElementById('previewMultitrackBtn');
   if (previewBtn) previewBtn.textContent = '▶️ Preview Mix';
 }
-
 
 // -------------------- Timer System --------------------
 let progressRAF = 0;
