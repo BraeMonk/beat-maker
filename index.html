@@ -18019,188 +18019,159 @@ const synth = new SampleSynthesizer();
 // Sample kits database
 const sampleKits = {
   lofi: {
-    kick: { type: 'kick', pitch: -2, decay: 0.25, tone: 40, noise: 20, lofi: 40, dist: 20 },
-    snare: { type: 'snare', pitch: -1, decay: 0.15, tone: 45, noise: 75, lofi: 35, dist: 15 },
-    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.04, tone: 40, noise: 85, lofi: 30, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.15, tone: 45, noise: 80, lofi: 30, closed: false },
-    clap: { type: 'clap', pitch: 0, decay: 0.12, tone: 30, noise: 90, lofi: 25, dist: 10 },
-    rimshot: { type: 'snare', pitch: 8, decay: 0.05, tone: 60, noise: 40, lofi: 20 },
-    tomLow: { type: 'tom', pitch: -4, decay: 0.35, tone: 65, noise: 15, lofi: 25 },
-    tomHigh: { type: 'tom', pitch: 2, decay: 0.25, tone: 60, noise: 18, lofi: 25 }
+    kick: { type: 'kick', pitch: -3, decay: 0.28, tone: 38, noise: 22, lofi: 45, dist: 18 },
+    snare: { type: 'snare', pitch: -2, decay: 0.16, tone: 42, noise: 72, lofi: 40, dist: 12 },
+    hihatClosed: { type: 'hihat', pitch: -1, decay: 0.045, tone: 38, noise: 83, lofi: 35, closed: true },
+    hihatOpen: { type: 'hihat', pitch: -1, decay: 0.18, tone: 42, noise: 78, lofi: 35, closed: false },
+    clap: { type: 'clap', pitch: -1, decay: 0.13, tone: 28, noise: 88, lofi: 30, dist: 8 },
+    rimshot: { type: 'snare', pitch: 6, decay: 0.055, tone: 58, noise: 42, lofi: 25 },
+    tomLow: { type: 'tom', pitch: -5, decay: 0.38, tone: 62, noise: 16, lofi: 30 },
+    tomHigh: { type: 'tom', pitch: 1, decay: 0.28, tone: 58, noise: 18, lofi: 30 },
+    // lofi instruments
+    bass: { type: 'bass', pitch: -12, decay: 0.7, tone: 48, attack: 0.008, lofi: 35, dist: 15 },
+    keys: { type: 'keys', pitch: 0, decay: 0.9, tone: 45, attack: 0.012, lofi: 40 },
+    guitar: { type: 'guitar', pitch: 0, decay: 0.8, tone: 52, attack: 0.006, lofi: 35 }
   },
   metal: {
-    kick: {
-      type: 'kick',
-      pitch: -6,       // low-tuned chug kick
-      decay: 0.22,     // tight but not 808-short
-      tone: 72,        // lots of click
-      noise: 18,
-      lofi: 5,
-      dist: 35
-    },
-    snare: {
-      type: 'snare',
-      pitch: 4,        // high, cracking snare
-      decay: 0.18,
-      tone: 75,
-      noise: 80,
-      lofi: 5,
-      dist: 30
-    },
-    hihatClosed: {
-      type: 'hihat',
-      pitch: 6,
-      decay: 0.03,
-      tone: 85,
-      noise: 92,
-      lofi: 0,
-      closed: true
-    },
-    hihatOpen: {
-      type: 'hihat',
-      pitch: 6,
-      decay: 0.16,
-      tone: 83,
-      noise: 88,
-      lofi: 0,
-      closed: false
-    },
-    clap: {
-      type: 'clap',
-      pitch: 1,
-      decay: 0.11,
-      tone: 40,
-      noise: 90,
-      lofi: 0,
-      dist: 20
-    },
-    rimshot: {
-      type: 'snare',
-      pitch: 12,
-      decay: 0.05,
-      tone: 82,
-      noise: 30,
-      lofi: 0
-    },
-    tomLow: {
-      type: 'tom',
-      pitch: -3,
-      decay: 0.42,
-      tone: 68,
-      noise: 14,
-      lofi: 5
-    },
-    tomHigh: {
-      type: 'tom',
-      pitch: 2,
-      decay: 0.36,
-      tone: 66,
-      noise: 16,
-      lofi: 5
-    }
+    kick: { type: 'kick', pitch: -7, decay: 0.18, tone: 78, noise: 15, lofi: 0, dist: 45 },
+    snare: { type: 'snare', pitch: 5, decay: 0.14, tone: 80, noise: 82, lofi: 0, dist: 38 },
+    hihatClosed: { type: 'hihat', pitch: 7, decay: 0.025, tone: 88, noise: 94, lofi: 0, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 7, decay: 0.12, tone: 86, noise: 90, lofi: 0, closed: false },
+    clap: { type: 'clap', pitch: 2, decay: 0.09, tone: 42, noise: 92, lofi: 0, dist: 25 },
+    rimshot: { type: 'snare', pitch: 14, decay: 0.04, tone: 86, noise: 28, lofi: 0 },
+    tomLow: { type: 'tom', pitch: -4, decay: 0.38, tone: 72, noise: 12, lofi: 0 },
+    tomHigh: { type: 'tom', pitch: 3, decay: 0.32, tone: 70, noise: 14, lofi: 0 },
+    // metal instruments
+    bass: { type: 'bass', pitch: -12, decay: 0.5, tone: 75, attack: 0.001, lofi: 0, dist: 40 },
+    guitar: { type: 'guitar', pitch: -12, decay: 0.6, tone: 80, attack: 0.001, lofi: 0, dist: 50 },
+    lead: { type: 'lead', pitch: 0, decay: 0.8, tone: 78, attack: 0.008, lofi: 0, dist: 35 }
   },
   hiphop: {
-    kick: { type: 'kick', pitch: -3, decay: 0.4, tone: 50, noise: 15, lofi: 15, dist: 30 },
-    snare: { type: 'snare', pitch: 0, decay: 0.18, tone: 50, noise: 80, lofi: 10, dist: 25 },
-    hihatClosed: { type: 'hihat', pitch: 1, decay: 0.05, tone: 45, noise: 90, lofi: 15, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 1, decay: 0.2, tone: 50, noise: 85, lofi: 15, closed: false },
-    clap: { type: 'clap', pitch: 0, decay: 0.15, tone: 35, noise: 95, lofi: 5, dist: 20 },
-    rimshot: { type: 'snare', pitch: 10, decay: 0.06, tone: 70, noise: 35, lofi: 10 },
-    tomLow: { type: 'tom', pitch: -3, decay: 0.3, tone: 70, noise: 12, lofi: 15 },
-    tomHigh: { type: 'tom', pitch: 3, decay: 0.22, tone: 65, noise: 15, lofi: 15 }
+    kick: { type: 'kick', pitch: -4, decay: 0.45, tone: 52, noise: 16, lofi: 18, dist: 28 },
+    snare: { type: 'snare', pitch: 0, decay: 0.19, tone: 48, noise: 78, lofi: 12, dist: 22 },
+    hihatClosed: { type: 'hihat', pitch: 1, decay: 0.05, tone: 46, noise: 88, lofi: 15, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 1, decay: 0.22, tone: 50, noise: 84, lofi: 15, closed: false },
+    clap: { type: 'clap', pitch: 0, decay: 0.16, tone: 34, noise: 94, lofi: 8, dist: 18 },
+    rimshot: { type: 'snare', pitch: 9, decay: 0.06, tone: 68, noise: 36, lofi: 12 },
+    tomLow: { type: 'tom', pitch: -3, decay: 0.32, tone: 68, noise: 13, lofi: 15 },
+    tomHigh: { type: 'tom', pitch: 3, decay: 0.24, tone: 64, noise: 15, lofi: 15 },
+    // hip-hop instruments
+    bass: { type: 'bass', pitch: -12, decay: 1.0, tone: 58, attack: 0.006, lofi: 12, dist: 25 },
+    keys: { type: 'keys', pitch: 12, decay: 1.2, tone: 52, attack: 0.008, lofi: 15 },
+    lead: { type: 'lead', pitch: 0, decay: 0.7, tone: 62, attack: 0.015, lofi: 10 }
   },
   trap: {
-    kick: { type: 'kick', pitch: -5, decay: 0.6, tone: 60, noise: 10, lofi: 0, dist: 40 },
-    snare: { type: 'snare', pitch: 2, decay: 0.12, tone: 40, noise: 85, lofi: 0, dist: 35 },
-    hihatClosed: { type: 'hihat', pitch: 3, decay: 0.03, tone: 50, noise: 95, lofi: 0, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 3, decay: 0.25, tone: 55, noise: 90, lofi: 0, closed: false },
-    clap: { type: 'clap', pitch: 1, decay: 0.1, tone: 25, noise: 95, lofi: 0, dist: 30 },
-    rimshot: { type: 'snare', pitch: 12, decay: 0.04, tone: 80, noise: 30, lofi: 0 },
-    tomLow: { type: 'tom', pitch: -2, decay: 0.4, tone: 75, noise: 10, lofi: 0 },
-    tomHigh: { type: 'tom', pitch: 4, decay: 0.28, tone: 70, noise: 12, lofi: 0 }
+    kick: { type: 'kick', pitch: -6, decay: 0.7, tone: 65, noise: 8, lofi: 0, dist: 42 },
+    snare: { type: 'snare', pitch: 3, decay: 0.11, tone: 42, noise: 86, lofi: 0, dist: 38 },
+    hihatClosed: { type: 'hihat', pitch: 4, decay: 0.028, tone: 52, noise: 96, lofi: 0, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 4, decay: 0.28, tone: 56, noise: 92, lofi: 0, closed: false },
+    clap: { type: 'clap', pitch: 2, decay: 0.095, tone: 26, noise: 96, lofi: 0, dist: 32 },
+    rimshot: { type: 'snare', pitch: 13, decay: 0.038, tone: 82, noise: 28, lofi: 0 },
+    tomLow: { type: 'tom', pitch: -2, decay: 0.45, tone: 78, noise: 9, lofi: 0 },
+    tomHigh: { type: 'tom', pitch: 5, decay: 0.32, tone: 74, noise: 11, lofi: 0 },
+    // trap instruments
+    bass: { type: 'bass', pitch: -24, decay: 1.2, tone: 68, attack: 0.003, lofi: 0, dist: 35 },
+    lead: { type: 'lead', pitch: 12, decay: 0.6, tone: 72, attack: 0.018, lofi: 0 },
+    keys: { type: 'keys', pitch: 0, decay: 0.8, tone: 58, attack: 0.006, lofi: 0 }
   },
   house: {
-    kick: { type: 'kick', pitch: 0, decay: 0.35, tone: 65, noise: 8, lofi: 5, dist: 15 },
-    snare: { type: 'snare', pitch: 1, decay: 0.14, tone: 55, noise: 75, lofi: 5, dist: 10 },
-    hihatClosed: { type: 'hihat', pitch: 2, decay: 0.04, tone: 60, noise: 88, lofi: 5, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 2, decay: 0.18, tone: 65, noise: 82, lofi: 5, closed: false },
-    clap: { type: 'clap', pitch: 0, decay: 0.13, tone: 40, noise: 90, lofi: 0, dist: 15 },
-    rimshot: { type: 'snare', pitch: 9, decay: 0.05, tone: 75, noise: 32, lofi: 5 },
-    tomLow: { type: 'tom', pitch: -1, decay: 0.32, tone: 72, noise: 10, lofi: 5 },
-    tomHigh: { type: 'tom', pitch: 5, decay: 0.24, tone: 68, noise: 12, lofi: 5 }
+    kick: { type: 'kick', pitch: -1, decay: 0.38, tone: 68, noise: 7, lofi: 3, dist: 12 },
+    snare: { type: 'snare', pitch: 1, decay: 0.15, tone: 56, noise: 74, lofi: 5, dist: 8 },
+    hihatClosed: { type: 'hihat', pitch: 2, decay: 0.042, tone: 62, noise: 86, lofi: 4, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 2, decay: 0.19, tone: 66, noise: 81, lofi: 4, closed: false },
+    clap: { type: 'clap', pitch: 0, decay: 0.14, tone: 41, noise: 89, lofi: 2, dist: 13 },
+    rimshot: { type: 'snare', pitch: 9, decay: 0.052, tone: 76, noise: 31, lofi: 4 },
+    tomLow: { type: 'tom', pitch: -1, decay: 0.34, tone: 74, noise: 10, lofi: 4 },
+    tomHigh: { type: 'tom', pitch: 5, decay: 0.26, tone: 70, noise: 11, lofi: 4 },
+    // house instruments
+    bass: { type: 'bass', pitch: -12, decay: 0.8, tone: 65, attack: 0.005, lofi: 0, dist: 8 },
+    keys: { type: 'keys', pitch: 0, decay: 1.0, tone: 60, attack: 0.005, lofi: 0 },
+    lead: { type: 'lead', pitch: 12, decay: 0.9, tone: 68, attack: 0.01, lofi: 0 }
   },
   techno: {
-    kick: { type: 'kick', pitch: 1, decay: 0.3, tone: 70, noise: 5, lofi: 0, dist: 25 },
-    snare: { type: 'snare', pitch: 3, decay: 0.1, tone: 48, noise: 82, lofi: 0, dist: 20 },
-    hihatClosed: { type: 'hihat', pitch: 4, decay: 0.03, tone: 65, noise: 92, lofi: 0, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 4, decay: 0.15, tone: 68, noise: 88, lofi: 0, closed: false },
-    clap: { type: 'clap', pitch: 2, decay: 0.11, tone: 30, noise: 93, lofi: 0, dist: 25 },
-    rimshot: { type: 'snare', pitch: 11, decay: 0.04, tone: 82, noise: 28, lofi: 0 },
-    tomLow: { type: 'tom', pitch: 0, decay: 0.35, tone: 78, noise: 8, lofi: 0 },
-    tomHigh: { type: 'tom', pitch: 6, decay: 0.26, tone: 75, noise: 10, lofi: 0 }
+    kick: { type: 'kick', pitch: 0, decay: 0.32, tone: 72, noise: 5, lofi: 0, dist: 22 },
+    snare: { type: 'snare', pitch: 4, decay: 0.095, tone: 50, noise: 80, lofi: 0, dist: 18 },
+    hihatClosed: { type: 'hihat', pitch: 5, decay: 0.028, tone: 68, noise: 93, lofi: 0, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 5, decay: 0.14, tone: 70, noise: 89, lofi: 0, closed: false },
+    clap: { type: 'clap', pitch: 2, decay: 0.105, tone: 31, noise: 92, lofi: 0, dist: 23 },
+    rimshot: { type: 'snare', pitch: 12, decay: 0.038, tone: 84, noise: 26, lofi: 0 },
+    tomLow: { type: 'tom', pitch: 0, decay: 0.36, tone: 80, noise: 8, lofi: 0 },
+    tomHigh: { type: 'tom', pitch: 7, decay: 0.27, tone: 77, noise: 9, lofi: 0 },
+    // techno instruments
+    bass: { type: 'bass', pitch: -12, decay: 0.6, tone: 70, attack: 0.002, lofi: 0, dist: 18 },
+    lead: { type: 'lead', pitch: 0, decay: 0.7, tone: 75, attack: 0.006, lofi: 0 },
+    fx: { type: 'fx', pitch: -12, decay: 1.6, tone: 48, attack: 0.001, lofi: 0, dist: 15 }
   },
   dnb: {
-    kick: { type: 'kick', pitch: -1, decay: 0.25, tone: 58, noise: 12, lofi: 0, dist: 35 },
-    snare: { type: 'snare', pitch: 4, decay: 0.11, tone: 42, noise: 88, lofi: 0, dist: 30 },
-    hihatClosed: { type: 'hihat', pitch: 5, decay: 0.025, tone: 58, noise: 94, lofi: 0, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 5, decay: 0.12, tone: 62, noise: 90, lofi: 0, closed: false },
-    clap: { type: 'clap', pitch: 1, decay: 0.09, tone: 28, noise: 94, lofi: 0, dist: 28 },
-    rimshot: { type: 'snare', pitch: 13, decay: 0.035, tone: 85, noise: 25, lofi: 0 },
-    tomLow: { type: 'tom', pitch: 1, decay: 0.28, tone: 72, noise: 9, lofi: 0 },
-    tomHigh: { type: 'tom', pitch: 7, decay: 0.2, tone: 70, noise: 11, lofi: 0 }
+    kick: { type: 'kick', pitch: -2, decay: 0.22, tone: 62, noise: 11, lofi: 0, dist: 38 },
+    snare: { type: 'snare', pitch: 5, decay: 0.105, tone: 44, noise: 90, lofi: 0, dist: 32 },
+    hihatClosed: { type: 'hihat', pitch: 6, decay: 0.022, tone: 60, noise: 95, lofi: 0, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 6, decay: 0.11, tone: 64, noise: 91, lofi: 0, closed: false },
+    clap: { type: 'clap', pitch: 2, decay: 0.085, tone: 29, noise: 95, lofi: 0, dist: 30 },
+    rimshot: { type: 'snare', pitch: 14, decay: 0.032, tone: 87, noise: 24, lofi: 0 },
+    tomLow: { type: 'tom', pitch: 1, decay: 0.26, tone: 74, noise: 9, lofi: 0 },
+    tomHigh: { type: 'tom', pitch: 8, decay: 0.19, tone: 72, noise: 10, lofi: 0 },
+    // dnb instruments
+    bass: { type: 'bass', pitch: -24, decay: 0.9, tone: 72, attack: 0.001, lofi: 0, dist: 28 },
+    lead: { type: 'lead', pitch: 12, decay: 0.5, tone: 78, attack: 0.004, lofi: 0 },
+    fx: { type: 'fx', pitch: 0, decay: 1.2, tone: 52, attack: 0.001, lofi: 0, dist: 20 }
   },
   ambient: {
-    kick: { type: 'kick', pitch: -4, decay: 0.8, tone: 35, noise: 25, lofi: 50, dist: 5 },
-    snare: { type: 'snare', pitch: -2, decay: 0.4, tone: 38, noise: 70, lofi: 45, dist: 8 },
-    hihatClosed: { type: 'hihat', pitch: -1, decay: 0.08, tone: 35, noise: 78, lofi: 40, closed: true },
-    hihatOpen: { type: 'hihat', pitch: -1, decay: 0.35, tone: 40, noise: 75, lofi: 40, closed: false },
-    clap: { type: 'clap', pitch: -1, decay: 0.2, tone: 32, noise: 85, lofi: 35, dist: 5 },
-    rimshot: { type: 'snare', pitch: 6, decay: 0.08, tone: 55, noise: 45, lofi: 30 },
-    tomLow: { type: 'tom', pitch: -5, decay: 0.6, tone: 58, noise: 20, lofi: 35 },
-    tomHigh: { type: 'tom', pitch: 1, decay: 0.4, tone: 55, noise: 22, lofi: 35 }
+    kick: { type: 'kick', pitch: -5, decay: 1.0, tone: 32, noise: 28, lofi: 55, dist: 4 },
+    snare: { type: 'snare', pitch: -3, decay: 0.5, tone: 36, noise: 68, lofi: 50, dist: 6 },
+    hihatClosed: { type: 'hihat', pitch: -2, decay: 0.09, tone: 34, noise: 76, lofi: 45, closed: true },
+    hihatOpen: { type: 'hihat', pitch: -2, decay: 0.42, tone: 38, noise: 73, lofi: 45, closed: false },
+    clap: { type: 'clap', pitch: -2, decay: 0.22, tone: 30, noise: 83, lofi: 40, dist: 4 },
+    rimshot: { type: 'snare', pitch: 5, decay: 0.09, tone: 52, noise: 48, lofi: 35 },
+    tomLow: { type: 'tom', pitch: -6, decay: 0.7, tone: 55, noise: 22, lofi: 40 },
+    tomHigh: { type: 'tom', pitch: 0, decay: 0.48, tone: 52, noise: 24, lofi: 40 },
+    // ambient instruments
+    keys: { type: 'keys', pitch: 0, decay: 2.5, tone: 42, attack: 0.08, lofi: 30 },
+    lead: { type: 'lead', pitch: 12, decay: 2.0, tone: 48, attack: 0.15, lofi: 25 },
+    riser: { type: 'riser', pitch: 0, decay: 3.5, tone: 55, attack: 0.5, lofi: 20 }
   },
   rock: {
-    kick: { type: 'kick', pitch: -1, decay: 0.3, tone: 55, noise: 18, lofi: 10, dist: 20 },
-    snare: { type: 'snare', pitch: 0, decay: 0.16, tone: 52, noise: 78, lofi: 8, dist: 18 },
-    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.045, tone: 48, noise: 86, lofi: 10, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.22, tone: 52, noise: 82, lofi: 10, closed: false },
-    clap: { type: 'clap', pitch: 0, decay: 0.14, tone: 38, noise: 88, lofi: 8, dist: 12 },
-    rimshot: { type: 'snare', pitch: 8, decay: 0.055, tone: 68, noise: 38, lofi: 8 },
-    tomLow: { type: 'tom', pitch: -3, decay: 0.38, tone: 68, noise: 14, lofi: 10 },
-    tomHigh: { type: 'tom', pitch: 3, decay: 0.28, tone: 65, noise: 16, lofi: 10 }
+    kick: { type: 'kick', pitch: -2, decay: 0.32, tone: 56, noise: 19, lofi: 8, dist: 18 },
+    snare: { type: 'snare', pitch: 0, decay: 0.17, tone: 54, noise: 76, lofi: 6, dist: 16 },
+    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.048, tone: 50, noise: 85, lofi: 8, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.24, tone: 54, noise: 81, lofi: 8, closed: false },
+    clap: { type: 'clap', pitch: 0, decay: 0.15, tone: 39, noise: 87, lofi: 6, dist: 10 },
+    rimshot: { type: 'snare', pitch: 8, decay: 0.058, tone: 70, noise: 39, lofi: 7 },
+    tomLow: { type: 'tom', pitch: -4, decay: 0.42, tone: 70, noise: 15, lofi: 8 },
+    tomHigh: { type: 'tom', pitch: 3, decay: 0.32, tone: 67, noise: 17, lofi: 8 },
+    // rock instruments
+    bass: { type: 'bass', pitch: -12, decay: 0.8, tone: 62, attack: 0.004, lofi: 8, dist: 22 },
+    guitar: { type: 'guitar', pitch: 0, decay: 1.4, tone: 68, attack: 0.002, lofi: 5, dist: 25 },
+    keys: { type: 'keys', pitch: 0, decay: 1.1, tone: 58, attack: 0.006, lofi: 6 }
   },
   jazz: {
-    kick: { type: 'kick', pitch: -2, decay: 0.35, tone: 45, noise: 22, lofi: 20, dist: 10 },
-    snare: { type: 'snare', pitch: -1, decay: 0.2, tone: 48, noise: 72, lofi: 18, dist: 8 },
-    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.05, tone: 42, noise: 84, lofi: 15, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.28, tone: 48, noise: 80, lofi: 15, closed: false },
-    clap: { type: 'clap', pitch: -1, decay: 0.16, tone: 35, noise: 86, lofi: 15, dist: 6 },
-    rimshot: { type: 'snare', pitch: 7, decay: 0.06, tone: 65, noise: 42, lofi: 12 },
-    tomLow: { type: 'tom', pitch: -4, decay: 0.42, tone: 62, noise: 16, lofi: 18 },
-    tomHigh: { type: 'tom', pitch: 2, decay: 0.32, tone: 60, noise: 18, lofi: 18 }
+    kick: { type: 'kick', pitch: -3, decay: 0.4, tone: 46, noise: 24, lofi: 22, dist: 8 },
+    snare: { type: 'snare', pitch: -1, decay: 0.22, tone: 50, noise: 70, lofi: 20, dist: 6 },
+    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.055, tone: 44, noise: 82, lofi: 18, closed: true },
+    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.32, tone: 50, noise: 78, lofi: 18, closed: false },
+    clap: { type: 'clap', pitch: -1, decay: 0.17, tone: 36, noise: 84, lofi: 16, dist: 5 },
+    rimshot: { type: 'snare', pitch: 7, decay: 0.065, tone: 67, noise: 44, lofi: 14 },
+    tomLow: { type: 'tom', pitch: -5, decay: 0.48, tone: 64, noise: 17, lofi: 20 },
+    tomHigh: { type: 'tom', pitch: 2, decay: 0.36, tone: 62, noise: 19, lofi: 20 },
+    // jazz instruments
+    bass: { type: 'bass', pitch: -12, decay: 0.6, tone: 52, attack: 0.01, lofi: 15, dist: 5 },
+    keys: { type: 'keys', pitch: 0, decay: 1.3, tone: 50, attack: 0.008, lofi: 18 },
+    guitar: { type: 'guitar', pitch: 0, decay: 1.0, tone: 58, attack: 0.005, lofi: 16 }
   },
   vintage: {
-    kick: { type: 'kick', pitch: -3, decay: 0.28, tone: 38, noise: 28, lofi: 55, dist: 25 },
-    snare: { type: 'snare', pitch: -2, decay: 0.17, tone: 42, noise: 75, lofi: 50, dist: 20 },
-    hihatClosed: { type: 'hihat', pitch: -2, decay: 0.055, tone: 38, noise: 82, lofi: 45, closed: true },
-    hihatOpen: { type: 'hihat', pitch: -2, decay: 0.24, tone: 42, noise: 78, lofi: 45, closed: false },
-    clap: { type: 'clap', pitch: -1, decay: 0.15, tone: 32, noise: 88, lofi: 40, dist: 15 },
-    rimshot: { type: 'snare', pitch: 6, decay: 0.065, tone: 58, noise: 48, lofi: 35 },
-    tomLow: { type: 'tom', pitch: -5, decay: 0.4, tone: 55, noise: 20, lofi: 40 },
-    tomHigh: { type: 'tom', pitch: 1, decay: 0.3, tone: 52, noise: 22, lofi: 40 }
+    kick: { type: 'kick', pitch: -4, decay: 0.3, tone: 36, noise: 30, lofi: 60, dist: 28 },
+    snare: { type: 'snare', pitch: -2, decay: 0.18, tone: 40, noise: 73, lofi: 55, dist: 22 },
+    hihatClosed: { type: 'hihat', pitch: -3, decay: 0.06, tone: 36, noise: 80, lofi: 50, closed: true },
+    hihatOpen: { type: 'hihat', pitch: -3, decay: 0.26, tone: 40, noise: 76, lofi: 50, closed: false },
+    clap: { type: 'clap', pitch: -2, decay: 0.16, tone: 31, noise: 86, lofi: 45, dist: 16 },
+    rimshot: { type: 'snare', pitch: 5, decay: 0.07, tone: 56, noise: 50, lofi: 40 },
+    tomLow: { type: 'tom', pitch: -6, decay: 0.45, tone: 53, noise: 22, lofi: 45 },
+    tomHigh: { type: 'tom', pitch: 0, decay: 0.34, tone: 50, noise: 24, lofi: 45 },
+    // vintage instruments
+    bass: { type: 'bass', pitch: -12, decay: 0.7, tone: 48, attack: 0.012, lofi: 50, dist: 20 },
+    keys: { type: 'keys', pitch: 0, decay: 1.0, tone: 46, attack: 0.015, lofi: 55 },
+    guitar: { type: 'guitar', pitch: 0, decay: 0.9, tone: 54, attack: 0.008, lofi: 48 }
   }
-};
-
-sampleKits.instruments = {
-  // melodic instruments
-  bass:   { type: 'bass',   pitch: -12, decay: 0.9, tone: 60, attack: 0.004, lofi: 0,  dist: 10 },
-  guitar: { type: 'guitar', pitch:  0,  decay: 1.2, tone: 65, attack: 0.001, lofi: 0 },
-  keys:   { type: 'keys',   pitch:  0,  decay: 1.1, tone: 55, attack: 0.004, lofi: 0 },
-  lead:   { type: 'lead',   pitch:  0,  decay: 0.9, tone: 70, attack: 0.012, lofi: 0 },
-
-  // cinematic helpers
-  riser:  { type: 'riser',  pitch:  0,  decay: 2.5, tone: 60, attack: 0.02,  lofi: 0 },
-  fx:     { type: 'fx',     pitch: -12, decay: 1.4, tone: 45, attack: 0.001, lofi: 0, dist: 12 }
 };
 
 // Keep an immutable copy of the original kits so we can randomize around them
@@ -18746,103 +18717,136 @@ function attachEventListeners() {
       return;
     }
   
-    // Use the same synth engine as the Samples tab
+    // Use the same engine as the Samples tab
     const synthEngine = window.synth instanceof SampleSynthesizer
       ? window.synth
       : new SampleSynthesizer();
   
-    // Loop through every element of the kit — drums *and* instruments
-    Object.entries(kit).forEach(([sampleKey, cfg]) => {
+    // For each entry in the kit (drums + instruments)
+    Object.entries(kit).forEach(([name, cfg]) => {
       let buffer = null;
   
       switch (cfg.type) {
-        case 'kick':   buffer = synthEngine.generateKick(cfg); break;
-        case 'snare':  buffer = synthEngine.generateSnare(cfg); break;
+        case 'kick':   buffer = synthEngine.generateKick(cfg);   break;
+        case 'snare':  buffer = synthEngine.generateSnare(cfg);  break;
         case 'hihat':  buffer = synthEngine.generateHihat(cfg, cfg.closed); break;
-        case 'clap':   buffer = synthEngine.generateClap(cfg); break;
+        case 'clap':   buffer = synthEngine.generateClap(cfg);   break;
         case 'tom':    buffer = synthEngine.generateTom(cfg, cfg.pitch || 0); break;
   
-        case 'bass':   buffer = synthEngine.generateBass(cfg); break;
+        case 'bass':   buffer = synthEngine.generateBass(cfg);   break;
         case 'guitar': buffer = synthEngine.generateGuitar(cfg); break;
-        case 'keys':   buffer = synthEngine.generateKeys(cfg); break;
-        case 'lead':   buffer = synthEngine.generateLead(cfg); break;
-        case 'riser':  buffer = synthEngine.generateRiser(cfg); break;
-        case 'fx':     buffer = synthEngine.generateFX(cfg); break;
+        case 'keys':   buffer = synthEngine.generateKeys(cfg);   break;
+        case 'lead':   buffer = synthEngine.generateLead(cfg);   break;
+        case 'riser':  buffer = synthEngine.generateRiser(cfg);  break;
+        case 'fx':     buffer = synthEngine.generateFX(cfg);     break;
         default:
-          break;
+          // if something exotic sneaks in, bail quietly
+          return;
       }
   
       if (!buffer) return;
   
-      // 🔊 THIS is the only new thing:
-      normalizeBufferInPlace(buffer, -1);  // ~8 dB of headroom
-  
-      // 1) Convert to WAV URL for anything that uses URLs (DRUM_SAMPLES / Players)
-      const url = bufferToObjectUrlFromSynth(buffer);
-  
-      // 2) Update DRUM_SAMPLES if it’s a drum-ish key
-      if (['kick', 'snare', 'hihat', 'clap', 'tom', 'rimshot', 'crash', 'ride'].includes(sampleKey)) {
-        DRUM_SAMPLES[sampleKey] = url;
+      // Keep headroom
+      if (typeof normalizeBufferInPlace === 'function') {
+        normalizeBufferInPlace(buffer, -1); // ~8 dB
       }
   
-      // 3) If it exists as a sequencer instrument, rebuild its synth as a Player
-      if (instruments[sampleKey]) {
-        const instMeta = instruments[sampleKey];
-        const instType = instMeta.type; // 'drum' | 'melodic' | 'atmospheric' etc.
+      const url = bufferToObjectUrlFromSynth(buffer);
   
-        if (instType === 'drum' || instType === 'melodic' || instType === 'atmospheric') {
-          // Dispose existing synth if any
-          if (synths[sampleKey]?.dispose) {
-            synths[sampleKey].dispose();
-          }
+      // ----------------- DRUM MAPPING → DRUM_SAMPLES -----------------
+      switch (name) {
+        case 'kick':
+          DRUM_SAMPLES.kick = url;
+          break;
+        case 'snare':
+          DRUM_SAMPLES.snare = url;
+          break;
+        case 'hihatClosed':
+          // your drum engine uses "hihat" only
+          DRUM_SAMPLES.hihat = url;
+          break;
+        case 'hihatOpen':
+          // use open hat as crash/ride stand-ins
+          DRUM_SAMPLES.crash = url;
+          DRUM_SAMPLES.ride  = url;
+          break;
+        case 'clap':
+          DRUM_SAMPLES.clap = url;
+          break;
+        case 'rimshot':
+          DRUM_SAMPLES.rimshot = url;
+          break;
+        case 'tomLow':
+        case 'tomHigh':
+          DRUM_SAMPLES.tom = url;
+          break;
+        default:
+          break;
+      }
   
-          // Build a Tone.Player for this new sample
-          const player = new Tone.Player({
-            url,
-            autostart: false,
-            fadeOut: 0.05,
-            volume: -6 // global safe baseline
-          });
-  
-          // Connect through the existing channel if present
-          if (instMeta.channel) {
-            player.connect(instMeta.channel);
-          } else if (window.SEQUENCER_MASTER_BUS) {
-            player.connect(window.SEQUENCER_MASTER_BUS);
-          } else {
-            player.toDestination();
-          }
-  
-          // ❗ Keep your expected synths[*] API, don't replace it with a raw Player
-          synths[sampleKey] = {
-            player,
-            triggerAttackRelease: (note, duration, time, velocity = 1) => {
-              if (player.loaded) {
-                // Don't recreate gains, just rely on channel gain + player volume
-                const when = time ?? Tone.now();
-                player.start(when);
-              }
-            },
-            connect: (node) => {
-              player.disconnect();
-              player.connect(node);
-              return player;
-            },
-            toDestination: () => player.toDestination(),
-            dispose: () => player.dispose(),
-            get loaded() {
-              return player.loaded;
-            }
-          };
+      // ----------------- DRUM TRACKS: rebuild synths -----------------
+      const instMeta = instruments[name];
+      if (instMeta && instMeta.type === 'drum') {
+        // drum track whose id matches sample name (kick, snare, etc.)
+        if (synths[name]?.dispose) {
+          try { synths[name].dispose(); } catch {}
         }
+        synths[name] = createDrumSynth(name);
+        if (instMeta.channel && synths[name]?.connect) {
+          synths[name].connect(instMeta.channel);
+        }
+        return; // don’t treat this one as a melodic instrument
+      }
+  
+      // ----------------- INSTRUMENT TRACKS (bass/keys/guitar/lead/fx/riser) -----------------
+      if (['bass', 'guitar', 'keys', 'lead', 'fx', 'riser'].includes(name)) {
+        const inst = instruments[name];
+        if (!inst) return;
+  
+        // Dispose old synth if present
+        if (synths[name]?.dispose) {
+          try { synths[name].dispose(); } catch {}
+        }
+  
+        const player = new Tone.Player({
+          url,
+          autostart: false,
+          fadeOut: 0.05,
+          volume: -6
+        });
+  
+        // Wire through the existing channel -> mixer already handles routing
+        if (inst.channel) {
+          player.connect(inst.channel);
+        } else if (window.SEQUENCER_MASTER_BUS) {
+          player.connect(window.SEQUENCER_MASTER_BUS);
+        } else {
+          player.toDestination();
+        }
+  
+        // Maintain the synth interface the sequencer expects
+        synths[name] = {
+          player,
+          triggerAttackRelease: (note, duration, time, velocity = 1) => {
+            if (!player.loaded) return;
+            const when = time ?? Tone.now();
+            player.start(when);
+          },
+          connect: (node) => {
+            player.disconnect();
+            player.connect(node);
+            return player;
+          },
+          toDestination: () => player.toDestination(),
+          dispose: () => player.dispose(),
+          get loaded() {
+            return player.loaded;
+          }
+        };
       }
     });
   
-    if (typeof showToast === 'function') {
-      showToast(`🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`, 'success');
-    } else {
-      alert(`🎹 Loaded "${currentKit}" kit (including instruments) into the sequencer.`);
-    }
+    showToast?.(`🎹 Loaded "${currentKit}" kit (drums + instruments) into the sequencer.`, 'success');
   });
 
   // ==================== RESET TO DEFAULT KIT ====================
