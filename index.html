@@ -11126,45 +11126,52 @@ class AudioTrack {
     this.reconnectFxChain();
   }
   
-  async startRecording() {
+  async startRecording(options = {}) {
     if (this.recording) return;
+  
     await Tone.start();
     if (Tone.context.state !== 'running') await Tone.context.resume();
   
-    // FIXED: Enable monitoring during recording
+    // keep timing logic
+    const forcedStart = typeof options.forcedStartTime === 'number' ? options.forcedStartTime : null;
+    if (this.recordStartTime == null)
+      this.recordStartTime = forcedStart ?? Tone.now();
+  
+    // external input monitor stays unchanged
     if (this.isExternalAudio) {
       if (!this.mediaStreamSource) await this.setupExternalAudio();
-      this.inputMonitoring = true; // Force monitoring ON
-      if (this.externalInput) {
-        this.externalInput.gain.value = 1; // Ensure we can hear input
-      }
+      this.inputMonitoring = true;
+      if (this.externalInput) this.externalInput.gain.value = 1;
     }
-    
+  
+    // 🎯 record the *master bus* instead of a per-track stem
     const ctx = Tone.getContext().rawContext;
-    const dest = ctx.createMediaStreamDestination();
+    let stream;
   
-    if (!this.isExternalAudio) {
-      master.fxIn.connect(dest);
+    if (window.master?.mediaDest) {
+      stream = master.mediaDest.stream;        // post-limiter master
+      this.recordDest = null;
+    } else {
+      const dest = ctx.createMediaStreamDestination();
+      this.recordDest = dest;
+      (master?.limiter || master?.fxIn || Tone.getDestination()).connect(dest);
+      stream = dest.stream;
     }
   
-    this.channel.connect(dest);
-    this.recordDest = dest;
     this.recordedChunks = [];
-  
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus'
       : 'audio/webm';
   
-    this.recorder = new MediaRecorder(dest.stream, { mimeType });
-    this.recorder.ondataavailable = e => e.data.size && this.recordedChunks.push(e.data);
+    this.recorder = new MediaRecorder(stream, { mimeType });
+    this.recorder.ondataavailable = e => e.data?.size && this.recordedChunks.push(e.data);
     this.recorder.onstop = () => this.finishRecording();
-  
     this.recorder.start(100);
     this.recording = true;
-    
-    showToast(`🎧 Recording ${this.name} (monitoring ${this.isExternalAudio ? 'ON' : 'OFF'})`, 'success');
-  }
   
+    showToast(`🎧 Recording live master output into ${this.name}`, 'success');
+  }
+
   stopRecording() {
     if (this.recording && this.recorder) {
       this.recorder.stop();
