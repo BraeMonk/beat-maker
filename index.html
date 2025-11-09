@@ -14354,7 +14354,7 @@ function startPlayheadAnimation() {
   }
 
   const playhead = document.getElementById('dawPlayhead');
-  const wrapper = document.querySelector('dawArrangementScroll');
+  const wrapper = document.getElementById('dawArrangementScroll'); // ✅ fixed selector
 
   if (!playhead || !wrapper) return;
 
