@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <style>
-   /* =========================================================
+/* =========================================================
    8-BEAT STUDIO — PROFESSIONAL RESPONSIVE REDESIGN
    Premium glassmorphic design with advanced micro-interactions
    Full mobile/tablet/desktop support • PWA optimized
@@ -1585,8 +1585,9 @@ select {
 }
 
 .step {
-  aspect-ratio: 1;
+  aspect-ratio: 1 / 1;
   min-height: 48px;
+  width: 100%;
   border-radius: var(--radius-md);
   cursor: pointer;
   background: 
@@ -2754,6 +2755,7 @@ body.pro .pro-locked::after {
   min-height: 600px;
   background: var(--bg-primary);
   position: relative;
+  overflow: hidden;
 }
 
 .daw-transport-bar {
@@ -3022,42 +3024,20 @@ body.pro .pro-locked::after {
 
 .daw-timeline-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   background: var(--glass-bg);
   border-bottom: 1px solid var(--glass-border);
   flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-
-.toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding-right: var(--space-3);
-  border-right: 1px solid var(--glass-border);
-}
-
-.toolbar-group:last-child {
-  border-right: none;
-}
-
-.toolbar-label {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
 }
 
 .tool-btn {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  flex-shrink: 0;
   border: none;
   border-radius: var(--radius-sm);
   background: var(--glass-bg);
@@ -3638,7 +3618,6 @@ body.pro .pro-locked::after {
   font-size: var(--text-sm);
 }
 
-/* === MASTER STRIP === */
 .daw-master-strip {
   padding: var(--space-4);
   background: var(--surface-elevated);
@@ -3713,7 +3692,6 @@ body.pro .pro-locked::after {
   color: var(--text-primary);
 }
 
-/* === TRACK FX PANEL === */
 .track-fx-panel {
   margin-top: var(--space-2);
   padding: var(--space-3);
@@ -3767,7 +3745,6 @@ body.pro .pro-locked::after {
   opacity: 0.5;
 }
 
-/* === FX CHAIN PANEL === */
 .fx-chain-panel {
   position: fixed;
   bottom: 0;
@@ -3850,7 +3827,6 @@ body.pro .pro-locked::after {
   background: color-mix(in oklab, var(--accent-primary) 12%, transparent);
 }
 
-/* === TRACK METERS === */
 .track-meters {
   display: flex;
   align-items: center;
@@ -3879,7 +3855,6 @@ body.pro .pro-locked::after {
   transition: height 0.06s linear;
 }
 
-/* === FLOATING ACTION BUTTON (MOBILE) === */
 .daw-fab {
   position: fixed;
   bottom: calc(1.5rem + env(safe-area-inset-bottom));
@@ -3907,12 +3882,10 @@ body.pro .pro-locked::after {
   transform: scale(0.95);
 }
 
-/* ==================== COMPLETE MOBILE RESPONSIVE SYSTEM ==================== */
+/* ==================== RESPONSIVE BREAKPOINTS ==================== */
 
-/* === TABLET: 1024px - 768px === */
-
+/* TABLET: 1024px - 768px */
 @media (max-width: 1024px) {
-  /* Global adjustments */
   :root {
     --space-4: 0.875rem;
     --space-5: 1rem;
@@ -3929,7 +3902,6 @@ body.pro .pro-locked::after {
     gap: var(--space-4);
   }
   
-  /* Header adjustments */
   header {
     grid-template-columns: auto 1fr;
     gap: var(--space-3);
@@ -3954,7 +3926,6 @@ body.pro .pro-locked::after {
     height: 44px;
   }
   
-  /* Genre selector */
   .genre-selector {
     justify-content: flex-start;
   }
@@ -3964,7 +3935,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-xs);
   }
   
-  /* Sidebar nav */
   .sidebar-nav {
     width: min(90vw, 340px);
   }
@@ -3975,7 +3945,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-xl);
   }
   
-  /* Transport bar */
   .transport {
     grid-template-columns: 1fr;
     gap: var(--space-4);
@@ -3991,7 +3960,6 @@ body.pro .pro-locked::after {
     gap: var(--space-3);
   }
   
-  /* Panels */
   .panel {
     padding: var(--space-4);
   }
@@ -4001,7 +3969,6 @@ body.pro .pro-locked::after {
     align-items: flex-start;
   }
   
-  /* Grid systems */
   .grid-2 {
     grid-template-columns: 1fr;
   }
@@ -4018,13 +3985,11 @@ body.pro .pro-locked::after {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   }
   
-  /* Preset grid */
   .preset-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: var(--space-3);
   }
   
-  /* Sequencer */
   .seq-grid {
     min-width: 800px;
   }
@@ -4038,7 +4003,6 @@ body.pro .pro-locked::after {
     min-height: 40px;
   }
   
-  /* Mixer */
   #mixerGrid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: var(--space-3);
@@ -4048,7 +4012,6 @@ body.pro .pro-locked::after {
     padding: var(--space-3);
   }
   
-  /* FX Grid */
   #fxGrid {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: var(--space-3);
@@ -4058,12 +4021,10 @@ body.pro .pro-locked::after {
     padding: var(--space-4);
   }
   
-  /* Visualizer */
   .visualizer {
     height: clamp(140px, 18vh, 180px);
   }
   
-  /* Sample browser */
   .sample-item {
     padding: var(--space-2);
     gap: var(--space-2);
@@ -4075,17 +4036,14 @@ body.pro .pro-locked::after {
     font-size: var(--text-xl);
   }
   
-  /* DAW (already covered in previous styles) */
   .daw-main-container {
     grid-template-columns: 240px 1fr 280px;
     gap: var(--space-3);
   }
 }
 
-/* === MOBILE LANDSCAPE: 900px - 768px === */
-
+/* MOBILE LANDSCAPE: 900px - 768px */
 @media (max-width: 900px) {
-  /* Global */
   :root {
     --space-4: 0.75rem;
     --space-5: 0.875rem;
@@ -4103,7 +4061,6 @@ body.pro .pro-locked::after {
     border-radius: var(--radius-xl);
   }
   
-  /* Header - compact horizontal */
   header {
     position: relative;
     top: 0;
@@ -4148,7 +4105,6 @@ body.pro .pro-locked::after {
     width: 100%;
   }
   
-  /* Sidebar adjustments */
   .sidebar-toggle {
     top: var(--space-3);
     left: var(--space-3);
@@ -4165,7 +4121,6 @@ body.pro .pro-locked::after {
     grid-template-columns: 1fr;
   }
   
-  /* Transport - vertical stack */
   .transport {
     position: relative;
     top: 0;
@@ -4197,12 +4152,10 @@ body.pro .pro-locked::after {
     padding: var(--space-1) var(--space-3);
   }
   
-  /* Sections */
   .section.active {
     gap: var(--space-3);
   }
   
-  /* Panels */
   .panel {
     padding: var(--space-3);
   }
@@ -4217,7 +4170,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-base);
   }
   
-  /* All grids - single column */
   .grid,
   .grid-2,
   .grid-3,
@@ -4227,7 +4179,6 @@ body.pro .pro-locked::after {
     gap: var(--space-3);
   }
   
-  /* Preset grid - 2 columns */
   .preset-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-2);
@@ -4246,7 +4197,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-xs);
   }
   
-  /* Sequencer - horizontal scroll */
   .sequencer {
     padding-bottom: var(--space-1);
   }
@@ -4280,7 +4230,6 @@ body.pro .pro-locked::after {
     display: none;
   }
   
-  /* Mixer - 2 columns */
   #mixerGrid {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-3);
@@ -4291,7 +4240,6 @@ body.pro .pro-locked::after {
     gap: var(--space-2);
   }
   
-  /* FX - 1 column */
   #fxGrid {
     grid-template-columns: 1fr;
     gap: var(--space-3);
@@ -4301,7 +4249,6 @@ body.pro .pro-locked::after {
     padding: var(--space-4);
   }
   
-  /* Visualizer */
   .visualizer {
     height: 120px;
   }
@@ -4310,7 +4257,6 @@ body.pro .pro-locked::after {
     width: 4px;
   }
   
-  /* Sample browser */
   .sample-item {
     flex-direction: row;
   }
@@ -4325,7 +4271,6 @@ body.pro .pro-locked::after {
     height: 28px;
   }
   
-  /* Chips */
   .chips {
     gap: var(--space-1);
   }
@@ -4335,7 +4280,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-xs);
   }
   
-  /* Modal */
   .modal {
     padding: var(--space-6);
     max-width: 90vw;
@@ -4345,22 +4289,56 @@ body.pro .pro-locked::after {
     font-size: var(--text-xl);
   }
   
-  /* Toast */
   .toast-container {
     width: min(360px, 85vw);
   }
   
-  /* Footer */
   .footer {
     padding: var(--space-4);
     font-size: var(--text-xs);
   }
+  
+  /* DAW Responsive */
+  .daw-main-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: var(--space-3);
+  }
+  
+  .daw-track-list,
+  .daw-timeline-container,
+  .daw-inspector {
+    grid-row: auto;
+    grid-column: 1;
+  }
+  
+  .daw-track-list-scroll {
+    max-height: 200px;
+  }
+  
+  .daw-timeline-container {
+    min-height: 300px;
+  }
+  
+  .daw-transport-bar {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  
+  .transport-section {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .daw-master-strip {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    text-align: center;
+  }
 }
 
-/* === MOBILE PORTRAIT: 768px and below === */
-
+/* MOBILE PORTRAIT: 768px and below */
 @media (max-width: 768px) {
-  /* Global */
   :root {
     --text-base: 0.875rem;
     --text-lg: 1rem;
@@ -4384,7 +4362,6 @@ body.pro .pro-locked::after {
     border-radius: var(--radius-lg);
   }
   
-  /* Header - ultra compact */
   header {
     padding: var(--space-2) var(--space-3);
     gap: var(--space-2);
@@ -4420,7 +4397,6 @@ body.pro .pro-locked::after {
     font-size: 10px;
   }
   
-  /* Sidebar */
   .sidebar-toggle {
     width: 44px;
     height: 44px;
@@ -4456,7 +4432,6 @@ body.pro .pro-locked::after {
     padding: var(--space-3);
   }
   
-  /* Transport - fully stacked */
   .transport {
     padding: var(--space-3);
     gap: var(--space-2);
@@ -4512,13 +4487,11 @@ body.pro .pro-locked::after {
     height: 18px;
   }
   
-  /* Sections */
   .section.active {
     gap: var(--space-2);
     margin-top: var(--space-1);
   }
   
-  /* Panels */
   .panel {
     padding: var(--space-3);
     border-radius: var(--radius-md);
@@ -4534,7 +4507,6 @@ body.pro .pro-locked::after {
     gap: var(--space-2);
   }
   
-  /* All grids - single column */
   .grid,
   .grid-2,
   .grid-3,
@@ -4544,7 +4516,6 @@ body.pro .pro-locked::after {
     gap: var(--space-2);
   }
   
-  /* Preset grid - 2 columns on mobile */
   .preset-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-2);
@@ -4562,7 +4533,6 @@ body.pro .pro-locked::after {
     font-size: 10px;
   }
   
-  /* Sequencer - optimized for touch */
   .seq-grid {
     min-width: 600px;
   }
@@ -4593,7 +4563,6 @@ body.pro .pro-locked::after {
     display: none;
   }
   
-  /* Mixer - single column on small screens */
   #mixerGrid {
     grid-template-columns: 1fr;
     gap: var(--space-2);
@@ -4617,7 +4586,6 @@ body.pro .pro-locked::after {
     font-size: 10px;
   }
   
-  /* FX Units */
   #fxGrid {
     grid-template-columns: 1fr;
     gap: var(--space-2);
@@ -4646,7 +4614,6 @@ body.pro .pro-locked::after {
     height: 20px;
   }
   
-  /* Visualizer */
   .visualizer {
     height: 100px;
     border-radius: var(--radius-md);
@@ -4660,7 +4627,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-base);
   }
   
-  /* Sample browser */
   .sample-item {
     padding: var(--space-2);
     gap: var(--space-2);
@@ -4686,13 +4652,11 @@ body.pro .pro-locked::after {
     font-size: var(--text-xs);
   }
   
-  /* Chips */
   .chip {
     padding: 4px 8px;
     font-size: 10px;
   }
   
-  /* Inputs */
   input[type="text"],
   input[type="email"],
   input[type="number"],
@@ -4701,7 +4665,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-sm);
   }
   
-  /* Modal */
   .modal {
     padding: var(--space-4);
     border-radius: var(--radius-lg);
@@ -4732,7 +4695,6 @@ body.pro .pro-locked::after {
     width: 100%;
   }
   
-  /* Dropdown */
   .dropdown-menu {
     min-width: 180px;
   }
@@ -4742,7 +4704,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-xs);
   }
   
-  /* Toast */
   .toast-container {
     width: min(320px, 90vw);
     bottom: calc(var(--space-3) + var(--inset-bottom));
@@ -4757,7 +4718,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-sm);
   }
   
-  /* Footer */
   .footer {
     padding: var(--space-3);
     font-size: 11px;
@@ -4769,13 +4729,11 @@ body.pro .pro-locked::after {
     font-size: 10px;
   }
   
-  /* Badge */
   .badge {
     padding: 2px 6px;
     font-size: 9px;
   }
   
-  /* Accordion */
   .accordion-item {
     margin-bottom: var(--space-2);
   }
@@ -4790,7 +4748,6 @@ body.pro .pro-locked::after {
     font-size: var(--text-xs);
   }
   
-  /* Pro unlock modal */
   #unlockModal .pro-modal-inner {
     padding: var(--space-6);
     max-width: 90vw;
@@ -4815,459 +4772,116 @@ body.pro .pro-locked::after {
     padding: var(--space-3) var(--space-4);
     font-size: var(--text-sm);
   }
-}
-
-/* === MOBILE TINY: 480px and below === */
-
-@media (max-width: 480px) {
-  :root {
-    --text-xs: 0.6875rem;
-    --text-sm: 0.75rem;
-    --text-base: 0.8125rem;
-    --text-lg: 0.9375rem;
+  
+  /* DAW Mobile Signature Layout */
+  .daw-wrapper {
+    height: calc(100vh - 120px);
+    min-height: 500px;
   }
   
-  body {
-    padding: var(--space-1);
-  }
-  
-  .app {
-    padding: var(--space-2);
+  .daw-transport-bar {
+    padding: var(--space-3);
     gap: var(--space-2);
-    border-radius: var(--radius-md);
   }
   
-  /* Header */
-  header {
-    padding: var(--space-2);
-    gap: var(--space-2);
-    border-radius: var(--radius-md);
-  }
-  
-  .logo {
-    width: 32px;
-    height: 32px;
-    font-size: var(--text-base);
-  }
-  
-  h1 {
-    font-size: var(--text-sm);
-  }
-  
-  .genre-btn {
-    padding: 3px 6px;
-    font-size: 9px;
-  }
-  
-  /* Sidebar */
-  .sidebar-toggle {
-    width: 40px;
-    height: 40px;
-    font-size: var(--text-base);
-  }
-  
-  .sidebar-nav {
-    width: min(90vw, 300px);
-  }
-  
-  /* Transport */
-  .transport {
-    padding: var(--space-2);
-  }
-  
-  .transport-controls .btn {
-    width: 36px;
-    height: 36px;
-    font-size: var(--text-base);
-  }
-  
-  .progress-bar {
-    height: 8px;
-  }
-  
-  /* Panels */
-  .panel {
-    padding: var(--space-2);
-  }
-  
-  .panel-title {
-    font-size: var(--text-xs);
-  }
-  
-  /* Preset grid - single column on tiny screens */
-  .preset-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .preset {
-    padding: var(--space-2);
-    flex-direction: row;
-    text-align: left;
-  }
-  
-  .preset-icon {
+  .transport-btn {
+    width: 48px;
+    height: 48px;
     font-size: var(--text-xl);
+    border-radius: var(--radius-full);
   }
   
-  .preset-name {
-    font-size: var(--text-xs);
+  .daw-main-container {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
   }
   
-  /* Sequencer */
-  .seq-grid {
-    min-width: 500px;
+  .daw-track-list {
+    order: 1;
   }
   
-  .seq-row {
-    grid-template-columns: 80px repeat(16, 1fr);
+  .daw-timeline-container {
+    order: 2;
+    min-height: 250px;
   }
   
-  .seq-label {
-    padding: 4px 6px;
-    font-size: 9px;
+  .daw-inspector {
+    order: 3;
+    max-height: 300px;
   }
   
-  .seq-icon {
-    width: 20px;
-    height: 20px;
-    font-size: 8px;
-  }
-  
-  .step {
-    min-height: 28px;
-  }
-  
-  /* Mixer & FX */
-  .mixer-channel,
-  .fx-unit {
-    padding: var(--space-2);
-  }
-  
-  .channel-name,
-  .fx-name {
-    font-size: 11px;
-  }
-  
-  .channel-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 9px;
-  }
-  
-  /* Visualizer */
-  .visualizer {
-    height: 80px;
-  }
-  
-  .viz-bar {
-    width: 2px;
-  }
-  
-  /* Sample browser */
-  .sample-item {
-    padding: var(--space-1) var(--space-2);
-  }
-  
-  .sample-icon {
-    width: 28px;
-    height: 28px;
-    font-size: var(--text-base);
-  }
-  
-  .sample-name {
-    font-size: 11px;
-  }
-  
-  .sample-action-btn {
-    width: 24px;
-    height: 24px;
-  }
-  
-  /* Modal */
-  .modal {
+  .daw-master-strip {
+    order: 4;
     padding: var(--space-3);
   }
   
-  .modal-title {
-    font-size: var(--text-base);
-  }
-  
-  /* Toast */
-  .toast-container {
-    width: min(280px, 95vw);
-  }
-  
-  .toast {
-    font-size: 10px;
-  }
-  
-  /* Footer */
-  .footer {
+  .daw-timeline-toolbar {
     padding: var(--space-2);
-    font-size: 10px;
-  }
-}
-
-/* === TOUCH-SPECIFIC ENHANCEMENTS === */
-
-@media (hover: none) and (pointer: coarse) {
-  /* Larger touch targets */
-  .btn,
-  .genre-btn,
-  .chip,
-  .preset,
-  .step,
-  .channel-btn,
-  .seq-icon,
-  .sidebar-tab,
-  .sidebar-preset {
-    min-height: 44px;
+    gap: var(--space-1);
   }
   
-  /* Prevent double-tap zoom */
-  button,
-  .btn,
-  .preset,
-  .step,
-  .chip {
-    touch-action: manipulation;
-  }
-  
-  /* Remove hover states */
-  .btn:hover,
-  .preset:hover,
-  .chip:hover,
-  .panel:hover,
-  .fx-unit:hover {
-    transform: none;
-  }
-  
-  /* Better scrolling */
-  .sequencer,
-  .sidebar-nav,
-  .modal,
-  .dropdown-menu {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-}
-
-/* === LANDSCAPE OPTIMIZATIONS === */
-
-@media (max-width: 900px) and (orientation: landscape) {
-  .app {
-    max-height: 100vh;
-    overflow-y: auto;
-  }
-  
-  header {
-    position: static;
-  }
-  
-  .transport {
-    position: static;
-  }
-  
-  .visualizer {
-    height: 100px;
-  }
-  
-  .modal {
-    max-height: 80vh;
-    overflow-y: auto;
-  }
-}
-
-/* === REDUCED MOTION === */
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* === HIGH CONTRAST === */
-
-@media (prefers-contrast: high) {
-  .panel,
-  .preset,
-  .chip,
-  .btn,
-  .mixer-channel,
-  .fx-unit {
-    border-width: 2px;
-  }
-}
-
-/* ============================================
-   8-BEAT MOBILE POLISH
-   (transport, sequencer, multitrack)
-   Place this AFTER all previous CSS
-============================================ */
-
-/* === MAIN TRANSPORT: BIG, READABLE BUTTONS === */
-@media (max-width: 768px) {
-  .transport {
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
+    /* === Toolbar button fixes for mobile/tablet === */
+  .tool-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--bg-secondary);
+    transition: background 0.2s ease, transform 0.1s ease;
   }
 
-  .transport-controls {
+  .tool-btn:active {
+    transform: scale(0.95);
+  }
+
+  .tool-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* === Ensure toolbar fits view on mobile landscape === */
+  .daw-timeline-toolbar {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-2);
+    gap: var(--space-1);
   }
 
-  /* Full-width Play, half-width Stop / Export */
-  #playBtn,
-  #stopBtn,
-  #exportBtn {
-    white-space: nowrap;
-    font-weight: 600;
-    border-radius: 999px;
+  .multitrack-toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
-  #playBtn {
-    flex: 1 0 100%;
-    min-height: 48px;
-    font-size: var(--text-sm);
-  }
-
-  #stopBtn,
-  #exportBtn {
-    flex: 1 0 calc(50% - var(--space-2));
-    min-height: 44px;
-    font-size: var(--text-xs);
-  }
-}
-
-@media (max-width: 480px) {
-  #playBtn {
-    min-height: 46px;
-    font-size: var(--text-xs);
-  }
-
-  #stopBtn,
-  #exportBtn {
-    min-height: 42px;
-    font-size: var(--text-xs);
-  }
-}
-
-/* === SEQUENCER: STABLE GRID ON PHONE === */
-@media (max-width: 900px) {
-  .sequencer {
+  /* === Prevent horizontal overflow on smaller screens === */
+  .multitrack-wrapper {
     overflow-x: auto;
-    padding-bottom: var(--space-2);
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .seq-grid {
-    min-width: 640px;           /* avoid “squished” steps */
-    gap: var(--space-2);
+  /* === Responsive zoom controls === */
+  .zoom-controls {
+    display: flex;
+    gap: var(--space-1);
+    justify-content: center;
+    align-items: center;
   }
 
-  .seq-row {
-    grid-template-columns: 120px repeat(16, minmax(24px, 1fr));
-    gap: 4px;
-  }
-
-  .seq-label {
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--text-xs);
-  }
-
-  .seq-icon {
-    width: 26px;
-    height: 26px;
-    font-size: 10px;
-  }
-
-  /* Steps: rectangular, not weird squares on tiny screens */
-  .step {
-    aspect-ratio: auto;
-    min-height: 30px;
+  .zoom-controls button {
+    flex: 0 0 36px;
+    height: 36px;
     border-radius: var(--radius-sm);
   }
 
-  /* Hide microscopic overlays on mobile – just color is enough */
-  .step-prob,
-  .step-vel {
-    display: none !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .seq-grid {
-    min-width: 560px;
-  }
-
-  .seq-row {
-    grid-template-columns: 100px repeat(16, minmax(22px, 1fr));
-  }
-
-  .seq-label {
-    font-size: 10px;
-  }
-}
-
-/* === MULTITRACK DAW: STACKED, TOUCHABLE LAYOUT === */
-@media (max-width: 900px) {
-  /* Stack columns instead of cramming 3 side-by-side */
-  .daw-main-container {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-auto-rows: auto;
-    gap: var(--space-3);
-  }
-
-  .daw-track-list,
-  .daw-timeline-container,
-  .daw-master-strip {
-    grid-column: 1 / -1;
-  }
-
-  .daw-track-list-scroll {
-    max-height: 220px;
-  }
-
-  .daw-timeline-container {
-    min-height: 220px;
-    max-height: 55vh;
-  }
-
-  /* DAW transport bar */
-  .daw-transport-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-2);
-  }
-
-  .daw-transport-bar .transport-section {
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-
-  .daw-transport-bar .transport-btn {
-    width: 52px;
-    height: 52px;
-    font-size: var(--text-xl);
-    border-radius: 999px;
-  }
-
-  .daw-transport-bar .transport-display {
-    font-size: var(--text-xs);
-    min-width: 90px;
-    padding: var(--space-1) var(--space-2);
-  }
-}
-
+} /* closes @media (max-width: 768px) */
   </style>
 </head>
 <body>
