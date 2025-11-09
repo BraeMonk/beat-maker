@@ -4882,6 +4882,213 @@ body.pro .pro-locked::after {
   }
 
 } /* closes @media (max-width: 768px) */
+
+/* ==================== MULTITRACK MOBILE LAYOUT REFINEMENT ==================== */
+/* Desktop layout stays as-is. These only affect smaller screens. */
+
+/* Tablet and down: make multitrack header + layout calmer */
+@media (max-width: 900px) {
+  /* Multitrack panel header – tidy up the action buttons */
+  #tab-multitrack .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  #tab-multitrack .panel-header .panel-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  /* The right-side header actions wrapper (New / Save / etc) */
+  #tab-multitrack .panel-header > .flex {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  /* Make each action button share the row cleanly */
+  #tab-multitrack .panel-header > .flex .btn {
+    flex: 0 1 calc(33.333% - var(--space-2));
+    justify-content: center;
+    min-width: 0;
+  }
+
+  /* Core layout: track list → big timeline → master */
+  #tab-multitrack .daw-main-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(380px, 1fr) auto;
+    gap: var(--space-3);
+  }
+
+  #tab-multitrack .daw-track-list {
+    order: 1;
+    max-height: 220px;
+  }
+
+  #tab-multitrack .daw-track-list-scroll {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  /* Timeline: visually the hero element */
+  #tab-multitrack .daw-timeline-container {
+    order: 2;
+    margin-top: var(--space-3);
+    border-radius: var(--radius-lg);
+    border-width: 2px;
+    border-style: solid;
+    border-color: color-mix(
+      in oklab,
+      var(--accent-primary) 35%,
+      var(--glass-border)
+    );
+    box-shadow:
+      var(--shadow-lg),
+      var(--glow-sm)
+        color-mix(in oklab, var(--accent-primary) 35%, transparent);
+  }
+
+  #tab-multitrack .daw-arrangement-scroll {
+    min-height: 260px;
+    max-height: 55vh;
+  }
+
+  #tab-multitrack .daw-master-strip {
+    order: 3;
+    margin-top: var(--space-3);
+  }
+
+  /* Inspector stays below on mobile DAW view */
+  #tab-multitrack .daw-inspector {
+    order: 4;
+  }
+}
+
+/* Phone portrait: ultra simple, timeline really takes over */
+@media (max-width: 768px) {
+  /* Let the page scroll naturally – no weird 100vh calc constraints */
+  #tab-multitrack .daw-wrapper {
+    height: auto;
+    min-height: 0;
+  }
+
+  #tab-multitrack .panel {
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+
+  #tab-multitrack .panel-title {
+    font-size: var(--text-base);
+  }
+
+  /* Header buttons – 2 per row for fat thumbs */
+  #tab-multitrack .panel-header > .flex .btn {
+    flex: 0 1 calc(50% - var(--space-2));
+    font-size: var(--text-xs);
+    padding: var(--space-2);
+  }
+
+  #tab-multitrack .daw-main-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  #tab-multitrack .daw-track-list {
+    max-height: 170px;
+  }
+
+  #tab-multitrack .daw-track-list-scroll {
+    max-height: 140px;
+  }
+
+  #tab-multitrack .daw-timeline-container {
+    min-height: 420px;
+  }
+
+  /* Sticky timeline toolbar: always visible while scrolling the regions */
+  #tab-multitrack .daw-timeline-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: var(--space-2) var(--space-3);
+    background: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--bg-secondary) 96%, transparent),
+      transparent
+    );
+    border-bottom: 1px solid var(--glass-border);
+    overflow-x: auto;
+  }
+
+  #tab-multitrack .daw-timeline-toolbar .toolbar-group {
+    flex-wrap: nowrap;
+  }
+
+  #tab-multitrack .daw-ruler {
+    margin-top: var(--space-1);
+  }
+
+  #tab-multitrack .daw-arrangement-scroll {
+    margin-top: var(--space-2);
+  }
+
+  /* Make tiny region buttons more tap-friendly */
+  #tab-multitrack .region-action-btn {
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 999px;
+    font-size: var(--text-xs);
+  }
+}
+
+/* Tiny phones: give a bit more room back to the timeline */
+@media (max-width: 480px) {
+  #tab-multitrack .panel-header > .flex .btn {
+    flex: 0 1 calc(50% - var(--space-2));
+  }
+
+  #tab-multitrack .daw-track-list {
+    max-height: 150px;
+  }
+
+  #tab-multitrack .daw-timeline-container {
+    min-height: 360px;
+  }
+}
+
+/* ==================== DAW TRANSPORT INPUT POLISH ==================== */
+
+.daw-transport-bar input[type="number"],
+.daw-transport-bar select {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  line-height: 1.2;
+  min-width: 64px;
+}
+
+.daw-transport-bar input[type="number"]:focus,
+.daw-transport-bar select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent-primary) 45%, transparent);
+}
+
+/* Slight tightening on mobile so they don't dominate the row */
+@media (max-width: 768px) {
+  .daw-transport-bar input[type="number"],
+  .daw-transport-bar select {
+    font-size: var(--text-xs);
+    min-width: 56px;
+  }
+}
   </style>
 </head>
 <body>
