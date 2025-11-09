@@ -15716,7 +15716,7 @@ function openFxChainEditor(trackId) {
   const panel = document.getElementById('fxChainPanel');
   if (!panel) return;
 
-  // ✅ Use the actual label ID from the HTML: fxChainTrackLabel
+  // Use the actual label ID from the HTML: fxChainTrackLabel
   const labelEl = document.getElementById('fxChainTrackLabel');
   if (labelEl) {
     labelEl.textContent = track.name;
@@ -15725,7 +15725,7 @@ function openFxChainEditor(trackId) {
   // Render that track's FX chain into the panel
   renderFxChain(track);
 
-  // ✅ Open the panel the same way the close button closes it
+  // Open the panel
   panel.classList.add('open');
   panel.setAttribute('aria-hidden', 'false');
 }
@@ -15742,7 +15742,7 @@ function renderFxChain(track) {
       <div style="padding: var(--space-8); text-align: center; color: var(--text-tertiary);">
         <div style="font-size: var(--text-xl); margin-bottom: var(--space-2);">🎛️</div>
         <div>No effects on this track</div>
-        <div style="font-size: var(--text-sm); margin-top: var(--space-2);">Click "Add Effect" above</div>
+        <div style="font-size: var(--text-sm); margin-top: var(--space-2);">Click an effect pill above to add</div>
       </div>
     `;
     return;
@@ -15773,6 +15773,10 @@ function renderFxChain(track) {
         wet: { min: 0, max: 1, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
       },
       distortion: {
+        amount: { min: 0, max: 1, default: 0.4, format: (v) => Math.round(v * 100) + '%' },
+        wet: { min: 0, max: 1, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
+      },
+      saturation: {
         amount: { min: 0, max: 1, default: 0.4, format: (v) => Math.round(v * 100) + '%' },
         wet: { min: 0, max: 1, default: 0.5, format: (v) => Math.round(v * 100) + '%' }
       },
@@ -15895,6 +15899,10 @@ function renderFxChain(track) {
             wet: { min: 0, max: 1 }
           },
           distortion: {
+            amount: { min: 0, max: 1 },
+            wet: { min: 0, max: 1 }
+          },
+          saturation: {
             amount: { min: 0, max: 1 },
             wet: { min: 0, max: 1 }
           },
@@ -17093,33 +17101,28 @@ async function setupMultitrackListeners() {
   const fxPanel    = document.getElementById('fxChainPanel');
   const fxAddList  = document.getElementById('fxAddList');
   const closeFxBtn = document.getElementById('closeFxPanelBtn');
-
   if (fxAddList && !fxAddList.dataset._wired) {
     fxAddList.dataset._wired = 'true';
     fxAddList.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-fx]');
       if (!btn) return;
-
       const fxType = btn.dataset.fx;
       const trackId = multitrack.currentFxTrackId;
       const track = multitrack.tracks.find(t => t.id === trackId);
-
       if (!track) {
-        showToast('⚠️ Click a track’s FX button first', 'warning');
+        showToast('⚠️ Click a track\'s FX button first', 'warning');
         return;
       }
-
       try {
         track.addFx(fxType);
         renderFxChain(track);
-        showToast(`✨ Added ${fxType} to ${track.name}`, 'success');
+        showToast(`✨ Added ${fxType} to ${track.name}`, 'success');  // ← FIXED THIS LINE
       } catch (err) {
         console.error('Error adding FX:', err);
         showToast('❌ Could not add effect', 'error');
       }
     });
   }
-
   if (closeFxBtn && !closeFxBtn.dataset._wired) {
     closeFxBtn.dataset._wired = 'true';
     closeFxBtn.onclick = () => {
@@ -17130,7 +17133,7 @@ async function setupMultitrackListeners() {
     };
   }
 }
-
+  
 function addTrackFX(trackIndex, fxType) {
   const trackStrip = document.querySelectorAll('.track-strip')[trackIndex];
   let fxPanel = trackStrip.querySelector('.track-fx-panel');
