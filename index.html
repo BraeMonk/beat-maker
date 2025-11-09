@@ -6063,39 +6063,41 @@ body.pro .pro-locked::after {
         </div>
         
         <!-- 🎛 FX Chain Panel -->
-        <div id="fxChainPanel" class="fx-chain-panel" style="display: none;">
+        <!-- Bottom FX Chain Panel -->
+        <div id="fxChainPanel" class="fx-chain-panel" aria-hidden="true">
           <div class="fx-chain-header">
-            <div>
-              <div class="fx-chain-title">FX Chain</div>
-              <div class="fx-chain-subtitle">
-                Track: <span id="fxChainTrackName">—</span>
+            <div class="fx-chain-title">
+              <span class="fx-chain-icon">✨</span>
+              <div>
+                <div class="fx-chain-title-main">Track FX Chain</div>
+                <div class="fx-chain-title-sub" id="fxChainTrackLabel">
+                  No track selected
+                </div>
               </div>
             </div>
-            <div class="fx-chain-header-actions">
-              <button class="btn btn-secondary btn-sm" id="fxAddBtn">➕ Add FX</button>
-              <button class="btn btn-secondary btn-sm" id="closeFxPanelBtn">✕ Close</button>
+            <button class="btn btn-ghost btn-xs" id="closeFxPanelBtn" type="button">
+              ✕
+            </button>
+          </div>
+
+          <div class="fx-chain-body">
+            <!-- INLINE ADD FX STRIP (no modal / menu) -->
+            <div class="fx-add-row">
+              <span class="fx-add-label">Add effect</span>
+              <div class="fx-add-list" id="fxAddList">
+                <button type="button" class="fx-pill" data-fx="eq">🎚 EQ</button>
+                <button type="button" class="fx-pill" data-fx="compressor">🫧 Comp</button>
+                <button type="button" class="fx-pill" data-fx="delay">⏱ Delay</button>
+                <button type="button" class="fx-pill" data-fx="reverb">🌫 Reverb</button>
+                <button type="button" class="fx-pill" data-fx="saturation">🔥 Sat</button>
+                <button type="button" class="fx-pill" data-fx="filter">🪄 Filter</button>
+              </div>
             </div>
-          </div>
-    
-          <!-- Where each FX “card” renders -->
-          <div id="fxSlots" class="fx-chain-slots"></div>
-    
-          <!-- FX type picker -->
-          <div id="fxAddMenu" class="fx-add-menu" style="display: none;">
-            <button class="fx-add-item" data-fx-type="reverb">🌫️ Reverb</button>
-            <button class="fx-add-item" data-fx-type="delay">⏱️ Delay</button>
-            <button class="fx-add-item" data-fx-type="chorus">🌊 Chorus</button>
-            <button class="fx-add-item" data-fx-type="distortion">⚡ Distortion</button>
-            <button class="fx-add-item" data-fx-type="filter">🎚️ Filter</button>
-            <button class="fx-add-item" data-fx-type="compressor">📉 Compressor</button>
-            <button class="fx-add-item" data-fx-type="eq">🎚️ 3-Band EQ</button>
-            <button class="fx-add-item" data-fx-type="bitcrusher">🧊 Bitcrusher</button>
-          </div>
-    
-          <div class="fx-chain-footer">
-            <span class="fx-chain-hint">
-              Tip: drag to reorder, toggle to bypass, tweak sliders to dial in tone.
-            </span>
+
+            <!-- Where each track's FX chain gets rendered -->
+            <div class="fx-chain-slots" id="fxChainSlots">
+              <!-- renderFxChain(track) populates this -->
+            </div>
           </div>
         </div>
         
