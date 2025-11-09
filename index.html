@@ -15709,22 +15709,30 @@ function updateDAWStatus() {
 function openFxChainEditor(trackId) {
   const track = multitrack.tracks.find(t => t.id === trackId);
   if (!track) return;
-  
+
+  // Remember which track we're editing
   multitrack.currentFxTrackId = trackId;
-  
+
   const panel = document.getElementById('fxChainPanel');
   if (!panel) return;
-  
-  document.getElementById('fxChainTrackName').textContent = track.name;
-  
+
+  // ✅ Use the actual label ID from the HTML: fxChainTrackLabel
+  const labelEl = document.getElementById('fxChainTrackLabel');
+  if (labelEl) {
+    labelEl.textContent = track.name;
+  }
+
+  // Render that track's FX chain into the panel
   renderFxChain(track);
-  
-  // Just show it - it's already positioned at the bottom in the HTML
-  panel.style.display = 'block';
+
+  // ✅ Open the panel the same way the close button closes it
+  panel.classList.add('open');
+  panel.setAttribute('aria-hidden', 'false');
 }
 
 function renderFxChain(track) {
-  const slots = document.getElementById('fxSlots');
+  const slots = document.getElementById('fxChainSlots');
+
   if (!slots) return;
   
   slots.innerHTML = '';
