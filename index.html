@@ -16493,10 +16493,35 @@ function setupArrangementDragScroll() {
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', endDrag);
 }
+
+function syncTimelineRulerToScroll() {
+  const scrollEl = document.getElementById('dawArrangementScroll');
+  const ruler = document.getElementById('dawRuler');
+  if (!scrollEl || !ruler) return;
+
+  const offset = scrollEl.scrollLeft || 0;
+  // Slide the long ruler strip inside its clipped container
+  ruler.style.transform = `translateX(${-offset}px)`;
+}
+
   
 async function setupMultitrackListeners() {
   // Drag-scroll in the arrangement view
   setupArrangementDragScroll();
+
+  // NEW: keep timeline ruler in sync with any horizontal scroll
+  const scrollEl = document.getElementById('dawArrangementScroll');
+  if (scrollEl && !scrollEl.dataset._rulerSyncWired) {
+    scrollEl.dataset._rulerSyncWired = 'true';
+
+    // Initial align
+    syncTimelineRulerToScroll();
+
+    // Live sync on scroll / drag / auto-scroll
+    scrollEl.addEventListener('scroll', () => {
+      syncTimelineRulerToScroll();
+    });
+  }
 
   // === ADD TRACK BUTTON (DESKTOP) ===
   const addTrackBtn = document.getElementById('addTrackBtn');
