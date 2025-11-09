@@ -14782,13 +14782,18 @@ async function previewMultitrack(startAtSeconds) {
   }
 
   // 🧩 Stop any existing preview first - CRITICAL for looping
-  await stopMultitrackPreview(); // Make this async if it isn't already
+  // 🧠 Only fully stop if we're not resuming from pause
+  if (!multitrack.isPaused) {
+    await stopMultitrackPreview();
+  }
 
   await Tone.start();
   if (Tone.context.state !== 'running') {
     await Tone.context.resume();
   }
-
+  
+  multitrack.lastStartTime = Tone.now();
+  multitrack.isPaused = false;
   multitrack.previewPlayers = [];
 
   const projectDurationSeconds = multitrack.projectDuration || (state.duration * 60);
@@ -14806,42 +14811,38 @@ async function previewMultitrack(startAtSeconds) {
   for (const track of activeTracks) {
     const take = track.takes[track.selectedTakeIndex];
     if (!take || take.muted) continue;
-
+  
     if (!take.buffer || !take.buffer.length || take.buffer.length === 0) {
       console.error(`❌ ${track.name}: Invalid buffer`);
       continue;
     }
-
+  
     const regionStart = take.startTime || 0;
     const regionEnd = regionStart + take.duration;
-
+  
     if (regionEnd <= previewStart) continue;
-
+  
     try {
       const player = new Tone.Player({
         context: Tone.context,
         loop: false,
         fadeOut: 0.01
       }).connect(track.channel);
-
+  
       player.buffer = take.buffer;
-
+  
       const relativeStart = Math.max(0, regionStart - previewStart);
-
+  
       multitrack.previewPlayers.push({
         player,
         track,
-        startTime: regionStart,
+        regionStart,     // 👈 added
+        regionEnd,       // 👈 added (optional but useful)
         relativeStart
       });
-
+  
       if (regionEnd > previewEnd) previewEnd = regionEnd;
-
-      console.log(
-        `✅ ${track.name} ready: region ${regionStart.toFixed(3)}–${regionEnd.toFixed(3)}s, ` +
-        `plays at +${relativeStart.toFixed(3)}s in preview`
-      );
-
+  
     } catch (err) {
       console.error(`❌ ${track.name} failed:`, err);
     }
@@ -14857,10 +14858,11 @@ async function previewMultitrack(startAtSeconds) {
 
   const now = Tone.now() + 0.1;
 
-  multitrack.previewPlayers.forEach(({ player, track, relativeStart }) => {
+  multitrack.previewPlayers.forEach(({ player, track, relativeStart, regionStart }) => {
     try {
-      player.start(now + relativeStart);
-      console.log(`▶️ ${track.name} at +${relativeStart.toFixed(3)}s`);
+      const offsetInBuffer = Math.max(0, previewStart - regionStart);
+      player.start(now + relativeStart, offsetInBuffer);
+      console.log(`▶️ ${track.name} resume at buffer offset ${offsetInBuffer.toFixed(3)}s`);
     } catch (err) {
       console.error(`❌ Failed to start ${track.name}:`, err);
     }
@@ -16609,13 +16611,25 @@ async function setupMultitrackListeners() {
     playBtn.dataset._wired = 'true';
     playBtn.onclick = async () => {
       if (playBtn.textContent.trim() === '▶️') {
-        // PLAY → start / resume from current playhead
+        // ▶️ PLAY → start / resume from current playhead
         playBtn.textContent = '⏸️';
         await previewMultitrack(multitrack.playheadSeconds || 0);
       } else {
-        // PAUSE → stop audio but keep position
+        // ⏸️ PAUSE → stop audio but keep position for resume
         playBtn.textContent = '▶️';
-        stopMultitrackPreview(); // no resetToZero → resume later
+  
+        // Use Tone.now() since we're not using Tone.Transport
+        const elapsed = Tone.now() - (multitrack.lastStartTime || 0);
+  
+        // Update playhead to the new paused position
+        multitrack.playheadSeconds = (multitrack.playheadSeconds || 0) + elapsed;
+        multitrack.isPaused = true;
+  
+        // Stop playback but do NOT reset to start
+        stopMultitrackPreview(false);
+  
+        // Store for resume consistency
+        multitrack.lastPauseTime = multitrack.playheadSeconds;
       }
     };
   }
