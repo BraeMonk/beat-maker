@@ -6376,7 +6376,7 @@ const fxConfig = {
   chorus: { name: 'Chorus', active: false, frequency: 1.5, depth: 0.7 },
   flanger: { name: 'Flanger', active: false, frequency: 0.5, depth: 0.5 },
   distortion: { name: 'Distortion', active: false, amount: 0.5 },
-  filter: { name: 'Filter', active: true, frequency: 5000, type: 'lowpass' },
+  filter: { name: 'Filter', active: false, frequency: 5000, type: 'lowpass' },
   phaser: { name: 'Phaser', active: false, frequency: 0.5, octaves: 3 },
   bitcrusher: { name: 'Bitcrusher', active: false, bits: 8, frequency: 4000 }
 };
@@ -7614,6 +7614,10 @@ function calculateIntelligentEQ(inst, freqProfile, density) {
   return eq;
 }
 
+// ============================================================================
+// ENHANCED applyAIMixing() - Professional Grade
+// ============================================================================
+
 async function applyAIMixing() {
   if (!state.aiMixing.enabled) return;
   
@@ -7622,19 +7626,24 @@ async function applyAIMixing() {
   const analysis = {
     instruments: {},
     totalDensity: 0,
-    activeInstruments: 0
+    activeInstruments: 0,
+    freqMasking: {},
+    stereoBalance: 0
   };
   
-  // Analyze each instrument
+  // PHASE 1: Deep Analysis
   Object.keys(instruments).forEach(inst => {
     const density = analyzePatternDensity(inst);
-    const freqProfile = analyzeTrackFrequencies(inst);
+    const freqProfile = analyzeTrackFrequenciesAdvanced(inst);
     
     analysis.instruments[inst] = {
       density,
       freqProfile,
       currentGain: instruments[inst].volume,
-      currentPan: instruments[inst].pan
+      currentPan: instruments[inst].pan,
+      dynamicRange: calculateDynamicRange(inst),
+      peakFrequency: freqProfile.peakFreq,
+      spectralCentroid: calculateSpectralCentroid(freqProfile)
     };
     
     if (density.activeSteps > 0) {
@@ -7643,9 +7652,14 @@ async function applyAIMixing() {
     }
   });
   
+  // Calculate frequency masking matrix
+  Object.keys(instruments).forEach(inst => {
+    analysis.freqMasking[inst] = calculateFrequencyMasking(inst, analysis);
+  });
+  
   state.aiMixing.lastAnalysis = analysis;
   
-  // Apply intelligent adjustments
+  // PHASE 2: Professional Mixing
   let adjustments = 0;
   
   Object.keys(instruments).forEach(inst => {
@@ -7654,22 +7668,25 @@ async function applyAIMixing() {
     
     if (instAnalysis.density.activeSteps === 0) return;
     
-    // Auto Gain
+    // 1. PROFESSIONAL GAIN STAGING
     if (state.aiMixing.autoGain) {
-      const targetGain = calculateOptimalGain(inst);
-      const densityFactor = 1 - (instAnalysis.density.importance / analysis.totalDensity) * 0.3;
-      const finalGain = targetGain * densityFactor;
+      // Calculate optimal gain with advanced algorithm
+      const targetGain = calculateProfessionalGain(inst, instAnalysis, analysis);
       
-      instData.volume = Math.round(finalGain);
+      // Apply with smooth ramping
+      instData.volume = Math.round(targetGain * 100);
       if (instData.channel) {
-        instData.channel.volume.rampTo(finalGain, 0.5);
+        instData.channel.volume.rampTo(
+          20 * Math.log10(targetGain), // Convert to dB
+          0.5
+        );
       }
       adjustments++;
     }
     
-    // Auto Pan
+    // 2. INTELLIGENT STEREO PLACEMENT
     if (state.aiMixing.autoPan) {
-      const targetPan = calculateOptimalPan(inst, analysis.activeInstruments);
+      const targetPan = calculateIntelligentPan(inst, instAnalysis, analysis);
       instData.pan = targetPan;
       
       if (instData.channel) {
@@ -7678,110 +7695,828 @@ async function applyAIMixing() {
       adjustments++;
     }
     
-    // Auto EQ
+    // 3. SURGICAL EQ
     if (state.aiMixing.autoEQ) {
-      const eq = calculateIntelligentEQ(inst, instAnalysis.freqProfile, instAnalysis.density);
+      const eq = applyProfessionalEQ(inst, instAnalysis, analysis);
       
-      // Apply to channel (we'd need per-channel EQ nodes - simplified here)
-      console.log(`🎛️ ${inst} EQ: L${eq.low > 0 ? '+' : ''}${eq.low}dB M${eq.mid > 0 ? '+' : ''}${eq.mid}dB H${eq.high > 0 ? '+' : ''}${eq.high}dB`);
+      // Create or update EQ nodes
+      if (!instData.eq) {
+        instData.eq = {
+          low: new Tone.EQ3(),
+          mid: new Tone.Filter(),
+          high: new Tone.EQ3()
+        };
+        instData.channel.chain(instData.eq.low, instData.eq.mid, instData.eq.high);
+      }
+      
+      // Apply EQ settings
+      if (instData.eq.low) {
+        instData.eq.low.low.value = eq.low;
+        instData.eq.low.mid.value = eq.mid;
+        instData.eq.low.high.value = eq.high;
+      }
+      
+      console.log(`🎛️ ${inst} EQ: L${eq.low > 0 ? '+' : ''}${eq.low.toFixed(1)}dB M${eq.mid > 0 ? '+' : ''}${eq.mid.toFixed(1)}dB H${eq.high > 0 ? '+' : ''}${eq.high.toFixed(1)}dB`);
+      adjustments++;
     }
     
-    // Auto Compression
+    // 4. DYNAMIC COMPRESSION
     if (state.aiMixing.autoCompression) {
-      // Compress based on density and type
-      const shouldCompress = instAnalysis.density.density > 0.3;
-      if (shouldCompress) {
-        console.log(`📊 ${inst} compression applied`);
+      const compSettings = calculateIntelligentCompression(inst, instAnalysis, analysis);
+      
+      if (compSettings.enabled) {
+        if (!instData.compressor) {
+          instData.compressor = new Tone.Compressor();
+          instData.channel.chain(instData.compressor);
+        }
+        
+        instData.compressor.threshold.rampTo(compSettings.threshold, 0.5);
+        instData.compressor.ratio.value = compSettings.ratio;
+        instData.compressor.attack.rampTo(compSettings.attack, 0.5);
+        instData.compressor.release.rampTo(compSettings.release, 0.5);
+        instData.compressor.knee.value = compSettings.knee;
+        
+        console.log(`📊 ${inst} compression: ${compSettings.ratio}:1 @ ${compSettings.threshold}dB`);
+        adjustments++;
       }
     }
   });
   
-  // Master bus adjustments
-  const totalImportance = analysis.totalDensity;
-  if (totalImportance > 2.5) {
-    // Dense mix - apply gentle master compression
-    master.comp.threshold.rampTo(-20, 0.5);
-    master.comp.ratio.value = 6;
-  } else {
-    // Sparse mix - lighter compression
-    master.comp.threshold.rampTo(-24, 0.5);
+  // PHASE 3: Master Bus Intelligence
+  const mixCharacteristics = analyzeMixCharacteristics(analysis);
+  
+  // Adaptive master compression
+  if (mixCharacteristics.density > 0.7) {
+    // Dense mix - multiband approach
+    master.comp.threshold.rampTo(-18, 0.5);
     master.comp.ratio.value = 4;
+    master.comp.attack.rampTo(0.005, 0.5);
+    master.comp.release.rampTo(0.12, 0.5);
+  } else if (mixCharacteristics.density > 0.4) {
+    // Medium density - gentle glue
+    master.comp.threshold.rampTo(-22, 0.5);
+    master.comp.ratio.value = 3;
+    master.comp.attack.rampTo(0.01, 0.5);
+    master.comp.release.rampTo(0.15, 0.5);
+  } else {
+    // Sparse mix - transparent
+    master.comp.threshold.rampTo(-26, 0.5);
+    master.comp.ratio.value = 2.5;
+    master.comp.attack.rampTo(0.02, 0.5);
+    master.comp.release.rampTo(0.2, 0.5);
+  }
+  
+  // Adaptive master EQ
+  if (mixCharacteristics.lowEndEnergy > 0.4) {
+    // Tighten bass
+    if (master.lowCutFilter) {
+      master.lowCutFilter.frequency.rampTo(35, 0.5);
+    }
+  }
+  
+  if (mixCharacteristics.highEndEnergy < 0.15) {
+    // Add air
+    if (master.highShelf) {
+      master.highShelf.gain.rampTo(1.5, 0.5);
+    }
   }
   
   renderMixer();
   
-  console.log('🤖 AI Mixing complete:');
-  console.log(`   - ${adjustments} adjustments made`);
-  console.log(`   - ${analysis.activeInstruments} active instruments`);
-  console.log(`   - Total density: ${totalImportance.toFixed(2)}`);
+  // Detailed reporting
+  console.log('🤖 Professional AI Mixing Complete:');
+  console.log(`   ✓ ${adjustments} intelligent adjustments`);
+  console.log(`   ✓ ${analysis.activeInstruments} instruments balanced`);
+  console.log(`   ✓ Mix density: ${mixCharacteristics.density.toFixed(2)}`);
+  console.log(`   ✓ Frequency balance: ${mixCharacteristics.balance}`);
+  console.log(`   ✓ Stereo width: ${mixCharacteristics.stereoWidth.toFixed(1)}%`);
+  console.log(`   ✓ Dynamic range: ${mixCharacteristics.dynamicRange.toFixed(1)}dB`);
   
-  showToast(`✅ AI mixed ${analysis.activeInstruments} instruments`, 'success');
+  showToast(`✅ Professional mix: ${analysis.activeInstruments} tracks`, 'success');
 }
+
+// Helper: Advanced frequency analysis
+function analyzeTrackFrequenciesAdvanced(inst) {
+  const profile = {
+    subBass: 0,    // 20-60 Hz
+    bass: 0,       // 60-250 Hz
+    lowMid: 0,     // 250-500 Hz
+    mid: 0,        // 500-2k Hz
+    highMid: 0,    // 2k-6k Hz
+    presence: 0,   // 6k-12k Hz
+    brilliance: 0, // 12k-20k Hz
+    peakFreq: 0,
+    peakEnergy: 0
+  };
+  
+  // Instrument-based frequency profiles (synthesized from typical values)
+  const profiles = {
+    kick: { subBass: 0.45, bass: 0.35, lowMid: 0.10, mid: 0.05, highMid: 0.03, presence: 0.02, brilliance: 0.00 },
+    bass: { subBass: 0.35, bass: 0.40, lowMid: 0.15, mid: 0.07, highMid: 0.02, presence: 0.01, brilliance: 0.00 },
+    snare: { subBass: 0.05, bass: 0.15, lowMid: 0.20, mid: 0.25, highMid: 0.20, presence: 0.10, brilliance: 0.05 },
+    hihat: { subBass: 0.00, bass: 0.00, lowMid: 0.02, mid: 0.08, highMid: 0.25, presence: 0.35, brilliance: 0.30 },
+    clap: { subBass: 0.00, bass: 0.05, lowMid: 0.15, mid: 0.25, highMid: 0.30, presence: 0.20, brilliance: 0.05 },
+    perc: { subBass: 0.00, bass: 0.05, lowMid: 0.10, mid: 0.30, highMid: 0.30, presence: 0.20, brilliance: 0.05 },
+    synth: { subBass: 0.10, bass: 0.20, lowMid: 0.25, mid: 0.25, highMid: 0.12, presence: 0.06, brilliance: 0.02 },
+    lead: { subBass: 0.00, bass: 0.05, lowMid: 0.15, mid: 0.35, highMid: 0.25, presence: 0.15, brilliance: 0.05 }
+  };
+  
+  const instProfile = profiles[inst] || profiles.synth;
+  Object.assign(profile, instProfile);
+  
+  // Find peak frequency
+  let maxEnergy = 0;
+  const freqRanges = {
+    subBass: 40, bass: 150, lowMid: 375, mid: 1250,
+    highMid: 4000, presence: 9000, brilliance: 16000
+  };
+  
+  Object.entries(profile).forEach(([band, energy]) => {
+    if (freqRanges[band] && energy > maxEnergy) {
+      maxEnergy = energy;
+      profile.peakFreq = freqRanges[band];
+      profile.peakEnergy = energy;
+    }
+  });
+  
+  return profile;
+}
+
+// Helper: Calculate spectral centroid
+function calculateSpectralCentroid(freqProfile) {
+  const freqs = [40, 150, 375, 1250, 4000, 9000, 16000];
+  const weights = [
+    freqProfile.subBass,
+    freqProfile.bass,
+    freqProfile.lowMid,
+    freqProfile.mid,
+    freqProfile.highMid,
+    freqProfile.presence,
+    freqProfile.brilliance
+  ];
+  
+  let weightedSum = 0;
+  let totalWeight = 0;
+  
+  freqs.forEach((freq, i) => {
+    weightedSum += freq * weights[i];
+    totalWeight += weights[i];
+  });
+  
+  return totalWeight > 0 ? weightedSum / totalWeight : 1000;
+}
+
+// Helper: Calculate dynamic range
+function calculateDynamicRange(inst) {
+  const density = analyzePatternDensity(inst);
+  // Estimate based on pattern complexity
+  const baseRange = {
+    kick: 12, bass: 8, snare: 14, hihat: 10,
+    clap: 12, perc: 11, synth: 10, lead: 13
+  };
+  
+  const range = baseRange[inst] || 10;
+  const densityReduction = density.density * 4; // Dense patterns = less dynamic range
+  
+  return Math.max(6, range - densityReduction);
+}
+
+// Helper: Frequency masking calculation
+function calculateFrequencyMasking(inst, analysis) {
+  const instFreq = analysis.instruments[inst].freqProfile;
+  let maskingScore = 0;
+  let conflicts = 0;
+  
+  Object.keys(analysis.instruments).forEach(otherInst => {
+    if (otherInst === inst) return;
+    
+    const otherFreq = analysis.instruments[otherInst].freqProfile;
+    
+    // Weight overlaps by importance (low freq conflicts matter more)
+    const overlap = 
+      Math.min(instFreq.subBass, otherFreq.subBass) * 3.0 +
+      Math.min(instFreq.bass, otherFreq.bass) * 2.5 +
+      Math.min(instFreq.lowMid, otherFreq.lowMid) * 2.0 +
+      Math.min(instFreq.mid, otherFreq.mid) * 1.5 +
+      Math.min(instFreq.highMid, otherFreq.highMid) * 1.2 +
+      Math.min(instFreq.presence, otherFreq.presence) * 1.0 +
+      Math.min(instFreq.brilliance, otherFreq.brilliance) * 0.8;
+    
+    if (overlap > 0.15) conflicts++;
+    maskingScore += overlap;
+  });
+  
+  return {
+    score: Math.min(maskingScore / Math.max(analysis.activeInstruments - 1, 1), 1),
+    conflicts
+  };
+}
+
+// Helper: Professional gain calculation
+function calculateProfessionalGain(inst, instAnalysis, mixAnalysis) {
+  // LUFS-aware target levels
+  const targetLevels = {
+    kick: 0.95,   // -0.4 dB
+    bass: 0.85,   // -1.4 dB
+    snare: 0.75,  // -2.5 dB
+    hihat: 0.45,  // -6.9 dB
+    clap: 0.65,   // -3.7 dB
+    perc: 0.50,   // -6.0 dB
+    synth: 0.70,  // -3.1 dB
+    lead: 0.80    // -1.9 dB
+  };
+  
+  let targetGain = targetLevels[inst] || 0.65;
+  
+  // 1. Density compensation (busy patterns quieter)
+  const densityFactor = Math.pow(instAnalysis.density.density, 0.5);
+  targetGain *= (1 - densityFactor * 0.25);
+  
+  // 2. Frequency masking compensation (conflicts = quieter)
+  const masking = mixAnalysis.freqMasking[inst];
+  targetGain *= (1 - masking.score * 0.3);
+  
+  // 3. Mix crowding compensation
+  const crowdingFactor = Math.min(mixAnalysis.activeInstruments / 8, 1);
+  targetGain *= (1 - crowdingFactor * 0.2);
+  
+  // 4. Importance boost
+  const importanceRatio = instAnalysis.density.importance / mixAnalysis.totalDensity;
+  targetGain *= (1 + importanceRatio * 0.4);
+  
+  // 5. Dynamic range consideration
+  const drFactor = instAnalysis.dynamicRange / 14;
+  targetGain *= (0.85 + drFactor * 0.15);
+  
+  return Math.max(0.1, Math.min(1.0, targetGain));
+}
+
+// Helper: Intelligent panning
+function calculateIntelligentPan(inst, instAnalysis, mixAnalysis) {
+  // Keep low frequencies centered for mono compatibility
+  const lowEndEnergy = instAnalysis.freqProfile.subBass + instAnalysis.freqProfile.bass;
+  
+  if (lowEndEnergy > 0.5 || inst === 'kick' || inst === 'bass') {
+    return 0; // Center
+  }
+  
+  // Strategic panning zones
+  const panStrategy = {
+    snare: 0,     // Center for impact
+    clap: 5,      // Slight offset
+    hihat: 30,    // Right
+    perc: -25,    // Left
+    synth: 20,    // Right
+    lead: 0       // Center focus
+  };
+  
+  let targetPan = panStrategy[inst] || 0;
+  
+  // Add spectral-based variation
+  const spectralBias = (instAnalysis.spectralCentroid - 1000) / 100;
+  targetPan += spectralBias * 0.5;
+  
+  // Avoid crowding
+  const existingPans = Object.values(mixAnalysis.instruments)
+    .map(i => i.currentPan)
+    .filter(p => p !== undefined);
+  
+  // Find least crowded zone
+  const zones = [-40, -25, -10, 0, 10, 25, 40];
+  let bestZone = targetPan;
+  let minCrowding = Infinity;
+  
+  zones.forEach(zone => {
+    const crowding = existingPans.reduce((sum, pan) => {
+      return sum + Math.max(0, 30 - Math.abs(zone - pan));
+    }, 0);
+    
+    if (crowding < minCrowding) {
+      minCrowding = crowding;
+      bestZone = zone;
+    }
+  });
+  
+  return Math.max(-50, Math.min(50, bestZone));
+}
+
+// Helper: Professional EQ
+function applyProfessionalEQ(inst, instAnalysis, mixAnalysis) {
+  // Instrument-specific EQ templates
+  const eqTemplates = {
+    kick: { low: 3, mid: -4, high: 0 },
+    bass: { low: 2, mid: -2, high: -6 },
+    snare: { low: -8, mid: -1, high: 3 },
+    hihat: { low: -18, mid: -3, high: 2 },
+    clap: { low: -12, mid: 1, high: 2 },
+    perc: { low: -10, mid: 2, high: 1 },
+    synth: { low: 0, mid: 1, high: 0 },
+    lead: { low: -4, mid: 2, high: 1 }
+  };
+  
+  const eq = { ...(eqTemplates[inst] || { low: 0, mid: 0, high: 0 }) };
+  
+  // Dynamic adjustments based on masking
+  const masking = mixAnalysis.freqMasking[inst];
+  if (masking.score > 0.5) {
+    // Heavy masking - carve space
+    if (instAnalysis.freqProfile.bass > 0.3) {
+      eq.low += 1; // Boost strength
+    }
+    eq.mid -= 2; // Cut mids to reduce conflicts
+  }
+  
+  // Density adjustments
+  if (instAnalysis.density.density > 0.6) {
+    eq.low -= 1; // Reduce mud in busy sections
+  }
+  
+  // Spectral balance
+  const mixBalance = analyzeMixCharacteristics(mixAnalysis);
+  if (mixBalance.lowEndEnergy > 0.5) {
+    eq.low -= 1; // Reduce if mix is bass-heavy
+  }
+  if (mixBalance.highEndEnergy < 0.2) {
+    eq.high += 1.5; // Add air if mix is dull
+  }
+  
+  return eq;
+}
+
+// Helper: Intelligent compression
+function calculateIntelligentCompression(inst, instAnalysis, mixAnalysis) {
+  const settings = {
+    enabled: false,
+    threshold: -20,
+    ratio: 3,
+    attack: 0.01,
+    release: 0.1,
+    knee: 4
+  };
+  
+  // Only compress if needed
+  if (instAnalysis.dynamicRange > 10 || instAnalysis.density.density > 0.5) {
+    settings.enabled = true;
+    
+    // Instrument-specific settings
+    const compProfiles = {
+      kick: { threshold: -12, ratio: 4, attack: 0.003, release: 0.08, knee: 2 },
+      bass: { threshold: -15, ratio: 5, attack: 0.01, release: 0.15, knee: 4 },
+      snare: { threshold: -10, ratio: 4, attack: 0.001, release: 0.05, knee: 2 },
+      hihat: { threshold: -18, ratio: 3, attack: 0.001, release: 0.04, knee: 3 },
+      clap: { threshold: -14, ratio: 4, attack: 0.002, release: 0.06, knee: 3 },
+      synth: { threshold: -16, ratio: 3.5, attack: 0.01, release: 0.12, knee: 5 },
+      lead: { threshold: -14, ratio: 4, attack: 0.005, release: 0.1, knee: 4 }
+    };
+    
+    Object.assign(settings, compProfiles[inst] || {});
+    
+    // Dynamic adjustments
+    if (instAnalysis.density.density > 0.7) {
+      settings.ratio += 1; // More compression for dense patterns
+      settings.threshold -= 2;
+    }
+  }
+  
+  return settings;
+}
+
+// Helper: Analyze overall mix characteristics
+function analyzeMixCharacteristics(analysis) {
+  let lowEndEnergy = 0;
+  let midEnergy = 0;
+  let highEndEnergy = 0;
+  let totalEnergy = 0;
+  let stereoSpread = 0;
+  let avgDynamicRange = 0;
+  
+  Object.values(analysis.instruments).forEach(inst => {
+    const weight = inst.density.importance;
+    
+    lowEndEnergy += (inst.freqProfile.subBass + inst.freqProfile.bass) * weight;
+    midEnergy += (inst.freqProfile.lowMid + inst.freqProfile.mid) * weight;
+    highEndEnergy += (inst.freqProfile.highMid + inst.freqProfile.presence + inst.freqProfile.brilliance) * weight;
+    totalEnergy += weight;
+    
+    stereoSpread += Math.abs(inst.currentPan || 0);
+    avgDynamicRange += inst.dynamicRange;
+  });
+  
+  const count = analysis.activeInstruments || 1;
+  
+  return {
+    density: analysis.totalDensity / Math.max(count, 1),
+    lowEndEnergy: lowEndEnergy / totalEnergy,
+    midEnergy: midEnergy / totalEnergy,
+    highEndEnergy: highEndEnergy / totalEnergy,
+    balance: lowEndEnergy > 0.4 ? 'bass-heavy' : highEndEnergy > 0.4 ? 'bright' : 'balanced',
+    stereoWidth: (stereoSpread / count) * 2,
+    dynamicRange: avgDynamicRange / count
+  };
+}
+
+// ============================================================================
+// ENHANCED applyMasteringPreset() - Professional Grade
+// ============================================================================
 
 function applyMasteringPreset(preset) {
   const presets = {
     gentle: {
-      comp: { threshold: -18, ratio: 3, attack: 0.01, release: 0.25 },
-      limiter: -1,
-      tape: 15,
+      name: "Gentle Dynamics",
+      comp: { threshold: -20, ratio: 2.5, attack: 0.02, release: 0.3, knee: 8 },
+      limiter: -2.0,
+      tape: 12,
       highCut: 18000,
-      lowCut: 25
+      lowCut: 22,
+      stereoWidth: 1.0,
+      targetLUFS: -18
     },
     modern: {
-      comp: { threshold: -14, ratio: 6, attack: 0.003, release: 0.15 },
-      limiter: -0.5,
-      tape: 30,
-      highCut: 16000,
-      lowCut: 30
+      name: "Modern Streaming",
+      comp: { threshold: -16, ratio: 4, attack: 0.005, release: 0.15, knee: 6 },
+      limiter: -0.8,
+      tape: 25,
+      highCut: 17000,
+      lowCut: 28,
+      stereoWidth: 1.08,
+      targetLUFS: -14
     },
     aggressive: {
-      comp: { threshold: -12, ratio: 8, attack: 0.001, release: 0.1 },
-      limiter: -0.1,
-      tape: 40,
-      highCut: 15000,
-      lowCut: 35
+      name: "Aggressive/Club",
+      comp: { threshold: -12, ratio: 6, attack: 0.002, release: 0.1, knee: 4 },
+      limiter: -0.3,
+      tape: 38,
+      highCut: 16000,
+      lowCut: 32,
+      stereoWidth: 1.15,
+      targetLUFS: -11
     },
     lofi: {
-      comp: { threshold: -20, ratio: 4, attack: 0.02, release: 0.3 },
-      limiter: -2,
-      tape: 50,
+      name: "Lo-Fi/Vintage",
+      comp: { threshold: -22, ratio: 3, attack: 0.03, release: 0.35, knee: 10 },
+      limiter: -3.0,
+      tape: 55,
+      highCut: 10000,
+      lowCut: 45,
+      stereoWidth: 0.9,
+      targetLUFS: -16
+    },
+    broadcast: {
+      name: "Broadcast Ready",
+      comp: { threshold: -14, ratio: 5, attack: 0.003, release: 0.12, knee: 5 },
+      limiter: -0.5,
+      tape: 20,
+      highCut: 15000,
+      lowCut: 40,
+      stereoWidth: 1.0,
+      targetLUFS: -16
+    },
+    vinyl: {
+      name: "Vinyl Master",
+      comp: { threshold: -18, ratio: 3, attack: 0.01, release: 0.25, knee: 8 },
+      limiter: -2.5,
+      tape: 48,
       highCut: 12000,
-      lowCut: 40
+      lowCut: 30,
+      stereoWidth: 0.95,
+      targetLUFS: -16
     }
   };
   
   const config = presets[preset];
-  if (!config) return;
+  if (!config) {
+    console.warn(`Unknown preset: ${preset}`);
+    return;
+  }
   
-  // Apply compression
+  showToast(`🎚️ Applying ${config.name}...`, 'info');
+  
+  // 1. Master Compression with advanced settings
   master.comp.threshold.rampTo(config.comp.threshold, 0.5);
   master.comp.ratio.value = config.comp.ratio;
   master.comp.attack.rampTo(config.comp.attack, 0.5);
   master.comp.release.rampTo(config.comp.release, 0.5);
   
-  // Apply filtering
+  if (master.comp.knee) {
+    master.comp.knee.value = config.comp.knee;
+  }
+  
+  // 2. Filtering with precise control
   state.lowCut = config.lowCut;
   state.highCut = config.highCut;
-  master.lowCutFilter.frequency.rampTo(config.lowCut, 0.5);
-  master.highCutFilter.frequency.rampTo(config.highCut, 0.5);
   
-  // Apply tape saturation
+  if (master.lowCutFilter) {
+    master.lowCutFilter.frequency.rampTo(config.lowCut, 0.5);
+    master.lowCutFilter.Q.value = 0.707; // Butterworth response
+  }
+  
+  if (master.highCutFilter) {
+    master.highCutFilter.frequency.rampTo(config.highCut, 0.5);
+    master.highCutFilter.Q.value = 0.707;
+  }
+  
+  // 3. Tape Saturation with harmonic enhancement
   state.tapeSaturation = config.tape;
-  master.tapeDistortion.distortion = config.tape / 100 * 0.2;
-  master.tapeDistortion.wet.rampTo(config.tape / 100 * 0.6, 0.5);
+  if (master.tapeDistortion) {
+    const saturation = config.tape / 100;
+    master.tapeDistortion.distortion = saturation * 0.25;
+    master.tapeDistortion.wet.rampTo(saturation * 0.65, 0.5);
+    
+    // Add subtle odd harmonics for warmth
+    if (master.tapeDistortion.oversample) {
+      master.tapeDistortion.oversample = saturation > 0.4 ? '4x' : '2x';
+    }
+  }
   
-  // Update UI
-  document.getElementById('compSlider').value = config.comp.threshold;
-  document.getElementById('compValue').textContent = config.comp.threshold + 'dB';
-  document.getElementById('lowCutSlider').value = config.lowCut;
-  document.getElementById('lowCutValue').textContent = config.lowCut + 'Hz';
-  document.getElementById('highCutSlider').value = config.highCut;
-  document.getElementById('highCutValue').textContent = (config.highCut / 1000).toFixed(1) + 'kHz';
-  document.getElementById('tapeSlider').value = config.tape;
-  document.getElementById('tapeValue').textContent = config.tape + '%';
+  // 4. Stereo Width Enhancement
+  if (master.stereoWidth) {
+    master.stereoWidth.wet.rampTo(config.stereoWidth - 1, 0.5);
+  }
   
-  showToast(`✅ Applied "${preset}" mastering`, 'success');
+  // 5. Peak Limiter (brickwall)
+  if (master.limiter) {
+    master.limiter.threshold.rampTo(config.limiter, 0.5);
+    // Fast attack, medium release for transparency
+    if (master.limiter.attack) master.limiter.attack.value = 0.001;
+    if (master.limiter.release) master.limiter.release.rampTo(0.05, 0.5);
+  }
+  
+  // 6. Update UI elements
+  const uiUpdates = {
+    'compSlider': config.comp.threshold,
+    'compValue': config.comp.threshold + 'dB',
+    'ratioValue': config.comp.ratio + ':1',
+    'lowCutSlider': config.lowCut,
+    'lowCutValue': config.lowCut + 'Hz',
+    'highCutSlider': config.highCut,
+    'highCutValue': (config.highCut / 1000).toFixed(1) + 'kHz',
+    'tapeSlider': config.tape,
+    'tapeValue': config.tape + '%',
+    'widthValue': Math.round(config.stereoWidth * 100) + '%'
+  };
+  
+  Object.entries(uiUpdates).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) {
+      if (id.includes('Slider')) {
+        element.value = value;
+      } else {
+        element.textContent = value;
+      }
+    }
+  });
+  
+  // 7. Detailed console logging
+  console.log(`🎚️ Professional Mastering Applied: ${config.name}`);
+  console.log(`   Target Loudness: ${config.targetLUFS} LUFS`);
+  console.log(`   Compression: ${config.comp.ratio}:1 @ ${config.comp.threshold}dB`);
+  console.log(`   Attack/Release: ${(config.comp.attack * 1000).toFixed(1)}ms / ${(config.comp.release * 1000).toFixed(0)}ms`);
+  console.log(`   Tape Saturation: ${config.tape}% (${config.tape > 40 ? 'Heavy' : config.tape > 25 ? 'Medium' : 'Light'})`);
+  console.log(`   Frequency Range: ${config.lowCut}Hz - ${(config.highCut / 1000).toFixed(1)}kHz`);
+  console.log(`   Stereo Width: ${Math.round(config.stereoWidth * 100)}%`);
+  console.log(`   Peak Limiter: ${config.limiter}dB ceiling`);
+  
+  // 8. Show professional feedback
+  const characteristics = [];
+  
+  if (config.comp.ratio >= 5) characteristics.push('punchy');
+  if (config.tape > 40) characteristics.push('warm');
+  if (config.stereoWidth > 1.1) characteristics.push('wide');
+  if (config.targetLUFS <= -16) characteristics.push('dynamic');
+  if (config.targetLUFS >= -12) characteristics.push('loud');
+  if (config.highCut < 14000) characteristics.push('vintage');
+  
+  const charText = characteristics.length > 0 ? ` (${characteristics.join(', ')})` : '';
+  
+  showToast(`✅ ${config.name} mastering applied${charText}`, 'success');
 }
+
+// ============================================================================
+// ADDITIONAL PROFESSIONAL UTILITIES
+// ============================================================================
+
+// Calculate LUFS (simplified integrated loudness)
+function calculateLUFS() {
+  if (!master || !master.meter) return -18;
+  
+  // This would need actual audio analysis in production
+  // Simplified estimation based on current meter reading
+  const currentLevel = master.meter.getValue();
+  const estimatedLUFS = currentLevel + 6; // Rough conversion
+  
+  return Math.max(-40, Math.min(0, estimatedLUFS));
+}
+
+// Real-time mix analysis for display
+function getMixAnalysisReport() {
+  if (!state.aiMixing || !state.aiMixing.lastAnalysis) {
+    return null;
+  }
+  
+  const analysis = state.aiMixing.lastAnalysis;
+  const mixChar = analyzeMixCharacteristics(analysis);
+  
+  return {
+    activeInstruments: analysis.activeInstruments,
+    totalDensity: analysis.totalDensity.toFixed(2),
+    frequencyBalance: mixChar.balance,
+    stereoWidth: mixChar.stereoWidth.toFixed(1) + '%',
+    dynamicRange: mixChar.dynamicRange.toFixed(1) + 'dB',
+    estimatedLUFS: calculateLUFS().toFixed(1),
+    recommendations: generateMixRecommendations(analysis, mixChar)
+  };
+}
+
+// Generate intelligent recommendations
+function generateMixRecommendations(analysis, mixChar) {
+  const recommendations = [];
+  
+  // Check frequency balance
+  if (mixChar.lowEndEnergy > 0.5) {
+    recommendations.push('⚠️ Mix is bass-heavy - consider high-pass filtering or reducing low-end');
+  }
+  
+  if (mixChar.highEndEnergy < 0.15) {
+    recommendations.push('💡 Add brightness - boost high shelf or add more high-frequency content');
+  }
+  
+  // Check density
+  if (mixChar.density > 0.8) {
+    recommendations.push('📊 Very dense mix - ensure clarity with EQ carving');
+  } else if (mixChar.density < 0.3) {
+    recommendations.push('🎵 Sparse mix - good dynamics, consider adding texture');
+  }
+  
+  // Check stereo field
+  if (mixChar.stereoWidth < 15) {
+    recommendations.push('↔️ Narrow stereo image - pan elements for wider mix');
+  } else if (mixChar.stereoWidth > 45) {
+    recommendations.push('⚠️ Very wide - check mono compatibility');
+  }
+  
+  // Check dynamic range
+  if (mixChar.dynamicRange < 6) {
+    recommendations.push('📈 Low dynamic range - reduce compression or limiting');
+  } else if (mixChar.dynamicRange > 14) {
+    recommendations.push('📉 High dynamic range - consider compression for consistency');
+  }
+  
+  // Check for frequency masking conflicts
+  let highMaskingCount = 0;
+  Object.values(analysis.freqMasking || {}).forEach(masking => {
+    if (masking.score > 0.6) highMaskingCount++;
+  });
+  
+  if (highMaskingCount > 2) {
+    recommendations.push('🎚️ Heavy frequency masking detected - use EQ to separate instruments');
+  }
+  
+  if (recommendations.length === 0) {
+    recommendations.push('✅ Mix balance looks good!');
+  }
+  
+  return recommendations;
+}
+
+// Automatic loudness normalization
+function normalizeMixLoudness(targetLUFS = -14) {
+  const currentLUFS = calculateLUFS();
+  const difference = targetLUFS - currentLUFS;
+  
+  if (Math.abs(difference) > 0.5) {
+    const gainAdjust = Math.pow(10, difference / 20);
+    
+    if (master.gain) {
+      const currentGain = master.gain.gain.value;
+      master.gain.gain.rampTo(currentGain * gainAdjust, 1.0);
+    }
+    
+    console.log(`📊 Loudness normalized: ${currentLUFS.toFixed(1)} → ${targetLUFS} LUFS`);
+    showToast(`Normalized to ${targetLUFS} LUFS`, 'success');
+  }
+}
+
+// Export professional mix analysis
+function exportMixAnalysis() {
+  const report = getMixAnalysisReport();
+  if (!report) return null;
+  
+  const analysis = state.aiMixing.lastAnalysis;
+  
+  const detailedReport = {
+    timestamp: new Date().toISOString(),
+    summary: report,
+    instruments: {}
+  };
+  
+  // Add per-instrument details
+  Object.entries(analysis.instruments).forEach(([inst, data]) => {
+    detailedReport.instruments[inst] = {
+      active: data.density.activeSteps > 0,
+      density: data.density.density.toFixed(2),
+      importance: data.density.importance.toFixed(2),
+      gain: data.currentGain,
+      pan: data.currentPan,
+      peakFrequency: data.peakFrequency ? data.peakFrequency.toFixed(0) + 'Hz' : 'N/A',
+      spectralCentroid: data.spectralCentroid ? data.spectralCentroid.toFixed(0) + 'Hz' : 'N/A',
+      dynamicRange: data.dynamicRange ? data.dynamicRange.toFixed(1) + 'dB' : 'N/A',
+      frequencyProfile: {
+        low: ((data.freqProfile.subBass + data.freqProfile.bass) * 100).toFixed(0) + '%',
+        mid: ((data.freqProfile.lowMid + data.freqProfile.mid) * 100).toFixed(0) + '%',
+        high: ((data.freqProfile.highMid + data.freqProfile.presence + data.freqProfile.brilliance) * 100).toFixed(0) + '%'
+      }
+    };
+  });
+  
+  return detailedReport;
+}
+
+// Preset comparison tool
+function comparePresets() {
+  const presetNames = Object.keys({
+    gentle: true,
+    modern: true,
+    aggressive: true,
+    lofi: true,
+    broadcast: true,
+    vinyl: true
+  });
+  
+  console.log('🎚️ MASTERING PRESET COMPARISON');
+  console.log('═'.repeat(60));
+  
+  presetNames.forEach(preset => {
+    const presets = {
+      gentle: { targetLUFS: -18, ratio: 2.5, tape: 12, character: 'Natural & Dynamic' },
+      modern: { targetLUFS: -14, ratio: 4, tape: 25, character: 'Streaming Ready' },
+      aggressive: { targetLUFS: -11, ratio: 6, tape: 38, character: 'Loud & Punchy' },
+      lofi: { targetLUFS: -16, ratio: 3, tape: 55, character: 'Vintage Warmth' },
+      broadcast: { targetLUFS: -16, ratio: 5, tape: 20, character: 'Broadcast Safe' },
+      vinyl: { targetLUFS: -16, ratio: 3, tape: 48, character: 'Analog Style' }
+    };
+    
+    const config = presets[preset];
+    console.log(`${preset.toUpperCase()}: ${config.character}`);
+    console.log(`  Loudness: ${config.targetLUFS} LUFS | Ratio: ${config.ratio}:1 | Tape: ${config.tape}%`);
+    console.log('─'.repeat(60));
+  });
+}
+
+// ============================================================================
+// INTEGRATION HELPERS
+// ============================================================================
+
+// Call this to apply AI mixing with current settings
+function autoMixNow() {
+  if (state.aiMixing && state.aiMixing.enabled) {
+    applyAIMixing();
+  } else {
+    showToast('Enable AI Mixing first', 'warning');
+  }
+}
+
+// Quick preset switcher
+function quickMaster(style) {
+  const styleMap = {
+    soft: 'gentle',
+    balanced: 'modern',
+    loud: 'aggressive',
+    vintage: 'lofi',
+    radio: 'broadcast',
+    analog: 'vinyl'
+  };
+  
+  const preset = styleMap[style] || style;
+  applyMasteringPreset(preset);
+}
+
+// Get current mix health score (0-100)
+function getMixHealthScore() {
+  const report = getMixAnalysisReport();
+  if (!report) return 50;
+  
+  let score = 100;
+  
+  // Deduct for issues
+  const mixChar = analyzeMixCharacteristics(state.aiMixing.lastAnalysis);
+  
+  if (mixChar.lowEndEnergy > 0.5) score -= 10;
+  if (mixChar.highEndEnergy < 0.15) score -= 10;
+  if (mixChar.density > 0.8) score -= 8;
+  if (mixChar.dynamicRange < 6) score -= 15;
+  if (mixChar.dynamicRange > 14) score -= 8;
+  
+  Object.values(state.aiMixing.lastAnalysis.freqMasking || {}).forEach(masking => {
+    if (masking.score > 0.6) score -= 5;
+  });
+  
+  return Math.max(0, Math.min(100, score));
+}
+
+console.log('🎛️ Professional AI Mixing & Mastering System Loaded');
+console.log('📊 Features: Advanced gain staging, surgical EQ, intelligent compression');
+console.log('🎚️ Mastering presets: gentle, modern, aggressive, lofi, broadcast, vinyl');
+console.log('💡 Type comparePresets() to see all preset details');
   
 function setupTransportControls() {
   document.getElementById('playBtn').addEventListener('click', togglePlay);
