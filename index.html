@@ -5089,6 +5089,318 @@ body.pro .pro-locked::after {
     min-width: 56px;
   }
 }
+
+/* === MULTITRACK: TRACK HEADER & CONTROLS === */
+
+/* Main track header container (left column + inline version) */
+.track-header {
+  padding: var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--glass-border);
+  background: color-mix(in oklab, var(--surface) 80%, var(--bg-secondary));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+/* Recording / armed state tint */
+.track-header.recording {
+  box-shadow: var(--shadow-md),
+    0 0 0 1px color-mix(in oklab, var(--error) 40%, transparent);
+}
+
+.track-header.armed:not(.recording) {
+  box-shadow: var(--shadow-sm),
+    0 0 0 1px color-mix(in oklab, var(--accent-secondary) 40%, transparent);
+}
+
+/* Top row: icon + editable name */
+.track-header-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.track-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg-strong);
+  display: grid;
+  place-items: center;
+  font-size: var(--text-lg);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+
+.track-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  outline: none;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-name:focus {
+  border-color: var(--accent-primary);
+  background: color-mix(in oklab, var(--surface) 85%, var(--accent-primary) 15%);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent-primary) 40%, transparent);
+}
+
+/* Track meters in header (re-use existing meter fill) */
+.track-meters {
+  display: flex;
+  gap: var(--space-1);
+  height: 28px;
+  margin-top: var(--space-1);
+}
+
+.track-meter {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: var(--radius-xs);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* We already have .track-meter-fill defined, so this just uses it */
+
+/* === Track header button grid (REC / ARM / M / S / FX / 🗑) === */
+
+.track-controls-grid {
+  margin-top: var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.track-mini-btn {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.track-mini-btn:hover {
+  background: var(--glass-bg-strong);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.track-mini-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* Generic "on" state */
+.track-mini-btn.active {
+  background: linear-gradient(135deg,
+    color-mix(in oklab, var(--accent-primary) 60%, var(--accent-secondary)),
+    var(--accent-secondary));
+  color: var(--bg-primary);
+  border-color: color-mix(in oklab, var(--accent-primary) 60%, var(--accent-secondary));
+  box-shadow: var(--shadow-sm);
+}
+
+/* Special cases so you can read state at a glance */
+.track-mini-btn.rec.active {
+  background: linear-gradient(135deg, var(--error), color-mix(in oklab, var(--error) 70%, #ffb0b0));
+  border-color: var(--error);
+}
+
+.track-mini-btn.arm.active {
+  background: linear-gradient(135deg, var(--warning), var(--accent-secondary));
+  border-color: var(--warning);
+}
+
+.track-mini-btn.mute.active {
+  background: color-mix(in oklab, var(--bg-tertiary) 70%, #000);
+  color: color-mix(in oklab, var(--text-secondary) 60%, #aaa);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.track-mini-btn.solo.active {
+  background: linear-gradient(135deg, var(--success), var(--warning));
+  color: #02040a;
+}
+
+/* FX + Delete – keep them a bit more icon-y */
+.track-mini-btn[data-action="fx"] {
+  font-size: var(--text-sm);
+}
+
+.track-mini-btn[data-action="delete"] {
+  background: rgba(255, 76, 76, 0.12);
+  border-color: rgba(255, 76, 76, 0.35);
+  color: color-mix(in oklab, var(--error) 70%, #fff);
+}
+
+.track-mini-btn[data-action="delete"]:hover {
+  background: rgba(255, 76, 76, 0.2);
+}
+
+/* Volume / pan block under header */
+
+.track-volume-control {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.track-volume-control label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.track-volume-control input[type="range"] {
+  width: 100%;
+}
+
+.track-volume-value,
+.track-pan-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  opacity: 0.9;
+}
+
+/* Canvas area: keep the timeline lane visually focused */
+.track-canvas-area {
+  background: radial-gradient(circle at top left,
+      color-mix(in oklab, var(--accent-primary) 12%, transparent),
+      transparent 55%);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  padding: var(--space-2) 0 var(--space-2) var(--space-1);
+}
+
+.track-canvas {
+  position: relative;
+}
+
+/* === TIMELINE TOOLBAR: FORCE HORIZONTAL LAYOUT === */
+
+/* Desktop + mobile: tools stay on one line, scroll if needed */
+.daw-timeline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+  flex-wrap: nowrap;        /* key: no wrapping */
+  overflow-x: auto;         /* scroll instead */
+  scrollbar-width: thin;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+  border-right: 1px solid var(--glass-border);
+  flex: 0 0 auto;           /* keep groups inline, don't squeeze */
+}
+
+.toolbar-group:last-child {
+  border-right: none;
+}
+
+/* Tools themselves: nice touch targets + consistent shape */
+.tool-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  font-size: var(--text-lg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.tool-btn:hover {
+  background: var(--glass-bg-strong);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.tool-btn:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.tool-btn.active {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 768px) {
+  /* Timeline is the star on mobile */
+  .daw-timeline-container {
+    order: 2;
+    min-height: 280px;
+    border-width: 2px;
+    border-color: color-mix(in oklab, var(--accent-primary) 50%, var(--glass-border));
+    box-shadow:
+      var(--shadow-lg),
+      var(--glow-sm) color-mix(in oklab, var(--accent-primary) 30%, transparent);
+  }
+
+  /* Slightly tighter header to save vertical space */
+  .track-header {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-1);
+  }
+
+  .track-controls-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-1);
+  }
+
+  .track-mini-btn {
+    min-height: 32px;
+    font-size: 10px;
+    padding: 3px 4px;
+  }
+
+  /* Toolbar: even more clearly a single row you can swipe */
+  .daw-timeline-toolbar {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-1);
+    justify-content: flex-start;
+  }
+}
   </style>
 </head>
 <body>
