@@ -2708,8 +2708,30 @@
     
     #unlockModal .modal-actions {
       display: flex;
+      flex-direction: column;
+      align-items: stretch;
       gap: var(--space-3);
       margin-top: var(--space-4);
+    }
+
+    #unlockModal .modal-actions > * {
+      width: 100%;
+    }
+
+    /* Center the PayPal form but keep it full-width */
+    #unlockModal .modal-actions form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Confirm / Cancel as big wide buttons */
+    #unlockModal #confirmLicenseBtn,
+    #unlockModal #cancelLicenseBtn {
+      width: 100%;
+      justify-content: center;
     }
     
     #unlockModal .status {
