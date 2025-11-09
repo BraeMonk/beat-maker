@@ -16193,7 +16193,7 @@ function setupArrangementDragScroll() {
   window.addEventListener('mouseup', endDrag);
 }
   
-async function setupMultitrackListeners() {
+function setupMultitrackListeners() {
   setupArrangementDragScroll();
   
   // === ADD TRACK BUTTON (DESKTOP) ===
@@ -16233,73 +16233,7 @@ async function setupMultitrackListeners() {
   }
 
   // === IMPORT STEM BUTTON ===
-  const importBtn = document.getElementById('importStemBtn');
-  if (importBtn && !importBtn.dataset._wired) {
-    importBtn.dataset._wired = 'true';
-    importBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('📁 Import stem clicked');
-      
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'audio/wav,audio/mp3,audio/mpeg,audio/ogg,audio/webm';
-
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        if (file.size > 50 * 1024 * 1024) {
-          showToast('❌ File too large (max 50MB)', 'error');
-          return;
-        }
-
-        try {
-          showToast(`⏳ Importing ${file.name}...`, 'info');
-          
-          const arrayBuffer = await file.arrayBuffer();
-          const audioCtx = Tone.context.rawContext;
-          const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-          
-          const niceName = file.name.replace(/\.[^/.]+$/, '');
-          const id = multitrack.nextTrackId++;
-          
-          // Create track
-          const track = new AudioTrack(id, niceName, 'stem', false); // Not external audio
-          
-          // Create take
-          const wavData = bufferToWavImproved(audioBuffer);
-          const blob = new Blob([wavData], { type: 'audio/wav' });
-          
-          const take = {
-            id: `take-${Date.now()}-${id}`,
-            buffer: audioBuffer,
-            blob: blob,
-            startTime: 0,
-            duration: audioBuffer.duration,
-            muted: false,
-            timestamp: new Date().toISOString(),
-            source: 'external',
-            fileName: file.name
-          };
-          
-          track.takes.push(take);
-          track.selectedTakeIndex = 0;
-          
-          multitrack.tracks.push(track);
-          
-          renderMultitrack();
-          showToast(`✅ Imported: ${niceName} (${audioBuffer.duration.toFixed(1)}s)`, 'success');
-          
-        } catch (err) {
-          console.error('Import failed:', err);
-          showToast(`❌ Import failed: ${err.message}`, 'error');
-        }
-      };
-
-      input.click();
-    });
-  }
+  setupStemImport();
 
   // === UNDO / REDO ===
   const undoBtn = document.getElementById('undoBtn');
@@ -16329,7 +16263,9 @@ async function setupMultitrackListeners() {
     };
   }
 
+  const recordArmBtn = document.getElementById('recordArmBtn');
   const recordArmedBtn = document.getElementById('recordArmedBtn');
+  if (recordArmBtn) recordArmBtn.onclick = () => toggleRecordArm();
   if (recordArmedBtn) recordArmedBtn.onclick = async () => await toggleRecordAllArmed();
 
   // === DAW TRANSPORT CONTROLS ===
@@ -16362,50 +16298,37 @@ async function setupMultitrackListeners() {
     };
   }
 
-  
   if (rewindBtn) {
     rewindBtn.onclick = () => {
-      const projDur = multitrack.projectDuration || (state.duration * 60);
-      const current = multitrack.playheadSeconds || 0;
-      const target = Math.max(0, current - 5);
-  
-      updatePlayheadAndScroll(target);
+      multitrack.playheadSeconds = Math.max(0, (multitrack.playheadSeconds || 0) - 2);
+      updatePlayheadAndScroll(multitrack.playheadSeconds);
     };
   }
-  
+
   if (forwardBtn) {
     forwardBtn.onclick = () => {
-      const projDur = multitrack.projectDuration || (state.duration * 60);
-      const current = multitrack.playheadSeconds || 0;
-      const target = Math.min(projDur, current + 5);
-  
-      updatePlayheadAndScroll(target);
+      const projectDuration = multitrack.projectDuration || (state.duration * 60);
+      multitrack.playheadSeconds = Math.min(projectDuration, (multitrack.playheadSeconds || 0) + 2);
+      updatePlayheadAndScroll(multitrack.playheadSeconds);
     };
   }
 
-
   if (recordBtn) {
-    recordBtn.onclick = () => {
-      recordBtn.classList.toggle('active');
-      if (recordBtn.classList.contains('active')) {
-        startGlobalRecording();
+    recordBtn.onclick = async () => {
+      if (!multitrack.isRecording) {
+        await startMultitrackRecording();
       } else {
-        stopGlobalRecording();
+        await stopMultitrackRecording();
       }
     };
   }
 
-    // === LOOP / CLICK / COUNT ===
-  const loopBtn = document.getElementById('dawLoopBtn');
+  // === METRONOME (click) ===
   const clickBtn = document.getElementById('dawClickBtn');
-  const countInBtn = document.getElementById('dawCountInBtn');
 
-  // Make sure we have a loop flag in multitrack state
-  if (typeof multitrack.loopEnabled === 'undefined') {
-    multitrack.loopEnabled = false;
-  }
+  // === LOOP BUTTON ===
+  const loopBtn = document.getElementById('dawLoopBtn');
 
-  // 🔁 LOOP: just a flag + visual
   if (loopBtn) {
     // Initial state
     loopBtn.classList.toggle('active', !!multitrack.loopEnabled);
@@ -16438,51 +16361,54 @@ async function setupMultitrackListeners() {
       if (e.button !== 0) return;
       if (multitrack.currentTool !== 'select') return;
 
-      // Ignore dragging on a region/clip
-      if (e.target.closest('.audio-region') || e.target.closest('.daw-clip')) return;
+      // Only start drag if in "empty" ruler/timeline area,
+      // not directly on regions
+      const gridRect = scroll.getBoundingClientRect();
+      const inY = e.clientY >= gridRect.top && e.clientY <= gridRect.bottom;
+      if (!inY) return;
 
-      const rect = scroll.getBoundingClientRect();
-      dragStartX = e.clientX - rect.left + scroll.scrollLeft;
+      const regionEl = e.target.closest('.audio-region');
+      if (regionEl) return;
 
-      loopHighlight.style.display = 'block';
-      loopHighlight.style.left = dragStartX + 'px';
-      loopHighlight.style.width = '0px';
+      dragStartX = e.clientX + scroll.scrollLeft;
+      multitrack.loopStart = null;
+      multitrack.loopEnd = null;
+      updateLoopRegionHighlight();
     });
 
     scroll.addEventListener('mousemove', (e) => {
       if (dragStartX === null) return;
 
-      const rect = scroll.getBoundingClientRect();
-      const currentX = e.clientX - rect.left + scroll.scrollLeft;
-      const width = currentX - dragStartX;
-
-      loopHighlight.style.width = Math.abs(width) + 'px';
-      loopHighlight.style.left = (width < 0 ? currentX : dragStartX) + 'px';
-    });
-
-    const finishLoopDrag = (e) => {
-      if (dragStartX === null) return;
-
-      const rect = scroll.getBoundingClientRect();
-      const dragEndX = e.clientX - rect.left + scroll.scrollLeft;
+      const dragCurrentX = e.clientX + scroll.scrollLeft;
       const zoom = multitrack.zoom || 100;
 
-      const startPx = Math.min(dragStartX, dragEndX);
-      const endPx = Math.max(dragStartX, dragEndX);
+      const startPx = Math.min(dragStartX, dragCurrentX);
+      const endPx = Math.max(dragStartX, dragCurrentX);
 
       const startSec = startPx / zoom;
       const endSec = endPx / zoom;
-      const dragLength = endSec - startSec;
 
-      loopHighlight.style.display = 'none';
-      dragStartX = null;
+      multitrack.loopStart = startSec;
+      multitrack.loopEnd = endSec;
+      updateLoopRegionHighlight();
+    });
 
-      if (dragLength > 0.25) {
-        // Treat as loop selection
-        setLoopRegion(startSec, endSec);
-      } else {
-        // Tiny click = clear loop
-        clearLoopRegion();
+    const finishLoopDrag = () => {
+      if (dragStartX !== null) {
+        dragStartX = null;
+
+        if (multitrack.loopStart != null && multitrack.loopEnd != null) {
+          if (Math.abs(multitrack.loopEnd - multitrack.loopStart) < 0.1) {
+            clearLoopRegion();
+          } else {
+            showToast(
+              `🔁 Loop: ${multitrack.loopStart.toFixed(2)}s → ${multitrack.loopEnd.toFixed(2)}s`,
+              'info'
+            );
+          }
+        } else {
+          clearLoopRegion();
+        }
       }
     };
 
@@ -16513,45 +16439,6 @@ async function setupMultitrackListeners() {
     };
   }
 
-  // ⏱️ COUNT-IN: share the same countInBars as main transport
-  if (countInBtn) {
-    const labels = ['⏱️ Count: Off', '⏱️ Count: 1 bar', '⏱️ Count: 2 bars'];
-
-    // Initialise label + active state from current countInBars
-    const safeCount = Number.isInteger(state.countInBars) ? state.countInBars : 0;
-    state.countInBars = safeCount;
-    countInBtn.textContent = labels[state.countInBars];
-    countInBtn.classList.toggle('active', state.countInBars > 0);
-
-    countInBtn.onclick = () => {
-      // 0 -> 1 -> 2 -> 0
-      state.countInBars =
-        state.countInBars === 1 ? 2 :
-        state.countInBars === 2 ? 0 : 1;
-
-      countInBtn.textContent = labels[state.countInBars];
-      countInBtn.classList.toggle('active', state.countInBars > 0);
-
-      const mainCountBtn = document.getElementById('countInBtn');
-      if (mainCountBtn && mainCountBtn !== countInBtn) {
-        mainCountBtn.textContent = labels[state.countInBars];
-      }
-
-      showToast(
-        state.countInBars === 0
-          ? '⏱️ Count-in OFF'
-          : `⏱️ Count-in: ${state.countInBars} bar(s)`,
-        'info'
-      );
-    };
-  }
-
-  // === BPM + TIME SIG ===
-  const bpmInput = document.getElementById('dawBpmInput');
-  const timeSigSelect = document.getElementById('dawTimeSigSelect');
-  if (bpmInput) bpmInput.onchange = e => setBPM(parseFloat(e.target.value));
-  if (timeSigSelect) timeSigSelect.onchange = e => setTimeSignature(e.target.value);
-
   // === ZOOM CONTROLS ===
   const zoomInBtn = document.getElementById('dawZoomInBtn') || document.getElementById('zoomInBtn');
   const zoomOutBtn = document.getElementById('dawZoomOutBtn') || document.getElementById('zoomOutBtn');
@@ -16581,57 +16468,62 @@ async function setupMultitrackListeners() {
     }
   };
 
-    // === TOOL BUTTONS (Select / Pencil / Split / Fade) ===
-  const toolButtons = document.querySelectorAll('.tool-btn');
-  if (toolButtons.length) {
-    toolButtons.forEach(btn => {
-      if (btn.dataset._wired) return;
-      btn.dataset._wired = 'true';
+  // === TOOL BUTTONS (Select / Pencil / Split / Fade) ===
+  const toolButtons = document.querySelectorAll('[data-daw-tool]');
+  toolButtons.forEach(btn => {
+    btn.onclick = () => {
+      const tool = btn.dataset.dawTool;
+      multitrack.currentTool = tool;
+      toolButtons.forEach(b => b.classList.toggle('active', b === btn));
+      showToast(`🛠 Tool: ${tool}`, 'info');
+    };
+  });
 
-      btn.addEventListener('click', () => {
-        const tool = btn.dataset.tool || 'select';
-        multitrack.currentTool = tool;
-
-        toolButtons.forEach(b =>
-          b.classList.toggle('active', b === btn)
-        );
-
-        // Optional toast so you can see it’s doing something
-        showToast(`✏️ Tool: ${tool}`, 'info');
-      });
-    });
-  }
-
-  // === SNAP ===
-  const snapSelect = document.getElementById('dawSnapSelect');
-  if (snapSelect && !snapSelect.dataset._wired) {
-    snapSelect.dataset._wired = 'true';
-  
-    snapSelect.addEventListener('change', (e) => {
-      const value = e.target.value;
-  
-      if (value === 'off') {
-        multitrack.snapEnabled = false;
-        showToast('🧲 Snap OFF', 'info');
-      } else {
-        multitrack.snapEnabled = true;
-        const mapping = {
-          bars: 4,     // 4 beats per bar (main default)
-          beats: 1,
-          '1/2': 0.5,
-          '1/4': 0.25
-        };
-  
-        multitrack.snapMode = value;
-        multitrack.snapInterval = mapping[value] ?? 1;
-        showToast(`🧲 Snap: ${value}`, 'info');
-      }
-    });
-  
-    // 🧩 Default to snapping by bars
-    if (!snapSelect.value || snapSelect.value === 'off') {
-      snapSelect.value = 'bars';
+  // Default tool = select
+  multitrack.currentTool = 'select';
+  toolButtons.forEach(btn => {
+    if (btn.dataset.dawTool === 'select') {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
     }
+  });
+
+  // === SNAP SETTINGS ===
+  const snapToggle = document.getElementById('dawSnapToggle');
+  const snapSelect = document.getElementById('dawSnapMode');
+
+  if (snapToggle && snapSelect) {
+    snapToggle.onclick = () => {
+      multitrack.snapEnabled = !multitrack.snapEnabled;
+      snapToggle.classList.toggle('active', multitrack.snapEnabled);
+      showToast(
+        multitrack.snapEnabled ? '📐 Snap: On' : '📐 Snap: Off',
+        'info'
+      );
+    };
+
+    snapSelect.onchange = () => {
+      const mode = snapSelect.value;
+      multitrack.snapMode = mode;
+      switch (mode) {
+        case 'bars':
+          multitrack.snapInterval = 4;
+          break;
+        case 'beats':
+          multitrack.snapInterval = 1;
+          break;
+        case 'half':
+          multitrack.snapInterval = 0.5;
+          break;
+        case 'quarter':
+          multitrack.snapInterval = 0.25;
+          break;
+        default:
+          multitrack.snapInterval = 0;
+      }
+      showToast(`📐 Snap mode: ${mode}`, 'info');
+    };
   
     // Initialize state immediately
     multitrack.snapEnabled = true;
@@ -16645,7 +16537,7 @@ async function setupMultitrackListeners() {
   const saveBtn = document.getElementById('saveSessionBtn');
   const loadBtn = document.getElementById('loadSessionBtn');
   if (newBtn) newBtn.onclick = () => newMultitrackSession();
-  if (saveBtn) saveBtn.onclick = () => saveMultitrackSession();
+  if (saveBtn) saveBtn.onclick = () => saveMultitrtrackSession();
   if (loadBtn) loadBtn.onclick = () => loadMultitrackSession();
 
   // === GRID / AUTOMATION ===
@@ -16661,86 +16553,78 @@ async function setupMultitrackListeners() {
   const clearBtn = document.getElementById('clearAllTracksBtn');
   if (clearBtn) {
     clearBtn.onclick = () => {
-      if (confirm('Delete all tracks? This cannot be undone.')) {
-        multitrack.tracks.forEach(t => t.dispose());
-        multitrack.tracks = [];
-        multitrack.nextTrackId = 1;
-        renderMultitrack();
-      }
+      if (!confirm('Clear all tracks and recordings?')) return;
+      multitrack.tracks = [];
+      multitrack.nextTrackId = 1;
+      renderMultitrack();
+      showToast('🧹 Cleared all tracks', 'info');
     };
   }
 
-  // === FX CHAIN EDITOR ===
-const fxAddBtn  = document.getElementById('fxAddBtn');
-const fxAddMenu = document.getElementById('fxAddMenu');
-const closeFxBtn = document.getElementById('closeFxPanelBtn');
+  // === FX MENU / RACK ===
+  const fxMenu = document.getElementById('fxMenu');
+  const fxRack = document.getElementById('fxRack');
+  const fxList = document.getElementById('fxList');
+  const fxMenuClose = document.getElementById('fxMenuClose');
+  const closeFxBtn = document.getElementById('closeFxBtn');
 
-// Only wire once
-if (fxAddBtn && fxAddMenu && !fxAddMenu.dataset._wired) {
-  fxAddMenu.dataset._wired = 'true';
-
-    fxAddBtn.onclick = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-
-    const isVisible = fxAddMenu.style.display === 'block';
-    fxAddMenu.style.display = isVisible ? 'none' : 'block';
-    // Placement is now purely handled by CSS (.fx-add-menu above the header)
-  };
-
-  // Close menu when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!fxAddBtn.contains(e.target) && !fxAddMenu.contains(e.target)) {
-      fxAddMenu.style.display = 'none';
-    }
-  });
-
-  // FX type selection (unchanged logic)
-  fxAddMenu.addEventListener('click', (e) => {
-    const item = e.target.closest('.fx-add-item');
-    if (!item) return;
-
-    const fxType = item.dataset.fxType;
-    if (!fxType) return;
-
-    const trackId = Number(multitrack.currentFxTrackId);
-    const track = multitrack.tracks.find(t => t.id === trackId);
-    if (!track) {
-      showToast('❌ No track selected', 'error');
-      return;
-    }
-
-    const fxObj = track.addFx(fxType);
-    if (!fxObj) {
-      showToast(`❌ FX type "${fxType}" not recognized`, 'error');
-      return;
-    }
-
-    renderFxChain(track);
-    fxAddMenu.style.display = 'none';
-    showToast(`✅ Added ${fxType} to ${track.name}`, 'success');
-  });
-}
-
-// Track-level "+ Add FX" buttons still open the FX panel for that track
-document.addEventListener('click', (e) => {
-  if (e.target.classList.contains('add-fx-btn')) {
-    const trackIndex = Array.from(document.querySelectorAll('.track-strip'))
-      .indexOf(e.target.closest('.track-strip'));
-
-    // Your existing function that opens the FX panel for that track
-    showFXMenu(trackIndex, e.target);
+  if (fxMenuClose) {
+    fxMenuClose.onclick = () => {
+      fxMenu.style.display = 'none';
+    };
   }
-});
 
-// Close FX panel button
-if (closeFxBtn) {
-  closeFxBtn.onclick = () => {
-    const panel = document.getElementById('fxChainPanel');
-    if (panel) panel.style.display = 'none';
-    multitrack.currentFxTrackId = null;
-  };
-}
+  if (fxMenu && fxList) {
+    fxList.addEventListener('click', (e) => {
+      const item = e.target.closest('.fx-menu-item');
+      if (!item) return;
+
+      const fxType = item.dataset.fxType;
+      if (!fxType) return;
+
+      const trackId = Number(multitrack.currentFxTrackId);
+      const track = multitrack.tracks.find(t => t.id === trackId);
+      if (!track) {
+        showToast('❌ No track selected', 'error');
+        return;
+      }
+
+      const fxObj = track.addFx(fxType);
+      if (!fxObj) {
+        showToast(`❌ Failed to add FX: ${fxType}`, 'error');
+        return;
+      }
+
+      renderFxRack(track);
+      showToast(`✨ Added FX: ${fxType}`, 'success');
+    });
+  }
+
+  // Clicking an FX button in track headers should open FX panel for that track
+  document.addEventListener('click', (e) => {
+    const fxBtn = e.target.closest('.track-fx-button');
+    if (!fxBtn) return;
+
+    const trackIndex = Number(fxBtn.dataset.trackIndex);
+    if (Number.isNaN(trackIndex)) return;
+
+    multitrack.currentFxTrackId = multitrack.tracks[trackIndex]?.id ?? null;
+    if (!multitrack.currentFxTrackId) {
+      showToast('❌ No track selected for FX', 'error');
+      return;
+    }
+
+    showFXMenu(trackIndex, e.target);
+  });
+
+  // Close FX panel button
+  if (closeFxBtn) {
+    closeFxBtn.onclick = () => {
+      const panel = document.getElementById('fxChainPanel');
+      if (panel) panel.style.display = 'none';
+      multitrack.currentFxTrackId = null;
+    };
+  }
 
   // === TIMELINE + RULER ===
   setupTimelineCursor();
