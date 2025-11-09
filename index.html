@@ -2868,6 +2868,8 @@ body.pro .pro-locked::after {
   box-shadow: var(--shadow-md);
   overflow: hidden;
   grid-row: 1 / 3;
+  min-height: 70vh;
+  max-height: 90vh;
 }
 
 .daw-section-header {
@@ -3784,7 +3786,7 @@ body.pro .pro-locked::after {
   border-top: 2px solid var(--glass-border-strong);
   box-shadow: var(--shadow-2xl);
   backdrop-filter: blur(32px) saturate(150%);
-  z-index: 600;
+  z-index: 9500;
   display: none;
   flex-direction: column;
   overflow: visible;
@@ -3813,47 +3815,38 @@ body.pro .pro-locked::after {
 
 .fx-add-menu {
   position: absolute;
-  bottom: 100%;
-  right: 0;
-  margin-bottom: 8px;
+  top: 100%;
+  right: var(--space-4);
+  margin-top: var(--space-2);
+  bottom: auto;
+  z-index: 10;
+  
   min-width: 220px;
-  max-width: 260px;
-  padding: 6px 0;
+  max-height: 260px;
+  overflow-y: auto;
+  
   background: var(--surface-elevated);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--glass-border-strong);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(15, 23, 42, 0.8);
-  z-index: 1200;
-  backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-xl);
+  padding: var(--space-3);
 }
 
 .fx-add-menu h4 {
-  margin: 0;
-  padding: 6px 12px;
   font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--text-tertiary);
-  border-bottom: 1px solid rgba(31, 41, 55, 0.8);
+  margin-bottom: var(--space-2);
 }
 
 .fx-add-menu button {
   width: 100%;
-  border: none;
-  background: transparent;
   text-align: left;
-  padding: 8px 12px;
-  font-size: var(--text-sm);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  color: var(--text-primary);
-  transition: background var(--duration-fast) var(--ease-smooth);
+  margin-bottom: var(--space-1);
 }
-
-.fx-add-menu button:hover {
-  background: color-mix(in oklab, var(--accent-primary) 12%, transparent);
+.fx-add-menu button:last-child {
+  margin-bottom: 0;
 }
 
 .track-meters {
@@ -4277,6 +4270,12 @@ body.pro .pro-locked::after {
   .fx-unit {
     padding: var(--space-4);
   }
+
+  .fx-add-menu {
+    left: var(--space-3);
+    right: var(--space-3);
+    min-width: auto;
+  }
   
   .visualizer {
     height: 120px;
@@ -4339,6 +4338,11 @@ body.pro .pro-locked::after {
   .daw-inspector {
     grid-row: auto;
     grid-column: 1;
+  }
+
+  .daw-track-list {
+    min-height: 60vh;
+    max-height: 80vh;
   }
   
   .daw-track-list-scroll {
@@ -4827,6 +4831,11 @@ body.pro .pro-locked::after {
   
   .daw-track-list {
     order: 1;
+    min-height: 50vh;
+  }
+
+  .daw-track-list-scroll .track-strip {
+    min-height: 56px; /* give touch users a bit more tap area */
   }
   
   .daw-timeline-container {
@@ -17019,35 +17028,71 @@ async function setupMultitrackListeners() {
   }
 
   // === FX CHAIN EDITOR ===
-  const fxAddBtn   = document.getElementById('fxAddBtn');
-  const fxAddMenu  = document.getElementById('fxAddMenu');
-  const closeFxBtn = document.getElementById('closeFxPanelBtn');
+const fxAddBtn   = document.getElementById('fxAddBtn');
+const fxAddMenu  = document.getElementById('fxAddMenu');
+const closeFxBtn = document.getElementById('closeFxPanelBtn');
 
-  if (fxAddBtn && fxAddMenu && !fxAddMenu.dataset._wired) {
-    fxAddMenu.dataset._wired = 'true';
+if (fxAddBtn && fxAddMenu && !fxAddMenu.dataset._wired) {
+  fxAddMenu.dataset._wired = 'true';
 
-    fxAddBtn.onclick = (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      const isVisible = fxAddMenu.style.display === 'block';
-      fxAddMenu.style.display = isVisible ? 'none' : 'block';
-    };
+  // Toggle dropdown
+  fxAddBtn.onclick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const isVisible = fxAddMenu.style.display === 'block';
+    fxAddMenu.style.display = isVisible ? 'none' : 'block';
+  };
 
-    // Close menu when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!fxAddBtn.contains(e.target) && !fxAddMenu.contains(e.target)) {
+  // Handle clicking an FX type
+  fxAddMenu.querySelectorAll('button[data-fx]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fxType = btn.dataset.fx;
+      const trackId = multitrack.currentFxTrackId;
+      const track = multitrack.tracks.find(t => t.id === trackId);
+
+      if (!track) {
+        showToast('⚠️ No track selected for FX chain', 'warning');
+        return;
+      }
+
+      try {
+        track.addFx(fxType);         // your existing per-track FX logic
+        renderFxChain(track);        // refresh the bottom sheet UI
         fxAddMenu.style.display = 'none';
+        showToast(`✨ Added ${fxType} to ${track.name}`, 'success');
+      } catch (err) {
+        console.error('Error adding FX:', err);
+        showToast('❌ Could not add effect', 'error');
       }
     });
-  }
+  });
 
-  if (closeFxBtn && !closeFxBtn.dataset._wired) {
-    closeFxBtn.dataset._wired = 'true';
-    closeFxBtn.onclick = () => {
-      const panel = document.getElementById('fxPanel');
-      if (panel) panel.style.display = 'none';
-    };
-  }
+  // Close menu when clicking outside panel / menu
+  document.addEventListener('click', (e) => {
+    const panel = document.getElementById('fxChainPanel');
+    if (!panel) return;
+
+    // If click is inside panel or on Add FX button, ignore
+    if (panel.contains(e.target) || fxAddBtn.contains(e.target)) return;
+
+    fxAddMenu.style.display = 'none';
+  });
+}
+
+// Close button fix (as above)
+if (closeFxBtn && !closeFxBtn.dataset._wired) {
+  closeFxBtn.dataset._wired = 'true';
+  closeFxBtn.onclick = () => {
+    const panel = document.getElementById('fxChainPanel');
+    if (panel) {
+      panel.classList.remove('open');
+      panel.setAttribute('aria-hidden', 'true');
+    }
+
+    if (fxAddMenu) {
+      fxAddMenu.style.display = 'none';
+    }
+  };
 }
 
 function addTrackFX(trackIndex, fxType) {
