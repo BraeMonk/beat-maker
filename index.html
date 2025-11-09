@@ -133,34 +133,38 @@
 }
 
 /* -------- Premium Vibe Palettes -------- */
+
+/* Cool, deep studio night */
 body[data-vibe="moon"] {
-  --bg-primary: #0a0e1a;
-  --bg-secondary: #0f1420;
-  --bg-tertiary: #141824;
+  --bg-primary: #070b16;
+  --bg-secondary: #0b1020;
+  --bg-tertiary: #111728;
   --accent-primary: #7c83ff;
-  --accent-secondary: #8d6cff;
-  --accent-tertiary: #9f7eff;
+  --accent-secondary: #5ea8ff;
+  --accent-tertiary: #8fa2ff;
   --text-primary: #e9ecff;
   --text-secondary: #cfd4ff;
   --text-tertiary: #a6acd6;
 }
 
+/* Soft pink sunrise / lo-fi morning */
 body[data-vibe="dawn"] {
-  --bg-primary: #1a0e14;
-  --bg-secondary: #221318;
-  --bg-tertiary: #2a1820;
+  --bg-primary: #190d13;
+  --bg-secondary: #21131a;
+  --bg-tertiary: #2a1822;
   --accent-primary: #ff8fb1;
   --accent-secondary: #ffb385;
-  --accent-tertiary: #ffc799;
+  --accent-tertiary: #ffd4a8;
   --text-primary: #fff4f8;
   --text-secondary: #ffdfe9;
   --text-tertiary: #f2cbd8;
 }
 
+/* Cosmic purples & cyan sparks */
 body[data-vibe="nebula"] {
-  --bg-primary: #0b0d18;
-  --bg-secondary: #0f0a1c;
-  --bg-tertiary: #150f24;
+  --bg-primary: #060816;
+  --bg-secondary: #0c081d;
+  --bg-tertiary: #150f26;
   --accent-primary: #9a6bff;
   --accent-secondary: #33d1ff;
   --accent-tertiary: #66e0ff;
@@ -169,10 +173,11 @@ body[data-vibe="nebula"] {
   --text-tertiary: #a6c9e6;
 }
 
+/* Mossy forest synth den */
 body[data-vibe="forest"] {
-  --bg-primary: #091312;
-  --bg-secondary: #0b1418;
-  --bg-tertiary: #0e1a1e;
+  --bg-primary: #04100d;
+  --bg-secondary: #071716;
+  --bg-tertiary: #0b1f1f;
   --accent-primary: #5de6a4;
   --accent-secondary: #86f7c1;
   --accent-tertiary: #a0ffd0;
@@ -181,16 +186,84 @@ body[data-vibe="forest"] {
   --text-tertiary: #a1d4c2;
 }
 
+/* Golden-hour studio glow */
 body[data-vibe="sunset"] {
   --bg-primary: #1a0e0f;
-  --bg-secondary: #221214;
-  --bg-tertiary: #2a161a;
+  --bg-secondary: #221215;
+  --bg-tertiary: #2b171b;
   --accent-primary: #ff7a59;
   --accent-secondary: #ffb86b;
   --accent-tertiary: #ffd699;
   --text-primary: #fff1eb;
   --text-secondary: #ffd9c9;
   --text-tertiary: #ffc6ae;
+}
+
+/* --- NEW VIBES --- */
+
+/* Deep ocean / underwater club */
+body[data-vibe="ocean"] {
+  --bg-primary: #040b12;
+  --bg-secondary: #05121c;
+  --bg-tertiary: #071a25;
+  --accent-primary: #42c5ff;
+  --accent-secondary: #2ee6d6;
+  --accent-tertiary: #6af5ff;
+  --text-primary: #e5f7ff;
+  --text-secondary: #c8eaff;
+  --text-tertiary: #9dbed4;
+}
+
+/* Charcoal & lava – late-night rock / metal */
+body[data-vibe="ember"] {
+  --bg-primary: #100607;
+  --bg-secondary: #18090b;
+  --bg-tertiary: #210e12;
+  --accent-primary: #ff5540;
+  --accent-secondary: #ff9140;
+  --accent-tertiary: #ffb36b;
+  --text-primary: #ffeceb;
+  --text-secondary: #ffd1ca;
+  --text-tertiary: #f2a89a;
+}
+
+/* Northern lights – dreamy & floaty */
+body[data-vibe="aurora"] {
+  --bg-primary: #040b14;
+  --bg-secondary: #04111b;
+  --bg-tertiary: #061a24;
+  --accent-primary: #68ffb5;
+  --accent-secondary: #7fe0ff;
+  --accent-tertiary: #d597ff;
+  --text-primary: #eafff7;
+  --text-secondary: #c8f7eb;
+  --text-tertiary: #9fd5c7;
+}
+
+/* Neon cyber/synthwave */
+body[data-vibe="cyber"] {
+  --bg-primary: #070812;
+  --bg-secondary: #0a0b18;
+  --bg-tertiary: #101322;
+  --accent-primary: #ff64c2;
+  --accent-secondary: #42f5ff;
+  --accent-tertiary: #ffe35b;
+  --text-primary: #f9efff;
+  --text-secondary: #e2d4ff;
+  --text-tertiary: #b6a5e6;
+}
+
+/* Desert night / warm neutral “focus” mode */
+body[data-vibe="sandstorm"] {
+  --bg-primary: #120f0a;
+  --bg-secondary: #18140d;
+  --bg-tertiary: #211a10;
+  --accent-primary: #f7c979;
+  --accent-secondary: #ffdf9b;
+  --accent-tertiary: #ffe9b8;
+  --text-primary: #fff7e8;
+  --text-secondary: #f2ddbc;
+  --text-tertiary: #c9b38e;
 }
 
 /* -------- Splash Screen -------- */
@@ -6205,7 +6278,7 @@ const CONFIG = {
   STORAGE_KEY: 'prostudio.vibe'
 };
 
-const VIBES = ['moon', 'dawn', 'nebula', 'forest', 'sunset'];
+const VIBES = ['moon', 'dawn', 'nebula', 'forest', 'sunset', 'ocean', 'ember', 'aurora', 'cyber', 'sandstorm'];
 
 // -------------------- State Management --------------------
 const state = {
