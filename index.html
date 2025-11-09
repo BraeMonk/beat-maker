@@ -5031,11 +5031,12 @@ body.pro .pro-locked::after {
 }
 
 /* ============================================
-   8BEAT: MOBILE / TABLET UX OVERRIDES
-   (Place AFTER your current responsive system)
+   8-BEAT MOBILE POLISH
+   (transport, sequencer, multitrack)
+   Place this AFTER all previous CSS
 ============================================ */
 
-/* === GLOBAL TRANSPORT (top Play / Stop / Export) === */
+/* === MAIN TRANSPORT: BIG, READABLE BUTTONS === */
 @media (max-width: 768px) {
   .transport {
     grid-template-columns: 1fr;
@@ -5043,58 +5044,111 @@ body.pro .pro-locked::after {
   }
 
   .transport-controls {
-    justify-content: center;
+    display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: var(--space-2);
   }
 
-  /* Make main buttons big + readable */
+  /* Full-width Play, half-width Stop / Export */
   #playBtn,
   #stopBtn,
   #exportBtn {
-    min-width: 120px;
-    height: 48px;
-    font-size: var(--text-sm);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
+    white-space: nowrap;
+    font-weight: 600;
+    border-radius: 999px;
   }
 
   #playBtn {
-    font-weight: 700;
+    flex: 1 0 100%;
+    min-height: 48px;
+    font-size: var(--text-sm);
   }
 
-  .time-info {
+  #stopBtn,
+  #exportBtn {
+    flex: 1 0 calc(50% - var(--space-2));
+    min-height: 44px;
     font-size: var(--text-xs);
-  }
-
-  .progress-bar {
-    height: 10px;
   }
 }
 
 @media (max-width: 480px) {
-  #playBtn,
+  #playBtn {
+    min-height: 46px;
+    font-size: var(--text-xs);
+  }
+
   #stopBtn,
   #exportBtn {
-    min-width: 110px;
-    height: 46px;
+    min-height: 42px;
     font-size: var(--text-xs);
   }
 }
 
-
-/* ============================================
-   MULTITRACK DAW – MOBILE LAYOUT
-============================================ */
-
-/* Stack DAW columns on mobile instead of 3 side-by-side */
+/* === SEQUENCER: STABLE GRID ON PHONE === */
 @media (max-width: 900px) {
+  .sequencer {
+    overflow-x: auto;
+    padding-bottom: var(--space-2);
+  }
+
+  .seq-grid {
+    min-width: 640px;           /* avoid “squished” steps */
+    gap: var(--space-2);
+  }
+
+  .seq-row {
+    grid-template-columns: 120px repeat(16, minmax(24px, 1fr));
+    gap: 4px;
+  }
+
+  .seq-label {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+  }
+
+  .seq-icon {
+    width: 26px;
+    height: 26px;
+    font-size: 10px;
+  }
+
+  /* Steps: rectangular, not weird squares on tiny screens */
+  .step {
+    aspect-ratio: auto;
+    min-height: 30px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Hide microscopic overlays on mobile – just color is enough */
+  .step-prob,
+  .step-vel {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .seq-grid {
+    min-width: 560px;
+  }
+
+  .seq-row {
+    grid-template-columns: 100px repeat(16, minmax(22px, 1fr));
+  }
+
+  .seq-label {
+    font-size: 10px;
+  }
+}
+
+/* === MULTITRACK DAW: STACKED, TOUCHABLE LAYOUT === */
+@media (max-width: 900px) {
+  /* Stack columns instead of cramming 3 side-by-side */
   .daw-main-container {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
+    grid-auto-rows: auto;
     gap: var(--space-3);
   }
 
@@ -5102,21 +5156,18 @@ body.pro .pro-locked::after {
   .daw-timeline-container,
   .daw-master-strip {
     grid-column: 1 / -1;
-    grid-row: auto;
   }
 
-  /* Keep lists + timeline from getting absurdly tall */
   .daw-track-list-scroll {
-    max-height: 200px;
+    max-height: 220px;
   }
 
   .daw-timeline-container {
     min-height: 220px;
+    max-height: 55vh;
   }
-}
 
-/* DAW transport bar – make buttons big and tidy on touch */
-@media (max-width: 900px) {
+  /* DAW transport bar */
   .daw-transport-bar {
     display: flex;
     flex-direction: column;
@@ -5130,120 +5181,17 @@ body.pro .pro-locked::after {
     gap: var(--space-2);
   }
 
-  /* Main DAW transport buttons (rewind/play/stop/rec/ff) */
   .daw-transport-bar .transport-btn {
-    width: 56px;
-    height: 56px;
-    font-size: var(--text-2xl);
+    width: 52px;
+    height: 52px;
+    font-size: var(--text-xl);
     border-radius: 999px;
   }
 
-  /* Time displays – slightly smaller but clear */
   .daw-transport-bar .transport-display {
     font-size: var(--text-xs);
-    min-width: 96px;
+    min-width: 90px;
     padding: var(--space-1) var(--space-2);
-  }
-
-  /* On very small screens, hide BPM / Time Sig block to avoid clutter */
-  @media (max-width: 600px) {
-    .daw-transport-bar .transport-section:last-child {
-      display: none;
-    }
-  }
-}
-
-
-/* ============================================
-   SEQUENCER – MOBILE CLEANUP
-============================================ */
-
-@media (max-width: 900px) {
-  /* Allow horizontal swipe instead of squashing 16 steps */
-  .sequencer {
-    overflow-x: auto;
-    padding-bottom: var(--space-2);
-  }
-
-  .seq-grid {
-    min-width: 640px; /* enough for 16 steps without chaos */
-  }
-
-  /* Make rows a bit tighter but consistent */
-  .seq-row {
-    grid-template-columns: 120px repeat(16, minmax(26px, 1fr));
-    gap: 4px;
-  }
-
-  .seq-label {
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--text-xs);
-  }
-
-  .seq-icon {
-    width: 28px;
-    height: 28px;
-    font-size: 10px;
-  }
-
-  /* Steps: no weird squashed squares on mobile */
-  .step {
-    aspect-ratio: auto;        /* override desktop square forcing */
-    min-height: 30px;
-    border-radius: var(--radius-sm);
-  }
-
-  /* Hide tiny text overlays on mobile – just color + pulse is enough */
-  .step-prob,
-  .step-vel {
-    display: none !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .seq-grid {
-    min-width: 560px;
-  }
-
-  .seq-row {
-    grid-template-columns: 100px repeat(16, minmax(24px, 1fr));
-  }
-
-  .seq-label {
-    font-size: 10px;
-  }
-}
-
-
-/* ============================================
-   MULTITRACK TIMELINE / TOOLS – TOUCH COMFORT
-============================================ */
-
-@media (max-width: 900px) {
-  .daw-timeline-toolbar {
-    padding: var(--space-2) var(--space-3);
-    gap: var(--space-2);
-  }
-
-  .tool-btn {
-    width: 40px;
-    height: 40px;
-    font-size: var(--text-base);
-  }
-
-  .daw-ruler {
-    height: 40px;
-  }
-}
-
-/* Tiny screens: keep everything scrollable instead of cramped */
-@media (max-width: 480px) {
-  .daw-timeline-container {
-    max-height: 55vh;
-  }
-
-  .daw-main-container {
-    gap: var(--space-2);
   }
 }
 
