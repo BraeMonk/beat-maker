@@ -17081,70 +17081,43 @@ async function setupMultitrackListeners() {
     };
   }
 
-  // === FX CHAIN EDITOR ===
-  const fxAddBtn   = document.getElementById('fxAddBtn');
-  const fxAddMenu  = document.getElementById('fxAddMenu');
+  // === FX CHAIN EDITOR (inline version) ===
+  const fxPanel    = document.getElementById('fxChainPanel');
+  const fxAddList  = document.getElementById('fxAddList');
   const closeFxBtn = document.getElementById('closeFxPanelBtn');
-  
-  if (fxAddBtn && fxAddMenu && !fxAddMenu.dataset._wired) {
-    fxAddMenu.dataset._wired = 'true';
-  
-    // Toggle dropdown
-    fxAddBtn.onclick = (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      const isVisible = fxAddMenu.style.display === 'block';
-      fxAddMenu.style.display = isVisible ? 'none' : 'block';
-    };
-  
-    // Handle clicking an FX type
-    fxAddMenu.querySelectorAll('button[data-fx]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const fxType = btn.dataset.fx;
-        const trackId = multitrack.currentFxTrackId;
-        const track = multitrack.tracks.find(t => t.id === trackId);
-  
-        if (!track) {
-          showToast('⚠️ No track selected for FX chain', 'warning');
-          return;
-        }
-  
-        try {
-          track.addFx(fxType);         // your existing per-track FX logic
-          renderFxChain(track);        // refresh the bottom sheet UI
-          fxAddMenu.style.display = 'none';
-          showToast(`✨ Added ${fxType} to ${track.name}`, 'success');
-        } catch (err) {
-          console.error('Error adding FX:', err);
-          showToast('❌ Could not add effect', 'error');
-        }
-      });
-    });
-  
-    // Close menu when clicking outside panel / menu
-    document.addEventListener('click', (e) => {
-      const panel = document.getElementById('fxChainPanel');
-      if (!panel) return;
-  
-      // If click is inside panel or on Add FX button, ignore
-      if (panel.contains(e.target) || fxAddBtn.contains(e.target)) return;
-  
-      fxAddMenu.style.display = 'none';
+
+  if (fxAddList && !fxAddList.dataset._wired) {
+    fxAddList.dataset._wired = 'true';
+    fxAddList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-fx]');
+      if (!btn) return;
+
+      const fxType = btn.dataset.fx;
+      const trackId = multitrack.currentFxTrackId;
+      const track = multitrack.tracks.find(t => t.id === trackId);
+
+      if (!track) {
+        showToast('⚠️ Click a track’s FX button first', 'warning');
+        return;
+      }
+
+      try {
+        track.addFx(fxType);
+        renderFxChain(track);
+        showToast(`✨ Added ${fxType} to ${track.name}`, 'success');
+      } catch (err) {
+        console.error('Error adding FX:', err);
+        showToast('❌ Could not add effect', 'error');
+      }
     });
   }
-  
-  // Close button fix (as above)
+
   if (closeFxBtn && !closeFxBtn.dataset._wired) {
     closeFxBtn.dataset._wired = 'true';
     closeFxBtn.onclick = () => {
-      const panel = document.getElementById('fxChainPanel');
-      if (panel) {
-        panel.classList.remove('open');
-        panel.setAttribute('aria-hidden', 'true');
-      }
-  
-      if (fxAddMenu) {
-        fxAddMenu.style.display = 'none';
+      if (fxPanel) {
+        fxPanel.classList.remove('open');
+        fxPanel.setAttribute('aria-hidden', 'true');
       }
     };
   }
