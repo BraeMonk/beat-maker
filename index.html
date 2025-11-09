@@ -3803,16 +3803,6 @@ body.pro .pro-locked::after {
   position: relative;
 }
 
-.fx-chain-slots {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: var(--space-4);
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-4);
-}
-
 .fx-add-menu {
   position: absolute;
   top: 100%;
@@ -3847,6 +3837,68 @@ body.pro .pro-locked::after {
 }
 .fx-add-menu button:last-child {
   margin-bottom: 0;
+}
+
+.fx-chain-body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.fx-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+}
+
+.fx-add-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.fx-add-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.fx-pill {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.fx-pill:hover,
+.fx-pill:focus-visible {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+  background: color-mix(in oklab, var(--accent-primary) 12%, var(--glass-bg-strong));
+  box-shadow: var(--shadow-sm);
+}
+
+.fx-chain-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .track-meters {
