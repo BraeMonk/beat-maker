@@ -16494,13 +16494,14 @@ function setupArrangementDragScroll() {
   window.addEventListener('mouseup', endDrag);
 }
 
+// === Sync the timeline ruler with horizontal scroll ===
 function syncTimelineRulerToScroll() {
-  const scrollEl = document.getElementById('dawArrangementScroll');
+  const arrangementScrollEl = document.getElementById('dawArrangementScroll');
   const ruler = document.getElementById('dawRuler');
-  if (!scrollEl || !ruler) return;
+  if (!arrangementScrollEl || !ruler) return;
 
-  const offset = scrollEl.scrollLeft || 0;
-  // Slide the long ruler strip inside its clipped container
+  const offset = arrangementScrollEl.scrollLeft || 0;
+  // Slide the ruler to match the arrangement’s horizontal scroll
   ruler.style.transform = `translateX(${-offset}px)`;
 }
 
@@ -16510,15 +16511,11 @@ async function setupMultitrackListeners() {
   setupArrangementDragScroll();
 
   // NEW: keep timeline ruler in sync with any horizontal scroll
-  const scrollEl = document.getElementById('dawArrangementScroll');
-  if (scrollEl && !scrollEl.dataset._rulerSyncWired) {
-    scrollEl.dataset._rulerSyncWired = 'true';
-
-    // Initial align
+  const arrangementScrollEl = document.getElementById('dawArrangementScroll');
+  if (arrangementScrollEl && !arrangementScrollEl.dataset._rulerSyncWired) {
+    arrangementScrollEl.dataset._rulerSyncWired = 'true';
     syncTimelineRulerToScroll();
-
-    // Live sync on scroll / drag / auto-scroll
-    scrollEl.addEventListener('scroll', () => {
+    arrangementScrollEl.addEventListener('scroll', () => {
       syncTimelineRulerToScroll();
     });
   }
