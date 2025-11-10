@@ -6230,18 +6230,20 @@ body.pro .pro-locked::after {
     box-shadow: var(--shadow-sm);
   }
 
+  /* Mobile: inspector becomes bottom sheet, no transforms */
   .daw-inspector {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: -60vh; /* start hidden below screen */
+    bottom: -60vh; /* hide off-screen */
     max-height: 60vh;
     z-index: 9800;
     transition: bottom var(--duration-base) var(--ease-smooth);
+    /* keep your existing background, borders, etc. if you had them */
   }
 
   .daw-inspector.inspector-open {
-    bottom: 0; /* slides up into view */
+    bottom: 0; /* slide up into view */
   }
 
   /* Hide FAB system on desktop */
@@ -6253,6 +6255,22 @@ body.pro .pro-locked::after {
     }
   }
 }
+
+/* === Mobile keyboard safety mode for inspector === */
+@media (max-width: 900px) {
+  #tab-multitrack .daw-inspector.inspector-keyboard-open {
+    position: static !important;
+    transform: none !important;
+    max-height: none;
+    top: auto;
+    bottom: auto;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    z-index: auto;
+  }
+}
+
   </style>
 </head>
 <body>
@@ -15019,6 +15037,42 @@ async function handleTrackAction(track, action) {
     }
   }
 }
+
+// === Mobile keyboard fix for inspector inputs ===
+(function setupInspectorKeyboardFix() {
+  const inspector = document.querySelector('.daw-inspector');
+  if (!inspector) return;
+
+  const focusSelector = 'input[type="text"], input[type="number"], input[type="email"], textarea, select';
+
+  // When any editable control inside the inspector gets focus,
+  // put the inspector into "keyboard-safe" mode.
+  inspector.addEventListener('focusin', (e) => {
+    if (!e.target.matches(focusSelector)) return;
+
+    inspector.classList.add('inspector-keyboard-open');
+
+    // Make sure the field is visible once the keyboard comes up
+    setTimeout(() => {
+      try {
+        e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      } catch (_) {
+        // scrollIntoView may not exist in some environments; ignore
+      }
+    }, 50);
+  });
+
+  // When focus leaves all fields in the inspector, restore bottom-sheet behavior.
+  inspector.addEventListener('focusout', () => {
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (!inspector.contains(active)) {
+        inspector.classList.remove('inspector-keyboard-open');
+      }
+    }, 100);
+  });
+})();
+
 
 // ============================================================================
 // MULTITRACK INSPECTOR — TRACK-FOCUSED DETAIL PANEL
