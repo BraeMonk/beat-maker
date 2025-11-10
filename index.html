@@ -1070,6 +1070,15 @@ h1 {
     var(--glow-md) color-mix(in oklab, var(--success) 30%, transparent);
 }
 
+#generateSongBtn {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.9; }
+}
+
 /* -------- Sections & Panels -------- */
 .section {
   display: none;
