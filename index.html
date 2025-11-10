@@ -6346,6 +6346,114 @@ body.pro .pro-locked::after {
   max-height: calc(100vh - 64px);
 }
 
+/* ==================== SONG BUILDER TAB ==================== */
+#tab-songbuilder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--glass-bg);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Section headers and titles */
+#tab-songbuilder .panel-header {
+  border-bottom: 1px solid var(--glass-border-strong);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+#tab-songbuilder .panel-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+/* Song structure table */
+#tab-songbuilder table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+#tab-songbuilder th,
+#tab-songbuilder td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+#tab-songbuilder th {
+  background: var(--surface-elevated);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+#tab-songbuilder tr:nth-child(even) {
+  background: color-mix(in oklab, var(--surface) 90%, var(--glass-bg));
+}
+#tab-songbuilder tr:hover {
+  background: color-mix(in oklab, var(--accent-primary) 8%, var(--surface));
+}
+
+/* Control bar and buttons */
+#tab-songbuilder .builder-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+#tab-songbuilder .builder-controls .btn {
+  min-width: 140px;
+  justify-content: center;
+}
+#songBuilderToMultitrackBtn {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: var(--bg-primary);
+  font-weight: 600;
+  transition: transform 0.15s var(--ease-smooth);
+}
+#songBuilderToMultitrackBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Select and input styling */
+#tab-songbuilder select,
+#tab-songbuilder input {
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  transition: border-color 0.2s ease;
+}
+#tab-songbuilder select:focus,
+#tab-songbuilder input:focus {
+  border-color: var(--accent-primary);
+  outline: none;
+}
+
+/* Mobile layout adjustments */
+@media (max-width: 768px) {
+  #tab-songbuilder {
+    padding: var(--space-3);
+    gap: var(--space-4);
+  }
+  #tab-songbuilder table th,
+  #tab-songbuilder table td {
+    padding: var(--space-2);
+  }
+  #tab-songbuilder .builder-controls {
+    justify-content: center;
+  }
+}
+
   </style>
 </head>
 <body>
@@ -8691,124 +8799,124 @@ const STEPS_PER_BAR = 16;
 const SONG_TEMPLATES = {
   // --- POP / ROCK ---
   'intro-verse-chorus': [
-    { id:'intro', label:'Intro', bars:4, energy:0.3, density:0.4, drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'verse1', label:'Verse 1', bars:8, energy:0.6, density:0.6, drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
-    { id:'chorus1', label:'Chorus 1', bars:8, energy:0.9, density:0.8, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'verse2', label:'Verse 2', bars:8, energy:0.7, density:0.6, drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
-    { id:'bridge', label:'Bridge', bars:4, energy:0.8, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'sustained', melodyStyle:'scale-run' },
-    { id:'chorus2', label:'Chorus 2', bars:8, energy:1.0, density:0.9, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
+    { id:'intro', label:'Intro', bars:4, energy:0.3, density:0.4, swing:0, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'verse1', label:'Verse 1', bars:8, energy:0.6, density:0.6, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
+    { id:'chorus1', label:'Chorus 1', bars:8, energy:0.9, density:0.8, swing:0, filterCutoff:1.0, reverb:0.5, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'verse2', label:'Verse 2', bars:8, energy:0.7, density:0.6, swing:0, filterCutoff:1.0, reverb:0.3, variation:'b', drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
+    { id:'bridge', label:'Bridge', bars:4, energy:0.8, density:0.7, swing:0, filterCutoff:1.0, reverb:0.4, variation:'c', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'sustained', melodyStyle:'scale-run' },
+    { id:'chorus2', label:'Chorus 2', bars:8, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.5, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, swing:0, filterCutoff:0.7, reverb:0.6, variation:'a', drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
   ],
 
   // --- EDM / HOUSE ---
   'short-edm-rise-drop': [
-    { id:'intro', label:'Intro', bars:4, energy:0.4, density:0.5, drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'build', label:'Build', bars:8, energy:0.7, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'motif' },
-    { id:'drop1', label:'Drop 1', bars:8, energy:1.0, density:0.9, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
-    { id:'break', label:'Break', bars:4, energy:0.5, density:0.4, drums:false, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'drop2', label:'Drop 2', bars:8, energy:1.0, density:0.9, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
-    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
+    { id:'intro', label:'Intro', bars:4, energy:0.4, density:0.5, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'build', label:'Build', bars:8, energy:0.7, density:0.7, swing:0, filterCutoff:0.9, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'motif' },
+    { id:'drop1', label:'Drop 1', bars:8, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
+    { id:'break', label:'Break', bars:4, energy:0.5, density:0.4, swing:0, filterCutoff:0.8, reverb:0.6, variation:'a', drums:false, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'drop2', label:'Drop 2', bars:8, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.3, variation:'b', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
+    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, swing:0, filterCutoff:0.6, reverb:0.7, variation:'a', drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
   ],
 
   // --- HIP-HOP / LOFI ---
   'hiphop-lofi': [
-    { id:'intro', label:'Intro', bars:4, energy:0.3, density:0.4, drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'verse1', label:'Verse 1', bars:16, energy:0.6, density:0.5, drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'syncopated', chordPattern:'arpeggiated', melodyStyle:'sparse' },
-    { id:'hook', label:'Hook', bars:8, energy:0.8, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'motif' },
-    { id:'verse2', label:'Verse 2', bars:16, energy:0.7, density:0.5, drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'syncopated', chordPattern:'arpeggiated', melodyStyle:'sparse' },
-    { id:'hook2', label:'Hook 2', bars:8, energy:0.9, density:0.8, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' }
+    { id:'intro', label:'Intro', bars:4, energy:0.3, density:0.4, swing:30, filterCutoff:0.9, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'verse1', label:'Verse 1', bars:16, energy:0.6, density:0.5, swing:30, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'syncopated', chordPattern:'arpeggiated', melodyStyle:'sparse' },
+    { id:'hook', label:'Hook', bars:8, energy:0.8, density:0.7, swing:30, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'motif' },
+    { id:'verse2', label:'Verse 2', bars:16, energy:0.7, density:0.5, swing:30, filterCutoff:1.0, reverb:0.3, variation:'b', drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'syncopated', chordPattern:'arpeggiated', melodyStyle:'sparse' },
+    { id:'hook2', label:'Hook 2', bars:8, energy:0.9, density:0.8, swing:30, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, swing:30, filterCutoff:0.7, reverb:0.6, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' }
   ],
 
   // --- METAL / HARDCORE ---
   'metal-hardcore': [
-    { id:'intro', label:'Intro Riff', bars:4, energy:0.7, density:0.7, drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'motif' },
-    { id:'verse1', label:'Verse 1', bars:8, energy:0.8, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'motif' },
-    { id:'chorus1', label:'Chorus 1', bars:8, energy:1.0, density:0.9, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'breakdown', label:'Breakdown', bars:8, energy:0.9, density:0.8, drums:true, bass:true, chords:true, lead:false, drumPattern:'half-time', bassPattern:'pedal', chordPattern:'staccato', melodyStyle:'sparse' },
-    { id:'solo', label:'Solo', bars:8, energy:1.0, density:0.8, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'scale-run' },
-    { id:'chorus2', label:'Chorus 2', bars:8, energy:1.0, density:0.9, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'outro', label:'Outro', bars:4, energy:0.6, density:0.5, drums:true, bass:true, chords:true, lead:false, drumPattern:'half-time', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
+    { id:'intro', label:'Intro Riff', bars:4, energy:0.7, density:0.7, swing:0, filterCutoff:1.0, reverb:0.2, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'motif' },
+    { id:'verse1', label:'Verse 1', bars:8, energy:0.8, density:0.7, swing:0, filterCutoff:1.0, reverb:0.2, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'motif' },
+    { id:'chorus1', label:'Chorus 1', bars:8, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'breakdown', label:'Breakdown', bars:8, energy:0.9, density:0.8, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'half-time', bassPattern:'pedal', chordPattern:'staccato', melodyStyle:'sparse' },
+    { id:'solo', label:'Solo', bars:8, energy:1.0, density:0.8, swing:0, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'scale-run' },
+    { id:'chorus2', label:'Chorus 2', bars:8, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'outro', label:'Outro', bars:4, energy:0.6, density:0.5, swing:0, filterCutoff:0.8, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'half-time', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
   ],
 
   // --- AMBIENT / DOWNTEMPO ---
   'ambient-flow': [
-    { id:'drift1', label:'Drift A', bars:8, energy:0.3, density:0.3, drums:false, bass:false, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'drift2', label:'Drift B', bars:8, energy:0.4, density:0.4, drums:false, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'drift3', label:'Drift C', bars:8, energy:0.5, density:0.5, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'arpeggiated', melodyStyle:'motif' },
-    { id:'fade', label:'Fade', bars:8, energy:0.2, density:0.2, drums:false, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' }
+    { id:'drift1', label:'Drift A', bars:8, energy:0.3, density:0.3, swing:0, filterCutoff:0.9, reverb:0.8, variation:'a', drums:false, bass:false, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'drift2', label:'Drift B', bars:8, energy:0.4, density:0.4, swing:0, filterCutoff:0.95, reverb:0.7, variation:'b', drums:false, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'drift3', label:'Drift C', bars:8, energy:0.5, density:0.5, swing:0, filterCutoff:1.0, reverb:0.6, variation:'c', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'arpeggiated', melodyStyle:'motif' },
+    { id:'fade', label:'Fade', bars:8, energy:0.2, density:0.2, swing:0, filterCutoff:0.7, reverb:0.9, variation:'a', drums:false, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' }
   ],
 
   // --- JAM / IMPROV LOOP ---
   'loop-jam': [
-    { id:'a1', label:'A1', bars:8, energy:0.6, density:0.6, drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
-    { id:'a2', label:'A2', bars:8, energy:0.7, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
-    { id:'b', label:'B', bars:8, energy:0.9, density:0.8, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'a3', label:'A3', bars:8, energy:0.7, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' }
+    { id:'a1', label:'A1', bars:8, energy:0.6, density:0.6, swing:10, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
+    { id:'a2', label:'A2', bars:8, energy:0.7, density:0.7, swing:10, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
+    { id:'b', label:'B', bars:8, energy:0.9, density:0.8, swing:10, filterCutoff:1.0, reverb:0.4, variation:'b', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'a3', label:'A3', bars:8, energy:0.7, density:0.7, swing:10, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' }
   ],
 
   // --- TRAP / MODERN HIP-HOP ---
   'trap-banger': [
-    { id:'intro', label:'Intro', bars:4, energy:0.5, density:0.5, drums:true, bass:true, chords:true, lead:false, drumPattern:'trap', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'verse1', label:'Verse 1', bars:8, energy:0.7, density:0.6, drums:true, bass:true, chords:true, lead:false, drumPattern:'trap', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' },
-    { id:'prechorus1', label:'Pre-Chorus', bars:4, energy:0.8, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'trap', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'motif' },
-    { id:'chorus1', label:'Chorus', bars:8, energy:1.0, density:0.8, drums:true, bass:true, chords:true, lead:true, drumPattern:'trap', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'verse2', label:'Verse 2', bars:8, energy:0.7, density:0.6, drums:true, bass:true, chords:true, lead:false, drumPattern:'trap', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' },
-    { id:'bridge', label:'Bridge/Half-time', bars:8, energy:0.6, density:0.5, drums:true, bass:true, chords:true, lead:true, drumPattern:'half-time', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'chorus2', label:'Chorus 2', bars:8, energy:1.0, density:0.9, drums:true, bass:true, chords:true, lead:true, drumPattern:'trap', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, drums:true, bass:true, chords:false, lead:false, drumPattern:'trap', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
+    { id:'intro', label:'Intro', bars:4, energy:0.5, density:0.5, swing:0, filterCutoff:0.9, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'trap', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'verse1', label:'Verse 1', bars:8, energy:0.7, density:0.6, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'trap', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' },
+    { id:'prechorus1', label:'Pre-Chorus', bars:4, energy:0.8, density:0.7, swing:0, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'trap', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'motif' },
+    { id:'chorus1', label:'Chorus', bars:8, energy:1.0, density:0.8, swing:0, filterCutoff:1.0, reverb:0.5, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'trap', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'verse2', label:'Verse 2', bars:8, energy:0.7, density:0.6, swing:0, filterCutoff:1.0, reverb:0.3, variation:'b', drums:true, bass:true, chords:true, lead:false, drumPattern:'trap', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' },
+    { id:'bridge', label:'Bridge/Half-time', bars:8, energy:0.6, density:0.5, swing:0, filterCutoff:0.9, reverb:0.6, variation:'c', drums:true, bass:true, chords:true, lead:true, drumPattern:'half-time', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'chorus2', label:'Chorus 2', bars:8, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.5, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'trap', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, swing:0, filterCutoff:0.7, reverb:0.7, variation:'a', drums:true, bass:true, chords:false, lead:false, drumPattern:'trap', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
   ],
 
   // --- PROGRESSIVE HOUSE / TRANCE ---
   'progressive-house': [
-    { id:'intro', label:'Intro', bars:8, energy:0.3, density:0.4, drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'buildup1', label:'Build 1', bars:8, energy:0.6, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
-    { id:'drop1', label:'Drop 1', bars:16, energy:1.0, density:0.9, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
-    { id:'breakdown', label:'Breakdown', bars:8, energy:0.4, density:0.3, drums:false, bass:false, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'buildup2', label:'Build 2', bars:8, energy:0.7, density:0.8, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'scale-run' },
-    { id:'drop2', label:'Drop 2', bars:16, energy:1.0, density:0.9, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
-    { id:'outro', label:'Outro', bars:8, energy:0.3, density:0.3, drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
+    { id:'intro', label:'Intro', bars:8, energy:0.3, density:0.4, swing:0, filterCutoff:0.8, reverb:0.5, variation:'a', drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'buildup1', label:'Build 1', bars:8, energy:0.6, density:0.7, swing:0, filterCutoff:0.9, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'motif' },
+    { id:'drop1', label:'Drop 1', bars:16, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
+    { id:'breakdown', label:'Breakdown', bars:8, energy:0.4, density:0.3, swing:0, filterCutoff:0.7, reverb:0.7, variation:'a', drums:false, bass:false, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'buildup2', label:'Build 2', bars:8, energy:0.7, density:0.8, swing:0, filterCutoff:0.95, reverb:0.4, variation:'b', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'arpeggiated', melodyStyle:'scale-run' },
+    { id:'drop2', label:'Drop 2', bars:16, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
+    { id:'outro', label:'Outro', bars:8, energy:0.3, density:0.3, swing:0, filterCutoff:0.6, reverb:0.8, variation:'a', drums:true, bass:false, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
   ],
 
   // --- FUNK / DISCO ---
   'funk-groove': [
-    { id:'intro', label:'Intro', bars:4, energy:0.5, density:0.6, drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'sparse' },
-    { id:'verse1', label:'Verse 1', bars:8, energy:0.7, density:0.7, drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' },
-    { id:'chorus1', label:'Chorus', bars:8, energy:0.9, density:0.8, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'verse2', label:'Verse 2', bars:8, energy:0.7, density:0.7, drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' },
-    { id:'breakdown', label:'Breakdown', bars:8, energy:0.6, density:0.5, drums:false, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'sparse' },
-    { id:'chorus2', label:'Chorus 2', bars:8, energy:1.0, density:0.9, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'dense' },
-    { id:'outro', label:'Vamp Out', bars:8, energy:0.8, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' }
+    { id:'intro', label:'Intro', bars:4, energy:0.5, density:0.6, swing:20, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'sparse' },
+    { id:'verse1', label:'Verse 1', bars:8, energy:0.7, density:0.7, swing:20, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' },
+    { id:'chorus1', label:'Chorus', bars:8, energy:0.9, density:0.8, swing:20, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'verse2', label:'Verse 2', bars:8, energy:0.7, density:0.7, swing:20, filterCutoff:1.0, reverb:0.3, variation:'b', drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' },
+    { id:'breakdown', label:'Breakdown', bars:8, energy:0.6, density:0.5, swing:20, filterCutoff:0.9, reverb:0.5, variation:'c', drums:false, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'sparse' },
+    { id:'chorus2', label:'Chorus 2', bars:8, energy:1.0, density:0.9, swing:20, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'dense' },
+    { id:'outro', label:'Vamp Out', bars:8, energy:0.8, density:0.7, swing:20, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'motif' }
   ],
 
   // --- JAZZ / FUSION ---
   'jazz-standard': [
-    { id:'head-in', label:'Head In', bars:16, energy:0.6, density:0.6, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'motif' },
-    { id:'solo1', label:'Solo Section 1', bars:16, energy:0.7, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'scale-run' },
-    { id:'solo2', label:'Solo Section 2', bars:16, energy:0.8, density:0.8, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'dense' },
-    { id:'head-out', label:'Head Out', bars:16, energy:0.7, density:0.6, drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'motif' },
-    { id:'tag', label:'Tag', bars:4, energy:0.5, density:0.4, drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'sustained', melodyStyle:'sparse' }
+    { id:'head-in', label:'Head In', bars:16, energy:0.6, density:0.6, swing:50, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'motif' },
+    { id:'solo1', label:'Solo Section 1', bars:16, energy:0.7, density:0.7, swing:50, filterCutoff:1.0, reverb:0.4, variation:'b', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'scale-run' },
+    { id:'solo2', label:'Solo Section 2', bars:16, energy:0.8, density:0.8, swing:50, filterCutoff:1.0, reverb:0.4, variation:'c', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'dense' },
+    { id:'head-out', label:'Head Out', bars:16, energy:0.7, density:0.6, swing:50, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'arpeggiated', melodyStyle:'motif' },
+    { id:'tag', label:'Tag', bars:4, energy:0.5, density:0.4, swing:50, filterCutoff:1.0, reverb:0.5, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'breakbeat', bassPattern:'walking', chordPattern:'sustained', melodyStyle:'sparse' }
   ],
 
   // --- DUBSTEP / BASS MUSIC ---
   'dubstep-wobble': [
-    { id:'intro', label:'Intro', bars:8, energy:0.4, density:0.4, drums:true, bass:false, chords:true, lead:true, drumPattern:'half-time', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'buildup', label:'Build Up', bars:8, energy:0.7, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'half-time', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'motif' },
-    { id:'drop1', label:'Drop 1', bars:16, energy:1.0, density:0.9, drums:true, bass:true, chords:false, lead:true, drumPattern:'half-time', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
-    { id:'breakdown', label:'Breakdown', bars:8, energy:0.3, density:0.3, drums:false, bass:false, chords:true, lead:true, drumPattern:'half-time', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'buildup2', label:'Build 2', bars:4, energy:0.8, density:0.8, drums:true, bass:true, chords:true, lead:true, drumPattern:'half-time', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'scale-run' },
-    { id:'drop2', label:'Drop 2', bars:16, energy:1.0, density:0.9, drums:true, bass:true, chords:false, lead:true, drumPattern:'half-time', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
-    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, drums:true, bass:false, chords:true, lead:false, drumPattern:'half-time', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
+    { id:'intro', label:'Intro', bars:8, energy:0.4, density:0.4, swing:0, filterCutoff:0.8, reverb:0.5, variation:'a', drums:true, bass:false, chords:true, lead:true, drumPattern:'half-time', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'buildup', label:'Build Up', bars:8, energy:0.7, density:0.7, swing:0, filterCutoff:0.9, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'half-time', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'motif' },
+    { id:'drop1', label:'Drop 1', bars:16, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:false, lead:true, drumPattern:'half-time', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
+    { id:'breakdown', label:'Breakdown', bars:8, energy:0.3, density:0.3, swing:0, filterCutoff:0.6, reverb:0.8, variation:'a', drums:false, bass:false, chords:true, lead:true, drumPattern:'half-time', bassPattern:'pedal', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'buildup2', label:'Build 2', bars:4, energy:0.8, density:0.8, swing:0, filterCutoff:0.95, reverb:0.4, variation:'b', drums:true, bass:true, chords:true, lead:true, drumPattern:'half-time', bassPattern:'syncopated', chordPattern:'rhythmic', melodyStyle:'scale-run' },
+    { id:'drop2', label:'Drop 2', bars:16, energy:1.0, density:0.9, swing:0, filterCutoff:1.0, reverb:0.3, variation:'a', drums:true, bass:true, chords:false, lead:true, drumPattern:'half-time', bassPattern:'syncopated', chordPattern:'staccato', melodyStyle:'dense' },
+    { id:'outro', label:'Outro', bars:4, energy:0.4, density:0.3, swing:0, filterCutoff:0.7, reverb:0.7, variation:'a', drums:true, bass:false, chords:true, lead:false, drumPattern:'half-time', bassPattern:'root-fifth', chordPattern:'sustained', melodyStyle:'sparse' }
   ],
 
   // --- REGGAE / DUB ---
   'reggae-dub': [
-    { id:'intro', label:'Intro Skank', bars:8, energy:0.5, density:0.5, drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'sparse' },
-    { id:'verse1', label:'Verse 1', bars:16, energy:0.6, density:0.5, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'motif' },
-    { id:'chorus1', label:'Chorus', bars:8, energy:0.8, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'motif' },
-    { id:'verse2', label:'Verse 2', bars:16, energy:0.6, density:0.5, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'motif' },
-    { id:'dub-section', label:'Dub Drop', bars:16, energy:0.7, density:0.6, drums:true, bass:true, chords:false, lead:false, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'sustained', melodyStyle:'sparse' },
-    { id:'chorus2', label:'Chorus Out', bars:8, energy:0.8, density:0.7, drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'motif' }
+    { id:'intro', label:'Intro Skank', bars:8, energy:0.5, density:0.5, swing:10, filterCutoff:1.0, reverb:0.5, variation:'a', drums:true, bass:true, chords:true, lead:false, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'sparse' },
+    { id:'verse1', label:'Verse 1', bars:16, energy:0.6, density:0.5, swing:10, filterCutoff:1.0, reverb:0.4, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'motif' },
+    { id:'chorus1', label:'Chorus', bars:8, energy:0.8, density:0.7, swing:10, filterCutoff:1.0, reverb:0.5, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'motif' },
+    { id:'verse2', label:'Verse 2', bars:16, energy:0.6, density:0.5, swing:10, filterCutoff:1.0, reverb:0.4, variation:'b', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'staccato', melodyStyle:'motif' },
+    { id:'dub-section', label:'Dub Drop', bars:16, energy:0.7, density:0.6, swing:10, filterCutoff:0.8, reverb:0.8, variation:'c', drums:true, bass:true, chords:false, lead:false, drumPattern:'four-floor', bassPattern:'syncopated', chordPattern:'sustained', melodyStyle:'sparse' },
+    { id:'chorus2', label:'Chorus Out', bars:8, energy:0.8, density:0.7, swing:10, filterCutoff:1.0, reverb:0.5, variation:'a', drums:true, bass:true, chords:true, lead:true, drumPattern:'four-floor', bassPattern:'root-fifth', chordPattern:'rhythmic', melodyStyle:'motif' }
   ]
 };
 
