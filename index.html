@@ -6277,6 +6277,52 @@ body.pro .pro-locked::after {
   }
 }
 
+/* =========================================================
+   MULTITRACK LAYOUT FIXES
+   - Make track header controls fully accessible
+   - Keep bottom panels/menus sitting above footer
+========================================================= */
+
+/* 1) Let the track list breathe on tablet/mobile
+   (removes the harsh 200px cap so the header buttons aren't cramped) */
+@media (max-width: 1024px) {
+  #tab-multitrack .daw-track-list {
+    /* Still feels like a column, but not overly constrained */
+    min-height: 60vh;
+    max-height: none;
+  }
+
+  #tab-multitrack .daw-track-list-scroll {
+    max-height: none;   /* overrides the old 200px cap */
+    min-height: 0;
+  }
+}
+
+/* 2) Make sure "opening" UI (FX panel, menus, etc.) sits above the footer */
+
+.modal-backdrop,
+.region-context-menu,
+#fxChainPanel,
+.daw-fab-menu,
+.toast-container {
+  z-index: 11000; /* safely above main app content + footer */
+}
+
+/* 3) Nudge the FX chain panel up slightly so it feels "above" the footer,
+   not like it’s glued directly to the very bottom */
+#fxChainPanel {
+  bottom: calc(var(--space-4) + var(--inset-bottom));
+}
+
+/* (Optional but nice) – if you ever want the region context menu
+   to never collide with the footer visually, you can give it a small
+   bottom margin via JS or here as a visual hint: */
+
+.region-context-menu {
+  /* keep existing styles, just ensure we never visually hug the bottom */
+  max-height: calc(100vh - 64px);
+}
+
   </style>
 </head>
 <body>
