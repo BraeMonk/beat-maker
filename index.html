@@ -8492,7 +8492,7 @@ function initAudio() {
     noteQueue.length = 0;
   };
   
-  // Main sequencer loop - THIS REPLACES YOUR OLD LOOP
+  // Main sequencer loop - DYNAMIC LENGTH
   const loop = new Tone.Sequence((time, step) => {
     state.currentStep = step;
     updateStepVisuals(step);
@@ -8525,6 +8525,7 @@ function initAudio() {
   Tone.Transport.loopEnd = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
   
   loop.start(0);
+  window.mainLoop = loop; // Store reference for disposal
   
   sequencerInitialized = true;
 }
