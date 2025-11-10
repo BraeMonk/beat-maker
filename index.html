@@ -6211,9 +6211,12 @@ body.pro .pro-locked::after {
   /* === Smooth, symmetric half-circle above FAB === */
   .daw-fab-menu.open .daw-fab-menu-item {
     opacity: 1;
-    transform: translateX(-8px);
   }
 
+  .daw-fab-menu.open {
+    transform: translateX(calc(-50% - 8px));
+  }
+  
   /* Clean, symmetric semi-circle above the centered FAB */
   .daw-fab-menu.open .daw-fab-menu-item:nth-child(1) {
     transform: translate(-95px, -60px) scale(1);
