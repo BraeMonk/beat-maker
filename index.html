@@ -21518,8 +21518,11 @@ window.addEventListener('resize', () => {
 });
 
 function initFAB() {
-  fabController = new FABController();
+  if (!fabController && window.innerWidth <= 900) {
+    fabController = new FABController();
+  }
 }
+
 // ===================================================
 // 🎼 HARMONY TAB INTEGRATION
 // ===================================================
