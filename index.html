@@ -6337,15 +6337,6 @@ body.pro .pro-locked::after {
   max-height: calc(100vh - 64px);
 }
 
-/* === TEMPORARY: Disable FAB quick-action button and menu (REMOVE FOR LATER IMPLEMENTATION) === */
-#dawFab,
-#dawFabMenu {
-  display: none !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-}
-
   </style>
 </head>
 <body>
@@ -7020,7 +7011,7 @@ body.pro .pro-locked::after {
         </div>
       </div>
       <!-- Mobile quick actions FAB -->
-      <button id="dawFab" class="daw-fab" type="button" aria-label="Quick actions">
+      <!--<button id="dawFab" class="daw-fab" type="button" aria-label="Quick actions">
         <span id="dawFabIcon">+</span>
       </button>
       
@@ -7040,7 +7031,7 @@ body.pro .pro-locked::after {
         <button class="daw-fab-menu-item" data-action="undo" title="Undo">
           ↶
         </button>
-      </div>
+      </div>-->
     </section>
 
     <section class="section pro-locked" id="tab-samples">
