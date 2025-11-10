@@ -6149,7 +6149,7 @@ body.pro .pro-locked::after {
     inset: 0;
     background: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(2px);
-    z-index: 9898;
+    z-index: 8999;
     opacity: 0;
     visibility: hidden;
     transition: all var(--duration-base) var(--ease-smooth);
@@ -6167,7 +6167,7 @@ body.pro .pro-locked::after {
     position: fixed;
     bottom: calc(var(--space-5) + var(--inset-bottom) + 32px);
     right: calc(var(--space-5) + var(--inset-right) + 32px);
-    z-index: 9899;
+    z-index: 9000;
     pointer-events: none;
   }
 
@@ -6237,13 +6237,12 @@ body.pro .pro-locked::after {
     right: 0;
     bottom: 0;
     max-height: 60vh;
-    transform: translateY(100%);
-    transition: transform var(--duration-base) var(--ease-smooth);
     z-index: 9800;
+    display: none;
   }
 
   .daw-inspector.inspector-open {
-    transform: translateY(0);
+    display: block;
   }
 
   /* Hide FAB system on desktop */
