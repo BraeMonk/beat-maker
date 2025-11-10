@@ -5496,6 +5496,145 @@ body.pro .pro-locked::after {
     justify-content: flex-start;
   }
 }
+
+/* ==========================================================================
+   MULTITRACK: ACCESSIBLE MOBILE LAYOUT + INSPECTOR STYLES
+   Paste this near the end of your <style> block so it overrides earlier rules
+   ========================================================================== */
+
+/* 1) Friendlier mobile layout for the multitrack tab */
+@media (max-width: 900px) {
+  #tab-multitrack .daw-wrapper {
+    height: auto;
+    min-height: 0;
+  }
+
+  #tab-multitrack .daw-main-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(280px, 1fr);
+    gap: var(--space-3);
+  }
+
+  #tab-multitrack .daw-track-list {
+    order: 1;
+    min-height: auto;
+    max-height: 220px;
+  }
+
+  #tab-multitrack .daw-track-list-scroll {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  #tab-multitrack .daw-timeline-container {
+    order: 2;
+    min-height: 280px;
+  }
+
+  #tab-multitrack .daw-master-strip {
+    order: 3;
+  }
+
+  #tab-multitrack .daw-inspector {
+    order: 4;
+  }
+}
+
+@media (max-width: 768px) {
+  #tab-multitrack .daw-main-container {
+    grid-template-rows: auto minmax(260px, 1fr);
+  }
+
+  #tab-multitrack .daw-track-list {
+    max-height: 190px;
+  }
+
+  #tab-multitrack .daw-timeline-container {
+    min-height: 260px;
+  }
+
+  /* Hide the master strip on very small screens –
+     you can still access master from the mixer tab */
+  #tab-multitrack .daw-master-strip {
+    display: none;
+  }
+
+  /* Turn the inspector into a bottom sheet on phones */
+  #tab-multitrack .daw-inspector {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    margin: 0;
+    max-height: 70vh;
+    transform: translateY(100%);
+    transition: transform var(--duration-base) var(--ease-smooth);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: 0 -16px 40px rgba(0,0,0,.6);
+    z-index: 9600;
+  }
+
+  #tab-multitrack .daw-inspector.inspector-open {
+    transform: translateY(0);
+  }
+}
+
+/* 4) FX chain panel: scroll instead of overlapping the footer */
+.fx-chain-panel {
+  max-height: min(60vh, calc(100vh - 80px));
+  overflow-y: auto;
+  padding-bottom: calc(var(--space-4) + var(--inset-bottom));
+}
+
+/* 2) Track header selection state (what's currently in the inspector) */
+#tab-multitrack .track-header.selected {
+  border-color: color-mix(in oklab, var(--accent-primary) 50%, var(--glass-border-strong));
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--accent-primary) 35%, transparent),
+    0 0 0 1px rgba(15,23,42,.9),
+    var(--shadow-lg);
+  background:
+    radial-gradient(circle at top left,
+      color-mix(in oklab, var(--accent-primary) 16%, transparent),
+      transparent 65%),
+    var(--surface-elevated);
+}
+
+/* 3) Inspector micro layout tweaks */
+.daw-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+#inspectorTitle {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inspector-section-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.inspector-param-label span:first-child {
+  font-weight: 600;
+}
+
+.inspector-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
   </style>
 </head>
 <body>
@@ -14243,6 +14382,313 @@ async function handleTrackAction(track, action) {
   }
 }
 
+// ============================================================================
+// MULTITRACK INSPECTOR — TRACK-FOCUSED DETAIL PANEL
+// ============================================================================
+
+// Keep track of what the inspector is currently showing
+let inspectorSelection = {
+  type: 'none',     // 'none' | 'track'
+  trackId: null,
+  takeIndex: null
+};
+
+const inspectorPlaceholderHTML = `
+  <div class="inspector-placeholder">
+    <div style="text-align:center; padding: var(--space-8); color: var(--text-tertiary);">
+      <div style="font-size: var(--text-3xl); margin-bottom: var(--space-3);">🎚️</div>
+      <div>Select a track or region</div>
+      <div style="font-size: var(--text-sm); margin-top: var(--space-2);">
+        Tap a track name on the left to open its details here.
+      </div>
+    </div>
+  </div>
+`;
+
+function getInspectorEls() {
+  return {
+    root: document.querySelector('.daw-inspector'),
+    titleEl: document.getElementById('inspectorTitle'),
+    contentEl: document.getElementById('inspectorContent')
+  };
+}
+
+function resetInspector() {
+  const { root, titleEl, contentEl } = getInspectorEls();
+  if (!root || !titleEl || !contentEl) return;
+  inspectorSelection = { type: 'none', trackId: null, takeIndex: null };
+  titleEl.textContent = '🎛️ Inspector';
+  contentEl.innerHTML = inspectorPlaceholderHTML;
+
+  // Remove header highlight
+  document.querySelectorAll('#dawTrackList .track-header').forEach(el => {
+    el.classList.remove('selected');
+  });
+}
+
+// Open the inspector focused on a given track
+function openTrackInspector(trackId) {
+  const { root, titleEl, contentEl } = getInspectorEls();
+  if (!root || !titleEl || !contentEl) return;
+
+  const track = multitrack.tracks.find(t => t.id === trackId);
+  if (!track) return;
+
+  inspectorSelection = { type: 'track', trackId, takeIndex: null };
+  multitrack.selectedTrackId = trackId;
+
+  // Highlight the selected header
+  document.querySelectorAll('#dawTrackList .track-header').forEach(el => {
+    const id = parseInt(el.dataset.trackId || '0', 10);
+    el.classList.toggle('selected', id === trackId);
+  });
+
+  titleEl.textContent = `Track ${track.id} • ${track.name}`;
+
+  const formatPanLabel = (pan) => {
+    if (pan === 0) return 'C';
+    return (pan > 0 ? 'R' : 'L') + Math.abs(pan);
+  };
+
+  const numRegions = (track.takes || []).length;
+
+  contentEl.innerHTML = `
+    <div class="inspector-section">
+      <div class="inspector-section-title">Overview</div>
+
+      <div class="inspector-param">
+        <div class="inspector-param-label">
+          <span>Name</span>
+        </div>
+        <input type="text"
+               data-inspector-field="name"
+               value="${track.name}"
+               style="width:100%;">
+      </div>
+
+      <div class="inspector-param">
+        <div class="inspector-param-label">
+          <span>Source</span>
+        </div>
+        <div class="inspector-param-value">
+          ${track.isExternalAudio ? 'External / Mic' : (track.instrument || 'Internal')}
+        </div>
+      </div>
+
+      <div class="inspector-param">
+        <div class="inspector-param-label">
+          <span>Regions on track</span>
+        </div>
+        <div class="inspector-param-value">
+          ${numRegions}
+        </div>
+      </div>
+    </div>
+
+    <div class="inspector-section">
+      <div class="inspector-section-title">Mix</div>
+
+      <div class="inspector-param">
+        <div class="inspector-param-label">
+          <span>Volume</span>
+          <span class="inspector-param-value" data-inspector-value="volume">
+            ${track.volume.toFixed(1)} dB
+          </span>
+        </div>
+        <input type="range"
+               min="-40" max="10" step="0.1"
+               value="${track.volume}"
+               data-inspector-control="volume">
+      </div>
+
+      <div class="inspector-param">
+        <div class="inspector-param-label">
+          <span>Pan</span>
+          <span class="inspector-param-value" data-inspector-value="pan">
+            ${formatPanLabel(track.pan)}
+          </span>
+        </div>
+        <input type="range"
+               min="-100" max="100" step="1"
+               value="${track.pan}"
+               data-inspector-control="pan">
+      </div>
+
+      <div class="inspector-param">
+        <div class="inspector-param-label">
+          <span>States</span>
+        </div>
+        <div class="inspector-toggle-row">
+          <button class="btn btn-xs" data-inspector-toggle="mute"></button>
+          <button class="btn btn-xs" data-inspector-toggle="solo"></button>
+          <button class="btn btn-xs" data-inspector-toggle="monitor"></button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // --- Wire controls ---
+
+  // Rename
+  const nameInput = contentEl.querySelector('[data-inspector-field="name"]');
+  if (nameInput) {
+    nameInput.addEventListener('change', () => {
+      const newName = nameInput.value.trim();
+      if (!newName || newName === track.name) return;
+      if (typeof track.rename === 'function') {
+        track.rename(newName);
+      } else {
+        track.name = newName;
+      }
+      // Also update header text
+      const headerName = document.querySelector(
+        `#dawTrackList .track-header[data-track-id="${track.id}"] .track-name`
+      );
+      if (headerName) headerName.textContent = newName;
+      titleEl.textContent = `Track ${track.id} • ${newName}`;
+    });
+  }
+
+  // Volume
+  const volSlider = contentEl.querySelector('[data-inspector-control="volume"]');
+  const volLabel  = contentEl.querySelector('[data-inspector-value="volume"]');
+  if (volSlider) {
+    volSlider.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      track.volume = value;
+      if (track.channel && track.channel.volume) {
+        track.channel.volume.rampTo(value, 0.05);
+      }
+      if (volLabel) volLabel.textContent = value.toFixed(1) + ' dB';
+
+      // Keep header slider & label in sync
+      const headerSlider = document.querySelector(
+        `.track-header .track-volume-slider[data-track-id="${track.id}"]`
+      );
+      if (headerSlider) {
+        headerSlider.value = value;
+        const label = headerSlider.closest('.track-volume-control')?.querySelector('.track-volume-value');
+        if (label) label.textContent = value.toFixed(1) + 'dB';
+      }
+    });
+  }
+
+  // Pan
+  const panSlider = contentEl.querySelector('[data-inspector-control="pan"]');
+  const panLabel  = contentEl.querySelector('[data-inspector-value="pan"]');
+  if (panSlider) {
+    panSlider.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value, 10);
+      track.pan = value;
+      if (track.channel && track.channel.pan) {
+        track.channel.pan.rampTo(value / 100, 0.05);
+      }
+      if (panLabel) panLabel.textContent = formatPanLabel(value);
+
+      const headerSlider = document.querySelector(
+        `.track-header .track-pan-slider[data-track-id="${track.id}"]`
+      );
+      if (headerSlider) {
+        headerSlider.value = value;
+        const label = headerSlider.closest('.track-volume-control')?.querySelector('.track-pan-value');
+        if (label) label.textContent = formatPanLabel(value);
+      }
+    });
+  }
+
+  // State toggles
+  const muteBtn = contentEl.querySelector('[data-inspector-toggle="mute"]');
+  const soloBtn = contentEl.querySelector('[data-inspector-toggle="solo"]');
+  const monBtn  = contentEl.querySelector('[data-inspector-toggle="monitor"]');
+
+  if (muteBtn) {
+    const syncMuteBtn = () => {
+      muteBtn.textContent = track.muted ? 'Muted' : 'Mute';
+      muteBtn.classList.toggle('btn-primary', track.muted);
+      muteBtn.classList.toggle('btn-secondary', !track.muted);
+    };
+    syncMuteBtn();
+    muteBtn.addEventListener('click', async () => {
+      await handleTrackAction(track, 'mute');
+      openTrackInspector(track.id);
+    });
+  }
+
+  if (soloBtn) {
+    const syncSoloBtn = () => {
+      soloBtn.textContent = track.soloed ? 'Soloed' : 'Solo';
+      soloBtn.classList.toggle('btn-primary', track.soloed);
+      soloBtn.classList.toggle('btn-secondary', !track.soloed);
+    };
+    syncSoloBtn();
+    soloBtn.addEventListener('click', async () => {
+      await handleTrackAction(track, 'solo');
+      openTrackInspector(track.id);
+    });
+  }
+
+  if (monBtn) {
+    if (!track.isExternalAudio) {
+      monBtn.style.display = 'none';
+    } else {
+      const syncMonBtn = () => {
+        monBtn.textContent = track.inputMonitoring ? 'Monitor On' : 'Monitor Off';
+        monBtn.classList.toggle('btn-primary', track.inputMonitoring);
+        monBtn.classList.toggle('btn-secondary', !track.inputMonitoring);
+      };
+      syncMonBtn();
+      monBtn.addEventListener('click', async () => {
+        await handleTrackAction(track, 'monitor');
+        openTrackInspector(track.id);
+      });
+    }
+  }
+
+  // On mobile, slide the inspector up into view
+  if (window.innerWidth <= 768 && root) {
+    root.classList.add('inspector-open');
+  }
+}
+
+// Re-apply inspector selection after a re-render (mute/solo, undo, etc.)
+function refreshInspectorSelection() {
+  if (inspectorSelection.type === 'track' && inspectorSelection.trackId != null) {
+    openTrackInspector(inspectorSelection.trackId);
+  } else if (inspectorSelection.type === 'none') {
+    resetInspector();
+  }
+}
+
+// Wire close button + initial placeholder
+function setupInspectorUI() {
+  const { root } = getInspectorEls();
+  if (!root) return;
+
+  // Initial state
+  resetInspector();
+
+  const closeBtn = document.getElementById('closeInspectorBtn');
+  if (closeBtn && !closeBtn.dataset._wired) {
+    closeBtn.dataset._wired = 'true';
+    closeBtn.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        root.classList.remove('inspector-open'); // close bottom sheet
+      } else {
+        resetInspector(); // desktop: keep panel but clear selection
+      }
+    });
+  }
+}
+
+// Run once DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    setupInspectorUI();
+  } catch (err) {
+    console.warn('Inspector setup failed:', err);
+  }
+});
+
 function showAddTrackDialog() {
   document.querySelectorAll('.modal-backdrop').forEach(m => m.remove());
 
@@ -14479,13 +14925,16 @@ function renderMultitrack() {
     const instData = track.isExternalAudio ? 
       { icon: '🎤', name: 'External' } : 
       instruments[track.instrument];
-    
+
     // CREATE TRACK HEADER (LEFT SIDE)
     const headerDiv = document.createElement('div');
     headerDiv.className = 'track-header';
+    headerDiv.dataset.trackId = track.id;   // 🔐 link header to specific track
+    headerDiv.tabIndex = 0;                  // keyboard focusable for accessibility
     if (track.recording) headerDiv.classList.add('recording');
     if (track.armed) headerDiv.classList.add('armed');
     if (track.isExternalAudio) headerDiv.classList.add('external-audio');
+
     
     headerDiv.innerHTML = `
       <div class="track-header-top">
@@ -14671,7 +15120,27 @@ function renderMultitrack() {
         }
       });
     }
-    
+
+        // Clicking the header (but not the buttons/sliders) opens the inspector
+    headerDiv.addEventListener('click', (e) => {
+      if (e.target.closest('.track-mini-btn') || e.target.closest('input[type="range"]')) {
+        return; // don't double-handle button/slider clicks
+      }
+      if (typeof openTrackInspector === 'function') {
+        openTrackInspector(track.id);
+      }
+    });
+
+    // Keyboard: Enter/Space also open inspector when header is focused
+    headerDiv.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (typeof openTrackInspector === 'function') {
+          openTrackInspector(track.id);
+        }
+      }
+    });
+
     // Setup region interactions
     setupRegionInteractions(laneDiv, track);
     
@@ -14701,6 +15170,11 @@ function renderMultitrack() {
 
   if (typeof updateTimelineRuler === 'function') {
     updateTimelineRuler();
+  }
+  
+  // If the inspector already had something selected, re-apply it
+  if (typeof refreshInspectorSelection === 'function') {
+    refreshInspectorSelection();
   }
 }
 
