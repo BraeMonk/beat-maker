@@ -8492,7 +8492,7 @@ function initAudio() {
     noteQueue.length = 0;
   };
   
-  // Main sequencer loop - FIXED TIMING
+  // Main sequencer loop - THIS REPLACES YOUR OLD LOOP
   const loop = new Tone.Sequence((time, step) => {
     state.currentStep = step;
     updateStepVisuals(step);
@@ -8514,26 +8514,21 @@ function initAudio() {
     });
   
     updateVisualizer();
-  }, Array.from({ length: CONFIG.MAX_SEQUENCE_LENGTH }, (_, i) => i), state.resolution);
+  }, 
+  Array.from({ length: state.sequenceLength }, (_, i) => i), 
+  state.resolution);
   
-  // 🎵 SONG BUILDER FIX: Set loop to cover full sequence length
   loop.loop = true;
-  loop.loopEnd = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
+  loop.loopEnd = state.sequenceLength;
+  
+  Tone.Transport.loop = true;
+  Tone.Transport.loopEnd = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
   
   loop.start(0);
-
-  if (songBuilderState.isActive) {
-    loop.loop = true;
-    loop.loopEnd = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
-    Tone.Transport.loop = true;
-    Tone.Transport.loopEnd = loop.loopEnd;
-  }
   
-  // Set Transport loop to match
-  Tone.Transport.loop = true;
-  Tone.Transport.loopEnd = loop.loopEnd;
+  sequencerInitialized = true;
 }
-
+  
 // In createInstrumentChain function (around line ~676), replace with:
 function createInstrumentChain(inst) {
   const instData = instruments[inst];
@@ -9887,7 +9882,6 @@ function applyTransitionEffects(section, nextSection, endBar) {
   }
 }
 
-// Modify generateFullSongFromStructure to include transitions:
 function generateFullSongFromStructure() {
   songBuilderState.isActive = true;
   ensureHarmonyGuardrails();
@@ -9916,14 +9910,27 @@ function generateFullSongFromStructure() {
     currentBar = endBar;
   });
 
-  // 🎵 UPDATE TRANSPORT FOR FULL SONG LENGTH
-  if (Tone.Transport.state === 'started') {
-      Tone.Transport.stop();
-      Tone.Transport.start();
+  // 🔧 RECREATE SEQUENCER with new length
+  const wasPlaying = Tone.Transport.state === 'started';
+  
+  if (wasPlaying) {
+    Tone.Transport.stop();
   }
   
-  const loopDuration = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
-  Tone.Transport.loopEnd = loopDuration;
+  // Cancel all scheduled events and dispose old loop
+  Tone.Transport.cancel();
+  if (window.mainLoop) {
+    window.mainLoop.dispose();
+  }
+  
+  // Reset sequencer flag so it reinitializes
+  sequencerInitialized = false;
+  initAudio();
+  
+  // Restart if it was playing
+  if (wasPlaying) {
+    Tone.Transport.start();
+  }
     
   renderSequencer();
   showToast('🎼 Structured song generated', 'success');
