@@ -8520,7 +8520,15 @@ function initAudio() {
     updateVisualizer();
   }, Array.from({ length: state.sequenceLength }, (_, i) => i), state.resolution);
   
+  // 🎵 SONG BUILDER FIX: Set loop to cover full sequence length
+  loop.loop = true;
+  loop.loopEnd = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
+  
   loop.start(0);
+  
+  // Set Transport loop to match
+  Tone.Transport.loop = true;
+  Tone.Transport.loopEnd = loop.loopEnd;
 }
 
 // In createInstrumentChain function (around line ~676), replace with:
@@ -9899,7 +9907,14 @@ function generateFullSongFromStructure() {
     
     currentBar = endBar;
   });
-  
+
+  // 🎵 UPDATE TRANSPORT FOR FULL SONG LENGTH
+  if (Tone.Transport.state === 'started') {
+      Tone.Transport.stop();
+  }
+  const loopDuration = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
+  Tone.Transport.loopEnd = loopDuration;
+    
   renderSequencer();
   showToast('🎼 Structured song generated', 'success');
 }
