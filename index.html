@@ -9927,7 +9927,9 @@ function generateFullSongFromStructure() {
   // 🎵 UPDATE TRANSPORT FOR FULL SONG LENGTH
   if (Tone.Transport.state === 'started') {
       Tone.Transport.stop();
+      Tone.Transport.start();
   }
+  
   const loopDuration = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
   Tone.Transport.loopEnd = loopDuration;
     
