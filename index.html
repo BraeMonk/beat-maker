@@ -6162,6 +6162,27 @@ body.pro .pro-locked::after {
     pointer-events: auto;
   }
 
+  /* === FIX: Keep backdrop blur, but exclude the FAB and menu === */
+
+  /* 1. Ensure FAB and menu are drawn on a separate compositing layer */
+  .daw-fab,
+  .daw-fab-menu {
+    position: relative;
+    isolation: isolate;   /* 🔑 stops backdrop-filter from bleeding onto them */
+    z-index: 10000;       /* ensure they sit above visual stack */
+  }
+
+/* 2. Slightly lower backdrop so it’s underneath */
+.daw-fab-backdrop {
+  z-index: 9500;        /* under fab + menu */
+}
+
+/* 3. (Optional alternate look) — remove blur entirely if you prefer crisp dim */
+.daw-fab-backdrop.no-blur {
+  backdrop-filter: none;
+  background: rgba(0, 0, 0, 0.45);
+}
+
   /* Radial menu */
   .daw-fab-menu {
     position: fixed;
@@ -6251,6 +6272,52 @@ body.pro .pro-locked::after {
     .daw-fab-backdrop {
       display: none;
     }
+  }
+
+  /* Center the whole radial group on screen */
+  .daw-fab-menu {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* center anchor */
+    z-index: 10000;
+    pointer-events: none;
+  }
+
+  .daw-fab-menu.open {
+    pointer-events: auto;
+  }
+
+  /* Spread items evenly around center in a circular pattern */
+  .daw-fab-menu.open .daw-fab-menu-item {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Adjusted coordinates for a centered arc (you can tweak the radius numbers) */
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(1) {
+    transform: translate(-90px, -50px) scale(1);
+    transition-delay: 50ms;
+  }
+
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(2) {
+    transform: translate(-60px, -110px) scale(1);
+    transition-delay: 100ms;
+  }
+
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(3) {
+    transform: translate(0px, -130px) scale(1);
+    transition-delay: 150ms;
+  }
+
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(4) {
+    transform: translate(60px, -110px) scale(1);
+    transition-delay: 200ms;
+  }
+
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(5) {
+    transform: translate(90px, -50px) scale(1);
+    transition-delay: 250ms;
   }
 }
 
