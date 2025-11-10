@@ -6254,6 +6254,14 @@ body.pro .pro-locked::after {
   }
 }
 
+/* === MOBILE: COMPLETELY HIDE MULTITRACK INSPECTOR === */
+@media (max-width: 900px) {
+  #tab-multitrack .daw-inspector,
+  .daw-inspector {
+    display: none !important;
+  }
+}
+
 /* === Mobile keyboard safety mode for inspector === */
 @media (max-width: 900px) {
   #tab-multitrack .daw-inspector.inspector-keyboard-open {
