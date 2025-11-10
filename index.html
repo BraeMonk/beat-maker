@@ -8496,29 +8496,25 @@ function initAudio() {
   const loop = new Tone.Sequence((time, step) => {
     state.currentStep = step;
     updateStepVisuals(step);
-    
+  
     const activeInsts = Object.keys(instruments).filter(inst => 
       patterns[inst][step]?.active
     );
-    
-    // 🔥 FIX: Play drum instruments IMMEDIATELY without batching
-    // Only batch melodic instruments to prevent message handler overload
+  
     const drumInsts = activeInsts.filter(inst => instruments[inst].type === 'drum');
     const melodicInsts = activeInsts.filter(inst => instruments[inst].type !== 'drum');
-    
-    // Play drums immediately - no offset (tight timing critical)
+  
     drumInsts.forEach(inst => {
       playStep(inst, step, time);
     });
-    
-    // Batch melodic instruments with tiny offset (they're more forgiving)
-    melodicInsts.forEach((inst, idx) => {
-      const offset = (idx / Math.max(1, melodicInsts.length - 1)) * 0.002; // Reduced from 0.005
+  
+    melodicInsts.forEach((inst, idx) => { 
+      const offset = (idx / Math.max(1, melodicInsts.length - 1)) * 0.002;
       setTimeout(() => playStep(inst, step, time + offset), 0);
     });
-    
+  
     updateVisualizer();
-  }, Array.from({ length: state.sequenceLength }, (_, i) => i), state.resolution);
+  }, Array.from({ length: CONFIG.MAX_SEQUENCE_LENGTH }, (_, i) => i), state.resolution);
   
   // 🎵 SONG BUILDER FIX: Set loop to cover full sequence length
   loop.loop = true;
@@ -9041,8 +9037,11 @@ function createMelodicSynth(inst) {
 }
 
 function playStep(inst, step, time) {
-  const stepData = patterns[inst][step];
-  if (!stepData.active) return;
+  const instPattern = patterns[inst];
+  if (!instPattern) return;
+
+  const stepData = instPattern[step];
+  if (!stepData || !stepData.active) return;
   
   const instData = instruments[inst];
   if (instData.mute) return;
