@@ -6212,10 +6212,6 @@ body.pro .pro-locked::after {
   .daw-fab-menu.open .daw-fab-menu-item {
     opacity: 1;
   }
-
-  .daw-fab-menu.open {
-    transform: translateX(calc(-50% - 8px));
-  }
   
   /* Clean, symmetric semi-circle above the centered FAB */
   .daw-fab-menu.open .daw-fab-menu-item:nth-child(1) {
@@ -21413,11 +21409,10 @@ class FABController {
 
     // Close on escape key
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isOpen) {
-        this.close();
-      }
+      if (e.key === 'Escape' && this.isOpen) this.close();
     });
 
+    // Close when tab changes
     document.addEventListener('tabChange', () => this.close());
   }
 
@@ -21431,10 +21426,7 @@ class FABController {
     this.menu.classList.add('open');
     this.backdrop.classList.add('open');
     if (this.fabIcon) this.fabIcon.textContent = '×';
-
-    if (navigator.vibrate) {
-      navigator.vibrate(10);
-    }
+    if (navigator.vibrate) navigator.vibrate(10);
   }
 
   close() {
@@ -21467,68 +21459,48 @@ class FABController {
     }
   }
 
-  // 🔹 Use your existing add-track flow
   addTrack() {
     if (typeof showAddTrackDialog === 'function') {
       showAddTrackDialog();
     } else if (typeof createTrack === 'function') {
       createTrack();
-      if (typeof showToast === 'function') {
-        showToast('✅ Track added', 'success');
-      }
+      if (typeof showToast === 'function') showToast('✅ Track added', 'success');
     }
   }
 
-  // 🔹 Inspector: toggle the right-hand panel (mobile bottom sheet)
   toggleInspector() {
     const inspector = document.querySelector('.daw-inspector');
     if (!inspector) return;
-
     inspector.classList.toggle('inspector-open');
     const isOpen = inspector.classList.contains('inspector-open');
     inspector.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-
     if (typeof showToast === 'function') {
       showToast(isOpen ? '🎛️ Inspector opened' : '🎛️ Inspector closed', 'info');
     }
   }
 
-  // 🔹 FX: hook straight into your bottom FX panel
   toggleFX() {
     const fxPanel = document.getElementById('fxChainPanel');
     if (!fxPanel) return;
-
     const isOpen = !fxPanel.classList.contains('open');
     fxPanel.classList.toggle('open', isOpen);
     fxPanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-
     if (typeof showToast === 'function') {
       showToast(isOpen ? '✨ FX chain opened' : '✨ FX chain closed', 'info');
     }
   }
 
-  // 🔹 Quick record arm: arm the currently selected track strip
   quickRecordArm() {
     const selectedStrip = document.querySelector('.daw-track-strip.selected');
     if (!selectedStrip) {
-      if (typeof showToast === 'function') {
-        showToast('⚠️ Tap a track first', 'warning');
-      }
+      if (typeof showToast === 'function') showToast('⚠️ Tap a track first', 'warning');
       return;
     }
-
     const trackId = selectedStrip.dataset.trackId;
-    if (!trackId) return;
-
-    const armBtn = document.querySelector(
-      `.track-mini-btn.arm[data-track-id="${trackId}"]`
-    );
-    if (!armBtn) return;
-
-    armBtn.click();
+    const armBtn = document.querySelector(`.track-mini-btn.arm[data-track-id="${trackId}"]`);
+    if (armBtn) armBtn.click();
   }
 
-  // 🔹 Undo: plug into your multitrackHistory system
   undo() {
     if (window.multitrackHistory && typeof multitrackHistory.undo === 'function') {
       multitrackHistory.undo();
@@ -21540,22 +21512,14 @@ class FABController {
 
 let fabController;
 
-function initFAB() {
-  if (window.innerWidth <= 900) {
-    if (!fabController) fabController = new FABController();
-  } else if (fabController) {
-    fabController.close();
-  }
-}
-
-
-// Cleanup on resize to desktop
+// === Cleanup on resize to desktop ===
 window.addEventListener('resize', () => {
-  if (window.innerWidth > 900 && fabController) {
-    fabController.close();
-  }
+  if (window.innerWidth > 900 && fabController) fabController.close();
 });
 
+function initFAB() {
+  fabController = new FABController();
+}
 // ===================================================
 // 🎼 HARMONY TAB INTEGRATION
 // ===================================================
@@ -21733,6 +21697,8 @@ function init() {
 
   setInterval(updateDAWStatus, 500);
   initPlayheadFollow();
+
+  initFAB();
   // Small delay so the user sees "Ready!" before it disappears
   setTimeout(hideSplash, 3000);
 }
