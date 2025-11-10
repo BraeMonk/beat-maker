@@ -1255,9 +1255,25 @@ input[type="range"]::-moz-range-thumb:active {
   transform: scale(0.95);
 }
 
+/* Text and number inputs - use text cursor */
 input[type="text"],
 input[type="email"],
-input[type="number"],
+input[type="number"] {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  cursor: text; /* Changed from pointer to text */
+  outline: none;
+  transition: all var(--duration-base) var(--ease-smooth);
+}
+
+/* Select dropdown - keep pointer cursor */
 select {
   width: 100%;
   padding: var(--space-3) var(--space-4);
@@ -1268,7 +1284,7 @@ select {
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: var(--text-sm);
-  cursor: pointer;
+  cursor: pointer; /* Pointer is correct for dropdowns */
   outline: none;
   transition: all var(--duration-base) var(--ease-smooth);
 }
@@ -6282,7 +6298,7 @@ body.pro .pro-locked::after {
           <div class="pro-modal-inner">
             <h2>🔓 Unlock 8-Beat Studio Pro</h2>
             <p>Paste your license key to unlock all features.</p>
-            <input id="licenseInput" type="text" placeholder="8BEAT-XXXX-XXXX-XXXX">
+            <input id="licenseInput" type="text" inputmode="text" placeholder="8BEAT-XXXX-XXXX-XXXX">
             <div class="modal-actions">
               <div>
                 <style>.pp-58FUHY8RYFPP2{text-align:center;border:none;border-radius:0.25rem;min-width:11.625rem;padding:0 2rem;height:2.625rem;font-weight:bold;background-color:#FFD140;color:#000000;font-family:"Helvetica Neue",Arial,sans-serif;font-size:1rem;line-height:1.25rem;cursor:pointer;}</style>
