@@ -6346,6 +6346,469 @@ body.pro .pro-locked::after {
   max-height: calc(100vh - 64px);
 }
 
+/* ==================== SONG BUILDER TAB: PREMIUM STYLING ==================== */
+
+#tab-songbuilder {
+  /* Special hero gradient background */
+  background: 
+    radial-gradient(ellipse 800px 600px at 20% 10%, 
+      color-mix(in oklab, var(--accent-primary) 18%, transparent), 
+      transparent 60%),
+    radial-gradient(ellipse 700px 500px at 80% 90%, 
+      color-mix(in oklab, var(--accent-secondary) 15%, transparent), 
+      transparent 60%),
+    linear-gradient(135deg, 
+      var(--bg-secondary) 0%, 
+      var(--bg-primary) 50%, 
+      var(--bg-tertiary) 100%);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-6);
+  position: relative;
+  overflow: hidden;
+}
+
+#tab-songbuilder::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: 
+    radial-gradient(circle at 30% 40%, 
+      color-mix(in oklab, var(--accent-tertiary) 12%, transparent), 
+      transparent 50%),
+    radial-gradient(circle at 70% 60%, 
+      color-mix(in oklab, var(--accent-secondary) 10%, transparent), 
+      transparent 50%);
+  animation: songBuilderAmbient 12s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes songBuilderAmbient {
+  0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.5; }
+  50% { transform: rotate(10deg) scale(1.15); opacity: 0.3; }
+}
+
+#tab-songbuilder > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Main panel styling */
+#tab-songbuilder .panel {
+  background: var(--surface-elevated);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: 
+    var(--shadow-xl),
+    inset 0 1px 0 rgba(255,255,255,.08),
+    inset 0 -1px 0 rgba(0,0,0,.15);
+  backdrop-filter: blur(24px) saturate(150%);
+  transition: all var(--duration-base) var(--ease-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+#tab-songbuilder .panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, 
+    var(--accent-primary), 
+    var(--accent-secondary), 
+    var(--accent-tertiary));
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-smooth);
+}
+
+#tab-songbuilder .panel:hover::before {
+  opacity: 1;
+  box-shadow: var(--glow-md) color-mix(in oklab, var(--accent-primary) 35%, transparent);
+}
+
+#tab-songbuilder .panel:hover {
+  border-color: color-mix(in oklab, var(--accent-primary) 35%, var(--glass-border-strong));
+  box-shadow: 
+    var(--shadow-2xl),
+    var(--glow-sm) color-mix(in oklab, var(--accent-primary) 20%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.12);
+  transform: translateY(-2px);
+}
+
+/* Nested panels (steps 1-4) */
+#tab-songbuilder .panel .panel {
+  background: 
+    linear-gradient(135deg, 
+      color-mix(in oklab, var(--glass-bg-strong) 95%, transparent),
+      color-mix(in oklab, var(--glass-bg) 90%, transparent));
+  border: 1px solid var(--glass-border);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-md);
+}
+
+#tab-songbuilder .panel .panel:hover {
+  border-color: color-mix(in oklab, var(--accent-primary) 25%, var(--glass-border));
+  transform: translateY(-1px);
+}
+
+/* Panel header with badge */
+#tab-songbuilder .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--glass-border-strong);
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+#tab-songbuilder .panel-title {
+  font-size: var(--text-2xl);
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, 
+    var(--text-primary), 
+    var(--accent-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+#tab-songbuilder .panel-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  font-weight: 500;
+  line-height: 1.6;
+  margin-top: var(--space-1);
+}
+
+#tab-songbuilder .badge-ghost {
+  background: var(--glass-bg-strong);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border-strong);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Step headers */
+#tab-songbuilder .panel .panel > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+  gap: var(--space-3);
+}
+
+#tab-songbuilder .panel .panel > div:first-child > div:first-child > div:first-child {
+  font-size: var(--text-lg);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+#tab-songbuilder .panel .panel > div:first-child > div:first-child > div:first-child::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--accent-primary) 50%, transparent);
+}
+
+/* Template selector styling */
+#songTemplateSelect {
+  width: 100%;
+  max-width: 280px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border-strong);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-smooth);
+  box-shadow: var(--shadow-sm);
+}
+
+#songTemplateSelect:hover {
+  border-color: color-mix(in oklab, var(--accent-primary) 40%, var(--glass-border-strong));
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+#songTemplateSelect:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 
+    var(--shadow-md),
+    0 0 0 3px color-mix(in oklab, var(--accent-primary) 20%, transparent);
+}
+
+/* Sections table styling */
+#tab-songbuilder table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+  background: var(--glass-bg);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-inner);
+}
+
+#tab-songbuilder thead {
+  background: linear-gradient(135deg, 
+    color-mix(in oklab, var(--accent-primary) 15%, var(--glass-bg-strong)),
+    var(--glass-bg-strong));
+}
+
+#tab-songbuilder thead tr {
+  border-bottom: 2px solid var(--glass-border-strong);
+}
+
+#tab-songbuilder th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: 800;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--text-xs);
+}
+
+#tab-songbuilder tbody tr {
+  transition: all var(--duration-fast) var(--ease-smooth);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+#tab-songbuilder tbody tr:last-child {
+  border-bottom: none;
+}
+
+#tab-songbuilder tbody tr:hover {
+  background: color-mix(in oklab, var(--accent-primary) 8%, transparent);
+}
+
+#tab-songbuilder tbody td {
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Scroll container for table */
+#tab-songbuilder .scroll-x {
+  overflow-x: auto;
+  margin: 0 calc(-1 * var(--space-1));
+  padding: 0 var(--space-1);
+  scrollbar-width: thin;
+}
+
+/* Fill select styling */
+#songFillEverySelect {
+  width: 100%;
+  max-width: 160px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-smooth);
+}
+
+#songFillEverySelect:hover {
+  border-color: color-mix(in oklab, var(--accent-primary) 30%, var(--glass-border));
+  background: var(--glass-bg-strong);
+}
+
+#songFillEverySelect:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent-primary) 20%, transparent);
+}
+
+/* Total bars label */
+#songTotalBarsLabel {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: var(--accent-primary);
+  font-size: var(--text-base);
+  padding: var(--space-1) var(--space-3);
+  background: color-mix(in oklab, var(--accent-primary) 12%, transparent);
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent-primary) 30%, transparent);
+}
+
+/* Build button - HERO TREATMENT */
+#songBuildBtn {
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, 
+    var(--accent-primary), 
+    var(--accent-secondary),
+    var(--accent-tertiary));
+  color: var(--bg-primary);
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: var(--text-base);
+  letter-spacing: 0.02em;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-bounce);
+  box-shadow: 
+    var(--shadow-xl),
+    var(--glow-md) color-mix(in oklab, var(--accent-primary) 45%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.25);
+  position: relative;
+  overflow: hidden;
+  animation: songBuildPulse 3s ease-in-out infinite;
+}
+
+@keyframes songBuildPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+#songBuildBtn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, 
+    transparent 30%, 
+    rgba(255,255,255,.3) 50%, 
+    transparent 70%);
+  transform: translateX(-100%);
+  transition: transform var(--duration-slower) var(--ease-smooth);
+}
+
+#songBuildBtn:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    var(--shadow-2xl),
+    var(--glow-lg) color-mix(in oklab, var(--accent-primary) 55%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.35);
+}
+
+#songBuildBtn:hover::before {
+  transform: translateX(100%);
+}
+
+#songBuildBtn:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+/* Send to Multitrack button */
+#songBuilderToMultitrackBtn {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, 
+    var(--success), 
+    color-mix(in oklab, var(--success) 75%, #5eead4));
+  color: #042f2e;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: var(--text-sm);
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-base) var(--ease-smooth);
+  box-shadow: 
+    var(--shadow-md),
+    0 0 20px color-mix(in oklab, var(--success) 35%, transparent);
+}
+
+#songBuilderToMultitrackBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    var(--shadow-lg),
+    0 0 30px color-mix(in oklab, var(--success) 45%, transparent);
+}
+
+#songBuilderToMultitrackBtn:active {
+  transform: translateY(0);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  #tab-songbuilder {
+    padding: var(--space-4);
+  }
+
+  #tab-songbuilder .panel {
+    padding: var(--space-4);
+  }
+
+  #tab-songbuilder .panel .panel {
+    padding: var(--space-4);
+  }
+
+  #tab-songbuilder .panel-title {
+    font-size: var(--text-xl);
+  }
+}
+
+@media (max-width: 768px) {
+  #tab-songbuilder {
+    padding: var(--space-3);
+  }
+
+  #tab-songbuilder .panel {
+    padding: var(--space-4);
+  }
+
+  #tab-songbuilder .panel .panel {
+    padding: var(--space-3);
+  }
+
+  #tab-songbuilder .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  #tab-songbuilder .panel-title {
+    font-size: var(--text-lg);
+  }
+
+  #tab-songbuilder table {
+    font-size: var(--text-xs);
+  }
+
+  #tab-songbuilder th,
+  #tab-songbuilder td {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  #songBuildBtn {
+    width: 100%;
+    padding: var(--space-3) var(--space-5);
+  }
+
+  #songBuilderToMultitrackBtn {
+    width: 100%;
+  }
+}
   </style>
 </head>
 <body>
