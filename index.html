@@ -6144,7 +6144,6 @@ body.pro .pro-locked::after {
     50% { transform: scale(1.15); opacity: 0.5; }
   }
 
-  /* FAB menu backdrop */
   .daw-fab-backdrop {
     position: fixed;
     inset: 0;
@@ -6163,9 +6162,6 @@ body.pro .pro-locked::after {
     pointer-events: auto;
   }
 
-  /* === FIX: Keep backdrop blur, but exclude the FAB and menu === */
-
-  /* 1. Ensure FAB and menu are drawn on a separate compositing layer */
   .daw-fab,
   .daw-fab-menu {
     position: relative;
@@ -6173,18 +6169,15 @@ body.pro .pro-locked::after {
     z-index: 10000;
   }
 
-  /* 2. Slightly lower backdrop so it's underneath */
   .daw-fab-backdrop {
     z-index: 9500;
   }
 
-  /* 3. (Optional alternate look) — remove blur entirely if you prefer crisp dim */
   .daw-fab-backdrop.no-blur {
     backdrop-filter: none;
     background: rgba(0, 0, 0, 0.45);
   }
 
-  /* Radial menu - centered at bottom */
   .daw-fab-menu {
     position: fixed;
     bottom: calc(var(--space-5) + var(--inset-bottom) + 32px);
@@ -6222,7 +6215,6 @@ body.pro .pro-locked::after {
     transform: scale(1);
   }
 
-  /* Radial positioning - arc above centered FAB */
   .daw-fab-menu.open .daw-fab-menu-item:nth-child(1) {
     transform: translate(-120px, -40px) scale(1);
     transition-delay: 50ms;
@@ -6266,14 +6258,13 @@ body.pro .pro-locked::after {
   .daw-inspector.inspector-open {
     bottom: 0;
   }
+}
 
-  /* Hide FAB system on desktop */
-  @media (min-width: 901px) {
-    .daw-fab,
-    .daw-fab-menu,
-    .daw-fab-backdrop {
-      display: none;
-    }
+@media (min-width: 901px) {
+  .daw-fab,
+  .daw-fab-menu,
+  .daw-fab-backdrop {
+    display: none;
   }
 }
     
