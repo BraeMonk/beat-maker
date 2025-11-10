@@ -6337,6 +6337,15 @@ body.pro .pro-locked::after {
   max-height: calc(100vh - 64px);
 }
 
+/* === TEMPORARY: Disable FAB quick-action button and menu (REMOVE FOR LATER IMPLEMENTATION) === */
+#dawFab,
+#dawFabMenu {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
   </style>
 </head>
 <body>
