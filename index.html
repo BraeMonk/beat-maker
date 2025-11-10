@@ -6381,6 +6381,7 @@ body.pro .pro-locked::after {
         <button class="sidebar-tab" data-tab="mixer">🎚️ Mixer</button>
         <button class="sidebar-tab" data-tab="fx">🎛️ Effects</button>
         <button class="sidebar-tab" data-tab="harmony">🎼 Harmony</button>
+        <button class="sidebar-tab" data-tab="songbuilder">🧱 Song Builder</button>
         <button class="sidebar-tab" data-tab="multitrack">🎙️ Multitrack</button>
         <button class="sidebar-tab" data-tab="samples">📂 Samples</button>
         <button id="unlockProBtn">🔓 Unlock Pro</button>
@@ -6806,6 +6807,135 @@ body.pro .pro-locked::after {
         </div>
       </div>
     </section>
+
+    <!-- ==================== SONG BUILDER TAB ==================== -->
+    <section class="section pro-locked" id="tab-songbuilder">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">🧱 Song Builder</div>
+            <div class="panel-subtitle">
+              Step-by-step pipeline from empty grid → full, structured song.
+            </div>
+          </div>
+          <div class="badge badge-ghost">Beta · v1.7</div>
+        </div>
+    
+        <div class="panel-body" style="display:flex; flex-direction:column; gap:var(--space-4);">
+    
+          <!-- STEP 1: Pick a template -->
+          <div class="panel" style="padding:var(--space-4);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-2);">
+              <div>
+                <div style="font-weight:600; margin-bottom:4px;">1. Song Form</div>
+                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">
+                  Choose a structure: intro, verses, choruses, bridge, outro.
+                </div>
+              </div>
+            </div>
+    
+            <div style="display:flex; flex-wrap:wrap; gap:var(--space-3); align-items:center;">
+              <label style="font-size:var(--text-xs); text-transform:uppercase; letter-spacing:0.08em; color:var(--text-tertiary);">
+                Template
+              </label>
+              <select id="songTemplateSelect" class="input" style="min-width:220px;">
+                <option value="intro-verse-chorus">Pop: Intro / Verse / Chorus</option>
+                <option value="short-edm-rise-drop">EDM: Build → Drop</option>
+                <option value="loop-jam">Loop-based Jam</option>
+              </select>
+    
+              <div style="font-size:var(--text-xs); color:var(--text-tertiary); margin-left:auto;">
+                Powered by your current key, scale & progression (Harmony tab)
+              </div>
+            </div>
+          </div>
+    
+          <!-- STEP 2: Edit sections -->
+          <div class="panel" style="padding:var(--space-4);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-2);">
+              <div>
+                <div style="font-weight:600; margin-bottom:4px;">2. Sections & Energy</div>
+                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">
+                  Tweak length, energy and instrumentation for each section.
+                </div>
+              </div>
+    
+              <div style="font-size:var(--text-xs); color:var(--text-tertiary);">
+                Total length: <span id="songTotalBarsLabel">—</span> bars
+              </div>
+            </div>
+    
+            <div class="scroll-x" style="overflow-x:auto;">
+              <table style="width:100%; border-collapse:collapse; font-size:var(--text-xs); min-width:560px;">
+                <thead>
+                  <tr style="text-align:left; border-bottom:1px solid var(--glass-border);">
+                    <th style="padding:6px 4px;">Section</th>
+                    <th style="padding:6px 4px; width:70px;">Bars</th>
+                    <th style="padding:6px 4px; width:160px;">Energy</th>
+                    <th style="padding:6px 4px;">Instruments</th>
+                  </tr>
+                </thead>
+                <tbody id="songSectionsTable">
+                  <!-- Filled by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+    
+          <!-- STEP 3: Fills & groove -->
+          <div class="panel" style="padding:var(--space-4);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-2);">
+              <div>
+                <div style="font-weight:600; margin-bottom:4px;">3. Fills & Groove</div>
+                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">
+                  Light automation for drum fills and intensity.
+                </div>
+              </div>
+            </div>
+    
+            <div style="display:flex; flex-wrap:wrap; gap:var(--space-4); align-items:center;">
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <label for="songFillEverySelect" style="font-size:var(--text-xs); color:var(--text-tertiary);">
+                  Drum fill every…
+                </label>
+                <select id="songFillEverySelect" class="input" style="min-width:120px;">
+                  <option value="0">Never</option>
+                  <option value="4" selected>4 bars</option>
+                  <option value="8">8 bars</option>
+                  <option value="16">16 bars</option>
+                </select>
+              </div>
+    
+              <div style="font-size:var(--text-xs); color:var(--text-tertiary); max-width:260px;">
+                Fills are only added in higher-energy sections (verses / choruses / drops).
+              </div>
+            </div>
+          </div>
+    
+          <!-- STEP 4: Build -->
+          <div class="panel" style="padding:var(--space-4); display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:600; margin-bottom:4px;">4. Build full song</div>
+              <div style="font-size:var(--text-xs); color:var(--text-tertiary); max-width:360px;">
+                Uses your current genre, tempo, and harmony guardrails to generate
+                drums, bass, keys and lead for the whole structure.
+              </div>
+            </div>
+    
+            <div style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-end;">
+              <button id="songBuildBtn" class="btn btn-primary">
+                🎼 Build Structured Song
+              </button>
+              <div style="font-size:var(--text-xs); color:var(--text-tertiary);">
+                Result shows up in the Sequencer / Generate view.
+              </div>
+            </div>
+          </div>
+    
+        </div>
+      </div>
+    </section>
+
     
     <!-- Replace the entire <section class="section pro-locked" id="tab-multitrack"> block with this -->
 
@@ -8547,6 +8677,384 @@ function setupVibeSelector() {
   }
 }
 
+// ==================== SONG BUILDER ENGINE ====================
+
+// 16 steps per bar (your existing grid resolution)
+const STEPS_PER_BAR = 16;
+
+// Prebuilt form templates
+const SONG_TEMPLATES = {
+  'intro-verse-chorus': [
+    { id: 'intro',      label: 'Intro',       bars: 4,  energy: 0.3, drums: true,  bass: false, chords: true,  lead: false },
+    { id: 'verse1',     label: 'Verse 1',    bars: 8,  energy: 0.6, drums: true,  bass: true,  chords: true,  lead: false },
+    { id: 'prechorus1', label: 'Pre-Chorus', bars: 4,  energy: 0.7, drums: true,  bass: true,  chords: true,  lead: true  },
+    { id: 'chorus1',    label: 'Chorus 1',   bars: 8,  energy: 0.9, drums: true,  bass: true,  chords: true,  lead: true  },
+    { id: 'verse2',     label: 'Verse 2',    bars: 8,  energy: 0.7, drums: true,  bass: true,  chords: true,  lead: false },
+    { id: 'bridge',     label: 'Bridge',     bars: 4,  energy: 0.8, drums: true,  bass: true,  chords: true,  lead: true  },
+    { id: 'chorus2',    label: 'Chorus 2',   bars: 8,  energy: 1.0, drums: true,  bass: true,  chords: true,  lead: true  },
+    { id: 'outro',      label: 'Outro',      bars: 4,  energy: 0.4, drums: true,  bass: false, chords: true,  lead: false }
+  ],
+
+  'short-edm-rise-drop': [
+    { id: 'intro',   label: 'Intro',    bars: 4,  energy: 0.4, drums: true,  bass: false, chords: true,  lead: false },
+    { id: 'build',   label: 'Build',    bars: 8,  energy: 0.7, drums: true,  bass: true,  chords: true,  lead: true  },
+    { id: 'drop1',   label: 'Drop 1',   bars: 8,  energy: 1.0, drums: true,  bass: true,  chords: true,  lead: true  },
+    { id: 'break',   label: 'Break',    bars: 4,  energy: 0.5, drums: false, bass: false, chords: true,  lead: false },
+    { id: 'drop2',   label: 'Drop 2',   bars: 8,  energy: 1.0, drums: true,  bass: true,  chords: true,  lead: true  },
+    { id: 'outro',   label: 'Outro',    bars: 4,  energy: 0.4, drums: true,  bass: false, chords: true,  lead: false }
+  ],
+
+  'loop-jam': [
+    { id: 'a1', label: 'A1', bars: 8, energy: 0.6, drums: true,  bass: true, chords: true,  lead: false },
+    { id: 'a2', label: 'A2', bars: 8, energy: 0.7, drums: true,  bass: true, chords: true,  lead: true  },
+    { id: 'b',  label: 'B',  bars: 8, energy: 0.9, drums: true,  bass: true, chords: true,  lead: true  },
+    { id: 'a3', label: 'A3', bars: 8, energy: 0.7, drums: true,  bass: true, chords: true,  lead: true  }
+  ]
+};
+
+let songBuilderState = {
+  templateId: 'intro-verse-chorus',
+  sections: SONG_TEMPLATES['intro-verse-chorus'].map(s => ({ ...s })),
+  fillEvery: 4
+};
+
+// Small helper for safe step activation
+function sbSetStep(inst, stepIndex, opts = {}) {
+  const arr = patterns[inst];
+  if (!arr || stepIndex < 0 || stepIndex >= arr.length) return;
+  const step = arr[stepIndex];
+  const {
+    velocity   = 0.8,
+    probability = 100,
+    note       = step.note || instruments[inst]?.note,
+    duration   = '8n'
+  } = opts;
+
+  step.active = true;
+  step.velocity = velocity;
+  step.probability = probability;
+  step.note = note;
+  step.duration = duration;
+}
+
+function getSongBuilderTotalBars() {
+  return songBuilderState.sections.reduce((sum, s) => sum + (s.bars || 0), 0);
+}
+
+function applySongTemplate(id) {
+  const tpl = SONG_TEMPLATES[id];
+  if (!tpl) return;
+  songBuilderState.templateId = id;
+  songBuilderState.sections = tpl.map(s => ({ ...s }));
+  renderSongBuilderSections();
+}
+
+// === UI rendering for the table ===
+function renderSongBuilderSections() {
+  const tbody = document.getElementById('songSectionsTable');
+  const totalLabel = document.getElementById('songTotalBarsLabel');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  songBuilderState.sections.forEach((section, index) => {
+    const tr = document.createElement('tr');
+    tr.dataset.index = index;
+
+    tr.innerHTML = `
+      <td style="padding:6px 4px;">
+        <span>${section.label}</span>
+      </td>
+      <td style="padding:6px 4px;">
+        <input type="number"
+               class="input"
+               min="2" max="64"
+               value="${section.bars}"
+               data-field="bars"
+               style="width:56px; padding:2px 4px; font-size:10px;">
+      </td>
+      <td style="padding:6px 4px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <input type="range"
+                 min="0" max="100"
+                 value="${Math.round((section.energy || 0) * 100)}"
+                 data-field="energy"
+                 style="flex:1;">
+          <span style="width:32px; text-align:right;">
+            ${Math.round((section.energy || 0) * 100)}%
+          </span>
+        </div>
+      </td>
+      <td style="padding:6px 4px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <label><input type="checkbox" data-field="drums"  ${section.drums  ? 'checked' : ''}> Drums</label>
+          <label><input type="checkbox" data-field="bass"   ${section.bass   ? 'checked' : ''}> Bass</label>
+          <label><input type="checkbox" data-field="chords" ${section.chords ? 'checked' : ''}> Chords</label>
+          <label><input type="checkbox" data-field="lead"   ${section.lead   ? 'checked' : ''}> Lead</label>
+        </div>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  // Wire changes
+  tbody.querySelectorAll('input').forEach(input => {
+    input.addEventListener('input', e => {
+      const row = e.target.closest('tr');
+      const idx = parseInt(row.dataset.index, 10);
+      const field = e.target.dataset.field;
+      const section = songBuilderState.sections[idx];
+      if (!section) return;
+
+      if (field === 'bars') {
+        const v = Math.max(2, Math.min(64, parseInt(e.target.value || '0', 10)));
+        section.bars = v;
+        e.target.value = v;
+      } else if (field === 'energy') {
+        const pct = Math.max(0, Math.min(100, parseInt(e.target.value || '0', 10)));
+        section.energy = pct / 100;
+        const label = row.querySelector('td:nth-child(3) span:last-child');
+        if (label) label.textContent = pct + '%';
+      } else if (['drums','bass','chords','lead'].includes(field)) {
+        section[field] = e.target.checked;
+      }
+
+      if (totalLabel) {
+        totalLabel.textContent = getSongBuilderTotalBars();
+      }
+    });
+  });
+
+  if (totalLabel) {
+    totalLabel.textContent = getSongBuilderTotalBars();
+  }
+}
+
+// === Core generation ===
+
+function wipeAllPatterns() {
+  Object.keys(instruments).forEach(inst => {
+    patterns[inst].forEach(step => {
+      step.active = false;
+      step.velocity = 0.8;
+      step.probability = 100;
+      step.note = instruments[inst].note;
+      step.duration = '8n';
+    });
+  });
+}
+
+function generateSectionDrums(section, startBar, endBar) {
+  if (!section.drums) return;
+  if (!patterns.kick || !patterns.snare) return;
+
+  const hasHats = !!patterns.hihat;
+  const energy = section.energy ?? 0.7;
+  const fillEvery = songBuilderState.fillEvery || 0;
+
+  for (let bar = startBar; bar < endBar; bar++) {
+    const offset = bar * STEPS_PER_BAR;
+
+    // Base backbeat: kick on 1 & 3, snare on 2 & 4
+    sbSetStep('kick',  offset + 0,  { velocity: 0.9 });
+    sbSetStep('snare', offset + 4,  { velocity: 0.9 });
+    sbSetStep('kick',  offset + 8,  { velocity: 0.9 });
+    sbSetStep('snare', offset + 12, { velocity: 0.95 });
+
+    // Energy-based extra kicks & hats
+    if (energy > 0.5) {
+      sbSetStep('kick', offset + 10, { velocity: 0.8 });
+    }
+    if (energy > 0.7) {
+      sbSetStep('kick', offset + 2, { velocity: 0.7 });
+    }
+
+    if (hasHats) {
+      for (let step = 0; step < STEPS_PER_BAR; step++) {
+        const isOffbeat = step % 2 === 1;
+        const hatChance = isOffbeat ? 0.8 : 0.3;
+        if (Math.random() < hatChance * (0.3 + energy)) {
+          sbSetStep('hihat', offset + step, {
+            velocity: 0.4 + 0.3 * energy,
+            probability: 70 + Math.floor(30 * energy)
+          });
+        }
+      }
+    }
+
+    // Simple fill at end of phrase
+    if (fillEvery && ((bar + 1) % fillEvery === 0) && energy > 0.6) {
+      for (let step = STEPS_PER_BAR - 4; step < STEPS_PER_BAR; step++) {
+        sbSetStep('snare', offset + step, {
+          velocity: 0.7 + 0.2 * Math.random(),
+          probability: 80 + Math.floor(20 * Math.random())
+        });
+      }
+    }
+  }
+}
+
+function generateSectionBass(section, startBar, endBar) {
+  if (!section.bass) return;
+  if (!patterns.bass) return;
+
+  const bassOct = (state.octave || 3) - 2;
+  for (let bar = startBar; bar < endBar; bar++) {
+    const offset = bar * STEPS_PER_BAR;
+    const chord = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
+    const root = chord[0].replace(/\d/, '');
+    const rootNote = withOct(root, bassOct);
+
+    // Roots on 1 & 3
+    sbSetStep('bass', offset + 0, {
+      note: rootNote,
+      velocity: 0.8,
+      duration: '4n'
+    });
+    sbSetStep('bass', offset + 8, {
+      note: rootNote,
+      velocity: 0.75,
+      duration: '4n'
+    });
+
+    // Small passing notes if energy higher
+    if ((section.energy ?? 0.6) > 0.6) {
+      const third = chord[1] || root;
+      sbSetStep('bass', offset + 6, {
+        note: withOct(third.replace(/\d/, ''), bassOct),
+        velocity: 0.6,
+        duration: '8n',
+        probability: 80
+      });
+    }
+  }
+}
+
+function generateSectionChords(section, startBar, endBar) {
+  if (!section.chords) return;
+  if (!patterns.keys) return;
+
+  const keysOct = state.octave || 3;
+
+  for (let bar = startBar; bar < endBar; bar++) {
+    const offset = bar * STEPS_PER_BAR;
+    const chord = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
+    const [root, third, fifth] = chord.map(n => n.replace(/\d/, ''));
+
+    const tones = [
+      withOct(root, keysOct),
+      withOct(third, keysOct),
+      withOct(fifth, keysOct),
+      withOct(root, keysOct)
+    ];
+
+    [0, 4, 8, 12].forEach((step, i) => {
+      sbSetStep('keys', offset + step, {
+        note: tones[i % tones.length],
+        velocity: 0.6 + 0.15 * (section.energy ?? 0.5),
+        duration: '2n'
+      });
+    });
+  }
+}
+
+function generateSectionMelody(section, startBar, endBar) {
+  if (!section.lead) return;
+  if (!patterns.lead) return;
+
+  const leadOct = (state.octave || 3) + 1;
+  let lastPC = null;
+
+  for (let bar = startBar; bar < endBar; bar++) {
+    const offset = bar * STEPS_PER_BAR;
+    const chord = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
+    const pcs = chord.map(n => n.replace(/\d/, ''));
+
+    // Simple 4-note phrase per bar on 0, 4, 8, 12
+    [0, 4, 8, 12].forEach(step => {
+      const pc = pcs[Math.floor(Math.random() * pcs.length)];
+      const note = withOct(pc, leadOct);
+      lastPC = pc;
+
+      // Slightly sparser in low-energy sections
+      const chance = 0.3 + (section.energy ?? 0.5);
+      if (Math.random() < chance) {
+        sbSetStep('lead', offset + step, {
+          note,
+          velocity: 0.7 + 0.2 * (section.energy ?? 0.5),
+          duration: '8n',
+          probability: 80 + Math.floor(15 * (section.energy ?? 0.5))
+        });
+      }
+    });
+  }
+}
+
+// Main pipeline entry
+function generateFullSongFromStructure() {
+  // Make sure harmony/progression is sane first
+  ensureHarmonyGuardrails();
+
+  const totalBars = Math.max(2, getSongBuilderTotalBars());
+  const totalSteps = totalBars * STEPS_PER_BAR;
+
+  state.sequenceLength = Math.min(CONFIG.MAX_SEQUENCE_LENGTH, totalSteps);
+  ensurePatternLength(state.sequenceLength);
+
+  wipeAllPatterns();
+
+  let currentBar = 0;
+  songBuilderState.sections.forEach(section => {
+    const startBar = currentBar;
+    const endBar = currentBar + section.bars;
+    generateSectionDrums(section, startBar, endBar);
+    generateSectionBass(section, startBar, endBar);
+    generateSectionChords(section, startBar, endBar);
+    generateSectionMelody(section, startBar, endBar);
+    currentBar = endBar;
+  });
+
+  renderSequencer();
+  showToast('🎼 Structured song generated', 'success');
+  console.log('✅ Song built from structure:', songBuilderState);
+}
+
+// Wire the UI
+function setupSongBuilderControls() {
+  const templateSelect = document.getElementById('songTemplateSelect');
+  const fillSelect = document.getElementById('songFillEverySelect');
+  const buildBtn = document.getElementById('songBuildBtn');
+
+  if (!templateSelect || !fillSelect || !buildBtn) {
+    // Tab might be gated / not in DOM yet
+    return;
+  }
+
+  // Initial render
+  applySongTemplate(songBuilderState.templateId);
+
+  templateSelect.value = songBuilderState.templateId;
+  templateSelect.addEventListener('change', e => {
+    applySongTemplate(e.target.value);
+  });
+
+  fillSelect.value = String(songBuilderState.fillEvery);
+  fillSelect.addEventListener('change', e => {
+    songBuilderState.fillEvery = parseInt(e.target.value, 10) || 0;
+  });
+
+  buildBtn.addEventListener('click', () => {
+    generateFullSongFromStructure();
+
+    // Optional: auto-switch to Sequencer tab so user sees result
+    const sequencerTabBtn = document.querySelector('.sidebar-tab[data-tab="sequencer"]');
+    if (sequencerTabBtn) {
+      sequencerTabBtn.click();
+    }
+  });
+}
+
 // -------------------- Pattern Management --------------------
 function ensurePatternLength(length) {
   Object.keys(patterns).forEach(inst => {
@@ -8581,6 +9089,7 @@ function setupEventListeners() {
   setupKeyboardShortcuts();
   setupVibeSelector();
   setupMultitrackListeners();
+  setupSongBuilderControls();
 
   // Sidebar controls
   document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
