@@ -8031,14 +8031,6 @@ const metronome = {
   enabled: false,
   loop: null
 };
-
-// At the top with other state
-let songBuilderState = {
-  templateId: 'intro-verse-chorus',
-  sections: SONG_TEMPLATES['intro-verse-chorus'].map(s => ({ ...s })),
-  fillEvery: 4,
-  isActive: false  // ADD THIS FLAG
-};
   
 async function checkAudioPermissions() {
   try {
@@ -9303,6 +9295,14 @@ const SONG_TEMPLATES = {
   ]
 };
 
+  // At the top with other state
+let songBuilderState = {
+  templateId: 'intro-verse-chorus',
+  sections: SONG_TEMPLATES['intro-verse-chorus'].map(s => ({ ...s })),
+  fillEvery: 4,
+  isActive: false  // ADD THIS FLAG
+};
+  
 // Small helper for safe step activation
 function sbSetStep(inst, stepIndex, opts = {}) {
   const arr = patterns[inst];
