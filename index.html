@@ -6094,7 +6094,8 @@ body.pro .pro-locked::after {
   .daw-fab {
     position: fixed;
     bottom: calc(var(--space-5) + var(--inset-bottom));
-    right: calc(var(--space-5) + var(--inset-right));
+    left: 50%;
+    transform: translateX(-50%);
     width: 64px;
     height: 64px;
     border-radius: var(--radius-full);
@@ -6116,11 +6117,11 @@ body.pro .pro-locked::after {
   }
 
   .daw-fab:active {
-    transform: scale(0.88);
+    transform: translateX(-50%) scale(0.88);
   }
 
   .daw-fab.open {
-    transform: rotate(135deg);
+    transform: translateX(-50%) rotate(135deg);
     background: linear-gradient(135deg,
       var(--error),
       color-mix(in oklab, var(--error) 80%, #ff6b6b));
@@ -6168,26 +6169,27 @@ body.pro .pro-locked::after {
   .daw-fab,
   .daw-fab-menu {
     position: relative;
-    isolation: isolate;   /* 🔑 stops backdrop-filter from bleeding onto them */
-    z-index: 10000;       /* ensure they sit above visual stack */
+    isolation: isolate;
+    z-index: 10000;
   }
 
-/* 2. Slightly lower backdrop so it’s underneath */
-.daw-fab-backdrop {
-  z-index: 9500;        /* under fab + menu */
-}
+  /* 2. Slightly lower backdrop so it's underneath */
+  .daw-fab-backdrop {
+    z-index: 9500;
+  }
 
-/* 3. (Optional alternate look) — remove blur entirely if you prefer crisp dim */
-.daw-fab-backdrop.no-blur {
-  backdrop-filter: none;
-  background: rgba(0, 0, 0, 0.45);
-}
+  /* 3. (Optional alternate look) — remove blur entirely if you prefer crisp dim */
+  .daw-fab-backdrop.no-blur {
+    backdrop-filter: none;
+    background: rgba(0, 0, 0, 0.45);
+  }
 
-  /* Radial menu */
+  /* Radial menu - centered at bottom */
   .daw-fab-menu {
     position: fixed;
     bottom: calc(var(--space-5) + var(--inset-bottom) + 32px);
-    right: calc(var(--space-5) + var(--inset-right) + 32px);
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 9002;
     pointer-events: none;
   }
@@ -6212,7 +6214,7 @@ body.pro .pro-locked::after {
     opacity: 0;
     transform: scale(0) translateY(0) translateX(0);
     transition: all var(--duration-base) cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    backdrop-filter: blur(12px) saturate(150%);
+    backdrop-filter: none;
   }
 
   .daw-fab-menu.open .daw-fab-menu-item {
@@ -6220,29 +6222,29 @@ body.pro .pro-locked::after {
     transform: scale(1);
   }
 
-  /* Radial positioning - arc above FAB */
+  /* Radial positioning - arc above centered FAB */
   .daw-fab-menu.open .daw-fab-menu-item:nth-child(1) {
-    transform: translate(-90px, -30px) scale(1);
+    transform: translate(-120px, -40px) scale(1);
     transition-delay: 50ms;
   }
 
   .daw-fab-menu.open .daw-fab-menu-item:nth-child(2) {
-    transform: translate(-70px, -70px) scale(1);
+    transform: translate(-80px, -100px) scale(1);
     transition-delay: 100ms;
   }
 
   .daw-fab-menu.open .daw-fab-menu-item:nth-child(3) {
-    transform: translate(-30px, -90px) scale(1);
+    transform: translate(0px, -130px) scale(1);
     transition-delay: 150ms;
   }
 
   .daw-fab-menu.open .daw-fab-menu-item:nth-child(4) {
-    transform: translate(20px, -80px) scale(1);
+    transform: translate(80px, -100px) scale(1);
     transition-delay: 200ms;
   }
 
   .daw-fab-menu.open .daw-fab-menu-item:nth-child(5) {
-    transform: translate(50px, -50px) scale(1);
+    transform: translate(120px, -40px) scale(1);
     transition-delay: 250ms;
   }
 
@@ -6255,14 +6257,14 @@ body.pro .pro-locked::after {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: -60vh; /* hide off-screen */
+    bottom: -60vh;
     max-height: 60vh;
     z-index: 9800;
     transition: bottom var(--duration-base) var(--ease-smooth);
   }
 
   .daw-inspector.inspector-open {
-    bottom: 0; /* slide up into view */
+    bottom: 0;
   }
 
   /* Hide FAB system on desktop */
@@ -6272,87 +6274,6 @@ body.pro .pro-locked::after {
     .daw-fab-backdrop {
       display: none;
     }
-  }
-
-  /* Center the whole radial group on screen */
-  .daw-fab-menu {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%); /* center anchor */
-    z-index: 10000;
-    pointer-events: none;
-  }
-
-  .daw-fab-menu.open {
-    pointer-events: auto;
-  }
-
-  /* Spread items evenly around center in a circular pattern */
-  .daw-fab-menu.open .daw-fab-menu-item {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  /* Adjusted coordinates for a centered arc (you can tweak the radius numbers) */
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(1) {
-    transform: translate(-90px, -50px) scale(1);
-    transition-delay: 50ms;
-  }
-
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(2) {
-    transform: translate(-60px, -110px) scale(1);
-    transition-delay: 100ms;
-  }
-
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(3) {
-    transform: translate(0px, -130px) scale(1);
-    transition-delay: 150ms;
-  }
-
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(4) {
-    transform: translate(60px, -110px) scale(1);
-    transition-delay: 200ms;
-  }
-
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(5) {
-    transform: translate(90px, -50px) scale(1);
-    transition-delay: 250ms;
-  }
-}
-
-/* === FAB radial menu spacing + clarity === */
-@media (max-width: 900px) {
-  /* Make the mini buttons solid instead of blurry glass */
-  .daw-fab-menu-item {
-    backdrop-filter: none;
-    background: var(--surface-elevated); /* keep same palette */
-  }
-
-  /* Spread the radial arc farther out from the FAB */
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(1) {
-    transform: translate(-120px, -40px) scale(1);
-    transition-delay: 50ms;
-  }
-
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(2) {
-    transform: translate(-110px, -110px) scale(1);
-    transition-delay: 100ms;
-  }
-
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(3) {
-    transform: translate(-40px, -140px) scale(1);
-    transition-delay: 150ms;
-  }
-
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(4) {
-    transform: translate(40px, -120px) scale(1);
-    transition-delay: 200ms;
-  }
-
-  .daw-fab-menu.open .daw-fab-menu-item:nth-child(5) {
-    transform: translate(90px, -80px) scale(1);
-    transition-delay: 250ms;
   }
 }
     
