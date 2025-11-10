@@ -4863,56 +4863,11 @@ body.pro .pro-locked::after {
     font-size: var(--text-sm);
   }
   
-  /* DAW Mobile Signature Layout */
-  .daw-wrapper {
-    height: calc(100vh - 120px);
-    min-height: 500px;
-  }
-  
-  .daw-transport-bar {
-    padding: var(--space-3);
-    gap: var(--space-2);
-  }
-  
   .transport-btn {
     width: 48px;
     height: 48px;
     font-size: var(--text-xl);
     border-radius: var(--radius-full);
-  }
-  
-  .daw-main-container {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
-  }
-  
-  .daw-track-list {
-    order: 1;
-    min-height: 50vh;
-  }
-
-  .daw-track-list-scroll .track-strip {
-    min-height: 56px; /* give touch users a bit more tap area */
-  }
-  
-  .daw-timeline-container {
-    order: 2;
-    min-height: 250px;
-  }
-  
-  .daw-inspector {
-    order: 3;
-    max-height: 300px;
-  }
-  
-  .daw-master-strip {
-    order: 4;
-    padding: var(--space-3);
-  }
-  
-  .daw-timeline-toolbar {
-    padding: var(--space-2);
-    gap: var(--space-1);
   }
   
     /* === Toolbar button fixes for mobile/tablet === */
@@ -4938,16 +4893,6 @@ body.pro .pro-locked::after {
   .tool-btn svg {
     width: 18px;
     height: 18px;
-  }
-
-  /* === Ensure toolbar fits view on mobile landscape === */
-  .daw-timeline-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    padding: var(--space-2);
-    gap: var(--space-1);
   }
 
   .multitrack-toolbar {
@@ -4978,183 +4923,6 @@ body.pro .pro-locked::after {
 
 } /* closes @media (max-width: 768px) */
 
-/* ==================== MULTITRACK MOBILE LAYOUT REFINEMENT ==================== */
-/* Desktop layout stays as-is. These only affect smaller screens. */
-
-/* Tablet and down: make multitrack header + layout calmer */
-@media (max-width: 900px) {
-  /* Multitrack panel header – tidy up the action buttons */
-  #tab-multitrack .panel-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-3);
-  }
-
-  #tab-multitrack .panel-header .panel-title {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  /* The right-side header actions wrapper (New / Save / etc) */
-  #tab-multitrack .panel-header > .flex {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    row-gap: var(--space-2);
-  }
-
-  /* Make each action button share the row cleanly */
-  #tab-multitrack .panel-header > .flex .btn {
-    flex: 0 1 calc(33.333% - var(--space-2));
-    justify-content: center;
-    min-width: 0;
-  }
-
-  /* Core layout: track list → big timeline → master */
-  #tab-multitrack .daw-main-container {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(380px, 1fr) auto;
-    gap: var(--space-3);
-  }
-
-  #tab-multitrack .daw-track-list {
-    order: 1;
-    max-height: 220px;
-  }
-
-  #tab-multitrack .daw-track-list-scroll {
-    max-height: 180px;
-    overflow-y: auto;
-  }
-
-  /* Timeline: visually the hero element */
-  #tab-multitrack .daw-timeline-container {
-    order: 2;
-    margin-top: var(--space-3);
-    border-radius: var(--radius-lg);
-    border-width: 2px;
-    border-style: solid;
-    border-color: color-mix(
-      in oklab,
-      var(--accent-primary) 35%,
-      var(--glass-border)
-    );
-    box-shadow:
-      var(--shadow-lg),
-      var(--glow-sm)
-        color-mix(in oklab, var(--accent-primary) 35%, transparent);
-  }
-
-  #tab-multitrack .daw-arrangement-scroll {
-    min-height: 260px;
-    max-height: 55vh;
-  }
-
-  #tab-multitrack .daw-master-strip {
-    order: 3;
-    margin-top: var(--space-3);
-  }
-
-  /* Inspector stays below on mobile DAW view */
-  #tab-multitrack .daw-inspector {
-    order: 4;
-  }
-}
-
-/* Phone portrait: ultra simple, timeline really takes over */
-@media (max-width: 768px) {
-  /* Let the page scroll naturally – no weird 100vh calc constraints */
-  #tab-multitrack .daw-wrapper {
-    height: auto;
-    min-height: 0;
-  }
-
-  #tab-multitrack .panel {
-    padding: var(--space-3);
-    gap: var(--space-3);
-  }
-
-  #tab-multitrack .panel-title {
-    font-size: var(--text-base);
-  }
-
-  /* Header buttons – 2 per row for fat thumbs */
-  #tab-multitrack .panel-header > .flex .btn {
-    flex: 0 1 calc(50% - var(--space-2));
-    font-size: var(--text-xs);
-    padding: var(--space-2);
-  }
-
-  #tab-multitrack .daw-main-container {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-
-  #tab-multitrack .daw-track-list {
-    max-height: 170px;
-  }
-
-  #tab-multitrack .daw-track-list-scroll {
-    max-height: 140px;
-  }
-
-  #tab-multitrack .daw-timeline-container {
-    min-height: 420px;
-  }
-
-  /* Sticky timeline toolbar: always visible while scrolling the regions */
-  #tab-multitrack .daw-timeline-toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    padding: var(--space-2) var(--space-3);
-    background: linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--bg-secondary) 96%, transparent),
-      transparent
-    );
-    border-bottom: 1px solid var(--glass-border);
-    overflow-x: auto;
-  }
-
-  #tab-multitrack .daw-timeline-toolbar .toolbar-group {
-    flex-wrap: nowrap;
-  }
-
-  #tab-multitrack .daw-ruler {
-    margin-top: var(--space-1);
-  }
-
-  #tab-multitrack .daw-arrangement-scroll {
-    margin-top: var(--space-2);
-  }
-
-  /* Make tiny region buttons more tap-friendly */
-  #tab-multitrack .region-action-btn {
-    min-width: 36px;
-    min-height: 36px;
-    border-radius: 999px;
-    font-size: var(--text-xs);
-  }
-}
-
-/* Tiny phones: give a bit more room back to the timeline */
-@media (max-width: 480px) {
-  #tab-multitrack .panel-header > .flex .btn {
-    flex: 0 1 calc(50% - var(--space-2));
-  }
-
-  #tab-multitrack .daw-track-list {
-    max-height: 150px;
-  }
-
-  #tab-multitrack .daw-timeline-container {
-    min-height: 360px;
-  }
-}
-
 /* ==================== DAW TRANSPORT INPUT POLISH ==================== */
 
 .daw-transport-bar input[type="number"],
@@ -5174,15 +4942,6 @@ body.pro .pro-locked::after {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent-primary) 45%, transparent);
-}
-
-/* Slight tightening on mobile so they don't dominate the row */
-@media (max-width: 768px) {
-  .daw-transport-bar input[type="number"],
-  .daw-transport-bar select {
-    font-size: var(--text-xs);
-    min-width: 56px;
-  }
 }
 
 /* === MULTITRACK: TRACK HEADER & CONTROLS === */
@@ -5635,6 +5394,849 @@ body.pro .pro-locked::after {
   gap: var(--space-2);
 }
 
+/* ==================== MULTITRACK MOBILE SIGNATURE LAYOUT ==================== */
+/* Replaces generic mobile DAW styles with purpose-built multitrack UI */
+
+@media (max-width: 900px) {
+  /* Kill the rigid grid, embrace natural flow */
+  #tab-multitrack .daw-wrapper {
+    height: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-bottom: calc(var(--space-8) + var(--inset-bottom));
+  }
+
+  /* Transport becomes a floating command bar */
+  #tab-multitrack .daw-transport-bar {
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-6));
+    z-index: 100;
+    background: linear-gradient(135deg,
+      color-mix(in oklab, var(--bg-secondary) 95%, transparent),
+      color-mix(in oklab, var(--bg-tertiary) 90%, transparent));
+    backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid var(--glass-border-strong);
+    border-radius: var(--radius-xl);
+    padding: var(--space-3) var(--space-4);
+    box-shadow: 
+      var(--shadow-xl),
+      0 0 0 1px rgba(255,255,255,.04);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-3);
+    align-items: center;
+  }
+
+  /* Main container: track list on top, timeline hero, inspector slides up */
+  #tab-multitrack .daw-main-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-height: 0;
+  }
+
+  /* Track list: compact horizontal carousel */
+  #tab-multitrack .daw-track-list {
+    order: 1;
+    max-height: 140px;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    background: var(--surface-elevated);
+    border: 1px solid var(--glass-border);
+  }
+
+  #tab-multitrack .daw-track-list-scroll {
+    display: flex;
+    flex-direction: row;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  #tab-multitrack .daw-track-list-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  #tab-multitrack .daw-track-strip {
+    flex: 0 0 240px;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    min-width: 240px;
+  }
+
+  /* Timeline becomes the visual anchor */
+  #tab-multitrack .daw-timeline-container {
+    order: 2;
+    min-height: 420px;
+    border-width: 2px;
+    border-color: color-mix(in oklab, var(--accent-primary) 40%, var(--glass-border));
+    box-shadow:
+      var(--shadow-2xl),
+      var(--glow-md) color-mix(in oklab, var(--accent-primary) 20%, transparent),
+      inset 0 1px 0 rgba(255,255,255,.08);
+    border-radius: var(--radius-2xl);
+    overflow: hidden;
+  }
+
+  /* Master strip: simplified horizontal */
+  #tab-multitrack .daw-master-strip {
+    order: 3;
+    grid-template-columns: 1fr auto;
+    padding: var(--space-4);
+  }
+
+  /* Inspector: slide-up modal on demand */
+  #tab-multitrack .daw-inspector {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    order: 4;
+    max-height: 75vh;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    border-bottom: none;
+    box-shadow: 0 -20px 60px rgba(0,0,0,.7);
+    z-index: 9600;
+    transform: translateY(100%);
+    transition: transform var(--duration-slow) cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  #tab-multitrack .daw-inspector.inspector-open {
+    transform: translateY(0);
+  }
+
+  /* Add pull handle */
+  #tab-multitrack .daw-inspector::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 48px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--text-muted);
+    opacity: 0.4;
+  }
+}
+
+/* ==================== MOBILE TIMELINE TOOLBAR: SWIPEABLE COMMAND BAR ==================== */
+
+@media (max-width: 900px) {
+  #tab-multitrack .daw-timeline-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: var(--space-3);
+    background: linear-gradient(180deg,
+      color-mix(in oklab, var(--bg-secondary) 96%, transparent),
+      color-mix(in oklab, var(--bg-tertiary) 92%, transparent));
+    backdrop-filter: blur(16px) saturate(140%);
+    border-bottom: 2px solid var(--glass-border-strong);
+    display: flex;
+    gap: var(--space-2);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .toolbar-group {
+    display: flex;
+    gap: var(--space-2);
+    padding: 0 var(--space-2);
+    border-right: 1px solid rgba(255,255,255,.08);
+    flex-shrink: 0;
+  }
+
+  .toolbar-group:last-child {
+    border-right: none;
+    padding-right: var(--space-4);
+  }
+
+  .tool-btn {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg,
+      color-mix(in oklab, var(--glass-bg-strong) 90%, transparent),
+      var(--glass-bg));
+    border: 1px solid var(--glass-border);
+    font-size: var(--text-xl);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tool-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center,
+      color-mix(in oklab, var(--accent-primary) 20%, transparent),
+      transparent 70%);
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-smooth);
+  }
+
+  .tool-btn:active::before {
+    opacity: 1;
+  }
+
+  .tool-btn.active {
+    background: linear-gradient(135deg,
+      var(--accent-primary),
+      var(--accent-secondary));
+    border-color: transparent;
+    box-shadow:
+      var(--shadow-md),
+      var(--glow-sm) color-mix(in oklab, var(--accent-primary) 40%, transparent);
+    transform: scale(0.95);
+  }
+
+  /* Zoom controls: grouped pill design */
+  .zoom-controls {
+    display: flex;
+    background: var(--glass-bg-strong);
+    border-radius: var(--radius-full);
+    padding: var(--space-1);
+    gap: var(--space-1);
+    border: 1px solid var(--glass-border);
+  }
+
+  .zoom-controls .tool-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-lg);
+  }
+}
+
+/* ==================== MOBILE TRACK CARDS: SWIPEABLE OVERVIEW ==================== */
+
+@media (max-width: 900px) {
+  #tab-multitrack .daw-track-strip {
+    background: linear-gradient(135deg,
+      color-mix(in oklab, var(--surface) 95%, transparent),
+      color-mix(in oklab, var(--bg-tertiary) 90%, transparent));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-md);
+    transition: all var(--duration-base) var(--ease-smooth);
+  }
+
+  #tab-multitrack .daw-track-strip.selected {
+    border-width: 2px;
+    border-color: var(--accent-primary);
+    box-shadow:
+      var(--shadow-lg),
+      0 0 0 3px color-mix(in oklab, var(--accent-primary) 20%, transparent);
+    transform: scale(1.02);
+  }
+
+  #tab-multitrack .daw-track-strip.recording {
+    border-color: var(--error);
+    box-shadow:
+      var(--shadow-lg),
+      0 0 0 3px color-mix(in oklab, var(--error) 25%, transparent);
+    animation: cardRecordPulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes cardRecordPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+  }
+
+  .track-strip-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  .track-strip-name {
+    flex: 1;
+    font-size: var(--text-sm);
+    font-weight: 800;
+    color: var(--text-primary);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .track-strip-controls {
+    display: flex;
+    gap: 4px;
+  }
+
+  .track-strip-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    font-size: var(--text-xs);
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-smooth);
+  }
+
+  .track-strip-btn:active {
+    transform: scale(0.9);
+  }
+
+  .track-strip-btn.active {
+    background: var(--error);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 0 12px color-mix(in oklab, var(--error) 40%, transparent);
+  }
+
+  .track-strip-btn.solo.active {
+    background: var(--warning);
+  }
+
+  /* Compact meters */
+  .track-strip-meters {
+    display: flex;
+    gap: 4px;
+    height: 32px;
+    margin: var(--space-2) 0;
+  }
+
+  .track-meter-bar {
+    flex: 1;
+    background: rgba(0,0,0,.5);
+    border-radius: var(--radius-xs);
+    border: 1px solid rgba(255,255,255,.06);
+  }
+}
+
+/* ==================== PHONE PORTRAIT: MINIMAL CHROME, MAXIMUM CONTENT ==================== */
+
+@media (max-width: 768px) {
+  #tab-multitrack .daw-wrapper {
+    gap: var(--space-3);
+  }
+
+  /* Transport: ultra-compact */
+  #tab-multitrack .daw-transport-bar {
+    padding: var(--space-2) var(--space-3);
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .transport-section {
+    justify-content: center;
+  }
+
+  .transport-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-2xl);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .transport-display {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+  }
+
+  /* Track list: tighter cards */
+  #tab-multitrack .daw-track-list {
+    max-height: 120px;
+  }
+
+  #tab-multitrack .daw-track-list-scroll {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  #tab-multitrack .daw-track-strip {
+    flex: 0 0 200px;
+    min-width: 200px;
+    padding: var(--space-2);
+  }
+
+  .track-strip-name {
+    font-size: var(--text-xs);
+  }
+
+  .track-strip-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 10px;
+  }
+
+  /* Timeline: hero element with breathing room */
+  #tab-multitrack .daw-timeline-container {
+    min-height: 380px;
+    border-radius: var(--radius-xl);
+  }
+
+  #tab-multitrack .daw-timeline-toolbar {
+    padding: var(--space-2);
+    gap: var(--space-1);
+  }
+
+  .tool-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    font-size: var(--text-lg);
+  }
+
+  .zoom-controls .tool-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+
+  /* Ruler: readable but compact */
+  #tab-multitrack .daw-ruler {
+    height: 40px;
+  }
+
+  #tab-multitrack .daw-ruler-label {
+    font-size: 10px;
+  }
+
+  /* Arrangement: prioritize vertical scroll */
+  #tab-multitrack .daw-arrangement-scroll {
+    min-height: 280px;
+  }
+
+  /* Master strip: hide or ultra-minimal */
+  #tab-multitrack .daw-master-strip {
+    display: none; /* Access via mixer tab instead */
+  }
+
+  /* Inspector: full-screen modal feel */
+  #tab-multitrack .daw-inspector {
+    max-height: 85vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  #tab-multitrack .daw-inspector-content {
+    padding: var(--space-4);
+  }
+
+  .inspector-section {
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .inspector-param {
+    margin-bottom: var(--space-2);
+  }
+}
+
+/* ==================== MOBILE REGION MANIPULATION: FAT FINGERS WELCOME ==================== */
+
+@media (max-width: 900px) {
+  .audio-region {
+    height: 72px;
+    top: 4px;
+    border-width: 2px;
+    touch-action: none; /* Prevent scroll interference */
+  }
+
+  .region-header {
+    min-height: 36px;
+    padding: var(--space-2) var(--space-3);
+    background: rgba(0,0,0,.95);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+
+  .region-name {
+    font-size: var(--text-sm);
+    font-weight: 800;
+  }
+
+  .region-action-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-base);
+    background: rgba(255,255,255,.15);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
+
+  .region-action-btn:active {
+    transform: scale(0.88);
+    box-shadow: 0 1px 4px rgba(0,0,0,.5);
+  }
+
+  /* Resize handles: bigger hit targets */
+  .clip-resize-handle {
+    width: 20px;
+    background: linear-gradient(90deg,
+      transparent,
+      rgba(255,255,255,.1),
+      transparent);
+  }
+
+  .clip-resize-handle.left {
+    left: -10px;
+  }
+
+  .clip-resize-handle.right {
+    right: -10px;
+  }
+
+  .clip-resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px;
+    height: 24px;
+    border-radius: 2px;
+    background: rgba(255,255,255,.3);
+    box-shadow: 0 0 8px rgba(0,0,0,.5);
+  }
+}
+
+/* ==================== MOBILE FX CHAIN: SLIDE-UP PANEL ==================== */
+
+@media (max-width: 900px) {
+  .fx-chain-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    max-height: 70vh;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    border-bottom: none;
+    box-shadow: 0 -16px 48px rgba(0,0,0,.75);
+    background: var(--surface-elevated);
+    backdrop-filter: blur(32px) saturate(150%);
+    z-index: 9700;
+    transform: translateY(100%);
+    transition: transform var(--duration-slow) cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .fx-chain-panel.open {
+    transform: translateY(0);
+  }
+
+  /* Pull indicator */
+  .fx-chain-panel::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 48px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .fx-chain-header {
+    padding: var(--space-5) var(--space-4) var(--space-4);
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  .fx-chain-body {
+    padding: var(--space-4);
+    max-height: calc(70vh - 80px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fx-add-menu {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-top: var(--space-3);
+    max-height: none;
+    border: 1px solid var(--glass-border);
+  }
+
+  .fx-pill {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    min-height: 44px;
+    border-radius: var(--radius-md);
+  }
+}
+
+/* ==================== MOBILE INSPECTOR: FOCUSED EDITING SURFACE ==================== */
+
+@media (max-width: 900px) {
+  #tab-multitrack .daw-inspector-tabs {
+    padding: var(--space-3);
+    gap: var(--space-2);
+    background: linear-gradient(180deg,
+      var(--glass-bg-strong),
+      var(--glass-bg));
+    border-bottom: 2px solid var(--glass-border-strong);
+  }
+
+  .inspector-tab {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-3);
+    font-size: var(--text-sm);
+    border-radius: var(--radius-md);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .inspector-tab.active {
+    background: linear-gradient(135deg,
+      var(--accent-primary),
+      var(--accent-secondary));
+    color: var(--bg-primary);
+    box-shadow:
+      var(--shadow-md),
+      var(--glow-sm) color-mix(in oklab, var(--accent-primary) 40%, transparent);
+  }
+
+  #tab-multitrack .daw-inspector-content {
+    padding: var(--space-4);
+    padding-bottom: calc(var(--space-8) + var(--inset-bottom));
+  }
+
+  .inspector-section {
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg,
+      color-mix(in oklab, var(--glass-bg) 90%, transparent),
+      var(--glass-bg));
+    border: 1px solid var(--glass-border);
+  }
+
+  .inspector-section-title {
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 2px solid var(--glass-border-strong);
+  }
+
+  .inspector-param {
+    margin-bottom: var(--space-3);
+  }
+
+  .inspector-param-label {
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+  }
+
+  .inspector-param input[type="range"] {
+    height: 14px;
+  }
+
+  .inspector-param input[type="range"]::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .inspector-param select,
+  .inspector-param input[type="text"],
+  .inspector-param input[type="number"] {
+    padding: var(--space-3);
+    font-size: var(--text-base);
+    border-radius: var(--radius-md);
+    min-height: 48px;
+  }
+}
+
+/* ==================== MOBILE FAB: QUICK ACCESS HUB ==================== */
+
+@media (max-width: 900px) {
+  .daw-fab {
+    position: fixed;
+    bottom: calc(var(--space-5) + var(--inset-bottom));
+    right: calc(var(--space-5) + var(--inset-right));
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg,
+      var(--accent-primary),
+      var(--accent-secondary));
+    color: var(--bg-primary);
+    font-size: var(--text-3xl);
+    font-weight: 300;
+    border: none;
+    box-shadow:
+      var(--shadow-2xl),
+      var(--glow-lg) color-mix(in oklab, var(--accent-primary) 45%, transparent);
+    z-index: 9900;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all var(--duration-base) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .daw-fab:active {
+    transform: scale(0.88);
+  }
+
+  .daw-fab.open {
+    transform: rotate(135deg);
+    background: linear-gradient(135deg,
+      var(--error),
+      color-mix(in oklab, var(--error) 80%, #ff6b6b));
+  }
+
+  .daw-fab::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    background: inherit;
+    opacity: 0.3;
+    filter: blur(12px);
+    animation: fabPulse 2s ease-in-out infinite;
+    z-index: -1;
+  }
+
+  @keyframes fabPulse {
+    0%, 100% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.15); opacity: 0.5; }
+  }
+
+  /* FAB menu backdrop */
+  .daw-fab-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 9898;
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--duration-base) var(--ease-smooth);
+  }
+
+  .daw-fab-backdrop.open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Radial menu */
+  .daw-fab-menu {
+    position: fixed;
+    bottom: calc(var(--space-5) + var(--inset-bottom) + 32px);
+    right: calc(var(--space-5) + var(--inset-right) + 32px);
+    z-index: 9899;
+    pointer-events: none;
+  }
+
+  .daw-fab-menu.open {
+    pointer-events: auto;
+  }
+
+  .daw-fab-menu-item {
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-full);
+    background: var(--surface-elevated);
+    border: 1px solid var(--glass-border-strong);
+    color: var(--text-primary);
+    font-size: var(--text-2xl);
+    box-shadow: var(--shadow-lg);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0) translateY(0) translateX(0);
+    transition: all var(--duration-base) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    backdrop-filter: blur(12px) saturate(150%);
+  }
+
+  .daw-fab-menu.open .daw-fab-menu-item {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Radial positioning - arc above FAB */
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(1) {
+    transform: translate(-90px, -30px) scale(1);
+    transition-delay: 50ms;
+  }
+
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(2) {
+    transform: translate(-70px, -70px) scale(1);
+    transition-delay: 100ms;
+  }
+
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(3) {
+    transform: translate(-30px, -90px) scale(1);
+    transition-delay: 150ms;
+  }
+
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(4) {
+    transform: translate(20px, -80px) scale(1);
+    transition-delay: 200ms;
+  }
+
+  .daw-fab-menu.open .daw-fab-menu-item:nth-child(5) {
+    transform: translate(50px, -50px) scale(1);
+    transition-delay: 250ms;
+  }
+
+  .daw-fab-menu-item:active {
+    transform: scale(0.9);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Mobile: inspector becomes bottom sheet toggled by FAB */
+  .daw-inspector {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 60vh;
+    transform: translateY(100%);
+    transition: transform var(--duration-base) var(--ease-smooth);
+    z-index: 9800;
+  }
+
+  .daw-inspector.inspector-open {
+    transform: translateY(0);
+  }
+
+  /* Hide FAB system on desktop */
+  @media (min-width: 901px) {
+    .daw-fab,
+    .daw-fab-menu,
+    .daw-fab-backdrop {
+      display: none;
+    }
+  }
+}
   </style>
 </head>
 <body>
@@ -6308,8 +6910,28 @@ body.pro .pro-locked::after {
           </div>
         </div>
       </div>
-      <!-- Floating Add Track button (mobile only) -->
-      <button id="addTrackBtnFloating" class="daw-fab">➕</button>
+      <!-- Mobile quick actions FAB -->
+      <button id="dawFab" class="daw-fab" type="button" aria-label="Quick actions">
+        <span id="dawFabIcon">+</span>
+      </button>
+      
+      <div id="dawFabMenu" class="daw-fab-menu" aria-label="Multitrack quick actions">
+        <button class="daw-fab-menu-item" data-action="add-track" title="Add Track">
+          🎵
+        </button>
+        <button class="daw-fab-menu-item" data-action="toggle-inspector" title="Inspector">
+          🎛️
+        </button>
+        <button class="daw-fab-menu-item" data-action="toggle-fx" title="FX Chain">
+          ✨
+        </button>
+        <button class="daw-fab-menu-item" data-action="record-arm" title="Quick Record">
+          ⏺️
+        </button>
+        <button class="daw-fab-menu-item" data-action="undo" title="Undo">
+          ↶
+        </button>
+      </div>
     </section>
 
     <section class="section pro-locked" id="tab-samples">
@@ -17133,18 +17755,6 @@ async function setupMultitrackListeners() {
     });
   }
 
-  // === ADD TRACK BUTTON (FLOATING - MOBILE) ===
-  const addTrackBtnFloating = document.getElementById('addTrackBtnFloating');
-  if (addTrackBtnFloating && !addTrackBtnFloating.dataset._wired) {
-    addTrackBtnFloating.dataset._wired = 'true';
-    addTrackBtnFloating.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('🎚️ Add track (floating) clicked');
-      showAddTrackDialog();
-    });
-  }
-
   // === IMPORT STEM BUTTON ===
   // Uses the helper you added earlier; it has its own _wired guard.
   if (typeof setupStemImport === 'function') {
@@ -17611,6 +18221,8 @@ async function setupMultitrackListeners() {
       }
     };
   }
+
+  initFAB();
 }
   
 function addTrackFX(trackIndex, fxType) {
@@ -20624,6 +21236,326 @@ function attachEventListeners() {
     alert('✓ Sample library refreshed!');
   });
 }
+
+// ==================== FAB CONTROLLER ====================
+class FABController {
+  constructor() {
+    this.fab = document.getElementById('dawFab');
+    this.fabIcon = document.getElementById('dawFabIcon');
+    this.menu = document.getElementById('dawFabMenu');
+    this.isOpen = false;
+    
+    // Create backdrop
+    this.backdrop = document.createElement('div');
+    this.backdrop.className = 'daw-fab-backdrop';
+    document.body.appendChild(this.backdrop);
+    
+    this.init();
+  }
+
+  init() {
+    if (!this.fab) return;
+
+    // Toggle menu on FAB click
+    this.fab.addEventListener('click', () => this.toggle());
+
+    // Close on backdrop click
+    this.backdrop.addEventListener('click', () => this.close());
+
+    // Handle menu item clicks
+    const menuItems = this.menu.querySelectorAll('.daw-fab-menu-item');
+    menuItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        const action = item.dataset.action;
+        this.handleAction(action);
+        this.close();
+      });
+    });
+
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.isOpen) {
+        this.close();
+      }
+    });
+  }
+
+  toggle() {
+    this.isOpen ? this.close() : this.open();
+  }
+
+  open() {
+    this.isOpen = true;
+    this.fab.classList.add('open');
+    this.menu.classList.add('open');
+    this.backdrop.classList.add('open');
+    this.fabIcon.textContent = '×';
+    
+    // Haptic feedback if available
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
+  }
+
+  close() {
+    this.isOpen = false;
+    this.fab.classList.remove('open');
+    this.menu.classList.remove('open');
+    this.backdrop.classList.remove('open');
+    this.fabIcon.textContent = '+';
+  }
+
+  handleAction(action) {
+    switch(action) {
+      case 'add-track':
+        this.addTrack();
+        break;
+      case 'toggle-inspector':
+        this.toggleInspector();
+        break;
+      case 'toggle-fx':
+        this.toggleFX();
+        break;
+      case 'record-arm':
+        this.quickRecordArm();
+        break;
+      case 'undo':
+        this.undo();
+        break;
+      default:
+        console.log('Unknown action:', action);
+    }
+  }
+
+  addTrack() {
+    // Hook into your existing addTrack function
+    if (window.multitrack && window.multitrack.addTrack) {
+      window.multitrack.addTrack();
+      showToast('✅ Track added', 'success');
+    }
+  }
+
+  toggleInspector() {
+    const inspector = document.querySelector('.daw-inspector');
+    if (inspector) {
+      inspector.classList.toggle('inspector-open');
+      const isOpen = inspector.classList.contains('inspector-open');
+      showToast(isOpen ? '🎛️ Inspector opened' : '🎛️ Inspector closed', 'info');
+    }
+  }
+
+  toggleFX() {
+    const fxPanel = document.querySelector('.fx-chain-panel');
+    if (fxPanel) {
+      fxPanel.classList.toggle('open');
+      const isOpen = fxPanel.classList.contains('open');
+      showToast(isOpen ? '✨ FX chain opened' : '✨ FX chain closed', 'info');
+    }
+  }
+
+  quickRecordArm() {
+    // Arm the currently selected track for recording
+    if (window.multitrack && window.multitrack.selectedTrack) {
+      const track = window.multitrack.selectedTrack;
+      const armBtn = track.header.querySelector('[data-action="arm"]');
+      if (armBtn) {
+        armBtn.click();
+        const isArmed = armBtn.classList.contains('active');
+        showToast(
+          isArmed ? '⏺️ Track armed for recording' : '⏸️ Track disarmed',
+          isArmed ? 'warning' : 'info'
+        );
+      }
+    } else {
+      showToast('⚠️ Select a track first', 'warning');
+    }
+  }
+
+  undo() {
+    // Hook into your undo system
+    if (window.multitrack && window.multitrack.undo) {
+      window.multitrack.undo();
+      showToast('↶ Undo', 'info');
+    } else {
+      showToast('⚠️ Nothing to undo', 'warning');
+    }
+  }
+}
+
+// ==================== FAB CONTROLLER ====================
+class FABController {
+  constructor() {
+    this.fab = document.getElementById('dawFab');
+    this.fabIcon = document.getElementById('dawFabIcon');
+    this.menu = document.getElementById('dawFabMenu');
+    this.isOpen = false;
+
+    // Create backdrop once
+    this.backdrop = document.createElement('div');
+    this.backdrop.className = 'daw-fab-backdrop';
+    document.body.appendChild(this.backdrop);
+
+    this.init();
+  }
+
+  init() {
+    if (!this.fab || !this.menu) return;
+
+    // Toggle menu on FAB click
+    this.fab.addEventListener('click', () => this.toggle());
+
+    // Close on backdrop click
+    this.backdrop.addEventListener('click', () => this.close());
+
+    // Handle menu item clicks
+    const menuItems = this.menu.querySelectorAll('.daw-fab-menu-item');
+    menuItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const action = item.dataset.action;
+        this.handleAction(action);
+        this.close();
+      });
+    });
+
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.isOpen) {
+        this.close();
+      }
+    });
+  }
+
+  toggle() {
+    this.isOpen ? this.close() : this.open();
+  }
+
+  open() {
+    this.isOpen = true;
+    this.fab.classList.add('open');
+    this.menu.classList.add('open');
+    this.backdrop.classList.add('open');
+    if (this.fabIcon) this.fabIcon.textContent = '×';
+
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
+  }
+
+  close() {
+    this.isOpen = false;
+    this.fab.classList.remove('open');
+    this.menu.classList.remove('open');
+    this.backdrop.classList.remove('open');
+    if (this.fabIcon) this.fabIcon.textContent = '+';
+  }
+
+  handleAction(action) {
+    switch (action) {
+      case 'add-track':
+        this.addTrack();
+        break;
+      case 'toggle-inspector':
+        this.toggleInspector();
+        break;
+      case 'toggle-fx':
+        this.toggleFX();
+        break;
+      case 'record-arm':
+        this.quickRecordArm();
+        break;
+      case 'undo':
+        this.undo();
+        break;
+      default:
+        console.log('Unknown FAB action:', action);
+    }
+  }
+
+  // 🔹 Use your existing add-track flow
+  addTrack() {
+    if (typeof showAddTrackDialog === 'function') {
+      showAddTrackDialog();
+    } else if (typeof createTrack === 'function') {
+      createTrack();
+      if (typeof showToast === 'function') {
+        showToast('✅ Track added', 'success');
+      }
+    }
+  }
+
+  // 🔹 Inspector: toggle the right-hand panel (mobile bottom sheet)
+  toggleInspector() {
+    const inspector = document.querySelector('.daw-inspector');
+    if (!inspector) return;
+
+    inspector.classList.toggle('inspector-open');
+    const isOpen = inspector.classList.contains('inspector-open');
+    inspector.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+
+    if (typeof showToast === 'function') {
+      showToast(isOpen ? '🎛️ Inspector opened' : '🎛️ Inspector closed', 'info');
+    }
+  }
+
+  // 🔹 FX: hook straight into your bottom FX panel
+  toggleFX() {
+    const fxPanel = document.getElementById('fxChainPanel');
+    if (!fxPanel) return;
+
+    const isOpen = !fxPanel.classList.contains('open');
+    fxPanel.classList.toggle('open', isOpen);
+    fxPanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+
+    if (typeof showToast === 'function') {
+      showToast(isOpen ? '✨ FX chain opened' : '✨ FX chain closed', 'info');
+    }
+  }
+
+  // 🔹 Quick record arm: arm the currently selected track strip
+  quickRecordArm() {
+    const selectedStrip = document.querySelector('.daw-track-strip.selected');
+    if (!selectedStrip) {
+      if (typeof showToast === 'function') {
+        showToast('⚠️ Tap a track first', 'warning');
+      }
+      return;
+    }
+
+    const trackId = selectedStrip.dataset.trackId;
+    if (!trackId) return;
+
+    const armBtn = document.querySelector(
+      `.track-mini-btn.arm[data-track-id="${trackId}"]`
+    );
+    if (!armBtn) return;
+
+    armBtn.click();
+  }
+
+  // 🔹 Undo: plug into your multitrackHistory system
+  undo() {
+    if (window.multitrackHistory && typeof multitrackHistory.undo === 'function') {
+      multitrackHistory.undo();
+    } else if (typeof showToast === 'function') {
+      showToast('⚠️ Nothing to undo', 'warning');
+    }
+  }
+}
+
+let fabController;
+
+function initFAB() {
+  if (window.innerWidth <= 900 && !fabController) {
+    fabController = new FABController();
+  }
+}
+
+// Cleanup on resize to desktop
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 900 && fabController) {
+    fabController.close();
+  }
+});
 
 // ===================================================
 // 🎼 HARMONY TAB INTEGRATION
