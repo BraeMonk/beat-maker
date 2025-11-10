@@ -21244,151 +21244,6 @@ class FABController {
     this.fabIcon = document.getElementById('dawFabIcon');
     this.menu = document.getElementById('dawFabMenu');
     this.isOpen = false;
-    
-    // Create backdrop
-    this.backdrop = document.createElement('div');
-    this.backdrop.className = 'daw-fab-backdrop';
-    document.body.appendChild(this.backdrop);
-    
-    this.init();
-  }
-
-  init() {
-    if (!this.fab) return;
-
-    // Toggle menu on FAB click
-    this.fab.addEventListener('click', () => this.toggle());
-
-    // Close on backdrop click
-    this.backdrop.addEventListener('click', () => this.close());
-
-    // Handle menu item clicks
-    const menuItems = this.menu.querySelectorAll('.daw-fab-menu-item');
-    menuItems.forEach(item => {
-      item.addEventListener('click', (e) => {
-        const action = item.dataset.action;
-        this.handleAction(action);
-        this.close();
-      });
-    });
-
-    // Close on escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isOpen) {
-        this.close();
-      }
-    });
-  }
-
-  toggle() {
-    this.isOpen ? this.close() : this.open();
-  }
-
-  open() {
-    this.isOpen = true;
-    this.fab.classList.add('open');
-    this.menu.classList.add('open');
-    this.backdrop.classList.add('open');
-    this.fabIcon.textContent = '×';
-    
-    // Haptic feedback if available
-    if (navigator.vibrate) {
-      navigator.vibrate(10);
-    }
-  }
-
-  close() {
-    this.isOpen = false;
-    this.fab.classList.remove('open');
-    this.menu.classList.remove('open');
-    this.backdrop.classList.remove('open');
-    this.fabIcon.textContent = '+';
-  }
-
-  handleAction(action) {
-    switch(action) {
-      case 'add-track':
-        this.addTrack();
-        break;
-      case 'toggle-inspector':
-        this.toggleInspector();
-        break;
-      case 'toggle-fx':
-        this.toggleFX();
-        break;
-      case 'record-arm':
-        this.quickRecordArm();
-        break;
-      case 'undo':
-        this.undo();
-        break;
-      default:
-        console.log('Unknown action:', action);
-    }
-  }
-
-  addTrack() {
-    // Hook into your existing addTrack function
-    if (window.multitrack && window.multitrack.addTrack) {
-      window.multitrack.addTrack();
-      showToast('✅ Track added', 'success');
-    }
-  }
-
-  toggleInspector() {
-    const inspector = document.querySelector('.daw-inspector');
-    if (inspector) {
-      inspector.classList.toggle('inspector-open');
-      const isOpen = inspector.classList.contains('inspector-open');
-      showToast(isOpen ? '🎛️ Inspector opened' : '🎛️ Inspector closed', 'info');
-    }
-  }
-
-  toggleFX() {
-    const fxPanel = document.querySelector('.fx-chain-panel');
-    if (fxPanel) {
-      fxPanel.classList.toggle('open');
-      const isOpen = fxPanel.classList.contains('open');
-      showToast(isOpen ? '✨ FX chain opened' : '✨ FX chain closed', 'info');
-    }
-  }
-
-  quickRecordArm() {
-    // Arm the currently selected track for recording
-    if (window.multitrack && window.multitrack.selectedTrack) {
-      const track = window.multitrack.selectedTrack;
-      const armBtn = track.header.querySelector('[data-action="arm"]');
-      if (armBtn) {
-        armBtn.click();
-        const isArmed = armBtn.classList.contains('active');
-        showToast(
-          isArmed ? '⏺️ Track armed for recording' : '⏸️ Track disarmed',
-          isArmed ? 'warning' : 'info'
-        );
-      }
-    } else {
-      showToast('⚠️ Select a track first', 'warning');
-    }
-  }
-
-  undo() {
-    // Hook into your undo system
-    if (window.multitrack && window.multitrack.undo) {
-      window.multitrack.undo();
-      showToast('↶ Undo', 'info');
-    } else {
-      showToast('⚠️ Nothing to undo', 'warning');
-    }
-  }
-}
-
-// ==================== FAB CONTROLLER ====================
-class FABController {
-  constructor() {
-    this.fab = document.getElementById('dawFab');
-    this.fabIcon = document.getElementById('dawFabIcon');
-    this.menu = document.getElementById('dawFabMenu');
-    this.isOpen = false;
 
     // Create backdrop once
     this.backdrop = document.createElement('div');
@@ -21423,6 +21278,8 @@ class FABController {
         this.close();
       }
     });
+
+    document.addEventListener('tabChange', () => this.close());
   }
 
   toggle() {
@@ -21545,10 +21402,13 @@ class FABController {
 let fabController;
 
 function initFAB() {
-  if (window.innerWidth <= 900 && !fabController) {
-    fabController = new FABController();
+  if (window.innerWidth <= 900) {
+    if (!fabController) fabController = new FABController();
+  } else if (fabController) {
+    fabController.close();
   }
 }
+
 
 // Cleanup on resize to desktop
 window.addEventListener('resize', () => {
