@@ -8025,6 +8025,9 @@ const state = {
   }
 };
 
+// Has the main Tone.Sequence been set up at least once?
+let sequencerInitialized = false;
+  
 // Metronome system
 const metronome = {
   synth: null,
