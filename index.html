@@ -8032,6 +8032,14 @@ const metronome = {
   loop: null
 };
 
+// At the top with other state
+let songBuilderState = {
+  templateId: 'intro-verse-chorus',
+  sections: SONG_TEMPLATES['intro-verse-chorus'].map(s => ({ ...s })),
+  fillEvery: 4,
+  isActive: false  // ADD THIS FLAG
+};
+  
 async function checkAudioPermissions() {
   try {
     const permissions = await navigator.permissions.query({ name: 'microphone' });
@@ -8525,6 +8533,13 @@ function initAudio() {
   loop.loopEnd = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
   
   loop.start(0);
+
+  if (songBuilderState.isActive) {
+    loop.loop = true;
+    loop.loopEnd = state.sequenceLength * Tone.Time(state.resolution).toSeconds();
+    Tone.Transport.loop = true;
+    Tone.Transport.loopEnd = loop.loopEnd;
+  }
   
   // Set Transport loop to match
   Tone.Transport.loop = true;
@@ -9882,6 +9897,7 @@ function applyTransitionEffects(section, nextSection, endBar) {
 
 // Modify generateFullSongFromStructure to include transitions:
 function generateFullSongFromStructure() {
+  songBuilderState.isActive = true;
   ensureHarmonyGuardrails();
   const totalBars = Math.max(2, getSongBuilderTotalBars());
   const totalSteps = totalBars * STEPS_PER_BAR;
@@ -11616,6 +11632,7 @@ function setupSequencerControls() {
 }
 
 function handleSequencerClick(e) {
+  songBuilderState.isActive = false;
   const stepEl = e.target.closest('.step');
   if (stepEl) {
     const inst = stepEl.dataset.inst;
@@ -12028,6 +12045,7 @@ function renderSequencer() {
 }
 
 function toggleStep(inst, stepIndex, e) {
+  songBuilderState.isActive = false;
   const pattern = patterns[inst][stepIndex];
   const instData = instruments[inst];
   
@@ -12252,6 +12270,7 @@ function showToast(message, type = 'info') {
   
 // -------------------- Pattern Generators --------------------
 function generateBeat() {
+  songBuilderState.isActive = false;
   const genre = state.currentGenre;
   
   // Clear all patterns first
@@ -12290,6 +12309,7 @@ function generateBeat() {
   
 // AI-powered beat generation
 function generateAIVariation() {
+  songBuilderState.isActive = false;
   const activeInsts = Object.keys(patterns).filter(inst =>
     patterns[inst].some(s => s.active)
   );
@@ -12354,6 +12374,7 @@ function analyzePattern() {
 }
 
 function generateRhythmicDisplacement(analysis) {
+  songBuilderState.isActive = false;
   // Shift patterns by random amounts to create variation
   const shiftAmount = Math.floor(Math.random() * 4) + 1;
   
@@ -12370,6 +12391,7 @@ function generateRhythmicDisplacement(analysis) {
 }
 
 function generateDensityVariation(analysis) {
+  songBuilderState.isActive = false;
   // Add or remove notes to change groove density
   const shouldAdd = Math.random() > 0.5;
   
@@ -12397,6 +12419,7 @@ function generateDensityVariation(analysis) {
 }
 
 function generatePolyrhythmicLayer(analysis) {
+  songBuilderState.isActive = false;
   // Add polyrhythmic patterns (e.g., 3-over-4, 5-over-4)
   const polyrhythms = [3, 5, 7];
   const poly = polyrhythms[Math.floor(Math.random() * polyrhythms.length)];
@@ -12424,6 +12447,7 @@ function generatePolyrhythmicLayer(analysis) {
 }
 
 function generateSyncopation(analysis) {
+  songBuilderState.isActive = false;
   // Add off-beat accents
   Object.keys(instruments).forEach(inst => {
     const instData = instruments[inst];
@@ -12447,6 +12471,7 @@ function generateSyncopation(analysis) {
 
 // Melodic AI variations
 function generateMelodicAIVariation() {
+  songBuilderState.isActive = false;
   const melodicInsts = ['bass', 'guitar', 'keys', 'lead'];
   
   if (!melodicInsts.some(inst => patterns[inst].some(s => s.active))) {
@@ -12473,6 +12498,7 @@ function generateMelodicAIVariation() {
 }
 
 function generateMelodicInversion() {
+  songBuilderState.isActive = false;
   // Invert melodic contours
   const melodicInsts = ['bass', 'guitar', 'keys', 'lead'];
   
@@ -12500,6 +12526,7 @@ function generateMelodicInversion() {
 }
 
 function generateArpeggiation() {
+  songBuilderState.isActive = false;
   // Convert chords to arpeggios
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
@@ -12526,6 +12553,7 @@ function generateArpeggiation() {
 }
 
 function generateHarmonicVariation() {
+  songBuilderState.isActive = false;
   // Change chord voicings/extensions on melodic instruments
   const scaleIntervals = scales[state.scale];
 
@@ -12648,6 +12676,7 @@ function applyGrooveTemplate(template) {
   
 // Lo-Fi: Laid back, off-grid, jazzy
 function generateLoFiBeat() {
+  songBuilderState.isActive = false;
   // DON'T set BPM - user controls it
   const len = state.sequenceLength;
   
@@ -12694,6 +12723,8 @@ function generateLoFiBeat() {
   
 // Hip-Hop: Boom-bap, hard-hitting
 function generateHipHopBeat() {
+  songBuilderState.isActive = false;
+  
   const len = state.sequenceLength;
   
   // Kick: Boom-bap throughout
@@ -12753,6 +12784,7 @@ function generateHipHopBeat() {
   
 // Post-Punk: Driving, motorik, relentless
 function generatePostPunkBeat() {
+  songBuilderState.isActive = false;
   const len = state.sequenceLength;
   const fourOnFloor = Math.random() > 0.3;
   
@@ -12815,6 +12847,7 @@ function generatePostPunkBeat() {
   
 // R&B: Syncopated, groovy, pocket
 function generateRnBBeat() {
+  songBuilderState.isActive = false;
   const len = state.sequenceLength;
   
   // Kick: Syncopated
@@ -12871,6 +12904,7 @@ function generateRnBBeat() {
   
 // Ambient: Sparse, textural, atmospheric
 function generateAmbientBeat() {
+  songBuilderState.isActive = false;
   const len = state.sequenceLength;
   
   // Kick: Minimal bar markers
@@ -12923,6 +12957,7 @@ function generateAmbientBeat() {
 }
   
 function generateDazecoreBeat() {
+  songBuilderState.isActive = false;
   const len = state.sequenceLength;
   
   // Kick: Warm and bouncy
@@ -13002,6 +13037,7 @@ function setStep(inst, step, velocity, probability) {
 
 // Add rhythmic variations - keep the groove but make it interesting
 function addRhythmicVariety() {
+  songBuilderState.isActive = false;
   const len = state.sequenceLength;
   
   // Add syncopated kicks (occasional off-beat hits)
@@ -13061,6 +13097,7 @@ function addRhythmicVariety() {
 
 // Create a fill pattern at the end of 4/8 bar sections
 function addDrumFills() {
+  songBuilderState.isActive = false;
   const len = state.sequenceLength;
   const barsPerFill = state.complexity === 1 ? 8 : state.complexity === 2 ? 4 : 2;
   
@@ -13098,6 +13135,7 @@ function addDrumFills() {
 
 // Add swing feel variations
 function addSwingVariations() {
+  songBuilderState.isActive = false;
   const len = state.sequenceLength;
   
   // Offset every other hi-hat slightly for swing feel
@@ -13126,6 +13164,7 @@ function addSwingVariations() {
   
 // More subtle variations - don't destroy the groove
 function addSubtleVariations() {
+  songBuilderState.isActive = false;
   // Only add to hi-hats and rimshots - keep kick/snare solid
   ['hihat', 'rimshot'].forEach(inst => {
     for (let i = 0; i < state.sequenceLength; i++) {
@@ -13141,6 +13180,7 @@ function addSubtleVariations() {
 
 // Add after generateBeat function
 function applyGenreFX() {
+  songBuilderState.isActive = false;
   if (state.currentGenre === 'postpunk') {
     fxConfig.reverb.active = true;
     fxConfig.reverb.decay = 2.0;
@@ -13179,6 +13219,7 @@ function applyGenreFX() {
 }
   
 function addVariations() {
+  songBuilderState.isActive = false;
   Object.keys(instruments).forEach(inst => {
     for (let i = 0; i < state.sequenceLength; i++) {
       if (Math.random() < 0.2 && !patterns[inst][i].active) {
@@ -13191,6 +13232,7 @@ function addVariations() {
 }
 
 function addGhostNotes() {
+  songBuilderState.isActive = false;
   ['snare', 'hihat', 'rimshot'].forEach(inst => {
     for (let i = 0; i < state.sequenceLength; i++) {
       if (Math.random() < 0.15 && !patterns[inst][i].active) {
@@ -13204,6 +13246,7 @@ function addGhostNotes() {
 }
 
 function randomizeVelocity() {
+  songBuilderState.isActive = false;
   Object.keys(instruments).forEach(inst => {
     patterns[inst].forEach(step => {
       if (step.active) {
@@ -13215,6 +13258,7 @@ function randomizeVelocity() {
 }
 
 function randomizeProbability() {
+  songBuilderState.isActive = false;
   Object.keys(instruments).forEach(inst => {
     patterns[inst].forEach(step => {
       if (step.active) {
@@ -13226,6 +13270,7 @@ function randomizeProbability() {
 }
 
 function clearPattern() {
+  songBuilderState.isActive = false;
   Object.keys(instruments).forEach(inst => {
     patterns[inst].forEach(step => {
       step.active = false;
@@ -13239,6 +13284,7 @@ function clearPattern() {
 }
 
 function generateMelodicPatterns() {
+  songBuilderState.isActive = false;
 
   ensureHarmonyGuardrails();
   
@@ -13264,6 +13310,7 @@ function generateMelodicPatterns() {
 
 // Lo-Fi: chords/bass/lead driven by the active chord progression (phrase-aware)
 function generateLoFiMelodies() {
+  songBuilderState.isActive = false;
   ensureHarmonyGuardrails();
 
   const len = state.sequenceLength;
@@ -13352,6 +13399,7 @@ function generateLoFiMelodies() {
 
 // Hip-Hop: Heavy bass, sparse chords, melodic hooks
 function generateHipHopMelodies() {
+  songBuilderState.isActive = false;
   const scaleIntervals = scales.minor;
   const keyIndex = keysArr.indexOf(state.key);
   const len = state.sequenceLength;
@@ -13412,6 +13460,7 @@ function generateHipHopMelodies() {
 
 // Post-Punk: Dark bass, angular guitars, minimal keys
 function generatePostPunkMelodies() {
+  songBuilderState.isActive = false;
   const scaleIntervals = scales.minor;
   const keyIndex = keysArr.indexOf(state.key);
   const len = state.sequenceLength;
@@ -13466,6 +13515,7 @@ function generatePostPunkMelodies() {
 
 // R&B: Smooth chords, groovy bass, soulful leads
 function generateRnBMelodies() {
+  songBuilderState.isActive = false;
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
   const len = state.sequenceLength;
@@ -13545,6 +13595,7 @@ function generateRnBMelodies() {
 
 // Ambient: Atmospheric pads, sparse melodic elements
 function generateAmbientMelodies() {
+  songBuilderState.isActive = false;
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
   const len = state.sequenceLength;
@@ -13615,6 +13666,7 @@ function generateAmbientMelodies() {
 
 // Dazecore: Warm, nostalgic melodies with glitchy textures
 function generateDazecoreMelodies() {
+  songBuilderState.isActive = false;
   const scaleIntervals = scales.major;
   const keyIndex = keysArr.indexOf(state.key);
   const len = state.sequenceLength;
@@ -13700,6 +13752,7 @@ function generateDazecoreMelodies() {
 }
 // Add after generateMelodicPatterns function
 function addDrumFills() {
+  songBuilderState.isActive = false;
   // Add crash on bar 1
   patterns.crash[0].active = true;
   patterns.crash[0].velocity = 0.8;
@@ -13723,6 +13776,7 @@ function addDrumFills() {
 }
 
 function generateBassLine() {
+  songBuilderState.isActive = false;
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
   const root = state.key;
@@ -13750,6 +13804,7 @@ function generateBassLine() {
 }
 
 function generateKeyPattern() {
+  songBuilderState.isActive = false;
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
   const octave = 3; // Lower octave - darker
@@ -13787,6 +13842,7 @@ function generateKeyPattern() {
 }
 
 function generateLeadMelody() {
+  songBuilderState.isActive = false;
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
   const octave = 4; // Medium-low register
@@ -13815,6 +13871,7 @@ function generateLeadMelody() {
 
 // Add after line ~1260 (after generateLeadMelody function)
 function generateGuitarStrums() {
+  songBuilderState.isActive = false;
   const scaleIntervals = scales[state.scale];
   const keyIndex = keysArr.indexOf(state.key);
   const octave = 2; // Lower, darker
@@ -13852,6 +13909,7 @@ function generateGuitarStrums() {
 }
 
 function applyEuclidean() {
+  songBuilderState.isActive = false;
   const instrumentKeys = Object.keys(instruments);
   const inst = instrumentKeys[Math.floor(Math.random() * instrumentKeys.length)];
   const hits = Math.floor(Math.random() * 8) + 3;
@@ -13870,6 +13928,7 @@ function applyEuclidean() {
 }
 
 function generateEuclidean(hits, steps) {
+  songBuilderState.isActive = false;
   const result = Array(steps).fill(0);
   const bucket = [];
   
@@ -20042,6 +20101,7 @@ function loadPreset(genre) {
 }
 
 function updateGenrePresets() {
+  songBuilderState.isActive = false;
   renderPresets();
 }
 
