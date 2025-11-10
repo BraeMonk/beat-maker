@@ -6137,11 +6137,13 @@ body.pro .pro-locked::after {
     opacity: 0;
     visibility: hidden;
     transition: all var(--duration-base) var(--ease-smooth);
+    pointer-events: none;
   }
 
   .daw-fab-backdrop.open {
     opacity: 1;
     visibility: visible;
+    pointer-events: auto;
   }
 
   /* Radial menu */
