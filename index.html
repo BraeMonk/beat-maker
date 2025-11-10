@@ -21399,8 +21399,12 @@ class FABController {
 
     // Handle menu item clicks
     const menuItems = this.menu.querySelectorAll('.daw-fab-menu-item');
-    menuItems.forEach(item => {
-      item.addEventListener('click', () => {
+    console.log('Found menu items:', menuItems.length); // ADD THIS
+    
+    menuItems.forEach((item, index) => {
+      console.log(`Item ${index}:`, item.dataset.action); // ADD THIS
+      item.addEventListener('click', (e) => {
+        console.log('Item clicked:', item.dataset.action); // ADD THIS
         const action = item.dataset.action;
         this.handleAction(action);
         this.close();
@@ -21440,22 +21444,26 @@ class FABController {
   handleAction(action) {
     switch (action) {
       case 'add-track':
-        this.addTrack();
+        document.getElementById('addTrackBtnLeft')?.click();
         break;
       case 'toggle-inspector':
-        this.toggleInspector();
+        const inspector = document.querySelector('.daw-inspector');
+        inspector?.classList.toggle('inspector-open');
         break;
       case 'toggle-fx':
-        this.toggleFX();
+        const fxPanel = document.getElementById('fxChainPanel');
+        fxPanel?.classList.toggle('open');
         break;
       case 'record-arm':
-        this.quickRecordArm();
+        const selectedStrip = document.querySelector('.daw-track-strip.selected');
+        if (selectedStrip) {
+          const armBtn = selectedStrip.querySelector('.track-mini-btn.arm');
+          armBtn?.click();
+        }
         break;
       case 'undo':
-        this.undo();
+        document.getElementById('undoBtn')?.click();
         break;
-      default:
-        console.log('Unknown FAB action:', action);
     }
   }
 
@@ -21518,8 +21526,11 @@ window.addEventListener('resize', () => {
 });
 
 function initFAB() {
-  fabController = new FABController();
+  if (!fabController && window.innerWidth <= 900) {
+    fabController = new FABController();
+  }
 }
+
 
 // ===================================================
 // 🎼 HARMONY TAB INTEGRATION
