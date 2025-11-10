@@ -6230,19 +6230,18 @@ body.pro .pro-locked::after {
     box-shadow: var(--shadow-sm);
   }
 
-  /* Mobile: inspector becomes bottom sheet toggled by FAB */
   .daw-inspector {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: -60vh; /* start hidden below screen */
     max-height: 60vh;
     z-index: 9800;
-    display: none;
+    transition: bottom var(--duration-base) var(--ease-smooth);
   }
 
   .daw-inspector.inspector-open {
-    display: block;
+    bottom: 0; /* slides up into view */
   }
 
   /* Hide FAB system on desktop */
