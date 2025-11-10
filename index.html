@@ -6839,11 +6839,14 @@ body.pro .pro-locked::after {
                 Template
               </label>
               <select id="songTemplateSelect" class="input" style="min-width:220px;">
-                <option value="intro-verse-chorus">Pop: Intro / Verse / Chorus</option>
-                <option value="short-edm-rise-drop">EDM: Build → Drop</option>
-                <option value="loop-jam">Loop-based Jam</option>
+                <option value="intro-verse-chorus">Pop / Rock</option>
+                <option value="short-edm-rise-drop">EDM / House</option>
+                <option value="hiphop-lofi">Hip-Hop / Lo-Fi</option>
+                <option value="metal-hardcore">Metal / Hardcore</option>
+                <option value="ambient-flow">Ambient / Downtempo</option>
+                <option value="loop-jam">Loop Jam</option>
               </select>
-    
+              
               <div style="font-size:var(--text-xs); color:var(--text-tertiary); margin-left:auto;">
                 Powered by your current key, scale & progression (Harmony tab)
               </div>
@@ -8685,33 +8688,63 @@ function setupVibeSelector() {
 // 16 steps per bar (your existing grid resolution)
 const STEPS_PER_BAR = 16;
 
-// Prebuilt form templates
 const SONG_TEMPLATES = {
+  // --- POP / ROCK ---
   'intro-verse-chorus': [
-    { id: 'intro',      label: 'Intro',       bars: 4,  energy: 0.3, drums: true,  bass: false, chords: true,  lead: false },
-    { id: 'verse1',     label: 'Verse 1',    bars: 8,  energy: 0.6, drums: true,  bass: true,  chords: true,  lead: false },
-    { id: 'prechorus1', label: 'Pre-Chorus', bars: 4,  energy: 0.7, drums: true,  bass: true,  chords: true,  lead: true  },
-    { id: 'chorus1',    label: 'Chorus 1',   bars: 8,  energy: 0.9, drums: true,  bass: true,  chords: true,  lead: true  },
-    { id: 'verse2',     label: 'Verse 2',    bars: 8,  energy: 0.7, drums: true,  bass: true,  chords: true,  lead: false },
-    { id: 'bridge',     label: 'Bridge',     bars: 4,  energy: 0.8, drums: true,  bass: true,  chords: true,  lead: true  },
-    { id: 'chorus2',    label: 'Chorus 2',   bars: 8,  energy: 1.0, drums: true,  bass: true,  chords: true,  lead: true  },
-    { id: 'outro',      label: 'Outro',      bars: 4,  energy: 0.4, drums: true,  bass: false, chords: true,  lead: false }
+    { id:'intro',label:'Intro',bars:4,energy:0.3,drums:true,bass:false,chords:true,lead:false },
+    { id:'verse1',label:'Verse 1',bars:8,energy:0.6,drums:true,bass:true,chords:true,lead:false },
+    { id:'chorus1',label:'Chorus 1',bars:8,energy:0.9,drums:true,bass:true,chords:true,lead:true },
+    { id:'verse2',label:'Verse 2',bars:8,energy:0.7,drums:true,bass:true,chords:true,lead:false },
+    { id:'bridge',label:'Bridge',bars:4,energy:0.8,drums:true,bass:true,chords:true,lead:true },
+    { id:'chorus2',label:'Chorus 2',bars:8,energy:1.0,drums:true,bass:true,chords:true,lead:true },
+    { id:'outro',label:'Outro',bars:4,energy:0.4,drums:true,bass:false,chords:true,lead:false }
   ],
 
+  // --- EDM / HOUSE ---
   'short-edm-rise-drop': [
-    { id: 'intro',   label: 'Intro',    bars: 4,  energy: 0.4, drums: true,  bass: false, chords: true,  lead: false },
-    { id: 'build',   label: 'Build',    bars: 8,  energy: 0.7, drums: true,  bass: true,  chords: true,  lead: true  },
-    { id: 'drop1',   label: 'Drop 1',   bars: 8,  energy: 1.0, drums: true,  bass: true,  chords: true,  lead: true  },
-    { id: 'break',   label: 'Break',    bars: 4,  energy: 0.5, drums: false, bass: false, chords: true,  lead: false },
-    { id: 'drop2',   label: 'Drop 2',   bars: 8,  energy: 1.0, drums: true,  bass: true,  chords: true,  lead: true  },
-    { id: 'outro',   label: 'Outro',    bars: 4,  energy: 0.4, drums: true,  bass: false, chords: true,  lead: false }
+    { id:'intro',label:'Intro',bars:4,energy:0.4,drums:true,bass:false,chords:true,lead:false },
+    { id:'build',label:'Build',bars:8,energy:0.7,drums:true,bass:true,chords:true,lead:true },
+    { id:'drop1',label:'Drop 1',bars:8,energy:1.0,drums:true,bass:true,chords:true,lead:true },
+    { id:'break',label:'Break',bars:4,energy:0.5,drums:false,bass:false,chords:true,lead:false },
+    { id:'drop2',label:'Drop 2',bars:8,energy:1.0,drums:true,bass:true,chords:true,lead:true },
+    { id:'outro',label:'Outro',bars:4,energy:0.4,drums:true,bass:false,chords:true,lead:false }
   ],
 
+  // --- HIP-HOP / LOFI ---
+  'hiphop-lofi': [
+    { id:'intro',label:'Intro',bars:4,energy:0.3,drums:true,bass:true,chords:true,lead:false },
+    { id:'verse1',label:'Verse 1',bars:16,energy:0.6,drums:true,bass:true,chords:true,lead:false },
+    { id:'hook',label:'Hook',bars:8,energy:0.8,drums:true,bass:true,chords:true,lead:true },
+    { id:'verse2',label:'Verse 2',bars:16,energy:0.7,drums:true,bass:true,chords:true,lead:false },
+    { id:'hook2',label:'Hook 2',bars:8,energy:0.9,drums:true,bass:true,chords:true,lead:true },
+    { id:'outro',label:'Outro',bars:4,energy:0.4,drums:true,bass:true,chords:true,lead:false }
+  ],
+
+  // --- METAL / HARDCORE ---
+  'metal-hardcore': [
+    { id:'intro',label:'Intro Riff',bars:4,energy:0.7,drums:true,bass:true,chords:true,lead:false },
+    { id:'verse1',label:'Verse 1',bars:8,energy:0.8,drums:true,bass:true,chords:true,lead:true },
+    { id:'chorus1',label:'Chorus 1',bars:8,energy:1.0,drums:true,bass:true,chords:true,lead:true },
+    { id:'breakdown',label:'Breakdown',bars:8,energy:0.9,drums:true,bass:true,chords:true,lead:false },
+    { id:'solo',label:'Solo',bars:8,energy:1.0,drums:true,bass:true,chords:true,lead:true },
+    { id:'chorus2',label:'Chorus 2',bars:8,energy:1.0,drums:true,bass:true,chords:true,lead:true },
+    { id:'outro',label:'Outro',bars:4,energy:0.6,drums:true,bass:true,chords:true,lead:false }
+  ],
+
+  // --- AMBIENT / DOWNTEMPO ---
+  'ambient-flow': [
+    { id:'drift1',label:'Drift A',bars:8,energy:0.3,drums:false,bass:false,chords:true,lead:true },
+    { id:'drift2',label:'Drift B',bars:8,energy:0.4,drums:false,bass:true,chords:true,lead:true },
+    { id:'drift3',label:'Drift C',bars:8,energy:0.5,drums:true,bass:true,chords:true,lead:true },
+    { id:'fade',label:'Fade',bars:8,energy:0.2,drums:false,bass:false,chords:true,lead:false }
+  ],
+
+  // --- JAM / IMPROV LOOP ---
   'loop-jam': [
-    { id: 'a1', label: 'A1', bars: 8, energy: 0.6, drums: true,  bass: true, chords: true,  lead: false },
-    { id: 'a2', label: 'A2', bars: 8, energy: 0.7, drums: true,  bass: true, chords: true,  lead: true  },
-    { id: 'b',  label: 'B',  bars: 8, energy: 0.9, drums: true,  bass: true, chords: true,  lead: true  },
-    { id: 'a3', label: 'A3', bars: 8, energy: 0.7, drums: true,  bass: true, chords: true,  lead: true  }
+    { id:'a1',label:'A1',bars:8,energy:0.6,drums:true,bass:true,chords:true,lead:false },
+    { id:'a2',label:'A2',bars:8,energy:0.7,drums:true,bass:true,chords:true,lead:true },
+    { id:'b',label:'B',bars:8,energy:0.9,drums:true,bass:true,chords:true,lead:true },
+    { id:'a3',label:'A3',bars:8,energy:0.7,drums:true,bass:true,chords:true,lead:true }
   ]
 };
 
