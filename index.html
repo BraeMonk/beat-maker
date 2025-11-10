@@ -9303,13 +9303,6 @@ const SONG_TEMPLATES = {
   ]
 };
 
-
-let songBuilderState = {
-  templateId: 'intro-verse-chorus',
-  sections: SONG_TEMPLATES['intro-verse-chorus'].map(s => ({ ...s })),
-  fillEvery: 4
-};
-
 // Small helper for safe step activation
 function sbSetStep(inst, stepIndex, opts = {}) {
   const arr = patterns[inst];
