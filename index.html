@@ -6517,6 +6517,7 @@ body.pro .pro-locked::after {
           
           <div class="flex">
             <button class="btn btn-primary" id="generateBtn">🎲 Generate Beat</button>
+            <button id="generateSongBtn" class="btn btn-primary btn-sm">🎵 Generate Song</button>
             <button class="btn btn-primary" id="generateRhythmBtn">🥁 Generate Rhythm</button>
             <button class="btn btn-secondary" id="randomVelBtn">🎯 Random Velocity</button>
             <button class="btn btn-secondary" id="randomProbBtn">🎲 Random Prob</button>
@@ -10071,11 +10072,34 @@ function setupMasterMeters() {
 function setupGeneratorButtons() {
   document.getElementById('generateBtn').addEventListener('click', () => {
     generateBeat();
+    ensureHarmonyGuardrails();
+    
     if (state.complexity >= 2) {
       addRhythmicVariety();
     }
   });
+
+  // === Combined Beat + Rhythm generator ===
+  document.getElementById('generateSongBtn')?.addEventListener('click', async () => {
+    showToast('🎶 Generating full song...', 'info');
   
+    // 1️⃣  Beat + drums
+    generateBeat();
+  
+    // 2️⃣  Harmony lock (progression + key)
+    ensureHarmonyGuardrails();
+  
+    // 3️⃣  Melodic structure
+    generateMelodicPatterns();
+  
+    // 4️⃣  Optional polish
+    if (state.complexity >= 2) addRhythmicVariety();
+    addDrumFills();
+    addSwingVariations();
+  
+    showToast('✅ Song ready!', 'success');
+  });
+
   document.getElementById('generateRhythmBtn').addEventListener('click', () => {
     generateMelodicPatterns();
     addDrumFills();
@@ -11746,6 +11770,9 @@ function clearPattern() {
 }
 
 function generateMelodicPatterns() {
+
+  ensureHarmonyGuardrails();
+  
   const genre = state.currentGenre;
   
   // Generate based on genre characteristics
@@ -11766,96 +11793,92 @@ function generateMelodicPatterns() {
   renderSequencer();
 }
 
-// Lo-Fi: Jazzy chords, warm bass, sparse leads
+// Lo-Fi: chords/bass/lead driven by the active chord progression (phrase-aware)
 function generateLoFiMelodies() {
-  const scaleIntervals = scales[state.scale];
-  const keyIndex = keysArr.indexOf(state.key);
+  ensureHarmonyGuardrails();
+
   const len = state.sequenceLength;
-  
-  // Bass: Root movement, walking feel throughout
-  const bassOctave = 2;
-  const bassProgression = [0, 3, 4, 0]; // I-IV-V-I progression
-  
-  for (let bar = 0; bar < len / 16; bar++) {
-    const offset = bar * 16;
-    
-    // Main bass notes on downbeats
-    [0, 4, 8, 12].forEach((step, idx) => {
-      const degree = bassProgression[idx % bassProgression.length];
-      patterns.bass[offset + step].active = true;
-      patterns.bass[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree]) % 12] + bassOctave;
-      patterns.bass[offset + step].velocity = 0.7;
-      patterns.bass[offset + step].duration = '4n';
-    });
-    
-    // Walking bass between roots
-    if (state.complexity >= 2) {
-      [2, 6, 10, 14].forEach((step, idx) => {
-        if (Math.random() > 0.4) {
-          const degree = [1, 2, 5, 6][idx];
-          patterns.bass[offset + step].active = true;
-          patterns.bass[offset + step].note = keysArr[(keyIndex + scaleIntervals[degree % 7]) % 12] + bassOctave;
-          patterns.bass[offset + step].velocity = 0.6;
-          patterns.bass[offset + step].duration = '8n';
-        }
-      });
+  const bars = Math.max(1, Math.floor(len / 16));
+  const keysOct  = state.octave || 3;   // keys/blocks
+  const bassOct  = (state.octave || 3) - 2;
+  const leadOct  = (state.octave || 3) + 1;
+
+  // Clear any existing melodic notes
+  ['bass','keys','lead','guitar'].forEach(inst => {
+    if (!patterns[inst]) return;
+    for (let i=0;i<len;i++) {
+      patterns[inst][i].active = false;
+      patterns[inst][i].note = instruments[inst]?.note || patterns[inst][i].note;
+      patterns[inst][i].velocity = 0.8;
+      patterns[inst][i].duration = '8n';
     }
-  }
-  
-  // Keys: Jazz chords (7ths, 9ths)
-  const chordOctave = 3;
-  const jazzChords = bassProgression.map(degree => {
-    const root = keysArr[(keyIndex + scaleIntervals[degree]) % 12];
-    const third = keysArr[(keyIndex + scaleIntervals[(degree + 2) % 7]) % 12];
-    const fifth = keysArr[(keyIndex + scaleIntervals[(degree + 4) % 7]) % 12];
-    const seventh = keysArr[(keyIndex + scaleIntervals[(degree + 6) % 7]) % 12];
-    return [root + chordOctave, third + chordOctave, fifth + chordOctave, seventh + (chordOctave + 1)];
   });
-  
-  for (let bar = 0; bar < len / 16; bar++) {
+
+  // Simple A / A' phrase plan: first half repeats with light variation
+  const phraseLenBars = Math.max(2, Math.min(4, bars)); // 2–4 bar phrase
+  let lastLeadPC = null; // previous pitch-class for smoothing
+
+  for (let bar = 0; bar < bars; bar++) {
     const offset = bar * 16;
-    [0, 4, 8, 12].forEach((step, idx) => {
-      if (Math.random() > 0.2) {
-        patterns.keys[offset + step].active = true;
-        patterns.keys[offset + step].note = jazzChords[idx % jazzChords.length];
-        patterns.keys[offset + step].velocity = 0.5;
-        patterns.keys[offset + step].duration = '2n';
-      }
+    const chord = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale); // safety
+    const [root, third, fifth] = chord;
+
+    // === KEYS (block chords on the grid) ===
+    // Downbeats: 0, 4, 8, 12 — alternate chord tones
+    const keysPlan = [
+      withOct(root,  keysOct),
+      withOct(third, keysOct),
+      withOct(fifth, keysOct),
+      withOct(root,  keysOct)
+    ];
+    [0,4,8,12].forEach((step, i) => {
+      const idx = offset + step;
+      patterns.keys[idx].active   = true;
+      patterns.keys[idx].note     = keysPlan[i % keysPlan.length];
+      patterns.keys[idx].velocity = 0.6;
+      patterns.keys[idx].duration = '2n';
     });
-  }
-  
-  // Guitar: Muted strums, sparse
-  if (state.complexity >= 2) {
-    for (let bar = 0; bar < len / 16; bar++) {
-      const offset = bar * 16;
-      [2, 6, 10, 14].forEach((step, idx) => {
-        if (Math.random() > 0.5) {
-          patterns.guitar[offset + step].active = true;
-          patterns.guitar[offset + step].note = jazzChords[idx % jazzChords.length];
-          patterns.guitar[offset + step].velocity = 0.4;
-          patterns.guitar[offset + step].duration = '8n';
-        }
-      });
+
+    // === BASS (root/5th on strong beats, passing on weak) ===
+    for (let s = 0; s < 16; s++) {
+      const idx = offset + s;
+      const n = chooseBassNote(chord, s, bassOct);
+      if (s % 2 === 0) { // half the density; feel free to tweak
+        patterns.bass[idx].active   = true;
+        patterns.bass[idx].note     = n;
+        patterns.bass[idx].velocity = (s % 4 === 0) ? 0.9 : 0.7;
+        patterns.bass[idx].duration = (s % 4 === 0) ? '8n' : '16n';
+      }
+    }
+
+    // === LEAD (motif that lightly varies every phrase) ===
+    // Place on weak beats inside the bar for a laid-back feel
+    const motifSteps = [2, 6, 10, 14];
+    motifSteps.forEach((s, i) => {
+      const idx = offset + s;
+      const n = chooseMelodyNote(chord, s, leadOct, lastLeadPC);
+      lastLeadPC = n; // keep string (has octave, okay)
+      patterns.lead[idx].active   = true;
+      patterns.lead[idx].note     = n;
+      patterns.lead[idx].velocity = 0.7;
+      patterns.lead[idx].duration = '8n';
+    });
+
+    // === Light variation on A' phrases ===
+    if (bar >= phraseLenBars && (bar % phraseLenBars === 0)) {
+      // Nudge one keys hit and one lead note
+      const idxK = offset + 8;
+      if (patterns.keys[idxK]?.active) {
+        patterns.keys[idxK].note = withOct(third, keysOct); // swap tone
+      }
+      const idxL = offset + 10;
+      if (patterns.lead[idxL]?.active) {
+        patterns.lead[idxL].note = withOct(fifth, leadOct); // small lift
+      }
     }
   }
-  
-  // Lead: Melodic fragments
-  if (state.complexity >= 3) {
-    const leadOctave = 4;
-    const melody = [0, 2, 4, 2, 0];
-    
-    for (let bar = 0; bar < len / 16; bar++) {
-      const offset = bar * 16;
-      [8, 9, 10, 11, 12].forEach((step, idx) => {
-        if (Math.random() > 0.3 && melody[idx] !== undefined) {
-          patterns.lead[offset + step].active = true;
-          patterns.lead[offset + step].note = keysArr[(keyIndex + scaleIntervals[melody[idx]]) % 12] + leadOctave;
-          patterns.lead[offset + step].velocity = 0.5;
-          patterns.lead[offset + step].duration = '8n';
-        }
-      });
-    }
-  }
+
+  renderSequencer?.();
 }
 
 // Hip-Hop: Heavy bass, sparse chords, melodic hooks
@@ -12644,7 +12667,125 @@ function applyFxActiveState(fxName, active) {
     fx.frequency.rampTo(targetFreq, 0.05);
   }
 }
-  
+
+/* ============================
+   HARMONY GUARDRAILS (v1.6)
+   - Progression templates (degrees)
+   - Triad builder from scale
+   - Normalization of state.progression -> state.progressionNotes
+   - Chord/phrase helpers
+============================ */
+
+const PROGRESSION_TEMPLATES = {
+  lofi: [
+    // Degrees in current scale (0..6)
+    [0, 5, 3, 4],  // I – vi – IV – V
+    [1, 4, 0, 5],  // ii – V – I – vi
+    [0, 3, 4, 0],  // I – IV – V – I
+    [5, 3, 0, 4],  // vi – IV – I – V
+  ],
+  hiphop: [
+    [5, 3, 0, 4],  // vi – IV – I – V
+    [0, 0, 3, 4],  // I – I – IV – V
+  ],
+  default: [[0, 3, 4, 0]]
+};
+
+// Build a triad (root, 3rd, 5th) from a scale degree using your keysArr/scales tables
+function buildTriadFromDegree(degree, keyRoot = state.key, scaleName = state.scale) {
+  const keyIndex = keysArr.indexOf(keyRoot);
+  const scaleIntervals = scales[scaleName] || scales.major; // fallback
+  const deg = ((degree % scaleIntervals.length) + scaleIntervals.length) % scaleIntervals.length;
+
+  const rootSemis  = scaleIntervals[deg];
+  const thirdSemis = scaleIntervals[(deg + 2) % scaleIntervals.length];
+  const fifthSemis = scaleIntervals[(deg + 4) % scaleIntervals.length];
+
+  const root  = keysArr[(keyIndex + rootSemis)  % 12];
+  const third = keysArr[(keyIndex + thirdSemis) % 12];
+  const fifth = keysArr[(keyIndex + fifthSemis) % 12];
+
+  return [root, third, fifth]; // notes WITHOUT octaves
+}
+
+// Normalize any existing state.progression into state.progressionNotes = [ ['C','E','G'], ... ]
+function ensureHarmonyGuardrails() {
+  // Already normalized?
+  if (Array.isArray(state.progressionNotes) && state.progressionNotes.length) return;
+
+  // Case A: User/Harmony tab already created a progression we can normalize
+  if (Array.isArray(state.progression) && state.progression.length) {
+    const normalized = [];
+    for (const chord of state.progression) {
+      if (Array.isArray(chord)) {
+        // ['C','E','G'] or with stray octaves like ['C3','E3','G3']
+        normalized.push(chord.map(n => String(n).replace(/\d/g,'')));
+      } else if (chord && chord.root) {
+        // { root:'C', type:'minor'|'major'|'dim' , ... }
+        // Try Tonal first (if available), else derive from the scale degree fallback
+        try {
+          const typeSuffix = chord.type === 'minor' ? 'm' : (chord.type === 'dim' ? 'dim' : '');
+          const tonalNotes = (window.Tonal?.Chord?.get?.(`${chord.root}${typeSuffix}`)?.notes) || [];
+          if (tonalNotes.length) {
+            normalized.push(tonalNotes.map(n => n.replace(/\d/g,'')));
+            continue;
+          }
+        } catch (e) {}
+        // Fallback: build a triad on the root as if it's a scale member (best-effort)
+        normalized.push([chord.root, chord.root, chord.root]);
+      }
+    }
+    if (normalized.length) {
+      state.progressionNotes = normalized;
+      return;
+    }
+  }
+
+  // Case B: Nothing to normalize → generate from template for the current genre
+  const bank = PROGRESSION_TEMPLATES[state.currentGenre] || PROGRESSION_TEMPLATES.lofi || PROGRESSION_TEMPLATES.default;
+  const tpl = bank[Math.floor(Math.random() * bank.length)];
+  state.progressionNotes = tpl.map(deg => buildTriadFromDegree(deg, state.key, state.scale));
+}
+
+// Map a *bar index* to its chord (notes WITHOUT octaves)
+function getChordNotesForBar(barIndex) {
+  ensureHarmonyGuardrails();
+  if (!Array.isArray(state.progressionNotes) || !state.progressionNotes.length) return null;
+  return state.progressionNotes[barIndex % state.progressionNotes.length];
+}
+
+// Append an octave to a pitch class like "C" -> "C3"
+function withOct(note, octave) {
+  return `${note.replace(/\d/g,'')}${octave}`;
+}
+
+// Pick a bass note for a step in the bar: strong beats = root/5th, weak = passing
+function chooseBassNote(chordNotes, stepInBar, baseOct = 2) {
+  const strong = (stepInBar % 4 === 0); // steps 0,4,8,12 within a 16-step bar
+  if (strong) {
+    // Alternate root and fifth to create simple movement
+    const pick = (stepInBar === 8) ? 2 : 0; // 0=root, 2=fifth (root,3rd,5th indexing)
+    return withOct(chordNotes[Math.min(pick, chordNotes.length-1)], baseOct);
+  }
+  // Weak beats: neighbor/passing = third or step back to root
+  const pick = (stepInBar % 8 < 4) ? 1 : 0;
+  return withOct(chordNotes[Math.min(pick, chordNotes.length-1)], baseOct);
+}
+
+// Choose a chord-tone melody note; strong beats prefer chord tones, weak beats can use neighbors
+function chooseMelodyNote(chordNotes, stepInBar, baseOct = 4, last = null) {
+  const strong = (stepInBar % 4 === 0);
+  const pool = strong ? chordNotes : [...chordNotes]; // could add scale neighbors if you like
+  let pick = pool[Math.floor(Math.random() * pool.length)];
+  // Gentle smoothing: avoid repeating the exact same note too often on weak beats
+  if (!strong && last && pick === last.replace(/\d/g,'')) {
+    pick = pool[(pool.indexOf(pick)+1) % pool.length];
+  }
+  // Keep melodic contour inside a comfy range
+  const oct = strong ? baseOct : (Math.random() < 0.6 ? baseOct : baseOct + 1);
+  return withOct(pick, oct);
+}
+
 // -------------------- Harmony System --------------------
 function renderHarmony() {
   const keySelect = document.getElementById('keySelect');
