@@ -6926,6 +6926,9 @@ body.pro .pro-locked::after {
               <button id="songBuildBtn" class="btn btn-primary">
                 🎼 Build Structured Song
               </button>
+              <button id="songBuilderToMultitrackBtn" class="btn btn-success btn-sm">
+                ⬇️ Send to Multitrack
+              </button>
               <div style="font-size:var(--text-xs); color:var(--text-tertiary);">
                 Result shows up in the Sequencer / Generate view.
               </div>
@@ -9053,6 +9056,58 @@ function setupSongBuilderControls() {
       sequencerTabBtn.click();
     }
   });
+
+  // Wire button
+  document.getElementById("songBuilderToMultitrackBtn")
+    ?.addEventListener("click", exportSongBuilderToMultitrack);
+}
+
+async function exportSongBuilderToMultitrack() {
+  try {
+    await Tone.start();
+    ensureHarmonyGuardrails();
+
+    // Generate or reuse the full song
+    if (typeof generateFullSongFromStructure === "function") {
+      await generateFullSongFromStructure();
+    }
+
+    // Reuse or create target track
+    let targetTrack = multitrack.tracks.find(t => t.name === "Song Builder");
+    if (!targetTrack) {
+      targetTrack = await createTrack(null, false);
+      targetTrack.name = "Song Builder";
+      renderMultitrack();
+    }
+
+    // Duration for offline render
+    const durationSec = (state.duration || 1) * 60;
+
+    // Offline render master mix
+    const buffer = await Tone.Offline(async () => {
+      await generateFullSongFromStructure();
+    }, durationSec);
+
+    // Convert to WAV blob
+    const wav = buffer.get();
+    const blob = new Blob([wav], { type: "audio/wav" });
+    const url = URL.createObjectURL(blob);
+
+    // Add new region/take to Multitrack
+    targetTrack.takes.push({
+      name: "Song Builder Take",
+      start: 0,
+      end: durationSec,
+      buffer: url,
+    });
+
+    renderMultitrack();
+    showToast("✅ Sent to Multitrack", "success");
+    document.querySelector('.sidebar-tab[data-tab="multitrack"]').click();
+  } catch (err) {
+    console.error(err);
+    showToast("❌ Export failed", "error");
+  }
 }
 
 // -------------------- Pattern Management --------------------
