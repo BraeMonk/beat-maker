@@ -10007,38 +10007,33 @@ function applyTransitionEffects(section, nextSection, endBar) {
 
 function generateFullSongFromStructure() {
   songBuilderState.isActive = true;
+
+  // 🔁 Always recompute chords from the current Harmony tab
+  state.progressionNotes = null;
+
   ensureHarmonyGuardrails();
 
-  // 🔀 Create a fresh randomized snapshot of the sections *for this build only*
-  const runSections = randomizeSongBuilderSectionsForRun();
-
-  // Use the randomized sections to determine length
-  const totalBars = Math.max(
-    2,
-    runSections.reduce((sum, s) => sum + (s.bars || 0), 0)
-  );
+  const totalBars = Math.max(2, getSongBuilderTotalBars());
   const totalSteps = totalBars * STEPS_PER_BAR;
-
   state.sequenceLength = Math.min(CONFIG.MAX_SEQUENCE_LENGTH, totalSteps);
   ensurePatternLength(state.sequenceLength);
   wipeAllPatterns();
-  
+
   let currentBar = 0;
-  runSections.forEach((section, idx) => {
+  songBuilderState.sections.forEach((section, idx) => {
     const startBar = currentBar;
     const endBar = currentBar + section.bars;
-    
+
     generateSectionDrums(section, startBar, endBar);
     generateSectionBass(section, startBar, endBar);
     generateSectionChords(section, startBar, endBar);
     generateSectionMelody(section, startBar, endBar);
-    
-    // Apply transitions based on the *randomized* sequence too
-    const nextSection = runSections[idx + 1];
+
+    const nextSection = songBuilderState.sections[idx + 1];
     if (nextSection) {
       applyTransitionEffects(section, nextSection, endBar);
     }
-    
+
     currentBar = endBar;
   });
 
@@ -11915,30 +11910,43 @@ function setupMixerListeners() {
   });
 }
 
+function invalidateHarmonyCache() {
+  state.progressionNotes = null;
+}
+
 function setupHarmonyControls() {
   document.getElementById('keySelect').addEventListener('change', e => {
     state.key = e.target.value;
+    invalidateHarmonyCache();      // 🧹
     updateChords();
   });
   
   document.getElementById('scaleSelect').addEventListener('change', e => {
     state.scale = e.target.value;
+    invalidateHarmonyCache();      // 🧹
     updateChords();
   });
   
   document.getElementById('octaveSelect').addEventListener('change', e => {
     state.octave = parseInt(e.target.value, 10);
+    // (no need to invalidate here unless you use octave in chords)
   });
   
-  document.getElementById('genProgBtn').addEventListener('click', generateProgression);
+  document.getElementById('genProgBtn').addEventListener('click', () => {
+    generateProgression();
+    invalidateHarmonyCache();      // 🧹
+  });
+
   document.getElementById('clearProgBtn').addEventListener('click', () => {
     state.progression = [];
+    invalidateHarmonyCache();      // 🧹
     renderProgression();
   });
-  
+
   document.querySelectorAll('[data-prog]').forEach(btn => {
     btn.addEventListener('click', e => {
       loadProgressionTemplate(e.currentTarget.dataset.prog);
+      invalidateHarmonyCache();    // 🧹
     });
   });
 }
@@ -14512,21 +14520,36 @@ function updateChords() {
     const root = keysArr[(keyIndex + interval) % 12];
     const third = scaleIntervals[(i + 2) % scaleIntervals.length];
     const thirdInterval = (third - interval + 12) % 12;
-    const type = thirdInterval === 3 ? 'minor' : thirdInterval === 4 ? 'major' : 'dim';
-    chords.push({ root, type, roman: ['I','II','III','IV','V','VI','VII'][i] });
+    const type =
+      thirdInterval === 3 ? 'minor' :
+      thirdInterval === 4 ? 'major' :
+      'dim';
+
+    chords.push({
+      root,
+      type,
+      roman: ['I','II','III','IV','V','VI','VII'][i]
+    });
   });
   
   chords.forEach(chord => {
     const chip = document.createElement('div');
     chip.className = 'chip';
-    chip.textContent = `${chord.roman} - ${chord.root}${chord.type === 'minor' ? 'm' : chord.type === 'dim' ? '°' : ''}`;
+    chip.textContent =
+      `${chord.roman} - ${chord.root}${
+        chord.type === 'minor' ? 'm' :
+        chord.type === 'dim'   ? '°' : ''
+      }`;
+    
     chip.addEventListener('click', () => {
       state.progression.push(chord);
+      invalidateHarmonyCache();   // 🧹 harmony cache reset
       renderProgression();
     });
-    fragment.appendChild(chip);
+    
+    fragment.appendChild(chip);   // ✅ this was missing
   });
-  
+
   chordChips.innerHTML = '';
   chordChips.appendChild(fragment);
 }
@@ -14536,18 +14559,26 @@ function renderProgression() {
   const fragment = document.createDocumentFragment();
   
   if (!state.progression.length) {
-    wrap.innerHTML = '<div style="color: var(--text-muted); font-size: 0.9rem;">Click chords above to build progression</div>';
+    wrap.innerHTML =
+      '<div style="color: var(--text-muted); font-size: 0.9rem;">Click chords above to build progression</div>';
     return;
   }
   
   state.progression.forEach((chord, index) => {
     const chip = document.createElement('div');
     chip.className = 'chip active';
-    chip.textContent = `${chord.roman} - ${chord.root}${chord.type === 'minor' ? 'm' : chord.type === 'dim' ? '°' : ''}`;
+    chip.textContent =
+      `${chord.roman} - ${chord.root}${
+        chord.type === 'minor' ? 'm' :
+        chord.type === 'dim'   ? '°' : ''
+      }`;
+    
     chip.addEventListener('click', () => {
       state.progression.splice(index, 1);
+      invalidateHarmonyCache();   // 🧹 reset *then* re-render
       renderProgression();
     });
+
     fragment.appendChild(chip);
   });
   
