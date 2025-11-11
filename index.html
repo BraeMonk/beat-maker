@@ -12351,79 +12351,157 @@ function formatFxDisplay(param, value) {
 }
 
 // -------------------- Sequencer Rendering --------------------
+let renderSequencerVersion = 0;
+
 function renderSequencer() {
   const grid = document.getElementById('seqGrid');
+  if (!grid) return;
+
+  const instrumentKeys = Object.keys(instruments);
+  if (!instrumentKeys.length) {
+    grid.innerHTML = '';
+    return;
+  }
+
+  // Bump version so any in-flight render knows it's stale
+  const myVersion = ++renderSequencerVersion;
+
+  // Clear old grid immediately so we don't layout around stale content
+  grid.innerHTML = '';
+
   const fragment = document.createDocumentFragment();
-  
-  Object.keys(instruments).forEach(inst => {
+  const totalInstruments = instrumentKeys.length;
+  const ROWS_PER_FRAME = 2; // tweak: 1 = safest, 3–4 = faster but heavier
+
+  function buildRow(inst) {
     const instData = instruments[inst];
     const row = document.createElement('div');
     row.className = 'seq-row';
-    
-    // Label
+
+    // --- Label ---
     const label = document.createElement('div');
     label.className = 'seq-label';
-    label.innerHTML = `
-      <span>${instData.icon} ${instData.name}</span>
-      <div class="seq-icons">
-        <button class="seq-icon ${instData.mute ? 'active' : ''}" 
-                data-inst="${inst}" data-action="mute">M</button>
-        <button class="seq-icon ${instData.solo ? 'active' : ''}" 
-                data-inst="${inst}" data-action="solo">S</button>
-        ${instData.type === 'melodic' ? 
-          `<button class="seq-icon" data-inst="${inst}" data-action="note">🎵</button>` : ''}
-      </div>
-    `;
+
+    const span = document.createElement('span');
+    span.textContent = `${instData.icon} ${instData.name}`;
+    label.appendChild(span);
+
+    const iconsWrap = document.createElement('div');
+    iconsWrap.className = 'seq-icons';
+
+    const muteBtn = document.createElement('button');
+    muteBtn.className = `seq-icon ${instData.mute ? 'active' : ''}`;
+    muteBtn.dataset.inst = inst;
+    muteBtn.dataset.action = 'mute';
+    muteBtn.textContent = 'M';
+    iconsWrap.appendChild(muteBtn);
+
+    const soloBtn = document.createElement('button');
+    soloBtn.className = `seq-icon ${instData.solo ? 'active' : ''}`;
+    soloBtn.dataset.inst = inst;
+    soloBtn.dataset.action = 'solo';
+    soloBtn.textContent = 'S';
+    iconsWrap.appendChild(soloBtn);
+
+    if (instData.type === 'melodic') {
+      const noteBtn = document.createElement('button');
+      noteBtn.className = 'seq-icon';
+      noteBtn.dataset.inst = inst;
+      noteBtn.dataset.action = 'note';
+      noteBtn.textContent = '🎵';
+      iconsWrap.appendChild(noteBtn);
+    }
+
+    label.appendChild(iconsWrap);
     row.appendChild(label);
-    
-    // Steps
-    for (let i = 0; i < state.sequenceLength; i++) {
-      const step = patterns[inst][i];
+
+    // --- Steps ---
+    const seqLen = state.sequenceLength;
+    const instPatterns = patterns[inst];
+
+    for (let i = 0; i < seqLen; i++) {
+      const step = instPatterns[i];
       const cell = document.createElement('div');
       cell.className = 'step';
       cell.dataset.inst = inst;
       cell.dataset.step = i;
-      
+
       if (step.active) {
         cell.classList.add('active');
-        
+
+        // Prob / note label
         const probLabel = document.createElement('div');
         probLabel.className = 'step-prob';
-        
+
         if (instData.type === 'melodic' && step.note) {
           probLabel.textContent = step.note;
           probLabel.style.fontSize = '0.6rem';
         } else {
-          probLabel.textContent = step.probability + '%';
+          probLabel.textContent = (step.probability ?? 100) + '%';
         }
-        
         cell.appendChild(probLabel);
-        
+
+        // Velocity bar
         const velBar = document.createElement('div');
         velBar.className = 'step-vel';
-        velBar.innerHTML = `<div class="step-vel-fill" 
-          style="width:${Math.round((step.velocity || 0) * 100)}%"></div>`;
+
+        const fill = document.createElement('div');
+        fill.className = 'step-vel-fill';
+        fill.style.width = `${Math.round((step.velocity || 0) * 100)}%`;
+
+        velBar.appendChild(fill);
         cell.appendChild(velBar);
       }
-      
+
       row.appendChild(cell);
     }
-    
-    fragment.appendChild(row);
-  });
-  
-  grid.innerHTML = '';
-  grid.appendChild(fragment);
-  
-  // Playhead
-  let playhead = document.getElementById('playhead');
-  if (!playhead) {
-    playhead = document.createElement('div');
-    playhead.id = 'playhead';
-    playhead.className = 'playhead';
-    document.querySelector('.sequencer').appendChild(playhead);
+
+    return row;
   }
+
+  let nextIndex = 0;
+
+  function renderChunk() {
+    // If a newer render started, abort this one
+    if (myVersion !== renderSequencerVersion) return;
+
+    const end = Math.min(nextIndex + ROWS_PER_FRAME, totalInstruments);
+
+    for (let idx = nextIndex; idx < end; idx++) {
+      const inst = instrumentKeys[idx];
+      const row = buildRow(inst);
+      fragment.appendChild(row);
+    }
+
+    nextIndex = end;
+
+    if (nextIndex < totalInstruments) {
+      // More rows to do; yield to browser, then continue
+      requestAnimationFrame(renderChunk);
+    } else {
+      // Finished building all rows; attach once
+      if (myVersion !== renderSequencerVersion) return; // safety
+
+      grid.appendChild(fragment);
+
+      // Ensure playhead exists once grid is ready
+      let playhead = document.getElementById('playhead');
+      if (!playhead) {
+        const seqWrapper = document.querySelector('.sequencer');
+        if (seqWrapper) {
+          playhead = document.createElement('div');
+          playhead.id = 'playhead';
+          playhead.className = 'playhead';
+          seqWrapper.appendChild(playhead);
+        }
+      }
+    }
+  }
+
+  // Kick off chunked render
+  requestAnimationFrame(renderChunk);
 }
+
 
 function toggleStep(inst, stepIndex, e) {
   songBuilderState.isActive = false;
