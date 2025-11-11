@@ -4477,54 +4477,6 @@ body.pro .pro-locked::after {
     gap: var(--space-3);
     text-align: center;
   }
-
-    /* --- Center layout for mobile buttons & text --- */
-
-  header {
-    grid-template-columns: 1fr;
-    text-align: center;
-    justify-items: center;
-  }
-
-  .logo-section {
-    justify-content: center;
-  }
-
-  .header-actions {
-    justify-content: center;
-  }
-
-  .genre-selector {
-    justify-content: center;
-  }
-
-  .transport {
-    grid-template-columns: 1fr;
-    text-align: center;
-  }
-
-  .transport-controls,
-  .transport-params {
-    justify-content: center;
-  }
-
-  .panel-header {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .panel-title,
-  .chips,
-  .preset-grid,
-  .footer {
-    text-align: center;
-    justify-content: center;
-  }
-
-  .btn {
-    justify-content: center;
-  }
 }
 
 /* MOBILE PORTRAIT: 768px and below */
@@ -6884,6 +6836,65 @@ body.pro .pro-locked::after {
     width: 100%;
   }
 }
+
+/* ==================== MOBILE CENTERING FIXES ==================== */
+
+@media (max-width: 768px) {
+  /* Center all button containers */
+  .transport-controls,
+  .header-actions,
+  .panel-header,
+  .modal-footer,
+  .fx-chain-header,
+  .toolbar-group {
+    justify-content: center !important;
+    text-align: center;
+  }
+  
+  /* Center visualizer overlay text */
+  .viz-overlay {
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Center genre selector buttons */
+  .genre-selector {
+    justify-content: center !important;
+  }
+  
+  /* Center any button groups */
+  .flex,
+  .flex-col {
+    justify-content: center;
+    align-items: center;
+  }
+  
+  /* Center track controls */
+  .track-strip-controls,
+  .track-controls-grid,
+  .channel-btns {
+    justify-content: center;
+  }
+  
+  /* Center panel action buttons */
+  .panel-header > div:last-child {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  /* Center inspector tabs */
+  .daw-inspector-tabs {
+    justify-content: center;
+  }
+  
+  /* Center song builder buttons */
+  #tab-songbuilder .panel-header {
+    justify-content: center;
+    text-align: center;
+  }
+}
   </style>
 </head>
 <body>
@@ -7065,7 +7076,7 @@ body.pro .pro-locked::after {
           
           <div class="flex">
             <button class="btn btn-primary" id="generateBtn">🎲 Generate Beat</button>
-            <button id="generateSongBtn" class="btn btn-primary btn-sm">🎵 Generate Song</button>
+            <button id="generateSongBtn" class="btn btn-primary btn-sm">🎵 Generate Both!</button>
             <button class="btn btn-primary" id="generateRhythmBtn">🥁 Generate Rhythm</button>
             <button class="btn btn-secondary" id="randomVelBtn">🎯 Random Velocity</button>
             <button class="btn btn-secondary" id="randomProbBtn">🎲 Random Prob</button>
