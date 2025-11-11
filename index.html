@@ -11176,14 +11176,25 @@ function calculateFrequencyMasking(inst, analysis) {
 function calculateProfessionalGain(inst, instAnalysis, mixAnalysis) {
   // LUFS-aware target levels
   const targetLevels = {
-    kick: 0.95,   // -0.4 dB
-    bass: 0.85,   // -1.4 dB
-    snare: 0.75,  // -2.5 dB
-    hihat: 0.45,  // -6.9 dB
-    clap: 0.65,   // -3.7 dB
-    perc: 0.50,   // -6.0 dB
-    synth: 0.70,  // -3.1 dB
-    lead: 0.80    // -1.9 dB
+    // Low-end foundation (-3 to -6 dB for punch with headroom)
+    kick: 0.71,   // -3.0 dB (loudest element, anchor)
+    bass: 0.63,   // -4.0 dB (sits just under kick)
+    
+    // Transient elements (-6 to -9 dB for clarity without harshness)
+    snare: 0.56,  // -5.0 dB (second most prominent)
+    clap: 0.50,   // -6.0 dB (accent layer)
+    
+    // High-frequency elements (-9 to -12 dB for air, not fatigue)
+    hihat: 0.40,  // -8.0 dB (constant presence)
+    perc: 0.35,   // -9.0 dB (textural)
+    
+    // Melodic elements (-4 to -7 dB for musical presence)
+    lead: 0.63,   // -4.0 dB (focal point when active)
+    synth: 0.56,  // -5.0 dB (supporting harmony)
+    pad: 0.45,    // -7.0 dB (atmosphere)
+    
+    // Default for unknown instruments
+    default: 0.50 // -6.0 dB (safe middle ground)
   };
   
   let targetGain = targetLevels[inst] || 0.65;
