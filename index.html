@@ -9477,12 +9477,31 @@ const SONG_TEMPLATES = {
   ]
 };
 
+// ==================== TEMPLATE → GENRE AUTO-LINK ====================
+
+const TEMPLATE_TO_GENRE = {
+  // --- Core mappings (auto-detected by templateId) ---
+  'intro-verse-chorus'   : 'poprock',
+  'short-edm-rise-drop'  : 'edm',
+  'hiphop-lofi'          : 'lofi',
+  'metal-hardcore'       : 'metal',
+  'ambient-flow'         : 'ambient',
+  'loop-jam'             : 'lofi',
+  'trap-banger'          : 'trap',
+  'progressive-house'    : 'edm',
+  'funk-groove'          : 'funk',
+  'jazz-standard'        : 'jazz',
+  'dubstep-wobble'       : 'dubstep',
+  'reggae-dub'           : 'reggae'
+};
+
   // At the top with other state
 let songBuilderState = {
   templateId: 'intro-verse-chorus',
   sections: SONG_TEMPLATES['intro-verse-chorus'].map(s => ({ ...s })),
   fillEvery: 4,
-  isActive: false  // ADD THIS FLAG
+  isActive: false,  // ADD THIS FLAG
+  genre: state.currentGenre
 };
   
 // Small helper for safe step activation
@@ -10326,6 +10345,172 @@ function endSongBuilderBusy() {
   }
 }
 
+// ==================== COHERENT SONG BUILDER UPGRADE ====================
+
+// 🎹 GLOBAL HARMONY CONTEXT (persistent for one build)
+let sbGlobalHarmony = null;
+
+// Utility: random key/scale, consistent through song
+// ==================== EXTENDED GENRE-AWARE HARMONY ====================
+
+function sbChooseGlobalHarmony_GenreAware() {
+  const genre = songBuilderState.genre || state.currentGenre || 'lofi';
+
+  const GENRE_PROFILES = {
+    // --- CORE STYLES ---
+    lofi: { keys:['A','B','C','D','E','F','G'], scales:['minor','dorian','mixolydian'],
+            progressions:[[0,5,3,4],[0,3,5,4],[5,3,0,4]] },
+    hiphop: { keys:['C','D','E','F','G','A','B'], scales:['minor','phrygian','dorian'],
+              progressions:[[5,3,0,4],[0,5,4,3],[0,2,3,5]] },
+    trap: { keys:['D','E','F','G','A','B'], scales:['phrygian','aeolian','minor'],
+            progressions:[[0,5,3,4],[0,2,3,5],[0,5,4,3]] },
+    rnb: { keys:['C','D','E','F','G','A'], scales:['major','lydian','mixolydian'],
+           progressions:[[0,4,5,3],[0,2,3,5],[0,5,3,4]] },
+    poprock: { keys:['C','D','E','F','G','A','B'], scales:['major','mixolydian','minor'],
+               progressions:[[0,4,5,3],[0,5,3,4],[0,4,3,5]] },
+    funk: { keys:['E','F','G','A','B','C','D'], scales:['mixolydian','dorian','major'],
+            progressions:[[0,3,5,4],[0,4,5,3],[5,3,0,4]] },
+    jazz: { keys:['C','F','Bb','Eb','G','A'], scales:['mixolydian','dorian','lydian'],
+            progressions:[[0,2,5,3],[0,3,4,5],[5,3,0,4]] },
+    metal: { keys:['D','E','F','G','A','B'], scales:['phrygian','aeolian','locrian'],
+             progressions:[[0,5,3,4],[0,2,3,5],[0,5,4,3]] },
+    edm: { keys:['C','D','E','F','G','A','B'], scales:['major','mixolydian','minor'],
+           progressions:[[0,4,3,5],[0,5,3,4],[0,3,4,5]] },
+    ambient: { keys:['C','D','E','F','G','A','B'], scales:['lydian','mixolydian','major'],
+               progressions:[[0,3,4,5],[0,4,3,5],[0,5,4,3]] },
+    dubstep: { keys:['D','E','F','G','A','B'], scales:['phrygian','aeolian','minor'],
+               progressions:[[0,5,3,4],[0,2,3,5],[0,5,4,3]] },
+    reggae: { keys:['A','B','C','D','E','F','G'], scales:['mixolydian','major','dorian'],
+              progressions:[[0,4,5,3],[0,5,3,4],[5,3,0,4]] },
+    default: { keys:['C','D','E','F','G','A','B'], scales:['major','minor'],
+               progressions:[[0,5,3,4],[0,4,3,5],[5,3,0,4]] }
+  };
+
+  const profile = GENRE_PROFILES[genre] || GENRE_PROFILES.default;
+
+  const key = profile.keys[Math.floor(Math.random() * profile.keys.length)];
+  const scale = profile.scales[Math.floor(Math.random() * profile.scales.length)];
+  const progression = profile.progressions[Math.floor(Math.random() * profile.progressions.length)];
+
+  sbGlobalHarmony = { key, scale, progression, genre };
+  console.log(`🎸 Genre-aware harmony → ${genre}:`, sbGlobalHarmony);
+  return sbGlobalHarmony;
+}
+
+
+// Helper to get chord notes for each bar (shared across all generators)
+function sbGetChordForBar(bar) {
+  if (!sbGlobalHarmony) return buildTriadFromDegree(0, state.key, state.scale);
+  const deg = sbGlobalHarmony.progression[bar % sbGlobalHarmony.progression.length];
+  return buildTriadFromDegree(deg, sbGlobalHarmony.key, sbGlobalHarmony.scale);
+}
+
+// Override the helper used by bass/chords/melody
+function getChordNotesForBar(bar) {
+  return sbGetChordForBar(bar);
+}
+
+// --- Thematic memory pools ---
+let sbMotifCache = [];
+let sbRhythmCache = { kick: [], snare: [], hihat: [] };
+
+// 👇 Wrapped coherent generator (called instead of generateFullSongFromStructure)
+function generateFullSongFromStructure_COHERENT() {
+  if (songBuilderState.isActive) return;
+  songBuilderState.isActive = true;
+  setSongBuilderBusy(true, 'Building coherent song…');
+
+  const wasPlaying = Tone.Transport.state === 'started';
+  if (wasPlaying) Tone.Transport.pause();
+  Tone.Transport.cancel(0);
+  if (window.mainLoop) { try { window.mainLoop.stop(); window.mainLoop.dispose(); } catch{} window.mainLoop = null; }
+
+  // --- Global harmonic plan
+  sbChooseGlobalHarmony_GenreAware();
+  state.key = sbGlobalHarmony.key;
+  state.scale = sbGlobalHarmony.scale;
+
+  // --- Prepare sections
+  const runSections = randomizeSongBuilderSectionsForRun();
+  const totalBars = Math.max(2, runSections.reduce((a,b)=>a+(b.bars||0),0));
+  state.sequenceLength = Math.min(CONFIG.MAX_SEQUENCE_LENGTH, totalBars * STEPS_PER_BAR);
+  ensurePatternLength(state.sequenceLength);
+  wipeAllPatterns();
+
+  // --- Generate each section coherently
+  let currentBar = 0;
+  sbMotifCache = [];
+  sbRhythmCache = { kick: [], snare: [], hihat: [] };
+
+  for (let i=0;i<runSections.length;i++) {
+    const section = runSections[i];
+    const startBar = currentBar;
+    const endBar = currentBar + (section.bars || 0);
+
+    // --- Maintain rhythmic coherence across verses/choruses
+    if (section.id.includes('verse') && sbRhythmCache.kick.length) {
+      // reuse previous verse rhythm
+      sbRhythmCache.kick.forEach(step=>sbSetStep('kick', startBar*STEPS_PER_BAR + step, {velocity:0.9}));
+      sbRhythmCache.snare.forEach(step=>sbSetStep('snare', startBar*STEPS_PER_BAR + step, {velocity:0.9}));
+      sbRhythmCache.hihat.forEach(step=>sbSetStep('hihat', startBar*STEPS_PER_BAR + step, {velocity:0.6}));
+    } else {
+      generateSectionDrums(section, startBar, endBar);
+      // capture rhythm of first verse
+      if (section.id.includes('verse') && sbRhythmCache.kick.length===0) {
+        for (let s=0;s<STEPS_PER_BAR;s++){
+          if (patterns.kick[s+startBar*STEPS_PER_BAR]?.active) sbRhythmCache.kick.push(s);
+          if (patterns.snare[s+startBar*STEPS_PER_BAR]?.active) sbRhythmCache.snare.push(s);
+          if (patterns.hihat[s+startBar*STEPS_PER_BAR]?.active) sbRhythmCache.hihat.push(s);
+        }
+      }
+    }
+
+    // --- Harmony instruments
+    generateSectionBass(section, startBar, endBar);
+    generateSectionChords(section, startBar, endBar);
+
+    // --- Melodic coherence: motif reuse
+    if (section.id.includes('verse') && sbMotifCache.length) {
+      const offset = startBar * STEPS_PER_BAR;
+      sbMotifCache.forEach(m => sbSetStep('lead', offset + m.step, {
+        note: withOct(m.note, (state.octave||3)+1),
+        velocity: m.velocity,
+        duration: '8n'
+      }));
+    } else {
+      // Let the normal melody generator run
+      generateSectionMelody(section, startBar, endBar);
+      // cache motif from first verse
+      if (section.id.includes('verse') && sbMotifCache.length===0) {
+        const offset = startBar * STEPS_PER_BAR;
+        for (let s=0;s<STEPS_PER_BAR;s++){
+          const step = patterns.lead[offset+s];
+          if (step?.active) sbMotifCache.push({step:s, note:step.note, velocity:step.velocity});
+        }
+      }
+    }
+
+    applyTransitionEffects(section, runSections[i+1], endBar);
+    currentBar = endBar;
+  }
+
+  // --- Wrap up
+  setTimeout(() => {
+    try {
+      sequencerInitialized = false;
+      initAudioLight();
+      renderSequencer();
+      if (wasPlaying) Tone.Transport.start('+0.05');
+      showToast('🎶 Coherent song built', 'success');
+    } finally {
+      songBuilderState.isActive = false;
+      endSongBuilderBusy();
+    }
+  }, 0);
+}
+
+// ==================== SONG TEMPLATE → GENRE MAP ====================
+
 function generateFullSongFromStructure() {
   if (songBuilderState.isActive) {
     // guard against double-click spamming
@@ -10433,7 +10618,13 @@ function setupSongBuilderControls() {
   // --- Template dropdown ---
   templateSelect.value = songBuilderState.templateId;
   templateSelect.addEventListener('change', e => {
-    applySongTemplate(e.target.value);
+    const selected = e.target.value;
+    applySongTemplate(selected);
+    // 🔗 Auto-link genre when template changes
+    const mappedGenre = TEMPLATE_TO_GENRE[selected] || 'lofi';
+    state.currentGenre = mappedGenre;
+    songBuilderState.genre = mappedGenre;
+    console.log(`🎨 Template '${selected}' → Genre '${mappedGenre}'`);
   });
 
   // --- Fill every X bars ---
@@ -10445,15 +10636,15 @@ function setupSongBuilderControls() {
   // --- 🎲 Randomize Sections ---
   if (randomBtn) {
     randomBtn.addEventListener('click', () => {
-      randomizeSongBuilderSections();   // reshuffle parameters
-      // if you have a helper that updates total bars, call it here too
+      randomizeSongBuilderSections();
+      // optionally update UI if you have a bar label or counter
       // updateSongTotalBarsLabel();
     });
   }
 
   // --- 🎼 Build Song ---
   buildBtn.addEventListener('click', () => {
-    generateFullSongFromStructure();
+    generateFullSongFromStructure_COHERENT();
 
     // Optional: auto-switch to the Sequencer tab when done
     const sequencerTabBtn = document.querySelector(
@@ -10467,7 +10658,15 @@ function setupSongBuilderControls() {
   // if (exportBtn) {
   //   exportBtn.addEventListener('click', exportSongBuilderToMultitrack);
   // }
+
+  // --- Initialize genre based on default template ---
+  const defaultTemplate = templateSelect.value || 'intro-verse-chorus';
+  const defaultGenre = TEMPLATE_TO_GENRE[defaultTemplate] || 'lofi';
+  state.currentGenre = defaultGenre;
+  songBuilderState.genre = defaultGenre;
+  console.log(`🎨 Default template '${defaultTemplate}' → Genre '${defaultGenre}'`);
 }
+
 
 async function exportSongBuilderToMultitrack() {
   try {
