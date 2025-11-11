@@ -7358,9 +7358,24 @@ body.pro .pro-locked::after {
                 </div>
               </div>
     
-              <div style="font-size:var(--text-xs); color:var(--text-tertiary);">
+              <div style="
+                display:flex;
+                flex-direction:column;
+                align-items:flex-end;
+                gap:4px;
+                font-size: var(--text-xs);
+                color: var(--text-tertiary);
+              ">
+              <div>
                 Total length: <span id="songTotalBarsLabel">—</span> bars
               </div>
+              <button
+                id="songRandomizeSectionsBtn"
+                class="btn btn-secondary btn-sm"
+                type="button"
+                >
+                🎲 Randomize sections
+              </button>
             </div>
     
             <div class="scroll-x" style="overflow-x:auto;">
@@ -9352,6 +9367,104 @@ function getSongBuilderTotalBars() {
   return songBuilderState.sections.reduce((sum, s) => sum + (s.bars || 0), 0);
 }
 
+function randomizeSongBuilderSections() {
+  if (!songBuilderState.sections || !songBuilderState.sections.length) return;
+
+  const template = SONG_TEMPLATES[songBuilderState.templateId] || songBuilderState.sections;
+
+  const drumPatterns  = ['four-floor', 'breakbeat', 'trap', 'half-time'];
+  const bassPatterns  = ['root-fifth', 'walking', 'syncopated', 'pedal'];
+  const chordPatterns = ['sustained', 'arpeggiated', 'rhythmic', 'staccato'];
+  const melodyStyles  = ['sparse', 'motif', 'scale-run', 'dense'];
+
+  const randFrom = (arr, prefer) => {
+    // 40% chance to keep the current/base value so it still “feels” like the template,
+    // otherwise pick something else
+    if (prefer && arr.includes(prefer) && Math.random() < 0.4) return prefer;
+    return arr[Math.floor(Math.random() * arr.length)];
+  };
+
+  const energyJitter  = 0.18;  // how far we can nudge energy
+  const densityJitter = 0.20;  // how far we can nudge density
+
+  songBuilderState.sections = songBuilderState.sections.map((section, idx) => {
+    const base = template[idx] || section;
+
+    const baseEnergy  = typeof base.energy  === 'number' ? base.energy  : (section.energy  ?? 0.7);
+    const baseDensity = typeof base.density === 'number' ? base.density : (section.density ?? 0.7);
+
+    let energy  = baseEnergy  + ((Math.random() * 2 - 1) * energyJitter);
+    let density = baseDensity + ((Math.random() * 2 - 1) * densityJitter);
+
+    energy  = clamp(energy,  0.1, 1.0);
+    density = clamp(density, 0.15, 1.0);
+
+    // --- Instrument on/off toggles ---
+    let drums  = base.drums;
+    let bass   = base.bass;
+    let chords = base.chords;
+    let lead   = base.lead;
+
+    const id = (base.id || section.id || '').toLowerCase();
+    const isIntro = id.includes('intro');
+    const isOutro = id.includes('outro') || id.includes('end');
+    const isBreak = id.includes('break') || id.includes('dub') || id.includes('drop');
+
+    const flip = (value, prob) => (Math.random() < prob ? !value : value);
+
+    if (isIntro) {
+      drums  = flip(drums, 0.25);
+      bass   = flip(bass, 0.35);
+      chords = flip(chords, 0.15);
+      lead   = flip(lead, 0.40);
+    } else if (isOutro) {
+      drums  = flip(drums, 0.20);
+      bass   = flip(bass, 0.25);
+      chords = flip(chords, 0.25);
+      lead   = flip(lead, 0.50);
+    } else if (isBreak) {
+      drums  = flip(drums, 0.35);
+      bass   = flip(bass, 0.45);
+      chords = flip(chords, 0.40);
+      lead   = flip(lead, 0.40);
+    } else {
+      // verses / choruses: subtle variation
+      drums  = flip(drums, 0.15);
+      bass   = flip(bass, 0.15);
+      chords = flip(chords, 0.15);
+      lead   = flip(lead, 0.30);
+    }
+
+    // Make sure we don’t kill *all* harmonic content
+    if (!bass && !chords && !lead) {
+      chords = true;
+    }
+
+    const drumPattern  = randFrom(drumPatterns,  base.drumPattern  || section.drumPattern);
+    const bassPattern  = randFrom(bassPatterns,  base.bassPattern  || section.bassPattern);
+    const chordPattern = randFrom(chordPatterns, base.chordPattern || section.chordPattern);
+    const melodyStyle  = randFrom(melodyStyles,  base.melodyStyle  || section.melodyStyle);
+
+    return {
+      ...section,
+      energy,
+      density,
+      drums,
+      bass,
+      chords,
+      lead,
+      drumPattern,
+      bassPattern,
+      chordPattern,
+      melodyStyle
+      // bars stay as-is so your total length + 512-step cap stay predictable
+    };
+  });
+
+  // Re-render the table so sliders / selects / toggles reflect the new values
+  renderSongBuilderSections();
+}
+
 function applySongTemplate(id) {
   const tpl = SONG_TEMPLATES[id];
   if (!tpl) return;
@@ -10128,43 +10241,56 @@ function generateFullSongFromStructure() {
   }, 0);
 }
 
-// Wire the UI
+// ==================== SONG BUILDER UI WIRING ====================
 function setupSongBuilderControls() {
   const templateSelect = document.getElementById('songTemplateSelect');
-  const fillSelect = document.getElementById('songFillEverySelect');
-  const buildBtn = document.getElementById('songBuildBtn');
+  const fillSelect     = document.getElementById('songFillEverySelect');
+  const buildBtn       = document.getElementById('songBuildBtn');
+  const randomBtn      = document.getElementById('songRandomizeSectionsBtn');
 
-  if (!templateSelect || !fillSelect || !buildBtn) {
-    // Tab might be gated / not in DOM yet
-    return;
-  }
+  // Safety guard in case the tab isn't rendered yet
+  if (!templateSelect || !fillSelect || !buildBtn) return;
 
-  // Initial render
+  // === INITIAL RENDER ===
   applySongTemplate(songBuilderState.templateId);
 
+  // --- Template dropdown ---
   templateSelect.value = songBuilderState.templateId;
   templateSelect.addEventListener('change', e => {
     applySongTemplate(e.target.value);
   });
 
+  // --- Fill every X bars ---
   fillSelect.value = String(songBuilderState.fillEvery);
   fillSelect.addEventListener('change', e => {
     songBuilderState.fillEvery = parseInt(e.target.value, 10) || 0;
   });
 
+  // --- 🎲 Randomize Sections ---
+  if (randomBtn) {
+    randomBtn.addEventListener('click', () => {
+      randomizeSongBuilderSections();   // reshuffle parameters
+      // if you have a helper that updates total bars, call it here too
+      // updateSongTotalBarsLabel();
+    });
+  }
+
+  // --- 🎼 Build Song ---
   buildBtn.addEventListener('click', () => {
     generateFullSongFromStructure();
 
-    // Optional: auto-switch to Sequencer tab so user sees result
-    const sequencerTabBtn = document.querySelector('.sidebar-tab[data-tab="sequencer"]');
-    if (sequencerTabBtn) {
-      sequencerTabBtn.click();
-    }
+    // Optional: auto-switch to the Sequencer tab when done
+    const sequencerTabBtn = document.querySelector(
+      '.sidebar-tab[data-tab="sequencer"]'
+    );
+    if (sequencerTabBtn) sequencerTabBtn.click();
   });
 
-  // Wire button
-  //document.getElementById("songBuilderToMultitrackBtn")
-    //?.addEventListener("click", exportSongBuilderToMultitrack);
+  // --- ⬇️ Export to Multitrack (disabled for now) ---
+  // const exportBtn = document.getElementById('songBuilderToMultitrackBtn');
+  // if (exportBtn) {
+  //   exportBtn.addEventListener('click', exportSongBuilderToMultitrack);
+  // }
 }
 
 async function exportSongBuilderToMultitrack() {
