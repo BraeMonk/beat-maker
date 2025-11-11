@@ -7314,54 +7314,54 @@ body.pro .pro-locked::after {
         <div class="panel-body" style="display:flex; flex-direction:column; gap:var(--space-4);">
     
           <!-- STEP 1: Pick a template -->
-<div class="panel" style="padding:var(--space-4);">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-2);">
-    <div>
-      <div style="font-weight:600; margin-bottom:4px;">1. Song Form</div>
-      <div style="font-size:var(--text-xs); color:var(--text-tertiary);">
-        Choose a structure: intro, verses, choruses, bridge, outro.
-      </div>
-    </div>
-  </div>
-
-  <div style="display:flex; flex-wrap:wrap; gap:var(--space-3); align-items:center;">
-    <label style="font-size:var(--text-xs); text-transform:uppercase; letter-spacing:0.08em; color:var(--text-tertiary);">
-      Template
-    </label>
-    <select id="songTemplateSelect" class="input" style="min-width:220px;">
-      <option value="intro-verse-chorus">Pop / Rock</option>
-      <option value="short-edm-rise-drop">EDM / House</option>
-      <option value="hiphop-lofi">Hip-Hop / Lo-Fi</option>
-      <option value="metal-hardcore">Metal / Hardcore</option>
-      <option value="ambient-flow">Ambient / Downtempo</option>
-      <option value="loop-jam">Loop Jam</option>
-      <option value="trap-banger">Trap / Modern Hip-Hop</option>
-      <option value="progressive-house">Progressive House / Trance</option>
-      <option value="funk-groove">Funk / Disco</option>
-      <option value="jazz-standard">Jazz / Fusion</option>
-      <option value="dubstep-wobble">Dubstep / Bass Music</option>
-      <option value="reggae-dub">Reggae / Dub</option>
-    </select>
-    <div style="font-size:var(--text-xs); color:var(--text-tertiary); margin-left:auto;">
-      Powered by your current key, scale & progression (Harmony tab)
-    </div>
-  </div>
-
-  <!-- Randomize now lives here -->
-  <div style="
-      display:flex;
-      justify-content:flex-end;
-      margin-top:var(--space-3);
-  ">
-    <button
-      id="songRandomizeSectionsBtn"
-      class="btn btn-secondary btn-sm"
-      type="button"
-    >
-      🎲 Randomize sections
-    </button>
-  </div>
-</div>
+          <div class="panel" style="padding:var(--space-4);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-2);">
+              <div>
+                <div style="font-weight:600; margin-bottom:4px;">1. Song Form</div>
+                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">
+                  Choose a structure: intro, verses, choruses, bridge, outro.
+                </div>
+              </div>
+            </div>
+          
+            <div style="display:flex; flex-wrap:wrap; gap:var(--space-3); align-items:center;">
+              <label style="font-size:var(--text-xs); text-transform:uppercase; letter-spacing:0.08em; color:var(--text-tertiary);">
+                Template
+              </label>
+              <select id="songTemplateSelect" class="input" style="min-width:220px;">
+                <option value="intro-verse-chorus">Pop / Rock</option>
+                <option value="short-edm-rise-drop">EDM / House</option>
+                <option value="hiphop-lofi">Hip-Hop / Lo-Fi</option>
+                <option value="metal-hardcore">Metal / Hardcore</option>
+                <option value="ambient-flow">Ambient / Downtempo</option>
+                <option value="loop-jam">Loop Jam</option>
+                <option value="trap-banger">Trap / Modern Hip-Hop</option>
+                <option value="progressive-house">Progressive House / Trance</option>
+                <option value="funk-groove">Funk / Disco</option>
+                <option value="jazz-standard">Jazz / Fusion</option>
+                <option value="dubstep-wobble">Dubstep / Bass Music</option>
+                <option value="reggae-dub">Reggae / Dub</option>
+              </select>
+              <div style="font-size:var(--text-xs); color:var(--text-tertiary); margin-left:auto;">
+                Powered by your current key, scale & progression (Harmony tab)
+              </div>
+            </div>
+          
+            <!-- Randomize now lives here -->
+            <div style="
+                display:flex;
+                justify-content:flex-end;
+                margin-top:var(--space-3);
+            ">
+              <button
+                id="songRandomizeSectionsBtn"
+                class="btn btn-secondary btn-sm"
+                type="button"
+              >
+                🎲 Randomize sections
+              </button>
+            </div>
+          </div>
     
           <!-- STEP 2: Edit sections -->
           <div class="panel" style="padding:var(--space-4);">
