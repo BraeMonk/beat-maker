@@ -7974,7 +7974,7 @@ body.pro .pro-locked::after {
 // -------------------- Configuration --------------------
 const CONFIG = {
   MAX_BPM: 200,
-  MAX_SEQUENCE_LENGTH: 1024,
+  MAX_SEQUENCE_LENGTH: 512,
   MIN_SEQUENCE_LENGTH: 8,
   VISUALIZER_BARS: 32,
   VISUALIZER_FPS: 30,
@@ -9984,46 +9984,77 @@ async function exportSongBuilderToMultitrack() {
     await Tone.start();
     ensureHarmonyGuardrails();
 
-    // Generate or reuse the full song
-    if (typeof generateFullSongFromStructure === "function") {
-      await generateFullSongFromStructure();
-    }
+    // 1) Build the song once in the live context so patterns + sequenceLength are correct
+    generateFullSongFromStructure();
 
-    // Reuse or create target track
-    let targetTrack = multitrack.tracks.find(t => t.name === "Song Builder");
-    if (!targetTrack) {
-      targetTrack = await createTrack(null, false);
-      targetTrack.name = "Song Builder";
-      renderMultitrack();
-    }
+    // 2) Compute actual song duration from sequenceLength + resolution
+    const secondsPerStep = Tone.Time(state.resolution).toSeconds();
+    const durationSec = Math.max(
+      4,
+      state.sequenceLength * secondsPerStep + 2 // little tail for reverb, etc
+    );
 
-    // Duration for offline render
-    const durationSec = (state.duration || 1) * 60;
+    // 3) Offline render the master mix of the Song Builder arrangement
+    const offlineBuffer = await Tone.Offline(() => {
+      // Rebuild the full arrangement inside the Offline context
+      generateFullSongFromStructure();
 
-    // Offline render master mix
-    const buffer = await Tone.Offline(async () => {
-      await generateFullSongFromStructure();
+      // Start playback for the offline render
+      Tone.Transport.start();
     }, durationSec);
 
-    // Convert to WAV blob
-    const wav = buffer.get();
-    const blob = new Blob([wav], { type: "audio/wav" });
-    const url = URL.createObjectURL(blob);
+    if (!offlineBuffer) {
+      showToast("❌ Export failed (empty render)", "error");
+      return;
+    }
 
-    // Add new region/take to Multitrack
-    targetTrack.takes.push({
-      name: "Song Builder Take",
-      start: 0,
-      end: durationSec,
-      buffer: url,
-    });
+    // 4) Convert to WAV bytes and Blob (so you can download/export later if you want)
+    const wavData = bufferToWavImproved(offlineBuffer); // already defined elsewhere
+    const blob = new Blob([wavData], { type: "audio/wav" });
+
+    // 5) Find or create a dedicated "Song Builder" stem track
+    let targetTrack = multitrack.tracks.find(t => t.name === "Song Builder");
+    if (!targetTrack) {
+      const id = multitrack.nextTrackId++;
+      targetTrack = new AudioTrack(id, "Song Builder", "stem", true);
+
+      // Minimal routing like addExternalAudioTrackFromBuffer
+      const gain = new Tone.Gain(1);
+      targetTrack.channel = gain;
+      gain.connect(master.fxIn);
+
+      multitrack.tracks.push(targetTrack);
+    }
+
+    // 6) Create a proper take object (same shape as imported stems)
+    const take = {
+      id: `take-${Date.now()}-${targetTrack.id}`,
+      buffer: offlineBuffer,
+      startTime: 0,
+      duration: offlineBuffer.duration,
+      muted: false,
+      source: "song-builder",
+      fileName: "Song Builder",
+      blob // optional but nice to have
+    };
+
+    targetTrack.takes.push(take);
+    targetTrack.selectedTakeIndex = targetTrack.takes.length - 1;
+
+    // 7) Update history + UI and jump to Multitrack tab
+    if (typeof multitrackHistory?.captureState === "function") {
+      multitrackHistory.captureState();
+    }
 
     renderMultitrack();
-    showToast("✅ Sent to Multitrack", "success");
-    document.querySelector('.sidebar-tab[data-tab="multitrack"]').click();
+    showToast("✅ Song Builder sent to Multitrack", "success");
+
+    document
+      .querySelector('.sidebar-tab[data-tab="multitrack"]')
+      ?.click();
   } catch (err) {
-    console.error(err);
-    showToast("❌ Export failed", "error");
+    console.error("Song Builder export failed:", err);
+    showToast(`❌ Export failed: ${err.message || err}`, "error");
   }
 }
 
