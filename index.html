@@ -12885,7 +12885,6 @@ function showToast(message, type = 'info') {
   
 // -------------------- Pattern Generators --------------------
 function generateBeat() {
-  songBuilderState.isActive = false;
   const genre = state.currentGenre;
   
   // Clear all patterns first
@@ -12897,7 +12896,12 @@ function generateBeat() {
     });
   });
   
-  // Generate rhythms based on genre theory
+  // RANDOM DENSITY: Each generation picks a random complexity
+  const randomComplexity = Math.floor(Math.random() * 3) + 1; // 1-3
+  const oldComplexity = state.complexity;
+  state.complexity = randomComplexity;
+  
+  // Generate with genre logic
   if (genre === 'lofi') {
     generateLoFiBeat();
   } else if (genre === 'hiphop') {
@@ -12912,14 +12916,59 @@ function generateBeat() {
     generateDazecoreBeat();
   }
   
+  // RANDOM VARIATION: Shuffle some steps
+  addRandomShuffling();
+  
+  // RANDOM SWING: Change the feel
+  state.swing = 30 + Math.floor(Math.random() * 40); // 30-70%
+  Tone.Transport.swing = state.swing / 100;
+  document.getElementById('swingSlider').value = state.swing;
+  document.getElementById('swingValue').textContent = state.swing + '%';
+  
+  // RANDOM BPM VARIATION: ±10 BPM from genre default
+  const genreBPMs = {
+    lofi: 85, hiphop: 90, postpunk: 100, 
+    rnb: 75, ambient: 60, dazecore: 95
+  };
+  const baseBPM = genreBPMs[genre] || 120;
+  state.bpm = baseBPM + Math.floor(Math.random() * 21) - 10; // ±10
+  Tone.Transport.bpm.value = state.bpm;
+  document.getElementById('bpmSlider').value = state.bpm;
+  document.getElementById('bpmValue').textContent = state.bpm;
+  
+  // Restore original complexity setting
+  state.complexity = oldComplexity;
+  
   renderSequencer();
-  
-  // Auto-apply AI mixing if enabled
-  if (state.aiMixing.enabled) {
-    setTimeout(() => applyAIMixing(), 500);
-  }
-  
-  console.log(`✅ Generated ${genre} beat with ${state.complexity} complexity at ${state.bpm} BPM`);
+  console.log(`✅ Generated ${genre} beat: ${state.bpm}BPM, swing ${state.swing}%, complexity ${randomComplexity}`);
+}
+
+function addRandomShuffling() {
+  // Randomly move some drum hits around
+  Object.keys(instruments).forEach(inst => {
+    if (instruments[inst].type !== 'drum') return;
+    
+    for (let i = 0; i < state.sequenceLength; i++) {
+      // 20% chance to shuffle this step
+      if (Math.random() < 0.2 && patterns[inst][i].active) {
+        // Move to random nearby position
+        const newPos = i + Math.floor(Math.random() * 5) - 2; // ±2 steps
+        
+        if (newPos >= 0 && newPos < state.sequenceLength && !patterns[inst][newPos].active) {
+          // Swap
+          patterns[inst][newPos] = { ...patterns[inst][i] };
+          patterns[inst][i].active = false;
+        }
+      }
+      
+      // 15% chance to add a ghost note
+      if (Math.random() < 0.15 && !patterns[inst][i].active) {
+        patterns[inst][i].active = true;
+        patterns[inst][i].velocity = 0.3 + Math.random() * 0.3;
+        patterns[inst][i].probability = 60 + Math.floor(Math.random() * 30);
+      }
+    }
+  });
 }
   
 // AI-powered beat generation
@@ -12939,26 +12988,38 @@ function generateAIVariation() {
   // Analyze current pattern
   const analysis = analyzePattern();
   
-  // Generate variation based on style
+  // EXPANDED: Now includes harmonic variations (40% of the time)
   const variationType = Math.random();
   
-  if (variationType < 0.25) {
+  if (variationType < 0.12) {
     generateRhythmicDisplacement(analysis);
     showToast('🎲 Applied: Rhythmic Displacement', 'success');
-  } else if (variationType < 0.5) {
+  } else if (variationType < 0.24) {
     generateDensityVariation(analysis);
     showToast('🎲 Applied: Density Variation', 'success');
-  } else if (variationType < 0.75) {
+  } else if (variationType < 0.36) {
     generatePolyrhythmicLayer(analysis);
     showToast('🎲 Applied: Polyrhythmic Layer', 'success');
-  } else {
+  } else if (variationType < 0.48) {
     generateSyncopation(analysis);
     showToast('🎲 Applied: Syncopation', 'success');
+  } else if (variationType < 0.60) {
+    applyModalInterchange();
+    showToast('🎵 Applied: Modal Interchange', 'success');
+  } else if (variationType < 0.72) {
+    applySecondaryDominants();
+    showToast('🎵 Applied: Secondary Dominants', 'success');
+  } else if (variationType < 0.84) {
+    applyChordSubstitutions();
+    showToast('🎵 Applied: Chord Substitutions', 'success');
+  } else {
+    applyChordExtensions();
+    showToast('🎵 Applied: Chord Extensions', 'success');
   }
   
   renderSequencer();
 }
-
+  
 function analyzePattern() {
   const analysis = {
     density: {},
@@ -13287,6 +13348,235 @@ function applyGrooveTemplate(template) {
   
   renderSequencer();
   showToast(`✅ ${groove.name} groove applied! (BPM/swing unchanged)`, 'success');
+}
+
+function applyModalInterchange() {
+  // Borrow chords from parallel major/minor
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  // Parallel scale (major ↔ minor)
+  const parallelScale = state.scale === 'major' ? 'minor' : 'major';
+  const parallelIntervals = scales[parallelScale];
+  
+  // Only apply to chord instruments
+  const chordInsts = ['keys', 'guitar'].filter(inst =>
+    patterns[inst].some(s => s.active)
+  );
+  
+  if (chordInsts.length === 0) return;
+  
+  const targetInst = chordInsts[Math.floor(Math.random() * chordInsts.length)];
+  
+  patterns[targetInst].forEach((step, idx) => {
+    if (!step.active || !step.note) return;
+    
+    // 40% chance to borrow from parallel scale
+    if (Math.random() < 0.4) {
+      const baseNote = Array.isArray(step.note) ? step.note[0] : step.note;
+      const match = baseNote.match(/^([A-G]#?)(\d+)$/);
+      if (!match) return;
+      
+      const [, noteName, octave] = match;
+      
+      // Find current scale degree
+      const currentInterval = (keysArr.indexOf(noteName) - keyIndex + 12) % 12;
+      const degree = scaleIntervals.indexOf(currentInterval);
+      
+      if (degree === -1 || degree >= parallelIntervals.length) return;
+      
+      // Borrow the same degree from parallel scale
+      const borrowedInterval = parallelIntervals[degree];
+      const borrowedRoot = keysArr[(keyIndex + borrowedInterval) % 12];
+      
+      // Rebuild chord with borrowed root
+      if (Array.isArray(step.note)) {
+        const intervalShift = (borrowedInterval - currentInterval + 12) % 12;
+        step.note = step.note.map(n => {
+          const noteMatch = n.match(/^([A-G]#?)(\d+)$/);
+          if (!noteMatch) return n;
+          const [, name, oct] = noteMatch;
+          const noteIdx = keysArr.indexOf(name);
+          const newIdx = (noteIdx + intervalShift) % 12;
+          return keysArr[newIdx] + oct;
+        });
+      } else {
+        step.note = borrowedRoot + octave;
+      }
+    }
+  });
+  
+  console.log(`🎵 Modal interchange → ${instruments[targetInst].name}`);
+}
+
+function applySecondaryDominants() {
+  // Add dominant chords that resolve to the next chord
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  const chordInsts = ['keys', 'guitar'].filter(inst =>
+    patterns[inst].some(s => s.active && s.note && Array.isArray(s.note))
+  );
+  
+  if (chordInsts.length === 0) return;
+  
+  const targetInst = chordInsts[Math.floor(Math.random() * chordInsts.length)];
+  
+  patterns[targetInst].forEach((step, idx) => {
+    if (!step.active || !step.note || !Array.isArray(step.note)) return;
+    
+    // Look ahead to next chord (find next active step)
+    let nextChordIdx = idx + 1;
+    while (nextChordIdx < state.sequenceLength && !patterns[targetInst][nextChordIdx].active) {
+      nextChordIdx++;
+    }
+    
+    if (nextChordIdx >= state.sequenceLength) return;
+    
+    const nextChord = patterns[targetInst][nextChordIdx].note;
+    if (!Array.isArray(nextChord)) return;
+    
+    // 30% chance to insert V/x before target chord
+    if (Math.random() < 0.3) {
+      const targetRoot = nextChord[0];
+      const targetMatch = targetRoot.match(/^([A-G]#?)(\d+)$/);
+      if (!targetMatch) return;
+      
+      const [, targetNote, targetOct] = targetMatch;
+      const targetIdx = keysArr.indexOf(targetNote);
+      
+      // V chord is a 5th above target (7 semitones)
+      const dominantIdx = (targetIdx + 7) % 12;
+      const dominantRoot = keysArr[dominantIdx];
+      
+      // Build dominant 7th chord (major 3rd + minor 7th for tension)
+      const third = keysArr[(dominantIdx + 4) % 12]; // Major 3rd
+      const fifth = keysArr[(dominantIdx + 7) % 12]; // Perfect 5th
+      const seventh = keysArr[(dominantIdx + 10) % 12]; // Minor 7th
+      
+      step.note = [
+        dominantRoot + targetOct,
+        third + targetOct,
+        fifth + targetOct,
+        seventh + targetOct
+      ];
+      step.duration = '8n'; // Shorter = more tension
+    }
+  });
+  
+  console.log(`🎵 Secondary dominants → ${instruments[targetInst].name}`);
+}
+
+function applyChordSubstitutions() {
+  // Replace chords with functional equivalents
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  const chordInsts = ['keys', 'guitar'].filter(inst =>
+    patterns[inst].some(s => s.active && s.note && Array.isArray(s.note))
+  );
+  
+  if (chordInsts.length === 0) return;
+  
+  const targetInst = chordInsts[Math.floor(Math.random() * chordInsts.length)];
+  
+  patterns[targetInst].forEach((step, idx) => {
+    if (!step.active || !step.note || !Array.isArray(step.note)) return;
+    
+    // 35% chance to substitute
+    if (Math.random() < 0.35) {
+      const rootNote = step.note[0];
+      const match = rootNote.match(/^([A-G]#?)(\d+)$/);
+      if (!match) return;
+      
+      const [, noteName, octave] = match;
+      const rootIdx = keysArr.indexOf(noteName);
+      
+      // Choose substitution type
+      const subType = Math.random();
+      let newRootIdx;
+      
+      if (subType < 0.5) {
+        // Tritone substitution (6 semitones away)
+        newRootIdx = (rootIdx + 6) % 12;
+      } else {
+        // Relative chord (3 semitones away - minor ↔ major)
+        newRootIdx = (rootIdx + 3) % 12;
+      }
+      
+      const newRoot = keysArr[newRootIdx];
+      
+      // Rebuild chord with new root, keeping same structure
+      step.note = step.note.map((n, i) => {
+        if (i === 0) return newRoot + octave;
+        
+        const noteMatch = n.match(/^([A-G]#?)(\d+)$/);
+        if (!noteMatch) return n;
+        const [, name, oct] = noteMatch;
+        
+        // Calculate interval from old root
+        const oldInterval = (keysArr.indexOf(name) - rootIdx + 12) % 12;
+        // Apply to new root
+        const newNoteIdx = (newRootIdx + oldInterval) % 12;
+        return keysArr[newNoteIdx] + oct;
+      });
+    }
+  });
+  
+  console.log(`🎵 Chord substitutions → ${instruments[targetInst].name}`);
+}
+
+function applyChordExtensions() {
+  // Add 9ths, 11ths, 13ths for color
+  const scaleIntervals = scales[state.scale];
+  const keyIndex = keysArr.indexOf(state.key);
+  
+  const chordInsts = ['keys', 'guitar', 'lead'].filter(inst =>
+    patterns[inst].some(s => s.active)
+  );
+  
+  if (chordInsts.length === 0) return;
+  
+  const targetInst = chordInsts[Math.floor(Math.random() * chordInsts.length)];
+  
+  patterns[targetInst].forEach((step, idx) => {
+    if (!step.active || !step.note) return;
+    
+    const baseNote = Array.isArray(step.note) ? step.note[0] : step.note;
+    const match = baseNote.match(/^([A-G]#?)(\d+)$/);
+    if (!match) return;
+    
+    const [, noteName, octave] = match;
+    const rootIdx = keysArr.indexOf(noteName);
+    
+    const extensions = [];
+    const upperOct = parseInt(octave) + 1;
+    
+    // 9th (2nd scale degree, octave up)
+    if (Math.random() > 0.4) {
+      const ninthIdx = (rootIdx + scaleIntervals[1]) % 12;
+      extensions.push(keysArr[ninthIdx] + upperOct);
+    }
+    
+    // 11th (4th scale degree, octave up)
+    if (Math.random() > 0.6) {
+      const eleventhIdx = (rootIdx + scaleIntervals[3]) % 12;
+      extensions.push(keysArr[eleventhIdx] + upperOct);
+    }
+    
+    // 13th (6th scale degree, octave up)
+    if (Math.random() > 0.75) {
+      const thirteenthIdx = (rootIdx + scaleIntervals[5]) % 12;
+      extensions.push(keysArr[thirteenthIdx] + upperOct);
+    }
+    
+    if (extensions.length > 0) {
+      const originalChord = Array.isArray(step.note) ? step.note : [step.note];
+      step.note = [...originalChord, ...extensions];
+    }
+  });
+  
+  console.log(`🎵 Chord extensions → ${instruments[targetInst].name}`);
 }
   
 // Lo-Fi: Laid back, off-grid, jazzy
@@ -13899,25 +14189,43 @@ function clearPattern() {
 }
 
 function generateMelodicPatterns() {
-  songBuilderState.isActive = false;
-
-  ensureHarmonyGuardrails();
-  
   const genre = state.currentGenre;
   
-  // Generate based on genre characteristics
+  // RANDOM SCALE: Sometimes pick a different scale
+  if (Math.random() < 0.3) {
+    const scaleTypes = ['major', 'minor', 'dorian', 'pentatonic'];
+    state.scale = scaleTypes[Math.floor(Math.random() * scaleTypes.length)];
+    document.getElementById('scaleSelect').value = state.scale;
+  }
+  
+  // RANDOM KEY: Sometimes transpose
+  if (Math.random() < 0.2) {
+    state.key = keysArr[Math.floor(Math.random() * keysArr.length)];
+    document.getElementById('keySelect').value = state.key;
+  }
+  
+  // Generate melodies
   if (genre === 'lofi') {
     generateLoFiMelodies();
   } else if (genre === 'hiphop') {
     generateHipHopMelodies();
-  } else if (genre === 'postpunk') {
-    generatePostPunkMelodies();
-  } else if (genre === 'rnb') {
-    generateRnBMelodies();
-  } else if (genre === 'ambient') {
-    generateAmbientMelodies();
-  } else if (genre === 'dazecore') {
-    generateDazecoreMelodies();
+  } // ... etc
+  
+  // RANDOM OCTAVE SHIFT: Sometimes shift entire melody up/down
+  if (Math.random() < 0.25) {
+    const shift = Math.random() < 0.5 ? 1 : -1;
+    ['bass', 'guitar', 'keys', 'lead'].forEach(inst => {
+      patterns[inst].forEach(step => {
+        if (step.active && step.note) {
+          const match = step.note.match(/([A-G]#?)(\d+)/);
+          if (match) {
+            const [, note, octave] = match;
+            const newOctave = clamp(parseInt(octave) + shift, 1, 6);
+            step.note = note + newOctave;
+          }
+        }
+      });
+    });
   }
   
   renderSequencer();
