@@ -3986,6 +3986,33 @@ body.pro .pro-locked::after {
   transform: scale(0.95);
 }
 
+.song-builder-status {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  min-height: 1em;
+  color: var(--text-muted);
+}
+
+.song-builder-status.active {
+  color: var(--accent, #7dd3fc);
+}
+
+.song-builder-status .dot {
+  display: inline-block;
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 999px;
+  margin-right: 0.4em;
+  background: currentColor;
+  animation: sb-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes sb-pulse {
+  0%   { transform: scale(0.9); opacity: 0.4; }
+  50%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.4; }
+}
+
 /* ==================== RESPONSIVE BREAKPOINTS ==================== */
 
 /* TABLET: 1024px - 768px */
@@ -7395,8 +7422,9 @@ body.pro .pro-locked::after {
     
             <div style="display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-end;">
               <button id="songBuildBtn" class="btn btn-primary">
-                🎼 Build Structured Song
+                🎼 Build structured song
               </button>
+              <div id="songBuilderStatus" class="song-builder-status"></div>
               <!--<button id="songBuilderToMultitrackBtn" class="btn btn-success btn-sm">
                 ⬇️ Send to Multitrack
               </button>-->
@@ -10005,31 +10033,67 @@ function applyTransitionEffects(section, nextSection, endBar) {
   }
 }
 
+function setSongBuilderBusy(isBusy, label = '') {
+  state.isSongBuilding = isBusy;
+
+  const buildBtn  = document.getElementById('songBuildBtn');
+  const statusEl  = document.getElementById('songBuilderStatus');
+
+  if (buildBtn) {
+    buildBtn.disabled = isBusy;
+  }
+
+  // OPTIONAL: if you know your play button id, you can also gate that:
+  const playBtn = document.getElementById('playBtn');
+  if (playBtn) playBtn.disabled = isBusy;
+
+  if (!statusEl) return;
+
+  if (isBusy) {
+    statusEl.classList.add('active');
+    statusEl.innerHTML = `<span class="dot"></span>${label || 'Building song…'}`;
+  } else {
+    statusEl.classList.remove('active');
+    statusEl.textContent = '';
+  }
+}
+
+
 function generateFullSongFromStructure() {
   songBuilderState.isActive = true;
 
-  // 🔁 Always recompute chords from the current Harmony tab
-  state.progressionNotes = null;
+  // 🔔 mark as busy immediately
+  setSongBuilderBusy(true, 'Building song…');
 
+  // make sure harmony reflects current Harmony tab
+  state.progressionNotes = null;
   ensureHarmonyGuardrails();
 
-  const totalBars = Math.max(2, getSongBuilderTotalBars());
+  const runSections = randomizeSongBuilderSectionsForRun
+    ? randomizeSongBuilderSectionsForRun()
+    : songBuilderState.sections.map(s => ({ ...s }));
+
+  const totalBars = Math.max(
+    2,
+    runSections.reduce((sum, s) => sum + (s.bars || 0), 0)
+  );
   const totalSteps = totalBars * STEPS_PER_BAR;
+
   state.sequenceLength = Math.min(CONFIG.MAX_SEQUENCE_LENGTH, totalSteps);
   ensurePatternLength(state.sequenceLength);
   wipeAllPatterns();
 
   let currentBar = 0;
-  songBuilderState.sections.forEach((section, idx) => {
+  runSections.forEach((section, idx) => {
     const startBar = currentBar;
-    const endBar = currentBar + section.bars;
+    const endBar   = currentBar + section.bars;
 
     generateSectionDrums(section, startBar, endBar);
     generateSectionBass(section, startBar, endBar);
     generateSectionChords(section, startBar, endBar);
     generateSectionMelody(section, startBar, endBar);
 
-    const nextSection = songBuilderState.sections[idx + 1];
+    const nextSection = runSections[idx + 1];
     if (nextSection) {
       applyTransitionEffects(section, nextSection, endBar);
     }
@@ -10037,30 +10101,29 @@ function generateFullSongFromStructure() {
     currentBar = endBar;
   });
 
-  // 🔧 RECREATE SEQUENCER with new length
   const wasPlaying = Tone.Transport.state === 'started';
-  
+
   if (wasPlaying) {
     Tone.Transport.stop();
   }
-  
-  // Cancel all scheduled events and dispose old loop
+
   Tone.Transport.cancel();
   if (window.mainLoop) {
     window.mainLoop.dispose();
+    window.mainLoop = null;
   }
 
+  // Let the browser breathe, then rebuild audio + UI
   setTimeout(() => {
-    // Reset sequencer flag so it reinitializes
     sequencerInitialized = false;
     initAudio();
-    
-    // Restart if it was playing
+    renderSequencer();
+
     if (wasPlaying) {
       Tone.Transport.start();
     }
-      
-    renderSequencer();
+
+    setSongBuilderBusy(false);        // ✅ all done
     showToast('🎼 Structured song generated', 'success');
   }, 0);
 }
