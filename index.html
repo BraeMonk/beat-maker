@@ -4477,6 +4477,54 @@ body.pro .pro-locked::after {
     gap: var(--space-3);
     text-align: center;
   }
+
+    /* --- Center layout for mobile buttons & text --- */
+
+  header {
+    grid-template-columns: 1fr;
+    text-align: center;
+    justify-items: center;
+  }
+
+  .logo-section {
+    justify-content: center;
+  }
+
+  .header-actions {
+    justify-content: center;
+  }
+
+  .genre-selector {
+    justify-content: center;
+  }
+
+  .transport {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .transport-controls,
+  .transport-params {
+    justify-content: center;
+  }
+
+  .panel-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .panel-title,
+  .chips,
+  .preset-grid,
+  .footer {
+    text-align: center;
+    justify-content: center;
+  }
+
+  .btn {
+    justify-content: center;
+  }
 }
 
 /* MOBILE PORTRAIT: 768px and below */
