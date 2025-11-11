@@ -10327,7 +10327,7 @@ function generateFullSongFromStructure() {
       showToast('🎼 Structured song generated', 'success');
     } finally {
       songBuilderState.isActive = false;
-      setSongBuilderBusy(false);
+      endSongBuilderBusy();
     }
   }, 0);
 }
