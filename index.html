@@ -10035,54 +10035,136 @@ function generateSectionDrums(section, startBar, endBar) {
 function generateSectionBass(section, startBar, endBar) {
   if (!section.bass) return;
   if (!patterns.bass) return;
-  
-  const bassOct = (state.octave || 3) - 2;
+
+  const bassOct     = (state.octave || 3) - 2;
   const bassPattern = section.bassPattern || 'root-fifth';
-  const density = section.density || 0.7;
-  const energy = section.energy || 0.6;
-  
+  const density     = section.density || 0.7;
+  const energy      = section.energy  || 0.6;
+
+  // Pick a "phrase variant" once per section so that section has a consistent vibe,
+  // but different sections don't all feel identical.
+  if (section._bassVariant == null) {
+    section._bassVariant = Math.floor(Math.random() * 3); // 0,1,2
+  }
+  const variant = section._bassVariant;
+
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
-    const chord = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
+    const chord  = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
     const [root, third, fifth] = chord.map(n => n.replace(/\d/, ''));
-    
-    switch(bassPattern) {
-      case 'root-fifth':
-        // Classic root-fifth pattern
-        sbSetStep('bass', offset + 0, { note: withOct(root, bassOct), velocity: 0.85, duration: '4n' });
-        sbSetStep('bass', offset + 8, { note: withOct(fifth, bassOct), velocity: 0.75, duration: '4n' });
-        if (energy > 0.7) {
-          sbSetStep('bass', offset + 12, { note: withOct(root, bassOct), velocity: 0.7, duration: '8n' });
+
+    switch (bassPattern) {
+      case 'root-fifth': {
+        // A few slightly different root–fifth flavors
+        if (variant === 0) {
+          // Classic: root on 1, fifth on 3, maybe a pickup
+          sbSetStep('bass', offset + 0, { note: withOct(root,  bassOct), velocity: 0.9,  duration: '4n' });
+          sbSetStep('bass', offset + 8, { note: withOct(fifth, bassOct), velocity: 0.8,  duration: '4n' });
+          if (energy > 0.7 && Math.random() < density) {
+            sbSetStep('bass', offset + 14, { note: withOct(root, bassOct), velocity: 0.7, duration: '16n' });
+          }
+        } else if (variant === 1) {
+          // Off-beat hits
+          sbSetStep('bass', offset + 2, { note: withOct(root,  bassOct), velocity: 0.85, duration: '8n' });
+          sbSetStep('bass', offset + 6, { note: withOct(fifth, bassOct), velocity: 0.8,  duration: '8n' });
+          sbSetStep('bass', offset + 10, { note: withOct(root,  bassOct), velocity: 0.8,  duration: '8n' });
+        } else {
+          // Add an octave jump on the last beat
+          sbSetStep('bass', offset + 0,  { note: withOct(root,  bassOct),   velocity: 0.9, duration: '4n' });
+          sbSetStep('bass', offset + 8,  { note: withOct(fifth, bassOct),   velocity: 0.85, duration: '4n' });
+          sbSetStep('bass', offset + 12, { note: withOct(root,  bassOct+1), velocity: 0.8, duration: '8n' });
         }
         break;
-        
-      case 'walking':
-        // Walking bass line
-        const walkingNotes = [root, third, fifth, third];
-        [0, 4, 8, 12].forEach((step, i) => {
-          sbSetStep('bass', offset + step, {
+      }
+
+      case 'walking': {
+        // Several walking patterns, so not always root→third→fifth→third
+        let walkingNotes;
+        if (variant === 0) {
+          walkingNotes = [root, third, fifth, third];
+        } else if (variant === 1) {
+          walkingNotes = [root, third, root, fifth];
+        } else {
+          // Little "up, down, up" contour
+          walkingNotes = [root, fifth, third, fifth];
+        }
+
+        const steps = [0, 4, 8, 12];
+        steps.forEach((stepIdx, i) => {
+          sbSetStep('bass', offset + stepIdx, {
             note: withOct(walkingNotes[i], bassOct),
-            velocity: 0.75 - (i * 0.05),
+            velocity: 0.75 - (i * 0.05) + energy * 0.1,
             duration: '4n'
           });
         });
+
+        // Optional passing note on the "and" of 4 if density/energy high
+        if (density > 0.6 && energy > 0.6 && Math.random() < 0.5) {
+          sbSetStep('bass', offset + 15, {
+            note: withOct(root, bassOct),
+            velocity: 0.65,
+            duration: '16n',
+            probability: 80
+          });
+        }
+
         break;
-        
-      case 'syncopated':
-        // Syncopated funk bass
-        sbSetStep('bass', offset + 0, { note: withOct(root, bassOct), velocity: 0.9, duration: '8n' });
-        sbSetStep('bass', offset + 3, { note: withOct(root, bassOct), velocity: 0.7, duration: '16n' });
-        sbSetStep('bass', offset + 6, { note: withOct(fifth, bassOct), velocity: 0.75, duration: '8n' });
-        sbSetStep('bass', offset + 10, { note: withOct(third, bassOct), velocity: 0.7, duration: '8n' });
-        if (density > 0.6) {
-          sbSetStep('bass', offset + 14, { note: withOct(root, bassOct), velocity: 0.65, duration: '16n' });
+      }
+
+      case 'syncopated': {
+        // Funky syncopation; tweak per variant
+        if (variant === 0) {
+          sbSetStep('bass', offset + 0,  { note: withOct(root,  bassOct), velocity: 0.9, duration: '8n' });
+          sbSetStep('bass', offset + 3,  { note: withOct(root,  bassOct), velocity: 0.7, duration: '16n' });
+          sbSetStep('bass', offset + 6,  { note: withOct(fifth, bassOct), velocity: 0.8, duration: '8n' });
+          sbSetStep('bass', offset + 10, { note: withOct(third, bassOct), velocity: 0.75, duration: '8n' });
+        } else if (variant === 1) {
+          sbSetStep('bass', offset + 2,  { note: withOct(root,  bassOct), velocity: 0.85, duration: '8n' });
+          sbSetStep('bass', offset + 5,  { note: withOct(fifth, bassOct), velocity: 0.8,  duration: '8n' });
+          sbSetStep('bass', offset + 9,  { note: withOct(root,  bassOct), velocity: 0.85, duration: '8n' });
+          sbSetStep('bass', offset + 13, { note: withOct(third, bassOct), velocity: 0.75, duration: '16n' });
+        } else {
+          sbSetStep('bass', offset + 0,  { note: withOct(root,  bassOct), velocity: 0.9,  duration: '8n' });
+          sbSetStep('bass', offset + 4,  { note: withOct(third, bassOct), velocity: 0.8,  duration: '8n' });
+          sbSetStep('bass', offset + 7,  { note: withOct(fifth, bassOct), velocity: 0.8,  duration: '8n' });
+          sbSetStep('bass', offset + 11, { note: withOct(root,  bassOct), velocity: 0.85, duration: '8n' });
+        }
+
+        // Add an extra ghost note at the end if dense
+        if (density > 0.7 && Math.random() < 0.7) {
+          sbSetStep('bass', offset + 14, {
+            note: withOct(root, bassOct),
+            velocity: 0.6,
+            duration: '16n',
+            probability: 70
+          });
+        }
+
+        break;
+      }
+
+      case 'pedal': {
+        // Pedal can still vary rhythmically a bit
+        if (variant === 0) {
+          sbSetStep('bass', offset + 0, { note: withOct(root, bassOct), velocity: 0.8, duration: '1n' });
+        } else if (variant === 1) {
+          // Two big hits per bar
+          sbSetStep('bass', offset + 0, { note: withOct(root, bassOct), velocity: 0.85, duration: '4n' });
+          sbSetStep('bass', offset + 8, { note: withOct(root, bassOct), velocity: 0.8,  duration: '4n' });
+        } else {
+          // Root held, but with a tiny pickup hit if energy high
+          sbSetStep('bass', offset + 0, { note: withOct(root, bassOct), velocity: 0.8, duration: '1n' });
+          if (energy > 0.6 && Math.random() < 0.5) {
+            sbSetStep('bass', offset + 15, {
+              note: withOct(root, bassOct),
+              velocity: 0.6,
+              duration: '16n',
+              probability: 80
+            });
+          }
         }
         break;
-        
-      case 'pedal':
-        // Pedal tone (root held throughout)
-        sbSetStep('bass', offset + 0, { note: withOct(root, bassOct), velocity: 0.8, duration: '1n' });
-        break;
+      }
     }
   }
 }
@@ -10347,7 +10429,7 @@ function setSongBuilderBusy(isBusy, label = '') {
 let songBuilderBusyStartedAt = 0;
 
 function endSongBuilderBusy() {
-  const MIN_BUSY_MS = 1500; // change to 250–300ms if you want more visible time
+  const MIN_BUSY_MS = 3000; // change to 250–300ms if you want more visible time
   const elapsed = performance.now() - songBuilderBusyStartedAt;
 
   if (elapsed >= MIN_BUSY_MS) {
