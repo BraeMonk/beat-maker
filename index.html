@@ -10569,7 +10569,6 @@ function ensurePatternLength(length) {
 
 // -------------------- Event Handlers Setup --------------------
 function setupEventListeners() {
-  setupGenreSelector();
   setupTabs();
   setupTransportControls();
   setupParameterControls();
@@ -10593,18 +10592,6 @@ function setupEventListeners() {
     if (e.key === 'Escape') {
       closeSidebar();
     }
-  });
-}
-
-function setupGenreSelector() {
-  document.getElementById('genreSelector').addEventListener('click', e => {
-    const btn = e.target.closest('.genre-btn');
-    if (!btn) return;
-    
-    document.querySelectorAll('.genre-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    state.currentGenre = btn.dataset.genre;
-    updateGenrePresets();
   });
 }
   
