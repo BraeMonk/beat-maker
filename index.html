@@ -10169,16 +10169,40 @@ function setSongBuilderBusy(isBusy, label = '') {
 
 
 function generateFullSongFromStructure() {
-  songBuilderState.isActive = true;
+  if (songBuilderState.isActive) {
+    // guard against double-click spamming
+    return;
+  }
 
-  // 🔔 mark as busy immediately
+  songBuilderState.isActive = true;
   setSongBuilderBusy(true, 'Building song…');
 
-  // make sure harmony reflects current Harmony tab
+  // 1) Pause / stop audio *first* so heavy CPU work can't glitch playback
+  const wasPlaying = Tone.Transport.state === 'started';
+
+  if (wasPlaying) {
+    // pause instead of hard stop; we'll resume at the same position
+    Tone.Transport.pause();
+  }
+
+  // Clear any previous scheduled events / main loop
+  Tone.Transport.cancel(0);
+  if (window.mainLoop) {
+    try {
+      window.mainLoop.stop();
+      window.mainLoop.dispose();
+    } catch (e) {
+      console.warn('Error disposing mainLoop', e);
+    }
+    window.mainLoop = null;
+  }
+
+  // 2) Harmony prep
   state.progressionNotes = null;
   ensureHarmonyGuardrails();
 
-  const runSections = randomizeSongBuilderSectionsForRun
+  // 3) Decide which sections to run
+  const runSections = typeof randomizeSongBuilderSectionsForRun === 'function'
     ? randomizeSongBuilderSectionsForRun()
     : songBuilderState.sections.map(s => ({ ...s }));
 
@@ -10192,10 +10216,14 @@ function generateFullSongFromStructure() {
   ensurePatternLength(state.sequenceLength);
   wipeAllPatterns();
 
+  // 4) Heavy pattern generation (now with audio safely paused)
   let currentBar = 0;
-  runSections.forEach((section, idx) => {
+  for (let idx = 0; idx < runSections.length; idx++) {
+    const section = runSections[idx];
     const startBar = currentBar;
-    const endBar   = currentBar + section.bars;
+    const endBar   = currentBar + (section.bars || 0);
+
+    if (endBar <= startBar) continue;
 
     generateSectionDrums(section, startBar, endBar);
     generateSectionBass(section, startBar, endBar);
@@ -10208,32 +10236,26 @@ function generateFullSongFromStructure() {
     }
 
     currentBar = endBar;
-  });
-
-  const wasPlaying = Tone.Transport.state === 'started';
-
-  if (wasPlaying) {
-    Tone.Transport.stop();
   }
 
-  Tone.Transport.cancel();
-  if (window.mainLoop) {
-    window.mainLoop.dispose();
-    window.mainLoop = null;
-  }
-
-  // Let the browser breathe, then rebuild audio + UI
+  // 5) Rebuild audio + UI once, after patterns are ready
+  //    Small timeout just lets the browser breathe before initAudio
   setTimeout(() => {
-    sequencerInitialized = false;
-    initAudio();
-    renderSequencer();
+    try {
+      sequencerInitialized = false;
+      initAudio();
+      renderSequencer();
 
-    if (wasPlaying) {
-      Tone.Transport.start();
+      if (wasPlaying) {
+        // give Tone a tiny look-ahead buffer
+        Tone.Transport.start('+0.05');
+      }
+
+      showToast('🎼 Structured song generated', 'success');
+    } finally {
+      songBuilderState.isActive = false;
+      setSongBuilderBusy(false);
     }
-
-    setSongBuilderBusy(false);        // ✅ all done
-    showToast('🎼 Structured song generated', 'success');
   }, 0);
 }
 
