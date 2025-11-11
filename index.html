@@ -10231,7 +10231,7 @@ function setSongBuilderBusy(isBusy, label = '') {
 let songBuilderBusyStartedAt = 0;
 
 function endSongBuilderBusy() {
-  const MIN_BUSY_MS = 200; // change to 250–300ms if you want more visible time
+  const MIN_BUSY_MS = 1500; // change to 250–300ms if you want more visible time
   const elapsed = performance.now() - songBuilderBusyStartedAt;
 
   if (elapsed >= MIN_BUSY_MS) {
