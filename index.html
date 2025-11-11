@@ -10219,6 +10219,7 @@ function setSongBuilderBusy(isBusy, label = '') {
   if (!statusEl) return;
 
   if (isBusy) {
+    songBuilderBusyStartedAt = performance.now();
     statusEl.classList.add('active');
     statusEl.innerHTML = `<span class="dot"></span>${label || 'Building song…'}`;
   } else {
@@ -10227,6 +10228,18 @@ function setSongBuilderBusy(isBusy, label = '') {
   }
 }
 
+let songBuilderBusyStartedAt = 0;
+
+function endSongBuilderBusy() {
+  const MIN_BUSY_MS = 200; // change to 250–300ms if you want more visible time
+  const elapsed = performance.now() - songBuilderBusyStartedAt;
+
+  if (elapsed >= MIN_BUSY_MS) {
+    setSongBuilderBusy(false);
+  } else {
+    setTimeout(() => setSongBuilderBusy(false), MIN_BUSY_MS - elapsed);
+  }
+}
 
 function generateFullSongFromStructure() {
   if (songBuilderState.isActive) {
