@@ -8011,9 +8011,13 @@ body.pro .pro-locked::after {
 'use strict';
 
 // -------------------- Configuration --------------------
+// Detect mobile device once
+const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+
+// Global config
 const CONFIG = {
   MAX_BPM: 200,
-  MAX_SEQUENCE_LENGTH: 512,
+  MAX_SEQUENCE_LENGTH: isMobile ? 512 : 1024, // ✅ use colon here
   MIN_SEQUENCE_LENGTH: 8,
   VISUALIZER_BARS: 32,
   VISUALIZER_FPS: 30,
