@@ -8571,7 +8571,67 @@ function initAudio() {
   
   sequencerInitialized = true;
 }
-  
+
+// -------------------- Lightweight Sequencer Rebuild --------------------
+function initAudioLight() {
+  // Reuse the existing master bus, FX, instruments, metronome, etc.
+  // Only rebuild the main sequencer loop + Transport timing.
+
+  // Kill the old loop if it exists
+  if (window.mainLoop) {
+    try {
+      window.mainLoop.stop();
+      window.mainLoop.dispose();
+    } catch (e) {
+      console.warn('Error disposing mainLoop (light):', e);
+    }
+    window.mainLoop = null;
+  }
+
+  // Transport timing based on current state
+  Tone.Transport.bpm.value = state.bpm;
+  Tone.Transport.swing = state.swing / 100;
+  Tone.Transport.swingSubdivision = '8n';
+
+  // Main sequencer loop - DYNAMIC LENGTH (same logic as in initAudio)
+  const loop = new Tone.Sequence((time, step) => {
+    state.currentStep = step;
+    updateStepVisuals(step);
+
+    const activeInsts = Object.keys(instruments).filter(inst =>
+      patterns[inst][step]?.active
+    );
+
+    const drumInsts = activeInsts.filter(inst => instruments[inst].type === 'drum');
+    const melodicInsts = activeInsts.filter(inst => instruments[inst].type !== 'drum');
+
+    drumInsts.forEach(inst => {
+      playStep(inst, step, time);
+    });
+
+    melodicInsts.forEach((inst, idx) => {
+      const offset = (idx / Math.max(1, melodicInsts.length - 1)) * 0.002;
+      setTimeout(() => playStep(inst, step, time + offset), 0);
+    });
+
+    updateVisualizer();
+  },
+  Array.from({ length: state.sequenceLength }, (_, i) => i),
+  state.resolution);
+
+  loop.loop = true;
+  loop.loopEnd = state.sequenceLength;
+
+  Tone.Transport.loop = true;
+  Tone.Transport.loopEnd =
+    state.sequenceLength * Tone.Time(state.resolution).toSeconds();
+
+  loop.start(0);
+  window.mainLoop = loop;
+
+  sequencerInitialized = true;
+}
+
 // In createInstrumentChain function (around line ~676), replace with:
 function createInstrumentChain(inst) {
   const instData = instruments[inst];
@@ -10243,7 +10303,7 @@ function generateFullSongFromStructure() {
   setTimeout(() => {
     try {
       sequencerInitialized = false;
-      initAudio();
+      initAudioLight();
       renderSequencer();
 
       if (wasPlaying) {
