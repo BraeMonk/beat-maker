@@ -10054,18 +10054,20 @@ function generateFullSongFromStructure() {
   if (window.mainLoop) {
     window.mainLoop.dispose();
   }
-  
-  // Reset sequencer flag so it reinitializes
-  sequencerInitialized = false;
-  initAudio();
-  
-  // Restart if it was playing
-  if (wasPlaying) {
-    Tone.Transport.start();
-  }
+
+  setTimeout(() => {
+    // Reset sequencer flag so it reinitializes
+    sequencerInitialized = false;
+    initAudio();
     
-  renderSequencer();
-  showToast('🎼 Structured song generated', 'success');
+    // Restart if it was playing
+    if (wasPlaying) {
+      Tone.Transport.start();
+    }
+      
+    renderSequencer();
+    showToast('🎼 Structured song generated', 'success');
+  }, 0);
 }
 
 // Wire the UI
@@ -20421,6 +20423,7 @@ function initVisualizerOnce() {
 }
 
 function updateVisualizer() {
+  if (state.isSongBuilding) return;
   if (visualizerRAF) return;
   
   const viz = document.getElementById('visualizer');
