@@ -18732,181 +18732,147 @@ function createOfflineFxNode(fxDef, offlineContext) {
   }
 }
   
+// =============================================================
+// 🎵 BOUNCE ALL TRACKS — DAW-Optimized Professional Export
+// Tailored for 8-Beat Studio (Tone.js / Multitrack Integration)
+// =============================================================
 async function bounceAllTracks() {
-  const activeTracks = multitrack.tracks.filter(t => {
-    if (t.muted) return false;
+  const activeTracks = multitrack.tracks.filter(track => {
+    if (track.muted) return false;
 
-    if (t.selectedTakeIndex >= 0 && t.takes[t.selectedTakeIndex]) {
-      const sel = t.takes[t.selectedTakeIndex];
-      return sel.buffer && sel.buffer.length && !sel.muted;
-    }
+    // Check for valid takes
+    const activeTake = track.selectedTakeIndex >= 0
+      ? track.takes[track.selectedTakeIndex]
+      : (track.takes?.find(tk => tk && tk.buffer && tk.buffer.length && !tk.muted) || null);
 
-    if (t.takes && t.takes.length > 0) {
-      return t.takes.some(tk => tk && tk.buffer && tk.buffer.length && !tk.muted);
-    }
-
-    return false;
+    return activeTake && activeTake.buffer && activeTake.buffer.length && !activeTake.muted;
   });
 
-  if (activeTracks.length === 0) {
+  if (!activeTracks.length) {
     showToast('❌ No tracks to bounce!', 'error');
     return;
   }
 
+  // ==== UI ====
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.style.zIndex = '10000';
 
   const modal = document.createElement('div');
   modal.className = 'modal';
-  modal.style.maxWidth = '500px';
-
+  modal.style.maxWidth = '480px';
   modal.innerHTML = `
     <div class="modal-header">
-      <div class="modal-title">🎵 Bouncing Mix</div>
+      <div class="modal-title">🎧 Bouncing Mix</div>
     </div>
     <div class="modal-body">
       <div style="margin-bottom: var(--space-4);">
-        <div id="bounceStatus" style="font-weight: 700; margin-bottom: var(--space-2);">
-          Preparing...
-        </div>
+        <div id="bounceStatus" style="font-weight:700;margin-bottom:var(--space-2);">Preparing…</div>
         <div class="progress">
-          <div class="progress-value" id="bounceProgress"
-               style="width: 0%; transition: width 0.3s;"></div>
+          <div id="bounceProgress" class="progress-value" style="width:0%;transition:width 0.3s;"></div>
         </div>
-        <div id="bounceDetails"
-             style="font-size: var(--text-sm); color: var(--text-tertiary); margin-top: var(--space-2);">
-        </div>
+        <div id="bounceDetails" style="font-size:var(--text-sm);color:var(--text-tertiary);margin-top:var(--space-2);"></div>
       </div>
-    </div>
-  `;
-
+    </div>`;
   backdrop.appendChild(modal);
   document.body.appendChild(backdrop);
 
   const updateProgress = (percent, status, details = '') => {
-    const prog = document.getElementById('bounceProgress');
-    const stat = document.getElementById('bounceStatus');
-    const det = document.getElementById('bounceDetails');
-    if (prog) prog.style.width = percent + '%';
-    if (stat) stat.textContent = status;
-    if (det) det.textContent = details;
+    const p = document.getElementById('bounceProgress');
+    const s = document.getElementById('bounceStatus');
+    const d = document.getElementById('bounceDetails');
+    if (p) p.style.width = `${percent}%`;
+    if (s) s.textContent = status;
+    if (d) d.textContent = details;
   };
 
   try {
-    updateProgress(10, 'Analyzing tracks...', `${activeTracks.length} tracks to bounce`);
+    updateProgress(10, 'Analyzing tracks…', `${activeTracks.length} tracks detected`);
 
-    // Find actual content boundaries
+    // === Find timeline bounds ===
     let minStart = Infinity;
     let maxEnd = 0;
-    
-    activeTracks.forEach(track => {
-      let take = null;
-      if (track.selectedTakeIndex >= 0 && track.takes[track.selectedTakeIndex]) {
-        take = track.takes[track.selectedTakeIndex];
-      } else if (track.takes && track.takes.length > 0) {
-        take = track.takes.find(tk => tk && tk.buffer && !tk.muted) || null;
-      }
-      
-      if (take && take.buffer) {
-        const start = take.startTime || 0;
-        const end = start + take.duration;
-        if (start < minStart) minStart = start;
-        if (end > maxEnd) maxEnd = end;
-      }
+    activeTracks.forEach(t => {
+      const take = t.selectedTakeIndex >= 0
+        ? t.takes[t.selectedTakeIndex]
+        : t.takes?.find(x => x && x.buffer && !x.muted);
+      if (!take) return;
+      const start = take.startTime || 0;
+      const end = start + take.duration;
+      if (start < minStart) minStart = start;
+      if (end > maxEnd) maxEnd = end;
     });
-    
+
     if (minStart === Infinity || maxEnd === 0) {
       backdrop.remove();
       showToast('❌ No audio content to bounce', 'error');
       return;
     }
 
-    // Use actual content duration, not project duration
     const totalDuration = maxEnd - minStart;
-    
-    updateProgress(
-      20,
-      'Setting up renderer...',
-      `Duration: ${totalDuration.toFixed(1)}s (trimmed)`
-    );
-
-    console.log(`🎬 Bouncing ${totalDuration.toFixed(2)}s (content from ${minStart.toFixed(2)}s to ${maxEnd.toFixed(2)}s)`);
-
     const sampleRate = Tone.context.sampleRate || 48000;
     const numFrames = Math.ceil(totalDuration * sampleRate);
+    updateProgress(20, 'Setting up renderer…', `${totalDuration.toFixed(1)}s of audio`);
 
-    const offlineContext = new OfflineAudioContext({
+    // === Create Offline Context ===
+    const offlineCtx = new OfflineAudioContext({
       numberOfChannels: 2,
       length: numFrames,
       sampleRate
     });
 
-    updateProgress(30, 'Creating audio chain...', 'Building master effects');
+    // === Master Chain ===
+    updateProgress(30, 'Building master chain…');
+    const offlineMasterIn = createOfflineMasterChain(offlineCtx);
 
-    const offlineMasterIn = createOfflineMasterChain(offlineContext);
+    // === Professional Gain Staging ===
+    const trackCount = activeTracks.length;
 
-    updateProgress(40, 'Scheduling tracks...', `Processing ${activeTracks.length} tracks`);
+    // Per-track attenuation to prevent summing overload
+    // Formula: base -3 dB, minus 0.5 dB per extra track past 4
+    const perTrackAttenDb = -3 - Math.max(0, trackCount - 4) * 0.5;
+    const perTrackAtten = Math.pow(10, perTrackAttenDb / 20);
 
+    // Master headroom for limiter / mastering
+    const masterGain = offlineCtx.createGain();
+    masterGain.gain.value = 0.9; // ≈ -1 dB headroom
+    offlineMasterIn.connect(masterGain);
+    masterGain.connect(offlineCtx.destination);
+
+    updateProgress(40, 'Scheduling tracks…');
+
+    // === Render each active track ===
     for (const track of activeTracks) {
-      let take = null;
-      if (track.selectedTakeIndex >= 0 && track.takes[track.selectedTakeIndex]) {
-        take = track.takes[track.selectedTakeIndex];
-      } else if (track.takes && track.takes.length > 0) {
-        take = track.takes.find(tk => tk && tk.buffer && !tk.muted) || null;
-      }
+      const take = track.selectedTakeIndex >= 0
+        ? track.takes[track.selectedTakeIndex]
+        : track.takes?.find(x => x && x.buffer && !x.muted);
+      if (!take?.buffer) continue;
 
-      if (!take || !take.buffer || take.buffer.length === 0) continue;
+      const src = offlineCtx.createBufferSource();
+      src.buffer = take.buffer;
 
-      try {
-        const ctx = offlineContext;
-        const src = ctx.createBufferSource();
-        src.buffer = take.buffer;
+      // Volume / Pan conversion (Tone.js compatible)
+      const gainNode = offlineCtx.createGain();
+      const panNode = offlineCtx.createStereoPanner();
 
-        const gainNode = ctx.createGain();
-        gainNode.gain.value = Tone.dbToGain(track.volume || 0);
+      const volDb = track.volume || 0;
+      const gain = Tone.dbToGain(volDb) * perTrackAtten;
+      gainNode.gain.value = gain;
+      panNode.pan.value = (track.pan || 0) / 100;
 
-        const panNode = ctx.createStereoPanner();
-        panNode.pan.value = (track.pan || 0) / 100;
+      src.connect(gainNode);
+      gainNode.connect(panNode);
+      panNode.connect(offlineMasterIn);
 
-        src.connect(gainNode);
-        gainNode.connect(panNode);
-        panNode.connect(offlineMasterIn);
-
-        const startTime = take.startTime || 0;
-        const relStart = startTime - minStart;
-        const safeStart = Math.max(0, relStart);
-
-        src.start(safeStart);
-
-        console.log(`✅ ${track.name}: renders at ${safeStart.toFixed(3)}s`);
-      } catch (err) {
-        console.error(`❌ Failed to schedule ${track.name}:`, err);
-      }
+      const relStart = Math.max(0, (take.startTime || 0) - minStart);
+      src.start(relStart);
     }
 
-    updateProgress(50, 'Rendering audio...', 'This may take a moment');
+    updateProgress(60, 'Rendering audio…');
 
-    const progressInterval = setInterval(() => {
-      const progEl = document.getElementById('bounceProgress');
-      const currentProg = progEl
-        ? parseFloat(progEl.style.width) || 50
-        : 50;
-      if (currentProg < 90) {
-        updateProgress(
-          currentProg + 2,
-          'Rendering audio...',
-          `${Math.round(currentProg - 50)}% complete`
-        );
-      }
-    }, 200);
+    const renderedBuffer = await offlineCtx.startRendering();
 
-    const renderedBuffer = await offlineContext.startRendering();
-
-    clearInterval(progressInterval);
-    updateProgress(95, 'Converting to WAV...', 'Almost done');
-
-    console.log(`✅ Rendered ${renderedBuffer.duration.toFixed(2)}s (trimmed from ${totalDuration.toFixed(2)}s)`);
+    updateProgress(90, 'Converting to WAV…');
 
     const wavData = bufferToWavImproved(renderedBuffer);
     const blob = new Blob([wavData], { type: 'audio/wav' });
@@ -18914,29 +18880,29 @@ async function bounceAllTracks() {
     const projectName = document.getElementById('projectName')?.value || 'mix';
     const filename = `${projectName.replace(/\s+/g, '_')}_bounce_${Date.now()}.wav`;
 
-    updateProgress(100, 'Complete!', `Downloading ${filename}`);
-
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
 
-    console.log(`✅ Bounce complete: ${filename} (${totalDuration.toFixed(1)}s)`);
+    updateProgress(100, '✅ Export complete', filename);
 
     setTimeout(() => {
       backdrop.remove();
-      showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s exported (silence trimmed)`, 'success');
+      showToast(`✅ Bounce complete! ${totalDuration.toFixed(1)}s exported (trimmed)`, 'success');
     }, 1000);
+
   } catch (err) {
     console.error('❌ Bounce failed:', err);
     backdrop.remove();
     showToast(`❌ Bounce failed: ${err.message}`, 'error');
   }
 }
+
   
 // Add this NEW function
 async function validateAllArmedTracks() {
