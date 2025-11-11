@@ -12886,22 +12886,48 @@ function showToast(message, type = 'info') {
 // -------------------- Pattern Generators --------------------
 function generateBeat() {
   const genre = state.currentGenre;
-  
-  // Clear all patterns first
+
+  // --- Respect user BPM & swing, with sane defaults ---
+  // Default BPM if not set
+  if (typeof state.bpm !== 'number' || !state.bpm) {
+    state.bpm = 120;
+  }
+  // Default swing if not set
+  if (typeof state.swing !== 'number' || isNaN(state.swing)) {
+    state.swing = 0;
+  }
+
+  // Apply current tempo / swing to Tone, but DO NOT randomize
+  Tone.Transport.bpm.value = state.bpm;
+  Tone.Transport.swing = state.swing / 100;
+
+  // Sync UI (in case defaults just kicked in)
+  const bpmSlider   = document.getElementById('bpmSlider');
+  const bpmValue    = document.getElementById('bpmValue');
+  const swingSlider = document.getElementById('swingSlider');
+  const swingValue  = document.getElementById('swingValue');
+
+  if (bpmSlider) bpmSlider.value = state.bpm;
+  if (bpmValue)  bpmValue.textContent = state.bpm;
+
+  if (swingSlider) swingSlider.value = state.swing;
+  if (swingValue)  swingValue.textContent = state.swing + '%';
+
+  // --- Clear all patterns first (drums etc.) ---
   Object.keys(instruments).forEach(inst => {
     patterns[inst].forEach(step => {
-      step.active = false;
-      step.velocity = 0.8;
+      step.active      = false;
+      step.velocity    = 0.8;
       step.probability = 100;
     });
   });
-  
-  // RANDOM DENSITY: Each generation picks a random complexity
+
+  // --- RANDOM DENSITY: temporary complexity for this generation only ---
   const randomComplexity = Math.floor(Math.random() * 3) + 1; // 1-3
-  const oldComplexity = state.complexity;
-  state.complexity = randomComplexity;
-  
-  // Generate with genre logic
+  const oldComplexity    = state.complexity;
+  state.complexity       = randomComplexity;
+
+  // --- Generate with genre logic (DRUMS) ---
   if (genre === 'lofi') {
     generateLoFiBeat();
   } else if (genre === 'hiphop') {
@@ -12915,32 +12941,20 @@ function generateBeat() {
   } else if (genre === 'dazecore') {
     generateDazecoreBeat();
   }
-  
-  // RANDOM VARIATION: Shuffle some steps
+
+  // --- RANDOM VARIATION: shuffle some steps (drums only) ---
   addRandomShuffling();
-  
-  // RANDOM SWING: Change the feel
-  state.swing = 30 + Math.floor(Math.random() * 40); // 30-70%
-  Tone.Transport.swing = state.swing / 100;
-  document.getElementById('swingSlider').value = state.swing;
-  document.getElementById('swingValue').textContent = state.swing + '%';
-  
-  // RANDOM BPM VARIATION: ±10 BPM from genre default
-  const genreBPMs = {
-    lofi: 85, hiphop: 90, postpunk: 100, 
-    rnb: 75, ambient: 60, dazecore: 95
-  };
-  const baseBPM = genreBPMs[genre] || 120;
-  state.bpm = baseBPM + Math.floor(Math.random() * 21) - 10; // ±10
-  Tone.Transport.bpm.value = state.bpm;
-  document.getElementById('bpmSlider').value = state.bpm;
-  document.getElementById('bpmValue').textContent = state.bpm;
-  
+
+  // 🔥 NEW: randomize harmony (key / scale / chord preset)
+  randomizeHarmony();
+
   // Restore original complexity setting
   state.complexity = oldComplexity;
-  
+
   renderSequencer();
-  console.log(`✅ Generated ${genre} beat: ${state.bpm}BPM, swing ${state.swing}%, complexity ${randomComplexity}`);
+  console.log(
+    `✅ Generated ${genre} beat: ${state.bpm} BPM, swing ${state.swing}%, complexity ${randomComplexity} + randomized harmony`
+  );
 }
 
 function addRandomShuffling() {
@@ -15117,6 +15131,55 @@ function applyFxActiveState(fxName, active) {
     const targetFreq = active ? (fxConfig.filter.frequency || 5000) : 20000;
     fx.frequency.rampTo(targetFreq, 0.05);
   }
+}
+
+function randomizeHarmony() {
+  // TODO: swap these out for your actual key/scale options if you have constants
+  const possibleKeys   = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+  const possibleScales = ['major', 'minor', 'dorian', 'mixolydian'];
+
+  // If you already have something like HARMONY_KEYS / HARMONY_SCALES, use those instead:
+  // const possibleKeys = HARMONY_KEYS;
+  // const possibleScales = HARMONY_SCALES;
+
+  // Chord preset IDs – plug in your real preset map / list here
+  let chordPresetIds = [];
+  if (typeof CHORD_PRESETS === 'object' && CHORD_PRESETS !== null) {
+    chordPresetIds = Object.keys(CHORD_PRESETS);
+  }
+
+  const rand = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  const newKey    = rand(possibleKeys);
+  const newScale  = rand(possibleScales);
+  const newPreset = chordPresetIds.length ? rand(chordPresetIds) : null;
+
+  // Make sure state.harmony exists
+  state.harmony = state.harmony || {};
+  state.harmony.key      = newKey;
+  state.harmony.scale    = newScale;
+  if (newPreset) state.harmony.presetId = newPreset;
+
+  // Update the UI controls if they exist
+  const keySelect    = document.getElementById('harmonyKeySelect');
+  const scaleSelect  = document.getElementById('harmonyScaleSelect');
+  const presetSelect = document.getElementById('chordPresetSelect');
+
+  if (keySelect)    keySelect.value    = newKey;
+  if (scaleSelect)  scaleSelect.value  = newScale;
+  if (presetSelect && newPreset) presetSelect.value = newPreset;
+
+  // Apply the new harmony to your engine / chord progression
+  if (typeof applyHarmonySettings === 'function') {
+    applyHarmonySettings();
+  } else if (typeof generateChordProgression === 'function') {
+    generateChordProgression();
+  }
+
+  console.log(
+    `🎹 Randomized harmony → Key: ${newKey}, Scale: ${newScale}` +
+    (newPreset ? `, Chords: ${newPreset}` : '')
+  );
 }
 
 /* ============================
