@@ -7427,6 +7427,13 @@ header {
                 Powered by your current key, scale & progression (Harmony tab)
               </div>
             </div>
+
+            <label for="songDurationSelect">Duration</label>
+            <select id="songDurationSelect" class="input">
+              <option value="1">~ 1 minute</option>
+              <option value="2">~ 2 minutes</option>
+              <option value="3">~ 3 minutes</option>
+            </select>
           
             <!-- Randomize now lives here -->
             <div style="
@@ -9500,6 +9507,7 @@ let songBuilderState = {
   templateId: 'intro-verse-chorus',
   sections: SONG_TEMPLATES['intro-verse-chorus'].map(s => ({ ...s })),
   fillEvery: 4,
+  durationMins: 2,
   isActive: false,  // ADD THIS FLAG
   genre: state.currentGenre
 };
@@ -9818,106 +9826,81 @@ function sbPick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// Create a fresh, slightly randomized copy of the current sections
+// ==================== DURATION + GENRE AWARE SECTION RANDOMIZER ====================
 function randomizeSongBuilderSectionsForRun() {
-  // Shallow clone each section so we don't mutate the UI state
-  const sections = songBuilderState.sections.map(s => ({ ...s }));
+  const templateId = songBuilderState.templateId || 'intro-verse-chorus';
+  const baseSections = SONG_TEMPLATES[templateId] || [];
+  const duration = songBuilderState.durationMins || 2;
+  const genre = songBuilderState.genre || state.currentGenre || 'lofi';
 
-  const variations = ['a', 'b', 'c'];
-
-  const DRUM_PATTERN_POOL = {
-    low: ['four-floor', 'half-time'],
-    mid: ['four-floor', 'breakbeat', 'trap'],
-    high: ['breakbeat', 'trap', 'four-floor']
+  // --- Genre behaviour profiles ---
+  const GENRE_BEHAVIOUR = {
+    lofi:     { avgBars: 6,  extFactor: 0.9,  extraChorus: false, smoothFlow: true },
+    hiphop:   { avgBars: 8,  extFactor: 1.0,  extraChorus: true,  smoothFlow: false },
+    trap:     { avgBars: 8,  extFactor: 1.1,  extraChorus: true,  smoothFlow: false },
+    metal:    { avgBars: 8,  extFactor: 1.2,  extraChorus: true,  smoothFlow: false },
+    poprock:  { avgBars: 8,  extFactor: 1.0,  extraChorus: true,  smoothFlow: true  },
+    funk:     { avgBars: 8,  extFactor: 1.0,  extraChorus: true,  smoothFlow: true  },
+    jazz:     { avgBars: 16, extFactor: 1.3,  extraChorus: false, smoothFlow: true  },
+    edm:      { avgBars: 8,  extFactor: 1.4,  extraChorus: true,  smoothFlow: false },
+    dubstep:  { avgBars: 8,  extFactor: 1.3,  extraChorus: true,  smoothFlow: false },
+    ambient:  { avgBars: 8,  extFactor: 1.6,  extraChorus: false, smoothFlow: true  },
+    reggae:   { avgBars: 8,  extFactor: 1.0,  extraChorus: true,  smoothFlow: true  },
+    default:  { avgBars: 8,  extFactor: 1.0,  extraChorus: true,  smoothFlow: true  }
   };
 
-  const BASS_PATTERN_POOL = {
-    low: ['root-fifth', 'pedal'],
-    mid: ['root-fifth', 'syncopated', 'walking'],
-    high: ['syncopated', 'walking', 'root-fifth']
-  };
+  const behaviour = GENRE_BEHAVIOUR[genre] || GENRE_BEHAVIOUR.default;
 
-  const CHORD_PATTERN_POOL = {
-    low: ['sustained', 'arpeggiated'],
-    mid: ['sustained', 'staccato', 'rhythmic'],
-    high: ['staccato', 'rhythmic', 'arpeggiated']
-  };
+  // --- Base scaling by duration ---
+  let sectionCountScale = 1.0;
+  let barScale = behaviour.extFactor;
 
-  const MELODY_STYLE_POOL = {
-    low: ['motif', 'sparse'],
-    mid: ['motif', 'scale-run', 'sparse'],
-    high: ['motif', 'dense', 'scale-run']
-  };
+  if (duration <= 1) {
+    sectionCountScale = 0.5; // fewer sections
+    barScale *= 0.8;         // compress bars
+  } else if (duration >= 3) {
+    sectionCountScale = 1.2; // more sections
+    barScale *= 1.2;         // extend bars
+  }
 
-  sections.forEach((section) => {
-    const baseEnergy = section.energy ?? 0.6;
-    const baseDensity = section.density ?? 0.7;
-    const band = sbEnergyBand(baseEnergy);
+  // --- Determine number of sections ---
+  const targetSectionCount = Math.max(
+    3,
+    Math.round(baseSections.length * sectionCountScale)
+  );
 
-    // Slight wiggle in density & energy so groove changes feel
-    section.density = sbClamp01(baseDensity + (Math.random() - 0.5) * 0.25); // ±0.125
-    section.energy  = sbClamp01(baseEnergy  + (Math.random() - 0.5) * 0.20); // ±0.10
+  // --- Select a flowing subset ---
+  const selectedSections = baseSections
+    .slice(0, targetSectionCount)
+    .map((s, i) => ({
+      ...s,
+      bars: Math.max(2, Math.round((s.bars || behaviour.avgBars) * barScale)),
+      variation: s.variation || (i % 2 ? 'a' : 'b')
+    }));
 
-    // Vary bars a bit (but keep intros/outros mostly stable)
-    if (section.bars >= 4 && section.id !== 'intro' && section.id !== 'outro') {
-      const deltaOptions = [0, 0, 0, 4, -4]; // mostly same, sometimes ±4
-      const delta = sbPick(deltaOptions);
-      const newBars = Math.max(2, Math.min(64, section.bars + delta));
-      section.bars = newBars;
-    }
+  // --- Optional: duplicate a chorus/hook for long builds ---
+  if (behaviour.extraChorus && duration >= 2.5) {
+    const chorus = selectedSections.find(s => s.id.includes('chorus') || s.id.includes('hook'));
+    if (chorus) selectedSections.push({ ...chorus, variation: 'b' });
+  }
 
-    // Random variation tag
-    if (Math.random() < 0.8) {
-      section.variation = sbPick(variations);
-    }
+  // --- Optional: smooth transitions for flowy genres ---
+  if (behaviour.smoothFlow) {
+    selectedSections.forEach((s, i) => {
+      const next = selectedSections[i + 1];
+      if (next && next.energy < s.energy)
+        next.energy = (next.energy + s.energy) / 2;
+    });
+  }
 
-    // Pattern swaps – only if that lane is enabled for the section
-    if (section.drums) {
-      const pool = DRUM_PATTERN_POOL[band];
-      if (pool && pool.length && Math.random() < 0.9) {
-        const current = section.drumPattern || 'four-floor';
-        const candidates = pool.filter(p => p !== current);
-        if (candidates.length) {
-          section.drumPattern = sbPick(candidates);
-        }
-      }
-    }
-
-    if (section.bass) {
-      const pool = BASS_PATTERN_POOL[band];
-      if (pool && pool.length && Math.random() < 0.8) {
-        const current = section.bassPattern || 'root-fifth';
-        const candidates = pool.filter(p => p !== current);
-        if (candidates.length) {
-          section.bassPattern = sbPick(candidates);
-        }
-      }
-    }
-
-    if (section.chords) {
-      const pool = CHORD_PATTERN_POOL[band];
-      if (pool && pool.length && Math.random() < 0.8) {
-        const current = section.chordPattern || 'sustained';
-        const candidates = pool.filter(p => p !== current);
-        if (candidates.length) {
-          section.chordPattern = sbPick(candidates);
-        }
-      }
-    }
-
-    if (section.lead) {
-      const pool = MELODY_STYLE_POOL[band];
-      if (pool && pool.length && Math.random() < 0.9) {
-        const current = section.melodyStyle || 'motif';
-        const candidates = pool.filter(p => p !== current);
-        if (candidates.length) {
-          section.melodyStyle = sbPick(candidates);
-        }
-      }
-    }
+  // --- Small random dynamic tweaks for natural variation ---
+  selectedSections.forEach(s => {
+    s.energy = Math.min(1, Math.max(0, s.energy + (Math.random() - 0.5) * 0.1));
+    s.density = Math.min(1, Math.max(0, s.density + (Math.random() - 0.5) * 0.1));
   });
 
-  return sections;
+  console.log(`🎛️ Duration: ${duration}min • Genre: ${genre} → ${selectedSections.length} sections, ${selectedSections.reduce((a,b)=>a+b.bars,0)} bars`);
+  return selectedSections;
 }
 
 
@@ -10423,17 +10406,38 @@ function generateFullSongFromStructure_COHERENT() {
   const wasPlaying = Tone.Transport.state === 'started';
   if (wasPlaying) Tone.Transport.pause();
   Tone.Transport.cancel(0);
-  if (window.mainLoop) { try { window.mainLoop.stop(); window.mainLoop.dispose(); } catch{} window.mainLoop = null; }
+  if (window.mainLoop) {
+    try { window.mainLoop.stop(); window.mainLoop.dispose(); } catch {}
+    window.mainLoop = null;
+  }
 
   // --- Global harmonic plan
   sbChooseGlobalHarmony_GenreAware();
   state.key = sbGlobalHarmony.key;
   state.scale = sbGlobalHarmony.scale;
 
-  // --- Prepare sections
+  // --- Prepare sections first ---
   const runSections = randomizeSongBuilderSectionsForRun();
-  const totalBars = Math.max(2, runSections.reduce((a,b)=>a+(b.bars||0),0));
-  state.sequenceLength = Math.min(CONFIG.MAX_SEQUENCE_LENGTH, totalBars * STEPS_PER_BAR);
+
+  // --- Calculate target bars based on selected duration ---
+  const bpm = state.bpm || 120;
+  const targetMins = songBuilderState.durationMins || 2;
+  const barsPerMinute = bpm / 240; // 30 bars per min @ 120 bpm
+  const targetBars = Math.round(targetMins * barsPerMinute * 60);
+
+  // Total bars = whichever is smaller: targetBars or actual section sum
+  const totalBars = Math.max(2, Math.min(
+    targetBars,
+    runSections.reduce((a, b) => a + (b.bars || 0), 0)
+  ));
+
+  // --- Adaptive sequence length ---
+  const desiredLength = totalBars * STEPS_PER_BAR;
+  const safeCap = CONFIG.MAX_SEQUENCE_LENGTH || 4096;
+  state.sequenceLength = isMobile
+    ? Math.min(512, desiredLength)
+    : Math.min(desiredLength, safeCap);
+
   ensurePatternLength(state.sequenceLength);
   wipeAllPatterns();
 
@@ -10442,7 +10446,7 @@ function generateFullSongFromStructure_COHERENT() {
   sbMotifCache = [];
   sbRhythmCache = { kick: [], snare: [], hihat: [] };
 
-  for (let i=0;i<runSections.length;i++) {
+  for (let i = 0; i < runSections.length; i++) {
     const section = runSections[i];
     const startBar = currentBar;
     const endBar = currentBar + (section.bars || 0);
@@ -10450,17 +10454,17 @@ function generateFullSongFromStructure_COHERENT() {
     // --- Maintain rhythmic coherence across verses/choruses
     if (section.id.includes('verse') && sbRhythmCache.kick.length) {
       // reuse previous verse rhythm
-      sbRhythmCache.kick.forEach(step=>sbSetStep('kick', startBar*STEPS_PER_BAR + step, {velocity:0.9}));
-      sbRhythmCache.snare.forEach(step=>sbSetStep('snare', startBar*STEPS_PER_BAR + step, {velocity:0.9}));
-      sbRhythmCache.hihat.forEach(step=>sbSetStep('hihat', startBar*STEPS_PER_BAR + step, {velocity:0.6}));
+      sbRhythmCache.kick.forEach(step => sbSetStep('kick', startBar * STEPS_PER_BAR + step, { velocity: 0.9 }));
+      sbRhythmCache.snare.forEach(step => sbSetStep('snare', startBar * STEPS_PER_BAR + step, { velocity: 0.9 }));
+      sbRhythmCache.hihat.forEach(step => sbSetStep('hihat', startBar * STEPS_PER_BAR + step, { velocity: 0.6 }));
     } else {
       generateSectionDrums(section, startBar, endBar);
       // capture rhythm of first verse
-      if (section.id.includes('verse') && sbRhythmCache.kick.length===0) {
-        for (let s=0;s<STEPS_PER_BAR;s++){
-          if (patterns.kick[s+startBar*STEPS_PER_BAR]?.active) sbRhythmCache.kick.push(s);
-          if (patterns.snare[s+startBar*STEPS_PER_BAR]?.active) sbRhythmCache.snare.push(s);
-          if (patterns.hihat[s+startBar*STEPS_PER_BAR]?.active) sbRhythmCache.hihat.push(s);
+      if (section.id.includes('verse') && sbRhythmCache.kick.length === 0) {
+        for (let s = 0; s < STEPS_PER_BAR; s++) {
+          if (patterns.kick[s + startBar * STEPS_PER_BAR]?.active) sbRhythmCache.kick.push(s);
+          if (patterns.snare[s + startBar * STEPS_PER_BAR]?.active) sbRhythmCache.snare.push(s);
+          if (patterns.hihat[s + startBar * STEPS_PER_BAR]?.active) sbRhythmCache.hihat.push(s);
         }
       }
     }
@@ -10472,25 +10476,27 @@ function generateFullSongFromStructure_COHERENT() {
     // --- Melodic coherence: motif reuse
     if (section.id.includes('verse') && sbMotifCache.length) {
       const offset = startBar * STEPS_PER_BAR;
-      sbMotifCache.forEach(m => sbSetStep('lead', offset + m.step, {
-        note: withOct(m.note, (state.octave||3)+1),
-        velocity: m.velocity,
-        duration: '8n'
-      }));
+      sbMotifCache.forEach(m =>
+        sbSetStep('lead', offset + m.step, {
+          note: withOct(m.note, (state.octave || 3) + 1),
+          velocity: m.velocity,
+          duration: '8n'
+        })
+      );
     } else {
       // Let the normal melody generator run
       generateSectionMelody(section, startBar, endBar);
       // cache motif from first verse
-      if (section.id.includes('verse') && sbMotifCache.length===0) {
+      if (section.id.includes('verse') && sbMotifCache.length === 0) {
         const offset = startBar * STEPS_PER_BAR;
-        for (let s=0;s<STEPS_PER_BAR;s++){
-          const step = patterns.lead[offset+s];
-          if (step?.active) sbMotifCache.push({step:s, note:step.note, velocity:step.velocity});
+        for (let s = 0; s < STEPS_PER_BAR; s++) {
+          const step = patterns.lead[offset + s];
+          if (step?.active) sbMotifCache.push({ step: s, note: step.note, velocity: step.velocity });
         }
       }
     }
 
-    applyTransitionEffects(section, runSections[i+1], endBar);
+    applyTransitionEffects(section, runSections[i + 1], endBar);
     currentBar = endBar;
   }
 
@@ -10626,6 +10632,14 @@ function setupSongBuilderControls() {
     songBuilderState.genre = mappedGenre;
     console.log(`🎨 Template '${selected}' → Genre '${mappedGenre}'`);
   });
+
+  const durationSelect = document.getElementById('songDurationSelect');
+  if (durationSelect) {
+    durationSelect.value = String(songBuilderState.durationMins);
+    durationSelect.addEventListener('change', e => {
+      songBuilderState.durationMins = parseInt(e.target.value, 10);
+    });
+  }
 
   // --- Fill every X bars ---
   fillSelect.value = String(songBuilderState.fillEvery);
