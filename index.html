@@ -8589,11 +8589,38 @@ function initAudio() {
   
   metronome.synth.volume.value = state.metronomeVolume;
 
-  // Optimize instrument levels for better mix
-  instruments.kick.volume = 0;
-  instruments.snare.volume = -2;
-  instruments.hihat.volume = -6;
-  instruments.bass.volume = -3;
+  // Optimize instrument levels for better mix (dB-ish values)
+  const MIX_PRESET = {
+    // Drums
+    kick:   0,    // anchor
+    snare: -2,
+    clap:  -3,
+    hihat: -8,
+    perc:  -8,
+    tom:   -4,
+    crash: -6,
+
+    // Low end
+    bass:  -4,
+
+    // Harmony / chords
+    keys:  -6,    // or 'piano' / 'chords' depending on your naming
+    pads:  -8,
+
+    // Melodic top
+    lead:  -1,    // a bit louder so melodies stand out
+
+    // FX / transitions
+    fx:    -10,
+    riser: -6,    // present but not nuking the mix
+    sweep: -8
+  };
+
+  Object.entries(MIX_PRESET).forEach(([name, vol]) => {
+    if (instruments[name]) {
+      instruments[name].volume = vol;
+    }
+  });
   
   metronome.loop = new Tone.Loop((time) => {
     const step = Math.floor(Tone.Transport.position.split(':')[1]);
