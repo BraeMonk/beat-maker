@@ -22842,6 +22842,32 @@ function toggleSidebar() {
 
 const LICENSE_API_URL = 'https://script.google.com/macros/s/AKfycbxnQHpQ-oym0WbITYsj3xzu-U6sHRcSKMlziMYAdcPfxquo8bvPL3H6sC3wApm2_1x1/exec'; // no query string
 
+function mapLicenseError(code) {
+  switch (code) {
+    case 'missing_parameters':
+      return 'Missing email or license key.';
+    case 'license_not_found':
+      return 'License key not found. Double-check your key.';
+    case 'license_inactive':
+      return 'This license is inactive. Contact support.';
+    case 'email_mismatch':
+      return 'Email does not match the purchase email.';
+    case 'otp_invalid_or_expired':
+      return 'Code invalid or expired. Request a new one.';
+    case 'device_limit':
+      return 'This license is already used on the maximum number of devices.';
+    case 'invalid_token':
+      return 'Your license token is invalid. Please activate again.';
+    case 'device_mismatch':
+      return 'This token belongs to a different device.';
+    case 'license_server':
+    case 'server_error':
+      return 'Server error. Please try again in a minute.';
+    default:
+      return `Unknown error (${code || 'no code'}).`;
+  }
+}
+
 function isPro() {
   return localStorage.getItem('8beat.pro') === 'true';
 }
@@ -23051,59 +23077,180 @@ function deviceId() {
 
 
 function initLicenseUI() {
-  const unlockBtn = document.getElementById('unlockProBtn');
-  const modal = document.getElementById('unlockModal');
-  const input = document.getElementById('licenseInput');
-  const status = document.getElementById('licenseStatus');
+  const modal      = document.getElementById('unlockModal');
+  const inputKey   = document.getElementById('licenseInput');
+  const statusEl   = document.getElementById('licenseStatus');
   const confirmBtn = document.getElementById('confirmLicenseBtn');
-  const cancelBtn = document.getElementById('cancelLicenseBtn');
+  const cancelBtn  = document.getElementById('cancelLicenseBtn');
 
-  if (!unlockBtn || !modal) return;
+  // We support BOTH buttons:
+  // - Sidebar:  #unlockProBtn
+  // - Simple UI: #simpUnlockProBtn
+  const unlockBtns = Array.from(
+    document.querySelectorAll('#unlockProBtn, #simpUnlockProBtn')
+  );
 
+  // Guard: modal must exist
+  if (!modal || !inputKey || !statusEl || !confirmBtn || !cancelBtn) {
+    console.warn('[license] Modal elements missing, skipping initLicenseUI');
+    return;
+  }
+
+  // --- Create Email + OTP fields (once) ---
+  let emailInput = document.getElementById('licenseEmailInput');
+  if (!emailInput) {
+    emailInput = document.createElement('input');
+    emailInput.id = 'licenseEmailInput';
+    emailInput.type = 'email';
+    emailInput.placeholder = 'Purchase email (exact)';
+    emailInput.className = 'input';
+    // put email ABOVE the key field
+    if (inputKey.parentElement) {
+      inputKey.parentElement.insertBefore(emailInput, inputKey);
+    }
+  }
+
+  let otpInput = document.getElementById('licenseOtpInput');
+  if (!otpInput) {
+    otpInput = document.createElement('input');
+    otpInput.id = 'licenseOtpInput';
+    otpInput.type = 'text';
+    otpInput.placeholder = '6-digit code';
+    otpInput.inputMode = 'numeric';
+    otpInput.maxLength = 6;
+    otpInput.className = 'input';
+    // put OTP BELOW key field
+    inputKey.parentElement?.appendChild(otpInput);
+  }
+
+  let sendCodeBtn = document.getElementById('sendOtpBtn');
+  if (!sendCodeBtn) {
+    sendCodeBtn = document.createElement('button');
+    sendCodeBtn.id = 'sendOtpBtn';
+    sendCodeBtn.className = 'btn btn-secondary';
+    sendCodeBtn.textContent = 'Send Code';
+    // place it just before Confirm
+    confirmBtn.parentElement?.insertBefore(sendCodeBtn, confirmBtn);
+  }
+
+  // Hide OTP until code is actually requested
+  otpInput.style.display = 'none';
+
+  // --- Modal open/close helpers ---
   function openModal() {
-    const visibleModal = ensureUnlockModalInBody();
-    (visibleModal || modal).classList.remove('hidden');
+    modal.classList.remove('hidden');
+    statusEl.textContent = '';
+    const savedKey = localStorage.getItem('8beat.licenseKey') || '';
+    if (savedKey) inputKey.value = savedKey;
 
-    status.textContent = '';
-    const savedKey = getSavedLicenseKey();
-    if (savedKey) input.value = savedKey;
-    input.focus();
+    // If email already filled (second activation), focus key; else email
+    if (emailInput.value.trim()) {
+      inputKey.focus();
+    } else {
+      emailInput.focus();
+    }
   }
 
   function closeModal() {
     modal.classList.add('hidden');
   }
 
-  unlockBtn.addEventListener('click', openModal);
-  cancelBtn.addEventListener('click', closeModal);
+  // --- Wire unlock buttons (both) ---
+  unlockBtns.forEach(btn => {
+    if (!btn) return;
+    if (btn.dataset._wiredUnlock) return;
+    btn.dataset._wiredUnlock = '1';
 
-  confirmBtn.addEventListener('click', async () => {
-    const key = input.value.trim();
-    if (!key) {
-      status.textContent = 'Please paste your license key.';
-      return;
-    }
-    status.textContent = 'Checking key…';
-  
-    try {
-      const ok = await verifyAndUnlock(key, { silent: true });
-      if (ok) {
-        status.textContent = '✅ Pro unlocked! Enjoy.';
-        setTimeout(closeModal, 800);
-      } else {
-        status.textContent = '❌ Invalid or inactive license key.';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openModal();
+    });
+  });
+
+  // --- Wire Cancel button (this fixes your “Cancel not closing” issue) ---
+  if (!cancelBtn.dataset._wiredCancel) {
+    cancelBtn.dataset._wiredCancel = '1';
+    cancelBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeModal();
+    });
+  }
+
+  // --- Send OTP (idempotent) ---
+  if (!sendCodeBtn.dataset._wiredOtp) {
+    sendCodeBtn.dataset._wiredOtp = '1';
+    sendCodeBtn.addEventListener('click', async () => {
+      const email = emailInput.value.trim().toLowerCase();
+      const key   = inputKey.value.trim();
+      if (!email || !key) {
+        statusEl.textContent = 'Enter email and key first.';
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      status.textContent = '❌ Error contacting license server.';
+      statusEl.textContent = 'Sending code…';
+      try {
+        await requestEmailOtp(email, key); // defined below
+        statusEl.textContent = 'Code sent. Check your email.';
+        otpInput.style.display = '';
+        otpInput.focus();
+      } catch (err) {
+        console.error('[license] requestEmailOtp error:', err);
+        statusEl.textContent = err && err.message
+          ? `❌ ${err.message}`
+          : '❌ Could not send code. Check email / key.';
+      }
+    });
+  }
+
+  // --- Activate with OTP (override any old Confirm behavior) ---
+  confirmBtn.textContent = 'Activate';
+  // clear any inline onclick that might exist
+  confirmBtn.onclick = null;
+
+  if (!confirmBtn.dataset._wiredActivate) {
+    confirmBtn.dataset._wiredActivate = '1';
+    confirmBtn.addEventListener('click', async () => {
+      const email = emailInput.value.trim().toLowerCase();
+      const key   = inputKey.value.trim();
+      const otp   = otpInput.value.trim();
+
+      if (!email || !key || !otp) {
+        statusEl.textContent = 'Enter email, key, and code.';
+        return;
+      }
+      statusEl.textContent = 'Activating…';
+      try {
+        await activatePro(email, key, otp);  // defined below
+        enableProFeatures();
+        statusEl.textContent = '✅ Pro unlocked on this device.';
+        setTimeout(closeModal, 900);
+      } catch (err) {
+        console.error('[license] activatePro error:', err);
+        statusEl.textContent = err && err.message
+          ? `❌ ${err.message}`
+          : '❌ Activation failed. Check code or try again.';
+      }
+    });
+  }
+
+  // Enter key = activate
+  [emailInput, inputKey, otpInput].forEach(inp => {
+    if (!inp.dataset._enter) {
+      inp.dataset._enter = '1';
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          confirmBtn.click();
+        }
+      });
     }
   });
 
-  // On load, auto-unlock if already Pro
-  if (isPro()) {
+  // If already Pro (from previous token / localStorage), unlock immediately
+  if (localStorage.getItem('8beat.pro') === 'true') {
     enableProFeatures();
   }
 }
+
 
 function gateTabsForFreeUsers() {
   // Tabs free for all users
