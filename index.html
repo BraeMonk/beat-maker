@@ -22692,23 +22692,69 @@ async function verifyAndUnlock(key, { silent = false } = {}) {
 
   // UI
   enableProFeatures(); // reuse your existing unlocker
-  if (!silent && window.showToast) showToast(resp.type === 'admin' ? '🔓 Admin unlocked' : '🔓 Pro unlocked');
+  if (!silent && window.showToast) {
+    if (resp.justValidated) {
+      showToast('✅ License verified');
+    } else {
+      showToast(resp.type === 'admin' ? '🔓 Admin unlocked' : '🔓 Pro unlocked');
+    }
+  }
   return true;
 }
 
-(function autoActivateFromUrl(){
+// ===== Robust activation param reader (handles search + hash routers) =====
+function extractActivationKeyFromUrl() {
   try {
-    const url = new URL(window.location.href);
-    const key = url.searchParams.get('activate');
-    if (!key) return;
-    verifyAndUnlock(key, { silent: false }).then(() => {
-      // Clean URL so key isn't saved/bookmarked
-      history.replaceState({}, document.title, url.pathname + url.hash);
-    });
+    const u = new URL(location.href);
+
+    // Case A: normal query string → /?activate=KEY
+    const direct = u.searchParams.get('activate');
+    if (direct) return direct;
+
+    // Case B: SPA/hash router → /#/?activate=KEY or /#/home?activate=KEY
+    const h = u.hash || '';
+    if (h) {
+      const qIndex = h.indexOf('?');
+      if (qIndex !== -1) {
+        const qs = new URLSearchParams(h.slice(qIndex + 1));
+        const hk = qs.get('activate');
+        if (hk) return hk;
+      }
+      // Fallback: loose regex if the hash is oddly formatted
+      const m = /(?:\?|&)activate=([^&]+)/.exec(h);
+      if (m) return decodeURIComponent(m[1]);
+    }
   } catch (e) {
-    console.error('Auto-activate failed:', e);
+    console.warn('[license] URL parse error', e);
+  }
+  return null;
+}
+
+// ===== Auto-activate early (before router/UI mounts) =====
+(async function autoActivateFromUrl() {
+  const key = extractActivationKeyFromUrl();
+  if (!key) return;
+
+  console.log('[license] Found activation key in URL');
+  try {
+    const ok = await verifyAndUnlock(key, { silent: false });
+    if (ok && window.showToast) {
+      showToast('✅ License verified');
+    }
+
+    // Clean the URL: remove ?activate from search OR hash
+    const u = new URL(location.href);
+    if (u.search) {
+      history.replaceState({}, document.title, u.pathname + u.hash);
+    } else if (u.hash) {
+      const cleanedHash = u.hash.replace(/\?.*$/, ''); // strip query inside hash
+      history.replaceState({}, document.title, u.pathname + cleanedHash);
+    }
+  } catch (e) {
+    console.error('[license] Auto-activate failed', e);
   }
 })();
+
   
 function enableProFeatures() {
   document.body.classList.add('pro');
