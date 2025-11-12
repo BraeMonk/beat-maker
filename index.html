@@ -7106,6 +7106,8 @@ body.simple-ui .section.simple-mounted{ display:block !important; border:none; b
         <button class="btn btn-secondary btn-sm" id="countInBtn">
           ⏱️ Count: 1 bar
         </button>
+        <!-- Add to header-actions or sidebar -->
+        <button class="btn btn-secondary btn-sm" id="switchToSimpleBtn">📱 Simple Mode</button>
       </div>
     </div>
     
@@ -11304,6 +11306,12 @@ function setupEventListeners() {
   setupVibeSelector();
   setupMultitrackListeners();
   setupSongBuilderControls();
+
+  // Add this to your main JS file
+  document.getElementById('switchToSimpleBtn')?.addEventListener('click', () => {
+    localStorage.setItem('8beat.uiMode', 'simple');
+    location.reload();
+  });
 
   // Sidebar controls
   document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
