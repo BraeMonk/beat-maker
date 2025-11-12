@@ -22635,23 +22635,27 @@ function getSavedLicenseKey() {
 }
 
 async function validateLicenseKey(key) {
-  const adminKeys = [
-    '8BEAT-ADMIN-BKEY',  // <-- your admin key(s)
-    '8BEAT-ADMIN-TEST'
-  ];
+  const ADMIN_KEYS = [];
+  const k = (key || '').trim();
+  if (!k) return false;
 
-  // If it's one of your admin keys, instant unlock
-  if (adminKeys.includes(key.trim())) {
-    console.log('🛠️ Admin key accepted');
-    return true;
-  }
-  const url = `${LICENSE_API_URL}?action=validate&key=${encodeURIComponent(key.trim())}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Network error');
-  const data = await res.json();
-  return data.valid === true;
+  // Instant unlock for admin keys
+  if (ADMIN_KEYS.includes(k)) return true;
+
+  // JSONP to Apps Script (/exec) to avoid CORS
+  return new Promise((resolve) => {
+    const cb = 'cb_' + Math.random().toString(36).slice(2);
+    window[cb] = (resp) => {
+      try { delete window[cb]; } catch(e){}
+      s.remove();
+      resolve(!!(resp && resp.valid));
+    };
+    const s = document.createElement('script');
+    s.src = `${LICENSE_API_URL}?action=validate&key=${encodeURIComponent(k)}&callback=${cb}`;
+    document.body.appendChild(s);
+  });
 }
-
+  
 function enableProFeatures() {
   document.body.classList.add('pro');
 
