@@ -22832,6 +22832,8 @@ function toggleSidebar() {
 
 const LICENSE_API_URL = 'https://script.google.com/macros/s/AKfycbxnQHpQ-oym0WbITYsj3xzu-U6sHRcSKMlziMYAdcPfxquo8bvPL3H6sC3wApm2_1x1/exec'; // no query string
 
+const LICENSE_API_URL = 'https://script.google.com/macros/s/AKfycbxnQHpQ-oym0WbITYsj3xzu-U6sHRcSKMlziMYAdcPfxquo8bvPL3H6sC3wApm2_1x1/exec'; // no query string
+
 function isPro() {
   return localStorage.getItem('8beat.pro') === 'true';
 }
@@ -22967,27 +22969,14 @@ function extractActivationKeyFromUrl() {
 (async function autoActivateFromUrl() {
   const key = extractActivationKeyFromUrl();
   if (!key) return;
-
-  console.log('[license] Found activation key in URL');
-  try {
-    const ok = await verifyAndUnlock(key, { silent: false });
-    if (ok && window.showToast) {
-      showToast('✅ License verified');
-    }
-
-    // Clean the URL: remove ?activate from search OR hash
-    const u = new URL(location.href);
-    if (u.search) {
-      history.replaceState({}, document.title, u.pathname + u.hash);
-    } else if (u.hash) {
-      const cleanedHash = u.hash.replace(/\?.*$/, ''); // strip query inside hash
-      history.replaceState({}, document.title, u.pathname + cleanedHash);
-    }
-  } catch (e) {
-    console.error('[license] Auto-activate failed', e);
-  }
+  // Just cache it so the modal shows it
+  localStorage.setItem('8beat.licenseKey', key);
+  showToast?.('License key detected. Enter your purchase email and request the code.', 'info');
+  // Clean URL after
+  const u = new URL(location.href);
+  if (u.search) history.replaceState({}, document.title, u.pathname + u.hash);
+  else if (u.hash) history.replaceState({}, document.title, u.pathname + u.hash.replace(/\?.*$/, ''));
 })();
-
   
 function enableProFeatures() {
   document.body.classList.add('pro');
@@ -23054,6 +23043,339 @@ function initLicenseUI() {
   if (isPro()) {
     enableProFeatures();
   }
+}
+
+function gateTabsForFreeUsers() {
+  // Tabs free for all users
+  const freeTabs = ['generate', 'sequencer'];
+
+  if (!isPro()) {
+    document.querySelectorAll('.sidebar-tab').forEach(btn => {
+      const tab = btn.getAttribute('data-tab');
+      if (!freeTabs.includes(tab)) {
+        btn.classList.add('locked');
+      } else {
+        btn.classList.remove('locked');
+      }
+    });
+  } else {
+    // Pro users get everything unlocked
+    document.querySelectorAll('.sidebar-tab').forEach(btn => btn.classList.remove('locked'));
+  }
+}
+  
+function isPro() {
+  return localStorage.getItem('8beat.pro') === 'true';
+}
+
+function getSavedLicenseKey() {
+  return localStorage.getItem('8beat.licenseKey') || '';
+}
+
+// --- Compact validator: true/false only ---
+async function validateLicenseKey(key) {
+  const ADMIN_KEYS = [];
+  const k = (key || '').trim();
+  if (!k) return false;
+
+  // instant unlock for admin keys
+  if (ADMIN_KEYS.includes(k)) return true;
+
+  // JSONP call to Apps Script
+  return new Promise((resolve) => {
+    const cb = 'cb_' + Math.random().toString(36).slice(2);
+    let done = false;
+
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+      try { delete window[cb]; } catch (e) {}
+      try { s.remove(); } catch (e) {}
+    };
+
+    window[cb] = (resp) => {
+      cleanup();
+      console.log('[license] backend response:', resp);
+      resolve(!!(resp && resp.valid));
+    };
+
+    const s = document.createElement('script');
+    s.src = `${LICENSE_API_URL}?action=validate&key=${encodeURIComponent(k)}&callback=${cb}`;
+    (document.head || document.documentElement).appendChild(s);
+
+    // failsafe timeout
+    setTimeout(() => { cleanup(); resolve(false); }, 8000);
+  });
+}
+
+// --- Detailed validator: returns full JSON ---
+async function validateLicenseKeyDetailed(key) {
+  const k = (key || '').trim();
+  if (!k) return { valid: false };
+
+  return new Promise((resolve) => {
+    const cb = 'cb_' + Math.random().toString(36).slice(2);
+    let done = false;
+
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+      try { delete window[cb]; } catch (e) {}
+      try { s.remove(); } catch (e) {}
+    };
+
+    window[cb] = (resp) => {
+      cleanup();
+      console.log('[license] backend response (detailed):', resp);
+      resolve(resp || { valid: false });
+    };
+
+    const s = document.createElement('script');
+    s.src = `${LICENSE_API_URL}?action=validate&key=${encodeURIComponent(k)}&callback=${cb}`;
+    (document.head || document.documentElement).appendChild(s);
+
+    // failsafe timeout
+    setTimeout(() => { cleanup(); resolve({ valid: false, timeout: true }); }, 8000);
+  });
+}
+
+// --- Step 1: email a 6-digit code to the purchaser email on record ---
+async function requestEmailOtp(email, licenseKey) {
+  const r = await apiGet({ action: 'request_otp', email, licenseKey });
+  if (!r.ok) throw new Error(r.error || 'otp_failed');
+  showToast?.('Verification code sent to your email', 'info');
+}
+
+// --- Step 2: activate (verify OTP), enforce device limit server-side, store token ---
+async function activatePro(email, licenseKey, otp) {
+  const r = await apiGet({ action: 'activate', email, licenseKey, otp, deviceId: deviceId() });
+  if (!r.ok) throw new Error(r.error || 'activate_failed:' + r.error);
+  localStorage.setItem('8beat.licenseToken', r.token); // <-- signed token
+  localStorage.setItem('8beat.licenseKey', licenseKey); // optional: keep key too
+  localStorage.setItem('8beat.pro', 'true');
+  window.dispatchEvent(new Event('license:activated'));
+  showToast?.('Pro unlocked on this device', 'success');
+  return true;
+}
+
+// --- On startup: validate/refresh token; fall back to free if bad ---
+async function validateProTokenIfAny() {
+  const token = localStorage.getItem('8beat.licenseToken');
+  if (!token) return false;
+  const r = await apiGet({ action: 'validate_token', token, deviceId: deviceId() });
+  if (r.ok) {
+    if (r.refresh && r.token) localStorage.setItem('8beat.licenseToken', r.token);
+    localStorage.setItem('8beat.pro', 'true');
+    return true;
+  } else {
+    localStorage.removeItem('8beat.licenseToken');
+    localStorage.setItem('8beat.pro', 'false');
+    return false;
+  }
+}
+
+// One place to verify + persist + flip UI (Pro/Admin)
+async function verifyAndUnlock(key, { silent = false } = {}) {
+  const resp = await validateLicenseKeyDetailed(key);
+  if (!resp || !resp.valid) {
+    if (!silent && window.showToast) showToast('❌ Invalid or inactive license key');
+    return false;
+  }
+
+  // Persist
+  localStorage.setItem('8beat.licenseKey', key);
+  localStorage.setItem('8beat.pro', 'true');
+  if (resp.type === 'admin') {
+    localStorage.setItem('8beat.admin', 'true');
+    document.body.classList.add('admin');
+  }
+
+  // UI
+  enableProFeatures(); // reuse your existing unlocker
+  if (!silent && window.showToast) {
+    if (resp.justValidated) {
+      showToast('✅ License verified');
+    } else {
+      showToast(resp.type === 'admin' ? '🔓 Admin unlocked' : '🔓 Pro unlocked');
+    }
+  }
+  return true;
+}
+
+// ===== Robust activation param reader (handles search + hash routers) =====
+function extractActivationKeyFromUrl() {
+  try {
+    const u = new URL(location.href);
+
+    // Case A: normal query string → /?activate=KEY
+    const direct = u.searchParams.get('activate');
+    if (direct) return direct;
+
+    // Case B: SPA/hash router → /#/?activate=KEY or /#/home?activate=KEY
+    const h = u.hash || '';
+    if (h) {
+      const qIndex = h.indexOf('?');
+      if (qIndex !== -1) {
+        const qs = new URLSearchParams(h.slice(qIndex + 1));
+        const hk = qs.get('activate');
+        if (hk) return hk;
+      }
+      // Fallback: loose regex if the hash is oddly formatted
+      const m = /(?:\?|&)activate=([^&]+)/.exec(h);
+      if (m) return decodeURIComponent(m[1]);
+    }
+  } catch (e) {
+    console.warn('[license] URL parse error', e);
+  }
+  return null;
+}
+
+// ===== Auto-activate early (before router/UI mounts) =====
+(async function autoActivateFromUrl() {
+  const key = extractActivationKeyFromUrl();
+  if (!key) return;
+
+  console.log('[license] Found activation key in URL');
+  try {
+    const ok = await verifyAndUnlock(key, { silent: false });
+    if (ok && window.showToast) {
+      showToast('✅ License verified');
+    }
+
+    // Clean the URL: remove ?activate from search OR hash
+    const u = new URL(location.href);
+    if (u.search) {
+      history.replaceState({}, document.title, u.pathname + u.hash);
+    } else if (u.hash) {
+      const cleanedHash = u.hash.replace(/\?.*$/, ''); // strip query inside hash
+      history.replaceState({}, document.title, u.pathname + cleanedHash);
+    }
+  } catch (e) {
+    console.error('[license] Auto-activate failed', e);
+  }
+})();
+
+  
+function enableProFeatures() {
+  document.body.classList.add('pro');
+
+  // Unlock sidebar tabs
+  document.querySelectorAll('.sidebar-tab.locked').forEach(btn => {
+    btn.classList.remove('locked');
+  });
+
+  // Remove "pro-locked" overlays on content panels
+  document.querySelectorAll('.pro-locked').forEach(el => {
+    el.classList.remove('pro-locked');
+  });
+}
+
+function initLicenseUI() {
+  const unlockBtn  = document.getElementById('unlockProBtn');
+  const modal      = document.getElementById('unlockModal');
+  const input      = document.getElementById('licenseInput');
+  const status     = document.getElementById('licenseStatus');
+  const confirmBtn = document.getElementById('confirmLicenseBtn');
+  const cancelBtn  = document.getElementById('cancelLicenseBtn');
+
+  if (!unlockBtn || !modal) return;
+
+  // --- Add email + OTP fields if they don't exist ---
+  let emailInput = document.getElementById('licenseEmailInput');
+  if (!emailInput) {
+    emailInput = document.createElement('input');
+    emailInput.id = 'licenseEmailInput';
+    emailInput.type = 'email';
+    emailInput.placeholder = 'Your purchase email';
+    emailInput.className = 'input';
+    input.parentElement?.insertBefore(emailInput, input);
+  }
+
+  let otpInput = document.getElementById('licenseOtpInput');
+  if (!otpInput) {
+    otpInput = document.createElement('input');
+    otpInput.id = 'licenseOtpInput';
+    otpInput.type = 'text';
+    otpInput.placeholder = '6-digit code';
+    otpInput.inputMode = 'numeric';
+    otpInput.maxLength = 6;
+    otpInput.className = 'input';
+    input.parentElement?.appendChild(otpInput);
+  }
+
+  let sendCodeBtn = document.getElementById('sendOtpBtn');
+  if (!sendCodeBtn) {
+    sendCodeBtn = document.createElement('button');
+    sendCodeBtn.id = 'sendOtpBtn';
+    sendCodeBtn.className = 'btn btn-secondary';
+    sendCodeBtn.textContent = 'Send Code';
+    confirmBtn.parentElement?.insertBefore(sendCodeBtn, confirmBtn);
+  }
+
+  // Hide OTP row until code is requested
+  otpInput.style.display = 'none';
+
+  // --- Wiring: Send code ---
+  sendCodeBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim().toLowerCase();
+    const key   = input.value.trim();
+    if (!email || !key) {
+      status.textContent = 'Enter email and key first.';
+      return;
+    }
+    status.textContent = 'Sending code…';
+    try {
+      await requestEmailOtp(email, key);
+      status.textContent = 'Code sent. Check your email.';
+      otpInput.style.display = '';
+      otpInput.focus();
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Could not send code. Check email/key.';
+    }
+  });
+
+  // --- Wiring: Activate (verify OTP) ---
+  confirmBtn.textContent = 'Activate';
+  confirmBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim().toLowerCase();
+    const key   = input.value.trim();
+    const otp   = otpInput.value.trim();
+    if (!email || !key || !otp) {
+      status.textContent = 'Enter email, key, and code.';
+      return;
+    }
+    status.textContent = 'Activating…';
+    try {
+      const ok = await activatePro(email, key, otp);
+      if (ok) {
+        enableProFeatures();
+        status.textContent = '✅ Pro unlocked on this device.';
+        setTimeout(() => modal.classList.add('hidden'), 900);
+      }
+    } catch (err) {
+      console.error(err);
+      status.textContent = '❌ Activation failed. Check code or try again.';
+    }
+  });
+
+  // --- Modal open/close ---
+  function openModal() {
+    modal.classList.remove('hidden');
+    status.textContent = '';
+    const savedKey = getSavedLicenseKey();
+    if (savedKey) input.value = savedKey;
+    input.focus();
+  }
+  function closeModal() {
+    modal.classList.add('hidden');
+  }
+
+  unlockBtn.addEventListener('click', openModal);
+  cancelBtn.addEventListener('click', closeModal);
+
+  // --- Auto-unlock if already Pro ---
+  if (isPro()) enableProFeatures();
 }
 
 function gateTabsForFreeUsers() {
@@ -25638,6 +25960,10 @@ async function init() {
   if (isPro()) {
     enableProFeatures();    // ensure UI is fully unlocked if already Pro
   }
+
+  await validateProTokenIfAny();
+  if (isPro()) enableProFeatures();
+
 
   updateSplash('Starting audio engine…', 35);
 
