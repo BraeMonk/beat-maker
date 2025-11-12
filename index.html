@@ -23075,7 +23075,6 @@ function deviceId() {
   return id;
 }
 
-
 function initLicenseUI() {
   const modal      = document.getElementById('unlockModal');
   const inputKey   = document.getElementById('licenseInput');
@@ -23083,18 +23082,13 @@ function initLicenseUI() {
   const confirmBtn = document.getElementById('confirmLicenseBtn');
   const cancelBtn  = document.getElementById('cancelLicenseBtn');
 
-  // We support BOTH buttons:
-  // - Sidebar:  #unlockProBtn
-  // - Simple UI: #simpUnlockProBtn
-  const unlockBtns = Array.from(
+  // Grab BOTH unlock buttons: sidebar + simple mode
+  const unlockButtons = Array.from(
     document.querySelectorAll('#unlockProBtn, #simpUnlockProBtn')
   );
 
-  // Guard: modal must exist
-  if (!modal || !inputKey || !statusEl || !confirmBtn || !cancelBtn) {
-    console.warn('[license] Modal elements missing, skipping initLicenseUI');
-    return;
-  }
+  // Guard: if modal basics are missing, bail
+  if (!modal || !inputKey || !statusEl || !confirmBtn || !cancelBtn) return;
 
   // --- Create Email + OTP fields (once) ---
   let emailInput = document.getElementById('licenseEmailInput');
@@ -23104,10 +23098,7 @@ function initLicenseUI() {
     emailInput.type = 'email';
     emailInput.placeholder = 'Purchase email (exact)';
     emailInput.className = 'input';
-    // put email ABOVE the key field
-    if (inputKey.parentElement) {
-      inputKey.parentElement.insertBefore(emailInput, inputKey);
-    }
+    inputKey.parentElement?.insertBefore(emailInput, inputKey); // above license key
   }
 
   let otpInput = document.getElementById('licenseOtpInput');
@@ -23119,8 +23110,7 @@ function initLicenseUI() {
     otpInput.inputMode = 'numeric';
     otpInput.maxLength = 6;
     otpInput.className = 'input';
-    // put OTP BELOW key field
-    inputKey.parentElement?.appendChild(otpInput);
+    inputKey.parentElement?.appendChild(otpInput); // below license key
   }
 
   let sendCodeBtn = document.getElementById('sendOtpBtn');
@@ -23133,17 +23123,17 @@ function initLicenseUI() {
     confirmBtn.parentElement?.insertBefore(sendCodeBtn, confirmBtn);
   }
 
-  // Hide OTP until code is actually requested
+  // Hide OTP until requested
   otpInput.style.display = 'none';
 
-  // --- Modal open/close helpers ---
+  // --- Open / Close modal (shared for Pro + Simple) ---
   function openModal() {
     modal.classList.remove('hidden');
     statusEl.textContent = '';
     const savedKey = localStorage.getItem('8beat.licenseKey') || '';
     if (savedKey) inputKey.value = savedKey;
 
-    // If email already filled (second activation), focus key; else email
+    // If email is already filled, focus key; otherwise focus email
     if (emailInput.value.trim()) {
       inputKey.focus();
     } else {
@@ -23155,21 +23145,24 @@ function initLicenseUI() {
     modal.classList.add('hidden');
   }
 
-  // --- Wire unlock buttons (both) ---
-  unlockBtns.forEach(btn => {
-    if (!btn) return;
-    if (btn.dataset._wiredUnlock) return;
-    btn.dataset._wiredUnlock = '1';
+  // Expose for simple UI if you ever want it globally
+  window.__openLicenseModal  = openModal;
+  window.__closeLicenseModal = closeModal;
 
+  // --- Wire BOTH unlock buttons (Pro + Simple) ---
+  unlockButtons.forEach(btn => {
+    if (!btn) return;
+    if (btn.dataset._wired) return;
+    btn.dataset._wired = '1';
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       openModal();
     });
   });
 
-  // --- Wire Cancel button (this fixes your “Cancel not closing” issue) ---
-  if (!cancelBtn.dataset._wiredCancel) {
-    cancelBtn.dataset._wiredCancel = '1';
+  // --- Cancel always closes the modal ---
+  if (!cancelBtn.dataset._wired) {
+    cancelBtn.dataset._wired = '1';
     cancelBtn.addEventListener('click', (e) => {
       e.preventDefault();
       closeModal();
@@ -23177,8 +23170,8 @@ function initLicenseUI() {
   }
 
   // --- Send OTP (idempotent) ---
-  if (!sendCodeBtn.dataset._wiredOtp) {
-    sendCodeBtn.dataset._wiredOtp = '1';
+  if (!sendCodeBtn.dataset._wired) {
+    sendCodeBtn.dataset._wired = '1';
     sendCodeBtn.addEventListener('click', async () => {
       const email = emailInput.value.trim().toLowerCase();
       const key   = inputKey.value.trim();
@@ -23188,69 +23181,62 @@ function initLicenseUI() {
       }
       statusEl.textContent = 'Sending code…';
       try {
-        await requestEmailOtp(email, key); // defined below
+        await requestEmailOtp(email, key); // calls Apps Script ?action=request_otp
         statusEl.textContent = 'Code sent. Check your email.';
         otpInput.style.display = '';
         otpInput.focus();
       } catch (err) {
-        console.error('[license] requestEmailOtp error:', err);
-        statusEl.textContent = err && err.message
+        console.error(err);
+        statusEl.textContent = (err && err.message)
           ? `❌ ${err.message}`
-          : '❌ Could not send code. Check email / key.';
+          : '❌ Could not send code.';
       }
     });
   }
 
   // --- Activate with OTP (override any old Confirm behavior) ---
   confirmBtn.textContent = 'Activate';
-  // clear any inline onclick that might exist
-  confirmBtn.onclick = null;
-
-  if (!confirmBtn.dataset._wiredActivate) {
-    confirmBtn.dataset._wiredActivate = '1';
+  confirmBtn.onclick = null;                 // clear any older handler
+  if (!confirmBtn.dataset._wired) {
+    confirmBtn.dataset._wired = '1';
     confirmBtn.addEventListener('click', async () => {
       const email = emailInput.value.trim().toLowerCase();
       const key   = inputKey.value.trim();
       const otp   = otpInput.value.trim();
-
       if (!email || !key || !otp) {
         statusEl.textContent = 'Enter email, key, and code.';
         return;
       }
       statusEl.textContent = 'Activating…';
       try {
-        await activatePro(email, key, otp);  // defined below
+        await activatePro(email, key, otp);  // calls ?action=activate
         enableProFeatures();
         statusEl.textContent = '✅ Pro unlocked on this device.';
         setTimeout(closeModal, 900);
       } catch (err) {
-        console.error('[license] activatePro error:', err);
-        statusEl.textContent = err && err.message
+        console.error(err);
+        statusEl.textContent = (err && err.message)
           ? `❌ ${err.message}`
-          : '❌ Activation failed. Check code or try again.';
+          : '❌ Activation failed.';
       }
     });
   }
 
-  // Enter key = activate
+  // Enter key submits activation
   [emailInput, inputKey, otpInput].forEach(inp => {
     if (!inp.dataset._enter) {
       inp.dataset._enter = '1';
       inp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          confirmBtn.click();
-        }
+        if (e.key === 'Enter') confirmBtn.click();
       });
     }
   });
 
-  // If already Pro (from previous token / localStorage), unlock immediately
+  // If already Pro (from previous activation/token), unlock immediately
   if (localStorage.getItem('8beat.pro') === 'true') {
     enableProFeatures();
   }
 }
-
 
 function gateTabsForFreeUsers() {
   // Tabs free for all users
