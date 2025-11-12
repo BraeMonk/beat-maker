@@ -14582,48 +14582,45 @@ function clearPattern() {
   renderSequencer();
 }
 
+function clearLeadPattern() {
+  if (!patterns.lead) return;
+
+  patterns.lead.forEach(step => {
+    step.active      = false;
+    step.velocity    = 0.8;
+    step.probability = 100;
+    step.note        = instruments.lead?.note || step.note;
+    step.duration    = '8n';
+  });
+}
+
 function generateMelodicPatterns() {
+  songBuilderState.isActive = false;
+
+  ensureHarmonyGuardrails();
+
+  // Only reset the lead lane
+  clearLeadPattern();
+
   const genre = state.currentGenre;
-  
-  // RANDOM SCALE: Sometimes pick a different scale
-  if (Math.random() < 0.3) {
-    const scaleTypes = ['major', 'minor', 'dorian', 'pentatonic'];
-    state.scale = scaleTypes[Math.floor(Math.random() * scaleTypes.length)];
-    document.getElementById('scaleSelect').value = state.scale;
-  }
-  
-  // RANDOM KEY: Sometimes transpose
-  if (Math.random() < 0.2) {
-    state.key = keysArr[Math.floor(Math.random() * keysArr.length)];
-    document.getElementById('keySelect').value = state.key;
-  }
-  
-  // Generate melodies
+
   if (genre === 'lofi') {
     generateLoFiMelodies();
   } else if (genre === 'hiphop') {
     generateHipHopMelodies();
-  } // ... etc
-  
-  // RANDOM OCTAVE SHIFT: Sometimes shift entire melody up/down
-  if (Math.random() < 0.25) {
-    const shift = Math.random() < 0.5 ? 1 : -1;
-    ['bass', 'guitar', 'keys', 'lead'].forEach(inst => {
-      patterns[inst].forEach(step => {
-        if (step.active && step.note) {
-          const match = step.note.match(/([A-G]#?)(\d+)/);
-          if (match) {
-            const [, note, octave] = match;
-            const newOctave = clamp(parseInt(octave) + shift, 1, 6);
-            step.note = note + newOctave;
-          }
-        }
-      });
-    });
+  } else if (genre === 'postpunk') {
+    generatePostPunkMelodies();
+  } else if (genre === 'rnb') {
+    generateRnBMelodies();
+  } else if (genre === 'ambient') {
+    generateAmbientMelodies();
+  } else if (genre === 'dazecore') {
+    generateDazecoreMelodies();
   }
-  
+
   renderSequencer();
 }
+
 
 // Lo-Fi: chords/bass/lead driven by the active chord progression (phrase-aware)
 function generateLoFiMelodies() {
