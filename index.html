@@ -10059,128 +10059,144 @@ function generateSectionDrums(section, startBar, endBar) {
   }
 }
 
+// --- SIMPLE, COHERENT BASS GENERATOR ---
 function generateSectionBass(section, startBar, endBar) {
   if (!section.bass) return;
   if (!patterns.bass) return;
 
-  const bassOct   = (state.octave || 3) - 2;          // put bass down low
-  const density   = section.density ?? 0.7;
-  const energy    = section.energy  ?? 0.7;
-  const bassStyle = section.bassPattern || 'root-fifth';
+  const bassOct     = (state.octave || 3) - 2;
+  const bassPattern = section.bassPattern || 'root-fifth';
+  const energy      = section.energy ?? 0.6;
+  const density     = section.density ?? 0.7;
+
+  const id = (section.id || '').toLowerCase();
+  const isIntro  = id.includes('intro');
+  const isOutro  = id.includes('outro') || id.includes('end');
+  const isBreak  = id.includes('break') || id.includes('dub');
+  const isDrop   = id.includes('drop');
+  const isChorus = id.includes('chorus') || id.includes('hook') || isDrop;
+  const isVerse  = id.includes('verse');
+
+  // One motif per logical section type so it's stable within a song
+  if (!window.sbBassMotifs) window.sbBassMotifs = {};
+  const motifKey = section.id || `${bassPattern}-${isChorus ? 'chorus' : isVerse ? 'verse' : 'other'}`;
+
+  let motif = window.sbBassMotifs[motifKey];
+  if (!motif) {
+    motif = buildBassMotif(bassPattern, {
+      isIntro, isOutro, isBreak, isChorus, isVerse, energy, density
+    });
+    window.sbBassMotifs[motifKey] = motif;
+  }
 
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
+    const chord  = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
+    const pcs    = chord.map(n => n.replace(/\d/, ''));
+    const [root, third, fifth] = pcs;
 
-    // 1️⃣ Get the chord for this *song bar* and turn it into a low triad
-    const chordNotes =
-      getChordNotesForBar(bar) ||
-      buildTriadFromDegree(0, state.key, state.scale);
+    motif.forEach(ev => {
+      // lock degrees to chord tones
+      let notePc;
+      switch (ev.degree) {
+        case 'third': notePc = third || root; break;
+        case 'fifth': notePc = fifth || root; break;
+        default:      notePc = root; break;
+      }
 
-    // Safely extract pitch classes (C, C#, D, …) and drop to bass octave
-    const triad = chordNotes.map(n => {
-      const m = String(n).match(/[A-G]#?/);
-      const name = m ? m[0] : String(n);
-      return withOct(name, bassOct);
+      sbSetStep('bass', offset + ev.step, {
+        note: withOct(notePc, bassOct + (ev.octShift || 0)),
+        velocity: ev.velocity ?? (0.7 + energy * 0.2),
+        duration: ev.duration || '8n',
+        probability: ev.probability ?? 100  // core hits never randomly disappear
+      });
     });
+  }
+}
 
-    const root  = triad[0] || withOct(state.key || 'C', bassOct);
-    const third = triad[1] || root;
-    const fifth = triad[2] || root;
+// Builds a small, fixed bass motif per section
+function buildBassMotif(patternType, ctx) {
+  const { isIntro, isOutro, isBreak, isChorus, isVerse, energy } = ctx;
+  const motif = [];
 
-    // 2️⃣ Pattern behaviours – all locked to that triad
-    switch (bassStyle) {
-      case 'root-fifth': {
-        // Classic: root on 1, fifth on 3, optional extra root near the end
-        sbSetStep('bass', offset + 0, {
-          note: root,
-          velocity: 0.9,
-          duration: '4n'
-        });
+  // Very chill sections: simpler patterns
+  const isChill = isIntro || isOutro || isBreak;
 
-        sbSetStep('bass', offset + 8, {
-          note: fifth,
-          velocity: 0.8,
-          duration: '4n'
-        });
+  // --- PEDAL (ambient / breakdown stuff) ---
+  if (patternType === 'pedal') {
+    motif.push({
+      step: 0,
+      degree: 'root',
+      duration: '1n',
+      velocity: 0.75
+    });
+    if (isChorus && !isBreak) {
+      motif.push({
+        step: 8,
+        degree: 'root',
+        duration: '4n',
+        velocity: 0.7
+      });
+    }
+    return motif;
+  }
 
-        if (energy > 0.65 && Math.random() < density) {
-          sbSetStep('bass', offset + 12, {
-            note: root,
-            velocity: 0.75,
-            duration: '8n'
-          });
-        }
-        break;
-      }
+  // --- WALKING (jazz / funk / busy) ---
+  if (patternType === 'walking') {
+    const steps    = [0, 4, 8, 12];
+    const degrees  = ['root', 'third', 'fifth', 'third'];
+    steps.forEach((s, i) => {
+      motif.push({
+        step: s,
+        degree: degrees[i],
+        duration: '4n',
+        velocity: 0.75 - i * 0.05
+      });
+    });
+    return motif;
+  }
 
-      case 'walking': {
-        // Quarter-note “walk” through chord tones
-        const pool  = [root, third, fifth];
-        const steps = [0, 4, 8, 12];
-        let lastNote = root;
+  // --- SYNCOPATED (funky / trap-ish) ---
+  if (patternType === 'syncopated') {
+    // base syncopation
+    motif.push({ step: 0,  degree: 'root',  duration: '8n',  velocity: 0.85 });
+    motif.push({ step: 6,  degree: 'fifth', duration: '8n',  velocity: 0.8  });
 
-        steps.forEach((stepIdx, i) => {
-          if (Math.random() > density) return;
-
-          let note;
-          if (i === 0) {
-            note = root;
-          } else {
-            const candidates = pool.filter(n => n !== lastNote);
-            note = candidates.length
-              ? candidates[Math.floor(Math.random() * candidates.length)]
-              : root;
-          }
-
-          lastNote = note;
-
-          sbSetStep('bass', offset + stepIdx, {
-            note,
-            velocity: 0.8 - i * 0.05,
-            duration: '4n'
-          });
-        });
-        break;
-      }
-
-      case 'syncopated': {
-        // Off-beat funk / trap-ish feel, but still locked to triad
-        const hitSteps = [0, 3, 7, 10, 14]; // all within 0–15
-
-        hitSteps.forEach((stepIdx, i) => {
-          if (Math.random() > density) return;
-
-          const notePool =
-            i === 0
-              ? [root]                 // strong downbeat
-              : i < 3
-              ? [root, third]
-              : [fifth, root];
-
-          const note =
-            notePool[Math.floor(Math.random() * notePool.length)];
-
-          sbSetStep('bass', offset + stepIdx, {
-            note,
-            velocity: 0.8 + (i === 0 ? 0.1 : 0),
-            duration: i === 4 ? '16n' : '8n'
-          });
-        });
-        break;
-      }
-
-      case 'pedal':
-      default: {
-        // Drone on the root for the whole bar
-        sbSetStep('bass', offset + 0, {
-          note: root,
-          velocity: 0.8 + 0.1 * energy,
-          duration: '1n'
-        });
-        break;
+    if (!isChill) {
+      motif.push({ step: 10, degree: 'third', duration: '8n', velocity: 0.78 });
+      if (isChorus || energy > 0.7) {
+        motif.push({ step: 14, degree: 'root', duration: '16n', velocity: 0.7 });
       }
     }
+    return motif;
   }
+
+  // --- ROOT-FIFTH (default) ---
+  // simpler for intro/break, fuller for chorus
+  motif.push({
+    step: 0,
+    degree: 'root',
+    duration: isChill ? '2n' : '4n',
+    velocity: 0.85
+  });
+
+  motif.push({
+    step: 8,
+    degree: isBreak ? 'root' : 'fifth',
+    duration: '4n',
+    velocity: 0.8
+  });
+
+  if ((isChorus || isVerse) && energy > 0.6 && !isBreak) {
+    motif.push({
+      step: 12,
+      degree: 'root',
+      duration: '8n',
+      velocity: 0.75
+    });
+  }
+
+  return motif;
 }
 
 function generateSectionChords(section, startBar, endBar) {
@@ -10574,6 +10590,10 @@ function generateFullSongFromStructure_COHERENT() {
     window.mainLoop = null;
   }
 
+  window.sbBassMotifs = {};   // reset bass motifs per song
+  sbMotifCache = [];
+  sbRhythmCache = { kick: [], snare: [], hihat: [] };
+
   // --- Prepare sections (with your existing randomness) ---
   const runSections = randomizeSongBuilderSectionsForRun();
 
@@ -10597,8 +10617,6 @@ function generateFullSongFromStructure_COHERENT() {
 
   // --- Generate each section coherently ---
   let currentBar = 0;
-  sbMotifCache = [];
-  sbRhythmCache = { kick: [], snare: [], hihat: [] };
 
   for (let i = 0; i < runSections.length; i++) {
     const section = runSections[i];
