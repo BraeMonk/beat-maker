@@ -8685,7 +8685,6 @@ function unlockAudioOnce() {
   window.addEventListener('touchstart', unlock, { once: true, passive: true });
 }
 
-
 // -------------------- Audio Graph Initialization --------------------
 function initAudio() {
   // CRITICAL: Much lower gain + slower ramps for desktop stability
@@ -23675,8 +23674,17 @@ function initLicenseUI() {
 
   if (!cancelBtn.dataset._wired) {
     cancelBtn.dataset._wired = '1';
-    cancelBtn.addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
+  
+    const handleClose = (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // make sure it doesn't bubble to the backdrop
+      closeModal();
+    };
+  
+    cancelBtn.addEventListener('click', handleClose);
+    cancelBtn.addEventListener('touchend', handleClose); // mobile support
   }
+
   // --- Send OTP (idempotent) ---
   if (!sendCodeBtn.dataset._wired) {
     sendCodeBtn.dataset._wired = '1';
@@ -26183,6 +26191,23 @@ function hideSplash() {
     markSimpleProLocks();
   };
 })();
+
+function wireUnlockCancel() {
+  const cancelBtn = document.getElementById('unlockCancelBtn');
+  const modal = document.getElementById('unlockModal');
+
+  if (cancelBtn && !cancelBtn.dataset._wired) {
+    cancelBtn.dataset._wired = "true";
+    cancelBtn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      modal?.classList.remove("open");
+      modal?.classList.remove("active");
+      modal?.style.display = "none";
+      console.log("🔒 Cancel clicked — modal closed (simple mode fix)");
+    });
+  }
+}
 
 // ---------- Session persistence ----------
 const SESSION_KEY = '8beat.session.v1';
