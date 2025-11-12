@@ -10389,44 +10389,88 @@ function getScaleNotes(key, scale) {
   return intervals.map(interval => notes[(rootIdx + interval) % 12]);
 }
   
+// Coherent transition design for risers + impacts
 function applyTransitionEffects(section, nextSection, endBar) {
   if (!nextSection) return;
-  
-  const transitionBar = endBar - 1;
-  const offset = transitionBar * STEPS_PER_BAR;
-  
-  // Detect transition type
+
+  // Where does this section end in steps?
+  const lastBar = endBar - 1;
+  const lastBarOffset = lastBar * STEPS_PER_BAR;
+
+  // How big is the energy jump?
   const energyJump = (nextSection.energy || 0.5) - (section.energy || 0.5);
-  
-  if (energyJump > 0.3) {
-    // BIG DROP/CHORUS INCOMING - add riser
-    for (let step = 12; step < 16; step++) {
+
+  // Helper: place a long atmospheric event (riser/sweep/etc.)
+  const placeAtmos = (inst, startBar, barsLen, velocity = 0.7) => {
+    const startOffset = startBar * STEPS_PER_BAR;
+    // Use a single long step; atmospheric lane respects long durations
+    sbSetStep(inst, startOffset, {
+      velocity,
+      probability: 100,
+      // one measure = '1m' in Tone time; chain barsLen measures
+      duration: `${Math.max(1, barsLen)}m`
+    });
+  };
+
+  // Helper: small pre-drop drum froth so it feels like a build
+  const frothDrums = () => {
+    // Open hats crescendo (last 4 steps of the last bar)
+    for (let step = STEPS_PER_BAR - 4; step < STEPS_PER_BAR; step++) {
       if (patterns.hihat) {
-        sbSetStep('hihat', offset + step, {
-          velocity: 0.4 + (step - 12) * 0.15,
+        sbSetStep('hihat', lastBarOffset + step, {
+          velocity: 0.4 + ((step - (STEPS_PER_BAR - 4)) * 0.15),
           probability: 100
         });
       }
     }
-    // Snare roll
-    for (let step = 8; step < 16; step++) {
+    // Snare 16ths roll on the back half of the last bar
+    for (let step = Math.floor(STEPS_PER_BAR / 2); step < STEPS_PER_BAR; step++) {
       if (step % 2 === 0 && patterns.snare) {
-        sbSetStep('snare', offset + step, {
-          velocity: 0.5 + (step - 8) * 0.05,
-          probability: 90
+        sbSetStep('snare', lastBarOffset + step, {
+          velocity: 0.55 + ((step - Math.floor(STEPS_PER_BAR / 2)) * 0.04),
+          probability: 95,
+          duration: '16n'
         });
       }
     }
-  } else if (energyJump < -0.3) {
-    // BREAKDOWN/CHILL - reduce drums
-    const lastBarOffset = offset;
-    for (let step = 8; step < 16; step++) {
-      // Gradually reduce hits
+  };
+
+  // BIG LIFT into next section → add riser + impact
+  if (energyJump > 0.3) {
+    // Decide riser length: 2 bars if we have room, else 1 bar
+    const riserBars = (section.bars >= 2) ? 2 : 1;
+    const riserStartBar = lastBar - (riserBars - 1);
+
+    // Place a *musical* riser on the atmospheric lane
+    // ('riser' track exists & is leveled in your MIX_PRESET)
+    placeAtmos('riser', riserStartBar, riserBars, 0.7);
+
+    // Drum froth to sell the build (your previous logic, but cleaner)
+    frothDrums();
+
+    // Downbeat impact at the first step of the *next* section
+    const nextStartBar = endBar; // next section begins where this one ends
+    if (patterns.fx) {
+      sbSetStep('fx', nextStartBar * STEPS_PER_BAR, {
+        velocity: 0.9,
+        probability: 100,
+        duration: '2n'  // short cinematic thump + tail
+      });
+    }
+  }
+
+  // STEP-DOWN into a breakdown → thin last bar gently
+  else if (energyJump < -0.3) {
+    // Reduce some kicks on back half of last bar
+    for (let step = Math.floor(STEPS_PER_BAR / 2); step < STEPS_PER_BAR; step++) {
       if (patterns.kick && step % 4 === 0) {
-        const kickStep = patterns.kick[lastBarOffset + step];
-        if (kickStep) kickStep.velocity *= 0.5;
+        const k = patterns.kick[lastBarOffset + step];
+        if (k) k.velocity = Math.max(0.2, (k.velocity || 0.8) * 0.5);
       }
     }
+    // Optional: airy sweep down on riser lane for a “whoosh out”
+    // (shorter, so it doesn’t smear the quiet entry)
+    placeAtmos('riser', lastBar, 1, 0.45);
   }
 }
 
