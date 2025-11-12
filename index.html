@@ -8196,7 +8196,7 @@ body.simple-ui .section.simple-mounted{ display:block !important; border:none; b
         <button id="simpPlay" class="btn btn-primary">▶︎ Play</button>
         <button id="simpStop" class="btn btn-secondary">■ Stop</button>
         <button id="simpToggleMode" class="btn btn-secondary btn-sm">Pro Mode</button>
-        <button id="unlockProBtn" class="btn btn-primary" data-visible-if="!pro">
+        <button id="simpUnlockProBtn" class="btn btn-primary" data-visible-if="!pro">
           <span>Unlock Pro</span>
         </button>
       </div>
@@ -25648,34 +25648,34 @@ function hideSplash() {
     markSimpleProLocks();
 
     // --- Simple: Unlock Pro button (opens the same modal you use in Pro) ---
-    let simpUnlockBtn = document.getElementById('simpUnlockBtn');
+    let simpUnlockBtn = document.getElementById('simpUnlockProBtn'); // ✅ matches your HTML
     if (!simpUnlockBtn) {
-      // create it if not in HTML
+      // Create it dynamically only if it's missing
       const bar = document.querySelector('#simpleToolbar') || document.querySelector('#simpleShell .simple-header') || shell;
       simpUnlockBtn = document.createElement('button');
-      simpUnlockBtn.id = 'simpUnlockBtn';
+      simpUnlockBtn.id = 'simpUnlockProBtn';
       simpUnlockBtn.className = 'btn btn-primary';
       simpUnlockBtn.textContent = 'Unlock Pro';
       bar?.appendChild(simpUnlockBtn);
     }
-    
-    // show/hide based on license state
+  
+    // Show/hide depending on license
     simpUnlockBtn.style.display = store.pro ? 'none' : 'inline-flex';
-    
-    // open your existing unlock modal
+  
+    // Open the shared unlock modal
     once(simpUnlockBtn, 'click', () => {
       const modal = qs('#unlockModal');
       if (modal) modal.classList.remove('hidden');
       else console.warn('[simple-ui] #unlockModal not found');
-    }, 'simpUnlockBtn');
-    
-    // when license flips to pro, hide the button + clear locks
+    }, 'simpUnlockProBtn');
+  
+    // When license activates, hide the button + refresh
     window.addEventListener('license:activated', () => {
-      store.ui = 'pro';                // if you want to auto-switch to Pro
+      store.ui = 'pro';
       localStorage.setItem('8beat.pro', 'true');
       simpUnlockBtn.style.display = 'none';
-      window.__refreshNavForPro?.();   // removes .locked in nav + simple steps
-      disableSimpleUI();               // optional: jump to Pro chrome immediately
+      window.__refreshNavForPro?.();
+      disableSimpleUI(); // optional: switch to full Pro mode immediately
     });
 
     // Transport sync
