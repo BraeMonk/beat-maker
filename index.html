@@ -6936,20 +6936,64 @@ body.simple-ui .sidebar-nav,
 body.simple-ui .sidebar-toggle,
 body.simple-ui .sidebar-backdrop,
 body.simple-ui header .header-actions,
-body.simple-ui .footer{ display:none !important; }
+body.simple-ui .footer,
+body.simple-ui .transport{ display:none !important; }
 body.simple-ui header{
   position:sticky; top:0; z-index:50;
   backdrop-filter:blur(8px) saturate(140%);
   background:rgba(10,14,20,.6); border-bottom:1px solid var(--simple-line);
 }
-body.simple-ui .transport{ gap:10px; max-width:1200px; margin:0 auto }
 #simpleShell{ max-width:1200px; margin:0 auto; padding:var(--simple-pad) var(--simple-pad) 24px }
-.simple-hero{ display:grid; grid-template-columns:1.2fr .8fr; gap:20px; align-items:center; margin:18px 0 10px }
+.simple-hero{ display:grid; grid-template-columns:1fr; gap:20px; margin:18px 0 10px }
 .simple-hero .card{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); padding:18px }
 .simple-hero h1{ margin:0 0 6px; font-size:20px }
 .simple-hero p{ margin:0; color:var(--simple-sub); font-size:14px }
+.simple-transport{ 
+  background:var(--simple-surface); 
+  border:1px solid var(--simple-line); 
+  border-radius:var(--simple-r); 
+  padding:16px;
+  display:grid;
+  grid-template-columns: auto 1fr auto;
+  gap:20px;
+  align-items:center;
+}
+.simple-transport-controls{ display:flex; gap:8px; align-items:center }
+.simple-transport-progress{ display:flex; flex-direction:column; gap:6px; min-width:200px }
+.simple-transport-time{ font-size:14px; font-weight:600; color:var(--simple-text) }
+.simple-progress-bar{ 
+  width:100%; 
+  height:6px; 
+  background:rgba(255,255,255,0.1); 
+  border-radius:3px; 
+  overflow:hidden;
+  position:relative;
+}
+.simple-progress-fill{ 
+  height:100%; 
+  background:var(--simple-accent); 
+  border-radius:3px; 
+  transition:width 0.1s linear;
+}
+.simple-transport-params{ display:flex; gap:16px; align-items:center }
+.simple-param{ display:flex; flex-direction:column; gap:4px }
+.simple-param-label{ font-size:11px; color:var(--simple-sub); text-transform:uppercase; letter-spacing:0.05em }
+.simple-param input[type="number"]{ 
+  width:70px; 
+  padding:6px 8px; 
+  background:#0e131c; 
+  border:1px solid var(--simple-line); 
+  border-radius:8px; 
+  color:var(--simple-text);
+  font-size:14px;
+  font-weight:600;
+}
+.simple-param input[type="range"]{ 
+  width:120px;
+  height:6px;
+}
 .simple-steps{ display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:var(--simple-gap); margin:14px 0 18px }
-.simple-step{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all .2s; text-align:center }
+.simple-step{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all .2s; text-align:center; position:relative }
 .simple-step .icon{ font-size:24px; margin-bottom:4px }
 .simple-step .title{ font-weight:800; font-size:13px }
 .simple-step .desc{ color:var(--simple-sub); font-size:11px; line-height:1.3 }
@@ -6957,21 +7001,13 @@ body.simple-ui .transport{ gap:10px; max-width:1200px; margin:0 auto }
 .simple-step:hover{ background:rgba(102,204,255,.05); transform:translateY(-1px) }
 .simple-step.locked{ opacity:0.5; cursor:not-allowed }
 .simple-step.locked::after{ content:'🔒'; position:absolute; top:8px; right:8px; font-size:12px }
-.simple-step{ position:relative }
 .simple-main{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); overflow:hidden }
-.simple-toolbar{ display:flex; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--simple-line); background:#0f131b; flex-wrap:wrap }
-.simple-toolbar .group{ display:flex; gap:8px; align-items:center }
-.simple-toolbar label{ color:var(--simple-sub); font-size:12px }
-.simple-toolbar input[type="number"],
-.simple-toolbar input[type="range"]{ background:#0e131c; color:var(--simple-text); border:1px solid var(--simple-line); border-radius:10px; padding:6px }
-.simple-toolbar input[type="number"]{ width:80px }
-.simple-toolbar .btn{ font-size:12px; padding:6px 12px }
 .simple-content{ padding:0; min-height:400px }
 .simple-note{ padding:10px 12px; color:var(--simple-sub); border-top:1px dashed var(--simple-line); font-size:13px; line-height:1.5 }
 body.simple-ui .section{ display:none !important; }
 body.simple-ui .section.simple-mounted{ display:block !important; border:none; background:transparent; box-shadow:none; border-radius:0; padding:12px }
 @media (max-width: 900px){
-  .simple-hero{ grid-template-columns:1fr }
+  .simple-transport{ grid-template-columns:1fr; gap:12px }
   .simple-steps{ grid-template-columns: repeat(2, minmax(0, 1fr)) }
 }
 
@@ -8135,29 +8171,41 @@ body.simple-ui .section.simple-mounted{ display:block !important; border:none; b
     </footer>
   </div>
   
-  <!-- Replace existing #simpleShell HTML with this -->
   <div id="simpleShell" hidden>
     <div class="simple-hero">
       <div class="card">
         <h1>8-Beat Studio — Simple Mode</h1>
         <p>All features, simplified navigation. Jump between tabs instantly.</p>
       </div>
-      <div class="card">
-        <div class="simple-toolbar">
-          <div class="group">
-            <button id="simpPlay" class="btn btn-primary btn-sm">▶︎</button>
-            <button id="simpStop" class="btn btn-secondary btn-sm">■</button>
-          </div>
-          <div class="group">
-            <label for="simpBpm">BPM</label>
-            <input id="simpBpm" type="number" min="40" max="220" step="1" value="120" />
-          </div>
-          <div class="group">
-            <label for="simpSwing">Swing</label>
-            <input id="simpSwing" type="range" min="0" max="100" value="0" />
-          </div>
-          <div style="margin-left:auto"></div>
-          <button id="simpToggleMode" class="btn btn-secondary btn-sm">Pro Mode</button>
+    </div>
+  
+    <!-- Simple Transport -->
+    <div class="simple-transport">
+      <div class="simple-transport-controls">
+        <button id="simpPlay" class="btn btn-primary">▶︎ Play</button>
+        <button id="simpStop" class="btn btn-secondary">■ Stop</button>
+        <button id="simpToggleMode" class="btn btn-secondary btn-sm">Pro Mode</button>
+      </div>
+      
+      <div class="simple-transport-progress">
+        <div class="simple-transport-time" id="simpTime">00:00</div>
+        <div class="simple-progress-bar">
+          <div class="simple-progress-fill" id="simpProgress"></div>
+        </div>
+      </div>
+      
+      <div class="simple-transport-params">
+        <div class="simple-param">
+          <label class="simple-param-label">BPM</label>
+          <input id="simpBpm" type="number" min="40" max="220" step="1" value="120" />
+        </div>
+        <div class="simple-param">
+          <label class="simple-param-label">BPM</label>
+          <input id="simpBpmSlider" type="range" min="60" max="200" value="120" />
+        </div>
+        <div class="simple-param">
+          <label class="simple-param-label">Swing</label>
+          <input id="simpSwing" type="range" min="0" max="100" value="50" />
         </div>
       </div>
     </div>
@@ -25165,7 +25213,7 @@ function hideSplash() {
   splash.el.classList.add('hidden');
 }
 
-// === SIMPLE MODE — ALL TABS, easier navigation ===
+// === SIMPLE MODE — ALL TABS, custom transport ===
 (() => {
   if (window.__simpleUiBooted) return; window.__simpleUiBooted = true;
 
@@ -25224,32 +25272,85 @@ function hideSplash() {
   function enableSimpleUI(){
     document.body.classList.add('simple-ui');
 
-    ['.sidebar-nav','.sidebar-toggle','.sidebar-backdrop','header .header-actions','.footer'].forEach(sel =>
+    // Hide pro UI elements + regular transport
+    ['.sidebar-nav','.sidebar-toggle','.sidebar-backdrop','header .header-actions','.footer','.transport'].forEach(sel =>
       qsa(sel).forEach(el => el.style.display='none')
     );
 
-    qs('#simpPlay')?.addEventListener('click', () => qs('#playBtn')?.click());
-    qs('#simpStop')?.addEventListener('click', () => qs('#stopBtn')?.click());
+    // Transport sync
+    const simpPlay = qs('#simpPlay');
+    const simpStop = qs('#simpStop');
+    const simpBpm = qs('#simpBpm');
+    const simpBpmSlider = qs('#simpBpmSlider');
+    const simpSwing = qs('#simpSwing');
+    const simpTime = qs('#simpTime');
+    const simpProgress = qs('#simpProgress');
+    
+    const realPlay = qs('#playBtn');
+    const realStop = qs('#stopBtn');
+    const realBpm = qs('#bpmSlider');
+    const realBpmVal = qs('#bpmValue');
+    const realSwing = qs('#swingSlider');
+    const realSwingVal = qs('#swingValue');
+    const realTime = qs('#timeDisplay');
+    const realProgressFill = qs('#progressFill');
 
-    const bpmUI = qs('#simpBpm'), swingUI = qs('#simpSwing');
-    const bpmReal = qs('#bpmSlider'), swingReal = qs('#swingSlider');
-    const bpmVal = qs('#bpmValue'), swingVal = qs('#swingValue');
+    // Init values
+    if (realBpm && simpBpm) simpBpm.value = realBpm.value;
+    if (realBpm && simpBpmSlider) simpBpmSlider.value = realBpm.value;
+    if (realSwing && simpSwing) simpSwing.value = realSwing.value;
 
-    if (bpmReal && bpmUI) bpmUI.value = bpmReal.value;
-    if (swingReal && swingUI) swingUI.value = swingReal.value;
+    // Play/Stop
+    simpPlay?.addEventListener('click', () => realPlay?.click());
+    simpStop?.addEventListener('click', () => realStop?.click());
 
-    bpmUI?.addEventListener('input', () => {
-      if (bpmReal){ bpmReal.value = bpmUI.value; bpmReal.dispatchEvent(new Event('input',{bubbles:true})); }
-      if (bpmVal) bpmVal.textContent = bpmUI.value;
+    // BPM number input
+    simpBpm?.addEventListener('input', () => {
+      if (realBpm){ 
+        realBpm.value = simpBpm.value; 
+        realBpm.dispatchEvent(new Event('input',{bubbles:true})); 
+      }
+      if (realBpmVal) realBpmVal.textContent = simpBpm.value;
+      if (simpBpmSlider) simpBpmSlider.value = simpBpm.value;
     });
-    swingUI?.addEventListener('input', () => {
-      if (swingReal){ swingReal.value = swingUI.value; swingReal.dispatchEvent(new Event('input',{bubbles:true})); }
-      if (swingVal) swingVal.textContent = swingUI.value + '%';
+
+    // BPM slider
+    simpBpmSlider?.addEventListener('input', () => {
+      if (realBpm){ 
+        realBpm.value = simpBpmSlider.value; 
+        realBpm.dispatchEvent(new Event('input',{bubbles:true})); 
+      }
+      if (realBpmVal) realBpmVal.textContent = simpBpmSlider.value;
+      if (simpBpm) simpBpm.value = simpBpmSlider.value;
     });
 
-    bpmReal?.addEventListener('input', () => { if (bpmUI) bpmUI.value = bpmReal.value; });
-    swingReal?.addEventListener('input', () => { if (swingUI) swingUI.value = swingReal.value; });
+    // Swing
+    simpSwing?.addEventListener('input', () => {
+      if (realSwing){ 
+        realSwing.value = simpSwing.value; 
+        realSwing.dispatchEvent(new Event('input',{bubbles:true})); 
+      }
+      if (realSwingVal) realSwingVal.textContent = simpSwing.value + '%';
+    });
 
+    // Sync back from real controls
+    realBpm?.addEventListener('input', () => { 
+      if (simpBpm) simpBpm.value = realBpm.value; 
+      if (simpBpmSlider) simpBpmSlider.value = realBpm.value;
+    });
+    realSwing?.addEventListener('input', () => { 
+      if (simpSwing) simpSwing.value = realSwing.value; 
+    });
+
+    // Progress sync (poll every 100ms)
+    setInterval(() => {
+      if (realTime && simpTime) simpTime.textContent = realTime.textContent;
+      if (realProgressFill && simpProgress) {
+        simpProgress.style.width = realProgressFill.style.width || '0%';
+      }
+    }, 100);
+
+    // Tab navigation
     steps.forEach(btn => btn.addEventListener('click', () => {
       const key = btn.dataset.go;
       const panel = byKey[key];
@@ -25261,6 +25362,7 @@ function hideSplash() {
       setStep(key);
     }));
 
+    // Toggle to Pro Mode
     qs('#simpToggleMode')?.addEventListener('click', ()=> {
       store.ui = 'pro';
       location.reload();
