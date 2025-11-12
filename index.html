@@ -22634,43 +22634,70 @@ function getSavedLicenseKey() {
   return localStorage.getItem('8beat.licenseKey') || '';
 }
 
+// --- Compact validator: true/false only ---
 async function validateLicenseKey(key) {
   const ADMIN_KEYS = [];
   const k = (key || '').trim();
   if (!k) return false;
 
-  // Instant unlock for admin keys
+  // instant unlock for admin keys
   if (ADMIN_KEYS.includes(k)) return true;
 
-  // JSONP to Apps Script (/exec) to avoid CORS
+  // JSONP call to Apps Script
   return new Promise((resolve) => {
     const cb = 'cb_' + Math.random().toString(36).slice(2);
+    let done = false;
+
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+      try { delete window[cb]; } catch (e) {}
+      try { s.remove(); } catch (e) {}
+    };
+
     window[cb] = (resp) => {
-      try { delete window[cb]; } catch(e){}
-      s.remove();
+      cleanup();
+      console.log('[license] backend response:', resp);
       resolve(!!(resp && resp.valid));
     };
+
     const s = document.createElement('script');
     s.src = `${LICENSE_API_URL}?action=validate&key=${encodeURIComponent(k)}&callback=${cb}`;
-    document.body.appendChild(s);
+    (document.head || document.documentElement).appendChild(s);
+
+    // failsafe timeout
+    setTimeout(() => { cleanup(); resolve(false); }, 8000);
   });
 }
 
-// Detailed validator that returns the full JSON your Apps Script already sends
+// --- Detailed validator: returns full JSON ---
 async function validateLicenseKeyDetailed(key) {
   const k = (key || '').trim();
   if (!k) return { valid: false };
 
   return new Promise((resolve) => {
     const cb = 'cb_' + Math.random().toString(36).slice(2);
+    let done = false;
+
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+      try { delete window[cb]; } catch (e) {}
+      try { s.remove(); } catch (e) {}
+    };
+
     window[cb] = (resp) => {
-      try { delete window[cb]; } catch(e){}
-      s.remove();
+      cleanup();
+      console.log('[license] backend response (detailed):', resp);
       resolve(resp || { valid: false });
     };
+
     const s = document.createElement('script');
     s.src = `${LICENSE_API_URL}?action=validate&key=${encodeURIComponent(k)}&callback=${cb}`;
-    document.body.appendChild(s);
+    (document.head || document.documentElement).appendChild(s);
+
+    // failsafe timeout
+    setTimeout(() => { cleanup(); resolve({ valid: false, timeout: true }); }, 8000);
   });
 }
 
