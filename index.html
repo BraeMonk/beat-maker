@@ -22461,7 +22461,31 @@ function loadProject() {
   
   input.click();
 }
-  
+
+// Keep transport + simple UI in sync with state.bpm / state.swing
+function syncTempoControlsFromState() {
+  // --- Main transport (Pro UI) ---
+  const bpmSlider    = document.getElementById('bpmSlider');
+  const bpmValue     = document.getElementById('bpmValue');
+  const swingSlider  = document.getElementById('swingSlider');
+  const swingValue   = document.getElementById('swingValue');
+
+  if (bpmSlider) bpmSlider.value = state.bpm;
+  if (bpmValue)  bpmValue.textContent = String(state.bpm);
+
+  if (swingSlider) swingSlider.value = state.swing;
+  if (swingValue)  swingValue.textContent = `${state.swing}%`;
+
+  // --- Simple Mode controls ---
+  const simpBpm        = document.getElementById('simpBpm');
+  const simpBpmSlider  = document.getElementById('simpBpmSlider');
+  const simpSwing      = document.getElementById('simpSwing');
+
+  if (simpBpm)       simpBpm.value = state.bpm;
+  if (simpBpmSlider) simpBpmSlider.value = state.bpm;
+  if (simpSwing)     simpSwing.value = state.swing;
+}
+
 function updateAllDisplays() {
   state.bpm = Math.min(CONFIG.MAX_BPM, state.bpm);
   
@@ -26244,6 +26268,11 @@ async function restoreSessionIfAny(){
     renderHarmony?.();
     renderMultitrack?.();
     updateAllDisplays?.();
+
+    // 🔁 NEW: make all controls reflect the restored bpm/swing
+    if (typeof syncTempoControlsFromState === 'function') {
+      syncTempoControlsFromState();
+    }
 
     // ---- Transport position ----
     if (typeof Tone !== 'undefined' && Tone.Transport) {
