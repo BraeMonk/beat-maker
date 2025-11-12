@@ -7141,9 +7141,9 @@ body.simple-ui .section.simple-mounted{ display:block !important; border:none; b
         <div class="param-control">
           <div class="param-label">
             <span>Swing</span>
-            <span class="param-value" id="swingValue">50%</span>
+            <span class="param-value" id="swingValue">0%</span>
           </div>
-          <input type="range" id="swingSlider" min="0" max="100" value="50">
+          <input type="range" id="swingSlider" min="0" max="100" value="0">
         </div>
       </div>
       <div class="flex" style="gap: var(--space-2);">
@@ -25280,6 +25280,16 @@ function hideSplash() {
     if (note) note.textContent = txt[key] || '';
   }
 
+  function markSimpleProLocks(){
+    steps.forEach(btn => {
+      const key   = btn.dataset.go;
+      const panel = byKey[key];
+      const locked = !!(panel && panel.classList.contains('pro-locked') && !store.pro);
+      btn.classList.toggle('locked', locked);
+      btn.setAttribute('aria-disabled', locked ? 'true' : 'false');
+    });
+  }
+
   function enableSimpleUI(){
     document.body.classList.add('simple-ui');
 
@@ -25287,6 +25297,8 @@ function hideSplash() {
     ['.sidebar-nav','.sidebar-toggle','.sidebar-backdrop','header .header-actions','.footer','.transport'].forEach(sel =>
       qsa(sel).forEach(el => el.style.display='none')
     );
+
+    markSimpleProLocks();
 
     // Transport sync
     const simpPlay = qs('#simpPlay');
@@ -25398,6 +25410,7 @@ function hideSplash() {
 
   window.__refreshNavForPro = () => {
     qsa('.sidebar-tab.locked').forEach(b => b.classList.remove('locked'));
+    markSimpleProLocks();
   };
 })();
   
