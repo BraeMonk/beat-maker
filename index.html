@@ -23011,6 +23011,44 @@ function ensureUnlockModalInBody() {
   return modal;
 }
 
+function jsonp(endpoint, params = {}, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Math.random().toString(36).slice(2);
+    const s = document.createElement('script');
+    let done = false;
+
+    params = { ...params, action: endpoint, callback: cb };
+    const qs = Object.entries(params)
+      .map(([k,v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v==null?'':v)}`)
+      .join('&');
+
+    window[cb] = (resp) => { cleanup(); resolve(resp); };
+
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+      try { delete window[cb]; } catch(e){}
+      try { s.remove(); } catch(e){}
+    };
+
+    s.src = `${LICENSE_API_URL}?${qs}`;
+    (document.head || document.documentElement).appendChild(s);
+
+    setTimeout(() => { cleanup(); reject(new Error('JSONP timeout')); }, timeoutMs);
+  });
+}
+
+function deviceId() {
+  let id = localStorage.getItem('8beat.deviceId');
+  if (!id) {
+    const bytes = new Uint8Array(16);
+    (window.crypto || window.msCrypto).getRandomValues(bytes);
+    id = 'dev_' + Array.from(bytes).map(b=>('0'+b.toString(16)).slice(-2)).join('');
+    localStorage.setItem('8beat.deviceId', id);
+  }
+  return id;
+}
+
 
 function initLicenseUI() {
   const unlockBtn = document.getElementById('unlockProBtn');
@@ -23163,36 +23201,61 @@ async function validateLicenseKeyDetailed(key) {
 
 // --- Step 1: email a 6-digit code to the purchaser email on record ---
 async function requestEmailOtp(email, licenseKey) {
-  const r = await apiGet({ action: 'request_otp', email, licenseKey });
-  if (!r.ok) throw new Error(r.error || 'otp_failed');
-  showToast?.('Verification code sent to your email', 'info');
-}
-
-// --- Step 2: activate (verify OTP), enforce device limit server-side, store token ---
-async function activatePro(email, licenseKey, otp) {
-  const r = await apiGet({ action: 'activate', email, licenseKey, otp, deviceId: deviceId() });
-  if (!r.ok) throw new Error(r.error || 'activate_failed:' + r.error);
-  localStorage.setItem('8beat.licenseToken', r.token); // <-- signed token
-  localStorage.setItem('8beat.licenseKey', licenseKey); // optional: keep key too
-  localStorage.setItem('8beat.pro', 'true');
-  window.dispatchEvent(new Event('license:activated'));
-  showToast?.('Pro unlocked on this device', 'success');
+  const resp = await jsonp('request_otp', { email, licenseKey });
+  if (!resp || resp.ok !== true) {
+    const code = resp && resp.error;
+    throw new Error(code || 'otp_request_failed');
+  }
   return true;
 }
 
-// --- On startup: validate/refresh token; fall back to free if bad ---
+async function activatePro(email, licenseKey, otp) {
+  const resp = await jsonp('activate', {
+    email, licenseKey, otp, deviceId: deviceId()
+  });
+  if (!resp || resp.ok !== true) {
+    const code = resp && resp.error;
+    // Bubble these for UI copy
+    const readable = ({
+      license_not_found: 'License not found',
+      license_inactive: 'License inactive',
+      email_mismatch:   'Email does not match purchaser',
+      otp_invalid_or_expired: 'Code invalid or expired',
+      device_limit:     'Device limit reached for this key',
+      server_error:     'Server error'
+    })[code] || 'Activation failed';
+    throw new Error(readable);
+  }
+  // persist token + pro flags
+  if (resp.token) localStorage.setItem('8beat.token', resp.token);
+  localStorage.setItem('8beat.licenseKey', licenseKey);
+  localStorage.setItem('8beat.pro', 'true');
+  // Let Simple UI listeners react
+  window.dispatchEvent(new Event('license:activated'));
+  return true;
+}
+
 async function validateProTokenIfAny() {
-  const token = localStorage.getItem('8beat.licenseToken');
+  const token = localStorage.getItem('8beat.token');
   if (!token) return false;
-  const r = await apiGet({ action: 'validate_token', token, deviceId: deviceId() });
-  if (r.ok) {
-    if (r.refresh && r.token) localStorage.setItem('8beat.licenseToken', r.token);
-    localStorage.setItem('8beat.pro', 'true');
+
+  try {
+    const resp = await jsonp('validate_token', { token, deviceId: deviceId() });
+    if (!resp || resp.ok !== true) {
+      // invalid token: clear and fall back to free
+      localStorage.removeItem('8beat.token');
+      localStorage.removeItem('8beat.pro');
+      return false;
+    }
+    if (resp.token) {
+      // rotated token close to expiry
+      localStorage.setItem('8beat.token', resp.token);
+      localStorage.setItem('8beat.pro', 'true');
+    }
     return true;
-  } else {
-    localStorage.removeItem('8beat.licenseToken');
-    localStorage.setItem('8beat.pro', 'false');
-    return false;
+  } catch (e) {
+    // network/timeout → don’t flip user out of pro; just keep current state
+    return localStorage.getItem('8beat.pro') === 'true';
   }
 }
 
@@ -23293,24 +23356,25 @@ function enableProFeatures() {
 }
 
 function initLicenseUI() {
-  const unlockBtn  = document.getElementById('unlockProBtn');
+  const unlockBtn  = document.getElementById('unlockProBtn');   // exists in Pro sidebar and Simple transport
   const modal      = document.getElementById('unlockModal');
-  const input      = document.getElementById('licenseInput');
-  const status     = document.getElementById('licenseStatus');
+  const inputKey   = document.getElementById('licenseInput');
+  const statusEl   = document.getElementById('licenseStatus');
   const confirmBtn = document.getElementById('confirmLicenseBtn');
   const cancelBtn  = document.getElementById('cancelLicenseBtn');
 
-  if (!unlockBtn || !modal) return;
+  // Basic guard
+  if (!modal || !inputKey || !statusEl || !confirmBtn || !cancelBtn) return;
 
-  // --- Add email + OTP fields if they don't exist ---
+  // --- Create Email + OTP fields (once) ---
   let emailInput = document.getElementById('licenseEmailInput');
   if (!emailInput) {
     emailInput = document.createElement('input');
     emailInput.id = 'licenseEmailInput';
     emailInput.type = 'email';
-    emailInput.placeholder = 'Your purchase email';
+    emailInput.placeholder = 'Purchase email (exact)';
     emailInput.className = 'input';
-    input.parentElement?.insertBefore(emailInput, input);
+    inputKey.parentElement?.insertBefore(emailInput, inputKey); // above license key
   }
 
   let otpInput = document.getElementById('licenseOtpInput');
@@ -23322,7 +23386,7 @@ function initLicenseUI() {
     otpInput.inputMode = 'numeric';
     otpInput.maxLength = 6;
     otpInput.className = 'input';
-    input.parentElement?.appendChild(otpInput);
+    inputKey.parentElement?.appendChild(otpInput); // below license key
   }
 
   let sendCodeBtn = document.getElementById('sendOtpBtn');
@@ -23331,73 +23395,93 @@ function initLicenseUI() {
     sendCodeBtn.id = 'sendOtpBtn';
     sendCodeBtn.className = 'btn btn-secondary';
     sendCodeBtn.textContent = 'Send Code';
+    // place it just before Confirm
     confirmBtn.parentElement?.insertBefore(sendCodeBtn, confirmBtn);
   }
 
-  // Hide OTP row until code is requested
+  // Hide OTP until requested
   otpInput.style.display = 'none';
 
-  // --- Wiring: Send code ---
-  sendCodeBtn.addEventListener('click', async () => {
-    const email = emailInput.value.trim().toLowerCase();
-    const key   = input.value.trim();
-    if (!email || !key) {
-      status.textContent = 'Enter email and key first.';
-      return;
-    }
-    status.textContent = 'Sending code…';
-    try {
-      await requestEmailOtp(email, key);
-      status.textContent = 'Code sent. Check your email.';
-      otpInput.style.display = '';
-      otpInput.focus();
-    } catch (err) {
-      console.error(err);
-      status.textContent = 'Could not send code. Check email/key.';
-    }
-  });
-
-  // --- Wiring: Activate (verify OTP) ---
-  confirmBtn.textContent = 'Activate';
-  confirmBtn.addEventListener('click', async () => {
-    const email = emailInput.value.trim().toLowerCase();
-    const key   = input.value.trim();
-    const otp   = otpInput.value.trim();
-    if (!email || !key || !otp) {
-      status.textContent = 'Enter email, key, and code.';
-      return;
-    }
-    status.textContent = 'Activating…';
-    try {
-      const ok = await activatePro(email, key, otp);
-      if (ok) {
-        enableProFeatures();
-        status.textContent = '✅ Pro unlocked on this device.';
-        setTimeout(() => modal.classList.add('hidden'), 900);
-      }
-    } catch (err) {
-      console.error(err);
-      status.textContent = '❌ Activation failed. Check code or try again.';
-    }
-  });
-
-  // --- Modal open/close ---
+  // --- Open / Close modal (idempotent wiring) ---
   function openModal() {
     modal.classList.remove('hidden');
-    status.textContent = '';
-    const savedKey = getSavedLicenseKey();
-    if (savedKey) input.value = savedKey;
-    input.focus();
+    statusEl.textContent = '';
+    const savedKey = localStorage.getItem('8beat.licenseKey') || '';
+    if (savedKey) inputKey.value = savedKey;
+    (emailInput.value ? inputKey : emailInput).focus();
   }
   function closeModal() {
     modal.classList.add('hidden');
   }
 
-  unlockBtn.addEventListener('click', openModal);
-  cancelBtn.addEventListener('click', closeModal);
+  if (unlockBtn && !unlockBtn.dataset._wired) {
+    unlockBtn.dataset._wired = '1';
+    unlockBtn.addEventListener('click', (e) => { e.preventDefault(); openModal(); });
+  }
+  if (!cancelBtn.dataset._wired) {
+    cancelBtn.dataset._wired = '1';
+    cancelBtn.addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
+  }
 
-  // --- Auto-unlock if already Pro ---
-  if (isPro()) enableProFeatures();
+  // --- Send OTP (idempotent) ---
+  if (!sendCodeBtn.dataset._wired) {
+    sendCodeBtn.dataset._wired = '1';
+    sendCodeBtn.addEventListener('click', async () => {
+      const email = emailInput.value.trim().toLowerCase();
+      const key   = inputKey.value.trim();
+      if (!email || !key) {
+        statusEl.textContent = 'Enter email and key first.';
+        return;
+      }
+      statusEl.textContent = 'Sending code…';
+      try {
+        await requestEmailOtp(email, key); // calls your Apps Script 'request_otp'
+        statusEl.textContent = 'Code sent. Check your email.';
+        otpInput.style.display = '';
+        otpInput.focus();
+      } catch (err) {
+        statusEl.textContent = (err && err.message) ? `❌ ${err.message}` : '❌ Could not send code.';
+      }
+    });
+  }
+
+  // --- Activate with OTP (override any old Confirm behavior) ---
+  confirmBtn.textContent = 'Activate';
+  confirmBtn.onclick = null;                 // ensure no stale handlers
+  confirmBtn.dataset._wired = '1';
+  confirmBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim().toLowerCase();
+    const key   = inputKey.value.trim();
+    const otp   = otpInput.value.trim();
+    if (!email || !key || !otp) {
+      statusEl.textContent = 'Enter email, key, and code.';
+      return;
+    }
+    statusEl.textContent = 'Activating…';
+    try {
+      await activatePro(email, key, otp);    // calls your Apps Script 'activate'
+      enableProFeatures();
+      statusEl.textContent = '✅ Pro unlocked on this device.';
+      setTimeout(closeModal, 900);
+    } catch (err) {
+      statusEl.textContent = (err && err.message) ? `❌ ${err.message}` : '❌ Activation failed.';
+    }
+  });
+
+  // Enter key submits activation when any input focused
+  [emailInput, inputKey, otpInput].forEach(inp => {
+    if (!inp.dataset._enter) {
+      inp.dataset._enter = '1';
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmBtn.click();
+      });
+    }
+  });
+
+  // If already Pro (from token/previous session), unlock immediately
+  if (localStorage.getItem('8beat.pro') === 'true') {
+    enableProFeatures();
+  }
 }
 
 function gateTabsForFreeUsers() {
