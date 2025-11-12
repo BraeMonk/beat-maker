@@ -4932,6 +4932,10 @@ body.pro .pro-locked::after {
     background: rgba(0,0,0,0.5);
   }
 
+  #unlockModal.modal-portal.hidden {
+    display: none;
+  }
+
     /* === Toolbar button fixes for mobile/tablet === */
   .tool-btn {
     width: 36px;
@@ -26191,23 +26195,6 @@ function hideSplash() {
     markSimpleProLocks();
   };
 })();
-
-function wireUnlockCancel() {
-  const cancelBtn = document.getElementById('unlockCancelBtn');
-  const modal = document.getElementById('unlockModal');
-
-  if (cancelBtn && !cancelBtn.dataset._wired) {
-    cancelBtn.dataset._wired = "true";
-    cancelBtn.addEventListener("click", e => {
-      e.preventDefault();
-      e.stopPropagation();
-      modal?.classList.remove("open");
-      modal?.classList.remove("active");
-      modal?.style.display = "none";
-      console.log("🔒 Cancel clicked — modal closed (simple mode fix)");
-    });
-  }
-}
 
 // ---------- Session persistence ----------
 const SESSION_KEY = '8beat.session.v1';
