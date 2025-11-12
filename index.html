@@ -8227,6 +8227,8 @@ Object.keys(instruments).forEach(inst => {
   }));
 });
 
+
+
 // -------------------- Genre Presets --------------------
 const genrePresets = {
   lofi: {
@@ -9557,7 +9559,7 @@ const GENRE_PROFILES = {
   default:{ keys:['C','D','E','F','G','A','B'], scales:['major','minor'],
             progressions:[[0,5,3,4],[0,4,3,5],[5,3,0,4]] }
 };
-
+  
   // At the top with other state
 let songBuilderState = {
   templateId: 'intro-verse-chorus',
@@ -9567,7 +9569,149 @@ let songBuilderState = {
   isActive: false,  // ADD THIS FLAG
   genre: state.currentGenre
 };
-  
+
+// ===== RISER AUTOMATION SCHEDULER HELPERS =====
+songBuilderState._riserAutoIds = songBuilderState._riserAutoIds || [];
+
+function clearRiserAutomation() {
+  (songBuilderState._riserAutoIds || []).forEach(id => Tone.Transport.clear(id));
+  songBuilderState._riserAutoIds = [];
+}
+
+function scheduleAndTrack(callback, time) {
+  const id = Tone.Transport.schedule(callback, time);
+  songBuilderState._riserAutoIds.push(id);
+  return id;
+}
+
+// Genre-aware riser length
+function getGenreAwareRiserBars(genre, prevSectionBars) {
+  const base = {
+    lofi: 1, hiphop: 1, rnb: 1, postpunk: 1, rock: 1, metal: 1,
+    ambient: 2, pop: 2, edm: 4, dazecore: 2
+  };
+  const g = (genre || '').toLowerCase();
+  let bars = base[g] ?? 2;
+  if ((prevSectionBars|0) >= 4) bars = Math.max(bars, Math.min(4, Math.ceil(prevSectionBars / 2)));
+  return Math.max(1, Math.min(4, bars));
+}
+
+// ===== MASTER AUTOMATION DURING RISERS =====
+// Duck the overall volume a touch and (optionally) raise a master high-pass cutoff.
+// Works without any special buses: uses Tone.Destination.volume for ducking.
+// If you have a master HP filter node, expose it as window.masterHP (Tone.Filter type='highpass').
+
+// ===== MASTER DUCK + OPTIONAL HP SWEEP, ALIGNED TO A RISER =====
+function scheduleRiserMasterAutomation({
+  targetDownbeat,
+  bars = 2,
+  duckDb = -3,
+  hpMin = 30,
+  hpMax = 160
+}) {
+  const targetSecs   = Tone.Time(targetDownbeat).toSeconds();
+  const durSecs      = Tone.Time(`${bars}m`).toSeconds();
+  const startSecs    = Math.max(0, targetSecs - durSecs);
+  const startMusical = Tone.Time(startSecs).toBarsBeatsSixteenths();
+
+  // DUCK: ramp overall volume down slightly across the riser, restore on drop
+  scheduleAndTrack((t) => {
+    const vol = Tone.Destination.volume;
+    const startVol = vol.value;                // capture current
+    vol.cancelScheduledValues(t);
+    vol.setValueAtTime(startVol, t);
+    vol.rampTo(duckDb, durSecs * 0.95);        // gentle dip during riser
+    scheduleRiserMasterAutomation._lastStartVol = startVol;
+  }, startMusical);
+
+  scheduleAndTrack((t) => {
+    const vol = Tone.Destination.volume;
+    const startVol = scheduleRiserMasterAutomation._lastStartVol ?? 0;
+    vol.cancelScheduledValues(t);
+    vol.setValueAtTime(vol.value, t);
+    vol.rampTo(startVol, 0.02);                // snap back on the drop
+  }, targetDownbeat);
+
+  // OPTIONAL HP SWEEP (only if window.masterHP is present)
+  if (window.masterHP instanceof Tone.Filter && window.masterHP.type === 'highpass') {
+    const minF = Math.max(20, hpMin|0);
+    const maxF = Math.min(400, hpMax|0);
+
+    scheduleAndTrack((t) => {
+      const f = window.masterHP.frequency;
+      f.cancelScheduledValues(t);
+      f.setValueAtTime(minF, t);
+      f.linearRampToValueAtTime(maxF, t + durSecs * 0.95);
+    }, startMusical);
+
+    scheduleAndTrack((t) => {
+      const f = window.masterHP.frequency;
+      f.cancelScheduledValues(t);
+      f.setValueAtTime(minF, t); // full low-end back on drop
+    }, targetDownbeat);
+  }
+}
+
+// ===== ADD RISERS + MASTER AUTOMATION ACROSS STRUCTURE =====
+function augmentTransitionsWithRisers(structure) {
+  if (!structure || !Array.isArray(structure.sections)) return;
+
+  const genre = (window.state && state.currentGenre) ? state.currentGenre : 'lofi';
+  const worthyTargets = new Set(['chorus','drop','hook','biglift']);
+  const likelyBuilds  = new Set(['build','pre','prechorus']);
+
+  // Clear any previous riser automation so rebuilds don't stack
+  clearRiserAutomation();
+
+  for (let i = 0; i < structure.sections.length; i++) {
+    const sec  = structure.sections[i];
+    const prev = structure.sections[i - 1];
+    if (!sec) continue;
+
+    if (!worthyTargets.has(sec.type)) continue;
+
+    // Decide riser bars (genre-aware + context-aware)
+    const prevBars = prev ? (prev.lengthBars|0) : 2;
+    let riserBars = getGenreAwareRiserBars(genre, prevBars);
+    if (prev && (likelyBuilds.has(prev.type) || prev.lengthBars >= 4))
+      riserBars = Math.min(4, Math.max(riserBars, 2));
+
+    // Target downbeat (start of the target section)
+    const targetDownbeat = `${sec.startBar}:0:0`;
+
+    // 1) Place the riser (sample-backed or synth fallback)
+    if (typeof scheduleSampleRiser === 'function') {
+      // sample version backtimes automatically to end on the downbeat
+      scheduleSampleRiser({ startTime: targetDownbeat, bars: riserBars });
+    } else if (typeof scheduleSynthRiser === 'function') {
+      // synth version needs explicit backtime: start at (target - bars)
+      const startBars = Math.max(0, sec.startBar - riserBars);
+      scheduleSynthRiser({ startTime: `${startBars}:0:0`, bars: riserBars });
+    }
+
+    // 2) Master automation aligned to the same riser window
+    const lowEndGenres = ['lofi','hiphop','metal','postpunk','rnb'];
+    const useHp = !lowEndGenres.includes((genre || '').toLowerCase());
+
+    scheduleRiserMasterAutomation({
+      targetDownbeat,
+      bars: riserBars,
+      duckDb: -3,
+      hpMin: 30,
+      hpMax: useHp ? (['edm','pop','ambient','dazecore'].includes((genre||'').toLowerCase()) ? 180 : 140) : 30
+    });
+
+    // 3) Optional: impact FX on the downbeat if you have an 'fx' lane
+    if (window.sbSetStep && window.STEPS_PER_BAR && window.patterns && patterns.fx) {
+      sbSetStep('fx', sec.startBar * STEPS_PER_BAR, {
+        velocity: 0.9,
+        probability: 100,
+        duration: '2n'
+      });
+    }
+  }
+}
+
 // Small helper for safe step activation
 function sbSetStep(inst, stepIndex, opts = {}) {
   const arr = patterns[inst];
@@ -9851,7 +9995,7 @@ function renderSongBuilderSections() {
     totalLabel.textContent = getSongBuilderTotalBars();
   }
 }
-  
+
 // === Core generation ===
 
 function wipeAllPatterns() {
@@ -9882,6 +10026,30 @@ function sbPick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function getGenreAwareRiserBars(genre, prevSectionBars) {
+  // sensible defaults
+  const base = {
+    lofi: 1,
+    hiphop: 1,
+    rnb: 1,
+    ambient: 2,
+    postpunk: 1,
+    rock: 1,
+    metal: 1,
+    pop: 2,
+    edm: 4,
+    dazecore: 2
+  };
+  const g = (genre || '').toLowerCase();
+  let bars = base[g] ?? 2;
+
+  // if the previous section is already long or explicitly a "build", allow a bit more
+  if (prevSectionBars >= 4) bars = Math.max(bars, Math.min(4, Math.ceil(prevSectionBars / 2)));
+
+  // clamp 1..4
+  return Math.max(1, Math.min(4, bars));
+}
+  
 // ==================== DURATION + GENRE AWARE SECTION RANDOMIZER ====================
 function randomizeSongBuilderSectionsForRun() {
   const templateId = songBuilderState.templateId || 'intro-verse-chorus';
@@ -10871,6 +11039,8 @@ function setupSongBuilderControls() {
   // --- 🎼 Build Song ---
   buildBtn.addEventListener('click', () => {
     generateFullSongFromStructure_COHERENT();
+
+    augmentTransitionsWithRisers(songBuilderState.structure);
 
     // Optional: auto-switch to the Sequencer tab when done
     const sequencerTabBtn = document.querySelector(
@@ -19165,11 +19335,26 @@ function setupPreviewButton() {
     previewMultitrack();
   });
 }
+  
+// === MASTER OUTPUT CHAIN ===
+// master volume ~ -4 dB
+const masterGain = new Tone.Gain(0.8);
 
-// --- GLOBAL MASTER BUS SAFETY NET ---
-const masterGain = new Tone.Gain(0.8); // master volume ~ -4dB
-const limiter = new Tone.Limiter(-1);  // prevents 0dBFS overload
-masterGain.connect(limiter).toDestination();
+// limiter protects against clipping
+const limiter = new Tone.Limiter(-1);
+
+// master high-pass filter (neutral in normal playback)
+window.masterHP = new Tone.Filter({
+  type: 'highpass',
+  frequency: 30,   // stays flat until riser automation lifts it
+  Q: 0.7
+});
+
+// chain: all tracks → masterGain → HP → limiter → speakers
+masterGain.connect(window.masterHP);
+window.masterHP.connect(limiter);
+limiter.toDestination();
+
 
 // Attach to both systems
 if (!multitrack.masterBus) multitrack.masterBus = masterGain;
