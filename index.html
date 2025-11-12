@@ -6968,6 +6968,9 @@ body.simple-ui header{
   border-radius:3px; 
   overflow:hidden;
   position:relative;
+  flex: 1 1 auto;
+  min-width: 0;       /* ✅ prevents overflow */
+  overflow: hidden;   /* ✅ hides any tiny spill */
 }
 .simple-progress-fill{ 
   height:100%; 
@@ -6987,10 +6990,18 @@ body.simple-ui header{
   color:var(--simple-text);
   font-size:14px;
   font-weight:600;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;        /* ✅ allows proper shrink */
+  width: 100%;         /* ✅ keeps inside container */
+  box-sizing: border-box;
 }
 .simple-param input[type="range"]{ 
-  width:120px;
   height:6px;
+  width: 100%;
+  max-width: 100%;     /* ✅ sliders stay inside */
+  box-sizing: border-box;
 }
 .simple-steps{ display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:var(--simple-gap); margin:14px 0 18px }
 .simple-step{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all .2s; text-align:center; position:relative }
@@ -8205,7 +8216,7 @@ body.simple-ui .section.simple-mounted{ display:block !important; border:none; b
         </div>
         <div class="simple-param">
           <label class="simple-param-label">Swing</label>
-          <input id="simpSwing" type="range" min="0" max="100" value="50" />
+          <input id="simpSwing" type="range" min="0" max="100" value="0" />
         </div>
       </div>
     </div>
