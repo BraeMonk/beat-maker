@@ -6926,9 +6926,69 @@ header {
   }
 }
 
+/* ===== Simple UI chrome ===== */
+:root{
+  --simple-bg:#0b0d11; --simple-surface:#121620; --simple-line:#1c2230;
+  --simple-text:#e8ecf3; --simple-sub:#9aa3b2; --simple-accent:#6cf;
+  --simple-r:14px; --simple-pad:14px; --simple-gap:12px;
+}
+body.simple-ui{background:var(--simple-bg); color:var(--simple-text)}
+
+/* Hide complex chrome in Simple Mode */
+body.simple-ui .sidebar,
+body.simple-ui .bottom-nav,
+body.simple-ui .daw-fab,
+body.simple-ui .inspector,
+body.simple-ui header .header-actions,
+body.simple-ui .left-panel,
+body.simple-ui .right-panel{ display:none !important; }
+
+/* Header/transport clean-up */
+body.simple-ui .app-header{
+  position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(8px) saturate(140%);
+  background:rgba(10,14,20,.6); border-bottom:1px solid var(--simple-line);
+}
+body.simple-ui .transport{ gap:10px }
+
+/* Simple shell */
+#simpleShell{ max-width:1100px; margin:0 auto; padding:var(--simple-pad) var(--simple-pad) 24px }
+.simple-hero{ display:grid; grid-template-columns:1.2fr .8fr; gap:20px; align-items:center; margin:18px 0 10px }
+.simple-hero .card{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); padding:18px }
+.simple-hero h1{ margin:0 0 6px; font-size:20px }
+.simple-hero p{ margin:0; color:var(--simple-sub) }
+
+.simple-steps{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:var(--simple-gap); margin:14px 0 18px }
+.simple-step{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); padding:14px; cursor:pointer; display:flex; flex-direction:column; gap:6px }
+.simple-step .title{ font-weight:800 }
+.simple-step .desc{ color:var(--simple-sub); font-size:12px }
+.simple-step.active{ outline:2px solid var(--simple-accent) }
+
+.simple-main{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); overflow:hidden }
+.simple-toolbar{ display:flex; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--simple-line); background:#0f131b }
+.simple-toolbar .group{ display:flex; gap:8px; align-items:center }
+.simple-toolbar label{ color:var(--simple-sub); font-size:12px }
+.simple-toolbar input[type="number"],
+.simple-toolbar input[type="range"]{ background:#0e131c; color:var(--simple-text); border:1px solid var(--simple-line); border-radius:10px; padding:6px }
+.simple-toolbar input[type="number"]{ width:80px }
+.simple-content{ padding:0; }
+.simple-note{ padding:10px 12px; color:var(--simple-sub); border-top:1px dashed var(--simple-line) }
+
+/* Ensure your existing panels fit */
+body.simple-ui .section{ display:none !important; border:none; background:transparent; box-shadow:none; border-radius:0 }
+body.simple-ui .section.simple-mounted{ display:block !important; padding:12px }
+
+/* Mobile */
+@media (max-width: 900px){
+  .simple-hero{ grid-template-columns:1fr }
+  .simple-steps{ grid-template-columns: repeat(2, minmax(0,1fr)) }
+  .simple-toolbar{ flex-wrap:wrap }
+}
+
   </style>
 </head>
 <body>
+  
   <div id="splashOverlay">
     <div class="splash-inner">
       <div class="splash-logo">8-Beat Studio</div>
@@ -8082,6 +8142,58 @@ header {
       </div>
     </footer>
   </div>
+  <!-- Simple UI shell (free + pro) -->
+  <div id="simpleShell" hidden>
+    <div class="simple-hero">
+      <div class="card">
+        <h1>8-Beat Studio — Simple</h1>
+        <p>Four steps: <b>Generate</b> → <b>Arrange</b> → <b>Mix</b> → <b>Export</b>. Same flow for Free and Pro.</p>
+      </div>
+      <div class="card">
+        <div class="simple-toolbar">
+          <div class="group">
+            <button id="simpPlay" class="btn btn-pill" title="Play/Pause">▶︎</button>
+            <button id="simpStop" class="btn btn-pill" title="Stop">■</button>
+          </div>
+          <div class="group">
+            <label for="simpBpm">BPM</label>
+            <input id="simpBpm" type="number" min="40" max="220" step="1" value="120" />
+          </div>
+          <div class="group">
+            <label for="simpSwing">Swing</label>
+            <input id="simpSwing" type="range" min="0" max="100" value="0" />
+          </div>
+          <div style="margin-left:auto"></div>
+          <button id="simpToggleMode" class="btn btn-outline btn-pill" title="Return to full UI">Pro Mode</button>
+        </div>
+      </div>
+    </div>
+  
+    <div class="simple-steps" role="tablist">
+      <button class="simple-step" data-go="generate" role="tab">
+        <span class="title">1 · Generate</span>
+        <span class="desc">Auto-compose starting ideas</span>
+      </button>
+      <button class="simple-step" data-go="sequencer" role="tab">
+        <span class="title">2 · Arrange</span>
+        <span class="desc">Place parts on the grid</span>
+      </button>
+      <button class="simple-step" data-go="effects" role="tab">
+        <span class="title">3 · Mix</span>
+        <span class="desc">Balance & add effects</span>
+      </button>
+      <button class="simple-step" data-go="export" role="tab">
+        <span class="title">4 · Export</span>
+        <span class="desc">Bounce your track</span>
+      </button>
+    </div>
+  
+    <div class="simple-main">
+      <div class="simple-content" id="simpleMount"><!-- panel mounts here --></div>
+      <div class="simple-note" id="simpleNote">Tip: You can switch to Pro Mode anytime. Your work stays.</div>
+    </div>
+  </div>
+
   <!-- Add before closing </body> tag -->
   <div id="waveformEditorModal" style="display: none;"></div>
 <script src="https://cdn.jsdelivr.net/npm/tonal/browser/tonal.min.js"></script>
@@ -25029,6 +25141,121 @@ function hideSplash() {
   if (!splash.el) return;
   splash.el.classList.add('hidden');
 }
+
+(() => {
+  const qs = (s, r=document) => r.querySelector(s);
+  const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const store = {
+    get ui(){ return localStorage.getItem('8beat.uiMode') || 'simple' },
+    set ui(v){ localStorage.setItem('8beat.uiMode', v) },
+    get last(){ return localStorage.getItem('8beat.lastTab') || 'generate' },
+    set last(v){ localStorage.setItem('8beat.lastTab', v) },
+    get pro(){ return localStorage.getItem('8beat.pro') === 'true' }
+  };
+
+  const shell = qs('#simpleShell');
+  const mount = qs('#simpleMount');
+  const steps = qsa('.simple-step');
+  const note  = qs('#simpleNote');
+
+  // Map your existing panels by data-section
+  const panels = qsa('.section');
+  const byKey = {};
+  panels.forEach(p => { const k = p.dataset.section; if (k) byKey[k] = p; });
+
+  function attachPanel(key){
+    const panel = byKey[key];
+    if(!panel) return;
+    panel.classList.add('simple-mounted');
+    mount.replaceChildren(panel);
+    shell.hidden = false;
+  }
+
+  function setStep(key){
+    steps.forEach(s=>s.classList.toggle('active', s.dataset.go===key));
+    attachPanel(key);
+    store.last = key;
+    // Helper text
+    const txt = {
+      generate: 'Use genre + build controls to auto-compose. Play to audition; regenerate for variations.',
+      sequencer:'Drag notes/regions. Keep 4–8 bars, then duplicate.',
+      effects:  'Start gentle: light compression + a touch of reverb. Keep peaks below 0 dB.',
+      export:   store.pro ? 'Choose WAV/MP3, name clearly, then bounce.' : 'Export is a Pro feature — unlock to bounce audio.'
+    };
+    if (note) note.textContent = txt[key] || '';
+  }
+
+  function enableSimpleUI(){
+    document.body.classList.add('simple-ui');
+
+    // Hide complex chrome safely (in case your DOM changes)
+    ['.sidebar','.bottom-nav','.inspector'].forEach(sel => qsa(sel).forEach(el => el.style.display='none'));
+
+    // Wire transport (proxy to your real controls)
+    qs('#simpPlay')?.addEventListener('click', ()=> qs('#playBtn')?.click());
+    qs('#simpStop')?.addEventListener('click', ()=> qs('#stopBtn')?.click());
+
+    // BPM / Swing sync to existing inputs / APIs if present
+    const bpm = qs('#simpBpm'), swing = qs('#simpSwing');
+    bpm?.addEventListener('change', () => {
+      const real = qs('#bpmInput'); // your existing BPM input
+      if(real){ real.value = bpm.value; real.dispatchEvent(new Event('change', {bubbles:true})); }
+      (window.setBPM||window.updateBPM)?.(Number(bpm.value));
+    });
+    swing?.addEventListener('input', () => {
+      const real = qs('#swingInput'); // your existing Swing slider
+      if(real){ real.value = swing.value; real.dispatchEvent(new Event('input', {bubbles:true})); }
+      (window.setSwing||window.updateSwing)?.(Number(swing.value)/100);
+    });
+
+    // Step buttons → panels
+    steps.forEach(btn => btn.addEventListener('click', () => {
+      const key = btn.dataset.go;
+      if (key === 'export' && !store.pro) {
+        // Free users: open unlock modal if present, else toast
+        const modal = qs('#unlockModal');
+        if (modal) modal.classList.remove('hidden');
+        else window.showToast?.('🔒 Export is Pro only — Unlock to bounce audio');
+        return;
+      }
+      setStep(key);
+    }));
+
+    // Mode toggle back to full UI
+    qs('#simpToggleMode')?.addEventListener('click', ()=> {
+      store.ui = 'pro';
+      location.reload(); // simplest way to restore original layout
+    });
+
+    // Start where the user left off
+    setStep(store.last);
+  }
+
+  // Public helpers if you want to switch programmatically
+  window.enableSimpleUI  = () => { store.ui='simple'; enableSimpleUI(); };
+  window.disableSimpleUI = () => { store.ui='pro'; location.reload(); };
+
+  // Default to SIMPLE mode unless explicitly set to Pro
+  const url = new URL(location.href);
+  const urlUi = url.searchParams.get('ui');        // 'simple' | 'pro' | null
+  const savedUi = localStorage.getItem('8beat.uiMode'); // 'simple' | 'pro' | null
+  
+  // Want simple if: URL says simple, OR no URL and not explicitly saved as 'pro'
+  const wantSimple = (urlUi === 'simple') || (!urlUi && savedUi !== 'pro');
+  
+  // Persist default on first visit
+  if (!savedUi) localStorage.setItem('8beat.uiMode', wantSimple ? 'simple' : 'pro');
+  
+  if (wantSimple) {
+    if (panels.length) enableSimpleUI();
+    else requestAnimationFrame(enableSimpleUI);
+  }
+
+  // When Pro unlocks, remove locks in your original UI (keeps both modes happy)
+  window.__refreshNavForPro = () => {
+    document.querySelectorAll('.sidebar-tab.locked,.bn-btn.locked').forEach(b => b.classList.remove('locked'));
+  };
+})();
   
 // -------------------- Initialization --------------------
 function init() {
