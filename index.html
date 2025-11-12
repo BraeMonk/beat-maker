@@ -25142,10 +25142,17 @@ function hideSplash() {
   splash.el.classList.add('hidden');
 }
 
-// === SIMPLE MODE wiring — DOM-matching fix ===
+// === SIMPLE MODE — robust, DOM-autodetecting ===
 (() => {
-  const qs = (s, r=document) => r.querySelector(s);
+  if (window.__simpleUiBooted) return; window.__simpleUiBooted = true;
+
+  const qs  = (s, r=document) => r.querySelector(s);
   const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const first = (sels) => {
+    for (const s of sels) { const el = qs(s); if (el) return el; }
+    return null;
+  };
+
   const store = {
     get ui(){ return localStorage.getItem('8beat.uiMode') || 'simple' },
     set ui(v){ localStorage.setItem('8beat.uiMode', v) },
@@ -25154,22 +25161,23 @@ function hideSplash() {
     get pro(){ return localStorage.getItem('8beat.pro') === 'true' }
   };
 
+  // Shell
   const shell = qs('#simpleShell');
   const mount = qs('#simpleMount');
   const steps = qsa('.simple-step');
   const note  = qs('#simpleNote');
 
-  // Map to YOUR tab ids (no data-section in your DOM)
+  // Map to REAL panels with graceful fallbacks
   const byKey = {
-    generate:   qs('#tab-generate'),
-    sequencer:  qs('#tab-sequencer'),
-    effects:    qs('#tab-fx'),
-    export:     qs('#tab-multitrack') // export flow lives here (bounce/record)
+    generate:  first(['#tab-generate',  '[data-section="generate"]']),
+    sequencer: first(['#tab-sequencer', '[data-section="sequencer"]']),
+    effects:   first(['#tab-fx', '#tab-mixer', '[data-section="effects"]', '[data-section="mixer"]']),
+    export:    first(['#tab-export', '#tab-multitrack', '[data-section="export"]', '[data-section="multitrack"]'])
   };
 
   function attachPanel(key){
     const panel = byKey[key];
-    if (!panel) return;
+    if (!panel) { console.warn('[simple-ui] Missing panel for key:', key); return; }
     panel.classList.add('simple-mounted');
     mount.replaceChildren(panel);
     shell.hidden = false;
@@ -25180,10 +25188,10 @@ function hideSplash() {
     attachPanel(key);
     store.last = key;
     const txt = {
-      generate: 'Use genre + build controls to auto-compose. Press Play to audition.',
-      sequencer:'Edit notes/regions. Keep 4–8 bars and duplicate for structure.',
-      effects:  'Start with mild compression and a touch of reverb; keep peaks < 0 dB.',
-      export:   store.pro ? 'Choose bounce/record in Multitrack, then export.' : 'Export is Pro — unlock to bounce audio.'
+      generate: 'Use genre + build, then Play. Regenerate for variations.',
+      sequencer:'Edit notes/regions. Start with 4–8 bars and duplicate.',
+      effects:  'Light compression + a touch of reverb; keep peaks < 0 dB.',
+      export:   store.pro ? 'Use Export/Multitrack bounce/record, then download.' : 'Export is Pro — unlock to bounce audio.'
     };
     if (note) note.textContent = txt[key] || '';
   }
@@ -25191,44 +25199,48 @@ function hideSplash() {
   function enableSimpleUI(){
     document.body.classList.add('simple-ui');
 
-    // Hide complex chrome
-    ['.sidebar','.bottom-nav','.inspector'].forEach(sel => qsa(sel).forEach(el => el.style.display='none'));
+    // Hide advanced chrome (won’t error if missing)
+    ['.sidebar','.bottom-nav','.inspector'].forEach(sel =>
+      qsa(sel).forEach(el => el.style.display='none')
+    );
 
-    // Transport proxy → use your actual handlers/ids
-    // You have togglePlay()/stop() + #playBtn / #stopBtn in the main engine
+    // Transport proxy (prefer your functions, fallback to buttons)
     qs('#simpPlay')?.addEventListener('click', () => {
-      if (window.togglePlay) return window.togglePlay();
+      if (typeof window.togglePlay === 'function') return window.togglePlay();
       qs('#playBtn')?.click();
     });
     qs('#simpStop')?.addEventListener('click', () => {
-      if (window.stop) return window.stop();
+      if (typeof window.stop === 'function') return window.stop();
       qs('#stopBtn')?.click();
     });
 
-    // BPM / Swing sync → match your real controls (#bpmSlider, #swingSlider)
-    const bpmUI = qs('#simpBpm'), swingUI = qs('#simpSwing');
-    const bpmReal = qs('#bpmSlider');     // real range input for tempo
-    const swingReal = qs('#swingSlider'); // real range input for swing (%)
+    // Tempo / Swing: resolve real controls (multiple possible IDs)
+    const bpmUI    = qs('#simpBpm');
+    const swingUI  = qs('#simpSwing');
+    const bpmReal  = first(['#bpmSlider', '#bpmInput']);
+    const swingReal= first(['#swingSlider', '#swingInput']);
+    const bpmVal   = first(['#bpmValue', '.bpm-value']);
+    const swingVal = first(['#swingValue', '.swing-value']);
 
-    // Push simple → real
+    // Preload current values (so simple UI shows correct state)
+    if (bpmReal && bpmUI)   bpmUI.value   = bpmReal.value;
+    if (swingReal && swingUI) swingUI.value = swingReal.value;
+
+    // Simple → Real
     bpmUI?.addEventListener('input', () => {
       if (bpmReal){ bpmReal.value = bpmUI.value; bpmReal.dispatchEvent(new Event('input',{bubbles:true})); }
       (window.setBPM||window.updateBPM)?.(Number(bpmUI.value));
-      const bpmVal = qs('#bpmValue'); if (bpmVal) bpmVal.textContent = bpmUI.value;
+      if (bpmVal) bpmVal.textContent = bpmUI.value;
     });
     swingUI?.addEventListener('input', () => {
       if (swingReal){ swingReal.value = swingUI.value; swingReal.dispatchEvent(new Event('input',{bubbles:true})); }
       (window.setSwing||window.updateSwing)?.(Number(swingUI.value)/100);
-      const sVal = qs('#swingValue'); if (sVal) sVal.textContent = swingUI.value + '%';
+      if (swingVal) swingVal.textContent = swingUI.value + '%';
     });
 
-    // Pull real → simple (keeps them in sync if user touches the full UI)
-    bpmReal?.addEventListener('input', () => {
-      if (bpmUI) bpmUI.value = bpmReal.value;
-    });
-    swingReal?.addEventListener('input', () => {
-      if (swingUI) swingUI.value = swingReal.value;
-    });
+    // Real → Simple (if user touches full UI elsewhere)
+    bpmReal?.addEventListener('input', () => { if (bpmUI) bpmUI.value = bpmReal.value; });
+    swingReal?.addEventListener('input', () => { if (swingUI) swingUI.value = swingReal.value; });
 
     // Step buttons
     steps.forEach(btn => btn.addEventListener('click', () => {
@@ -25242,13 +25254,13 @@ function hideSplash() {
       setStep(key);
     }));
 
-    // Toggle back to full UI
+    // Back to full UI
     qs('#simpToggleMode')?.addEventListener('click', ()=> {
       store.ui = 'pro';
       location.reload();
     });
 
-    // Start where the user left off
+    // Start where user left off (or Generate)
     setStep(store.last);
   }
 
@@ -25256,19 +25268,20 @@ function hideSplash() {
   window.enableSimpleUI  = () => { store.ui='simple'; enableSimpleUI(); };
   window.disableSimpleUI = () => { store.ui='pro'; location.reload(); };
 
-  // Default to SIMPLE unless URL says pro
-  const url = new URL(location.href);
-  const urlUi = url.searchParams.get('ui');
+  // Default to SIMPLE unless URL says ?ui=pro
+  const urlUi   = new URL(location.href).searchParams.get('ui'); // 'simple'|'pro'|null
   const savedUi = localStorage.getItem('8beat.uiMode');
   const wantSimple = (urlUi === 'simple') || (!urlUi && savedUi !== 'pro');
   if (!savedUi) localStorage.setItem('8beat.uiMode', wantSimple ? 'simple' : 'pro');
+
+  // Boot when panels exist (handles async DOM)
+  const panelsPresent = Object.values(byKey).some(Boolean);
   if (wantSimple) {
-    // Wait until tabs exist
-    if (byKey.generate || byKey.sequencer || byKey.effects || byKey.export) enableSimpleUI();
+    if (panelsPresent) enableSimpleUI();
     else requestAnimationFrame(enableSimpleUI);
   }
 
-  // After Pro unlock, clear locks in original UI too
+  // Keep locks tidy after Pro unlock
   window.__refreshNavForPro = () => {
     document.querySelectorAll('.sidebar-tab.locked,.bn-btn.locked').forEach(b => b.classList.remove('locked'));
   };
