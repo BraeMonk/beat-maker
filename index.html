@@ -23199,63 +23199,152 @@ async function validateLicenseKeyDetailed(key) {
   });
 }
 
-// --- Step 1: email a 6-digit code to the purchaser email on record ---
-async function requestEmailOtp(email, licenseKey) {
-  const resp = await jsonp('request_otp', { email, licenseKey });
-  if (!resp || resp.ok !== true) {
-    const code = resp && resp.error;
-    throw new Error(code || 'otp_request_failed');
-  }
-  return true;
+// Tiny JSONP helper for Apps Script
+function apiGet(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'licenseCb_' + Math.random().toString(36).slice(2);
+    const qs = new URLSearchParams({
+      ...params,
+      callback: cbName
+    });
+
+    const s = document.createElement('script');
+    s.src = `${LICENSE_API_URL}?${qs.toString()}`;
+
+    let finished = false;
+    function cleanup() {
+      if (finished) return;
+      finished = true;
+      try { delete window[cbName]; } catch (e) {}
+      try { s.remove(); } catch (e) {}
+    }
+
+    window[cbName] = (resp) => {
+      cleanup();
+      resolve(resp || {});
+    };
+
+    s.onerror = () => {
+      cleanup();
+      reject(new Error('License server unreachable'));
+    };
+
+    (document.head || document.documentElement).appendChild(s);
+
+    setTimeout(() => {
+      if (!finished) {
+        cleanup();
+        reject(new Error('License server timeout'));
+      }
+    }, 8000);
+  });
 }
 
-async function activatePro(email, licenseKey, otp) {
-  const resp = await jsonp('activate', {
-    email, licenseKey, otp, deviceId: deviceId()
-  });
-  if (!resp || resp.ok !== true) {
-    const code = resp && resp.error;
-    // Bubble these for UI copy
-    const readable = ({
-      license_not_found: 'License not found',
-      license_inactive: 'License inactive',
-      email_mismatch:   'Email does not match purchaser',
-      otp_invalid_or_expired: 'Code invalid or expired',
-      device_limit:     'Device limit reached for this key',
-      server_error:     'Server error'
-    })[code] || 'Activation failed';
-    throw new Error(readable);
+
+function getDeviceId() {
+  let id = localStorage.getItem('8beat.deviceId');
+  if (!id) {
+    id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('8beat.deviceId', id);
   }
-  // persist token + pro flags
-  if (resp.token) localStorage.setItem('8beat.token', resp.token);
-  localStorage.setItem('8beat.licenseKey', licenseKey);
+  return id;
+}
+
+// --- Step 1: request_otp (email + licenseKey) ---
+async function requestEmailOtp(email, key) {
+  const resp = await apiGet({
+    action: 'request_otp',
+    email,
+    licenseKey: key
+  });
+
+  if (!resp || !resp.ok) {
+    // Surface backend error for debugging
+    if (resp && resp.error === 'license_not_found') {
+      throw new Error('License not found for that key.');
+    }
+    if (resp && resp.error === 'license_inactive') {
+      throw new Error('This license is inactive.');
+    }
+    if (resp && resp.error === 'email_mismatch') {
+      throw new Error('Email does not match the purchase email.');
+    }
+    throw new Error('Could not send code (server error).');
+  }
+
+  return true; // OTP mailed successfully
+}
+
+// --- Step 2: activate (OTP + deviceId -> token) ---
+async function activatePro(email, key, otp) {
+  const resp = await apiGet({
+    action: 'activate',
+    email,
+    licenseKey: key,
+    otp,
+    deviceId: getDeviceId()
+  });
+
+  if (!resp || !resp.ok) {
+    // map backend errors to friendly messages
+    if (resp && resp.error === 'otp_invalid_or_expired') {
+      throw new Error('Code invalid or expired');
+    }
+    if (resp && resp.error === 'device_limit') {
+      throw new Error('This license is already used on too many devices.');
+    }
+    if (resp && resp.error === 'email_mismatch') {
+      throw new Error('Email does not match the purchase email.');
+    }
+    if (resp && resp.error === 'license_not_found') {
+      throw new Error('License not found.');
+    }
+    if (resp && resp.error === 'license_inactive') {
+      throw new Error('This license is inactive.');
+    }
+    throw new Error('Activation failed (server error).');
+  }
+
+  // Save local state
   localStorage.setItem('8beat.pro', 'true');
-  // Let Simple UI listeners react
+  localStorage.setItem('8beat.licenseKey', key);
+  if (resp.token) {
+    localStorage.setItem('8beat.proToken', resp.token);
+  }
+
   window.dispatchEvent(new Event('license:activated'));
   return true;
 }
 
+// --- Step 3: on startup, validate existing token (if any) ---
 async function validateProTokenIfAny() {
-  const token = localStorage.getItem('8beat.token');
+  const token = localStorage.getItem('8beat.proToken') || '';
   if (!token) return false;
 
   try {
-    const resp = await jsonp('validate_token', { token, deviceId: deviceId() });
-    if (!resp || resp.ok !== true) {
-      // invalid token: clear and fall back to free
-      localStorage.removeItem('8beat.token');
+    const resp = await apiGet({
+      action: 'validate_token',
+      token,
+      deviceId: getDeviceId()
+    });
+
+    if (!resp || !resp.ok) {
+      console.warn('[license] token invalid, clearing');
+      localStorage.removeItem('8beat.proToken');
       localStorage.removeItem('8beat.pro');
       return false;
     }
+
+    // If server rotated token, store the new one
     if (resp.token) {
-      // rotated token close to expiry
-      localStorage.setItem('8beat.token', resp.token);
-      localStorage.setItem('8beat.pro', 'true');
+      localStorage.setItem('8beat.proToken', resp.token);
     }
+
+    localStorage.setItem('8beat.pro', 'true');
     return true;
-  } catch (e) {
-    // network/timeout → don’t flip user out of pro; just keep current state
-    return localStorage.getItem('8beat.pro') === 'true';
+  } catch (err) {
+    console.warn('[license] token validation failed:', err);
+    return false;
   }
 }
 
