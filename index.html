@@ -4921,7 +4921,17 @@ body.pro .pro-locked::after {
     font-size: var(--text-xl);
     border-radius: var(--radius-full);
   }
-  
+
+  #unlockModal.modal-portal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    background: rgba(0,0,0,0.5);
+  }
+
     /* === Toolbar button fixes for mobile/tablet === */
   .tool-btn {
     width: 36px;
@@ -22990,6 +23000,18 @@ function enableProFeatures() {
   });
 }
 
+// --- Ensure modal is visible even in Simple Mode ---
+function ensureUnlockModalInBody() {
+  const modal = document.getElementById('unlockModal');
+  if (!modal) return null;
+  if (modal.parentElement !== document.body) {
+    document.body.appendChild(modal);      // move out of hidden sidebar
+    modal.classList.add('modal-portal');   // optional styling hook
+  }
+  return modal;
+}
+
+
 function initLicenseUI() {
   const unlockBtn = document.getElementById('unlockProBtn');
   const modal = document.getElementById('unlockModal');
@@ -23001,7 +23023,9 @@ function initLicenseUI() {
   if (!unlockBtn || !modal) return;
 
   function openModal() {
-    modal.classList.remove('hidden');
+    const visibleModal = ensureUnlockModalInBody();
+    (visibleModal || modal).classList.remove('hidden');
+
     status.textContent = '';
     const savedKey = getSavedLicenseKey();
     if (savedKey) input.value = savedKey;
@@ -25664,7 +25688,7 @@ function hideSplash() {
   
     // Open the shared unlock modal
     once(simpUnlockBtn, 'click', () => {
-      const modal = qs('#unlockModal');
+      const modal = ensureUnlockModalInBody();
       if (modal) modal.classList.remove('hidden');
       else console.warn('[simple-ui] #unlockModal not found');
     }, 'simpUnlockProBtn');
