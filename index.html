@@ -23602,16 +23602,17 @@ function enableProFeatures() {
 }
 
 function initLicenseUI() {
-  const unlockBtn  = document.getElementById('unlockProBtn');   // exists in Pro sidebar and Simple transport
+  const unlockButtons = Array.from(
+    document.querySelectorAll('#unlockProBtn, #simpUnlockProBtn')
+  );   // exists in Pro sidebar and Simple transport
+  
   const modal      = document.getElementById('unlockModal');
   const inputKey   = document.getElementById('licenseInput');
   const statusEl   = document.getElementById('licenseStatus');
   const confirmBtn = document.getElementById('confirmLicenseBtn');
   const cancelBtn  = document.getElementById('cancelLicenseBtn');
-
   // Basic guard
   if (!modal || !inputKey || !statusEl || !confirmBtn || !cancelBtn) return;
-
   // --- Create Email + OTP fields (once) ---
   let emailInput = document.getElementById('licenseEmailInput');
   if (!emailInput) {
@@ -23622,7 +23623,6 @@ function initLicenseUI() {
     emailInput.className = 'input';
     inputKey.parentElement?.insertBefore(emailInput, inputKey); // above license key
   }
-
   let otpInput = document.getElementById('licenseOtpInput');
   if (!otpInput) {
     otpInput = document.createElement('input');
@@ -23634,7 +23634,6 @@ function initLicenseUI() {
     otpInput.className = 'input';
     inputKey.parentElement?.appendChild(otpInput); // below license key
   }
-
   let sendCodeBtn = document.getElementById('sendOtpBtn');
   if (!sendCodeBtn) {
     sendCodeBtn = document.createElement('button');
@@ -23644,10 +23643,8 @@ function initLicenseUI() {
     // place it just before Confirm
     confirmBtn.parentElement?.insertBefore(sendCodeBtn, confirmBtn);
   }
-
   // Hide OTP until requested
   otpInput.style.display = 'none';
-
   // --- Open / Close modal (idempotent wiring) ---
   function openModal() {
     modal.classList.remove('hidden');
@@ -23660,15 +23657,21 @@ function initLicenseUI() {
     modal.classList.add('hidden');
   }
 
-  if (unlockBtn && !unlockBtn.dataset._wired) {
-    unlockBtn.dataset._wired = '1';
-    unlockBtn.addEventListener('click', (e) => { e.preventDefault(); openModal(); });
-  }
+  // --- Wire BOTH unlock buttons (Pro + Simple) - PUT IT HERE ---
+  unlockButtons.forEach(btn => {
+    if (!btn) return;
+    if (btn.dataset._wired) return;
+    btn.dataset._wired = '1';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openModal();
+    });
+  });
+
   if (!cancelBtn.dataset._wired) {
     cancelBtn.dataset._wired = '1';
     cancelBtn.addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
   }
-
   // --- Send OTP (idempotent) ---
   if (!sendCodeBtn.dataset._wired) {
     sendCodeBtn.dataset._wired = '1';
@@ -23690,7 +23693,7 @@ function initLicenseUI() {
       }
     });
   }
-
+  
   // --- Activate with OTP (override any old Confirm behavior) ---
   confirmBtn.textContent = 'Activate';
   confirmBtn.onclick = null;                 // ensure no stale handlers
