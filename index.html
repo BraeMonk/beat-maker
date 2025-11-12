@@ -22655,6 +22655,60 @@ async function validateLicenseKey(key) {
     document.body.appendChild(s);
   });
 }
+
+// Detailed validator that returns the full JSON your Apps Script already sends
+async function validateLicenseKeyDetailed(key) {
+  const k = (key || '').trim();
+  if (!k) return { valid: false };
+
+  return new Promise((resolve) => {
+    const cb = 'cb_' + Math.random().toString(36).slice(2);
+    window[cb] = (resp) => {
+      try { delete window[cb]; } catch(e){}
+      s.remove();
+      resolve(resp || { valid: false });
+    };
+    const s = document.createElement('script');
+    s.src = `${LICENSE_API_URL}?action=validate&key=${encodeURIComponent(k)}&callback=${cb}`;
+    document.body.appendChild(s);
+  });
+}
+
+// One place to verify + persist + flip UI (Pro/Admin)
+async function verifyAndUnlock(key, { silent = false } = {}) {
+  const resp = await validateLicenseKeyDetailed(key);
+  if (!resp || !resp.valid) {
+    if (!silent && window.showToast) showToast('❌ Invalid or inactive license key');
+    return false;
+  }
+
+  // Persist
+  localStorage.setItem('8beat.licenseKey', key);
+  localStorage.setItem('8beat.pro', 'true');
+  if (resp.type === 'admin') {
+    localStorage.setItem('8beat.admin', 'true');
+    document.body.classList.add('admin');
+  }
+
+  // UI
+  enableProFeatures(); // reuse your existing unlocker
+  if (!silent && window.showToast) showToast(resp.type === 'admin' ? '🔓 Admin unlocked' : '🔓 Pro unlocked');
+  return true;
+}
+
+(function autoActivateFromUrl(){
+  try {
+    const url = new URL(window.location.href);
+    const key = url.searchParams.get('activate');
+    if (!key) return;
+    verifyAndUnlock(key, { silent: false }).then(() => {
+      // Clean URL so key isn't saved/bookmarked
+      history.replaceState({}, document.title, url.pathname + url.hash);
+    });
+  } catch (e) {
+    console.error('Auto-activate failed:', e);
+  }
+})();
   
 function enableProFeatures() {
   document.body.classList.add('pro');
@@ -22702,13 +22756,10 @@ function initLicenseUI() {
       return;
     }
     status.textContent = 'Checking key…';
-
+  
     try {
-      const valid = await validateLicenseKey(key);
-      if (valid) {
-        localStorage.setItem('8beat.licenseKey', key);
-        localStorage.setItem('8beat.pro', 'true');
-        enableProFeatures();
+      const ok = await verifyAndUnlock(key, { silent: true });
+      if (ok) {
         status.textContent = '✅ Pro unlocked! Enjoy.';
         setTimeout(closeModal, 800);
       } else {
