@@ -23187,10 +23187,15 @@ function initLicenseUI() {
   // --- Cancel always closes the modal ---
   if (!cancelBtn.dataset._wired) {
     cancelBtn.dataset._wired = '1';
-    cancelBtn.addEventListener('click', (e) => {
+    
+    const handleClose = (e) => {
       e.preventDefault();
+      e.stopPropagation(); // Prevent event from bubbling to backdrop
       closeModal();
-    });
+    };
+    
+    cancelBtn.addEventListener('click', handleClose);
+    cancelBtn.addEventListener('touchend', handleClose); // Mobile touch support
   }
 
   // --- Send OTP (idempotent) ---
