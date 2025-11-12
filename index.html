@@ -8649,7 +8649,15 @@ function unlockAudioOnce() {
     try {
       await Tone.start();
       await Tone.getContext().rawContext.resume();
+      window.__audioUnlocked = true;
       console.log('🔓 Audio unlocked:', Tone.getContext().rawContext.state);
+
+      // 🔁 Resume playback if restoreSessionIfAny() marked pending
+      if (state.pendingResume && typeof play === 'function') {
+        state.pendingResume = false;
+        play();
+        console.log('▶️ Resumed playback after unlock');
+      }
     } catch (e) {
       console.warn('Unlock failed:', e);
     } finally {
@@ -8658,11 +8666,12 @@ function unlockAudioOnce() {
       });
     }
   };
-  
+
   window.addEventListener('pointerdown', unlock, { once: true });
   window.addEventListener('keydown', unlock, { once: true });
   window.addEventListener('touchstart', unlock, { once: true, passive: true });
 }
+
 
 // -------------------- Audio Graph Initialization --------------------
 function initAudio() {
@@ -25228,6 +25237,14 @@ function hideSplash() {
 (() => {
   if (window.__simpleUiBooted) return; window.__simpleUiBooted = true;
 
+  const once = (el, evt, fn, key) => {
+    if (!el) return;
+    const mark = `_wired_${evt}_${key || ''}`;
+    if (el.dataset && el.dataset[mark]) return;
+    el.addEventListener(evt, fn);
+    if (el.dataset) el.dataset[mark] = '1';
+  };
+
   const qs  = (s, r=document) => r.querySelector(s);
   const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
 
@@ -25258,6 +25275,13 @@ function hideSplash() {
   function attachPanel(key){
     const panel = byKey[key];
     if (!panel) { console.warn('[simple-ui] Missing panel:', key); return; }
+  
+    // Remember original parent/next sibling once
+    if (!panel._origParent) {
+      panel._origParent = panel.parentElement || null;
+      panel._origNext   = panel.nextSibling || null; // may be null (append case)
+    }
+  
     panel.classList.add('simple-mounted');
     mount.replaceChildren(panel);
     shell.hidden = false;
@@ -25324,57 +25348,58 @@ function hideSplash() {
     if (realSwing && simpSwing) simpSwing.value = realSwing.value;
 
     // Play/Stop
-    simpPlay?.addEventListener('click', () => realPlay?.click());
-    simpStop?.addEventListener('click', () => realStop?.click());
-
-    // BPM number input
-    simpBpm?.addEventListener('input', () => {
+    once(simpPlay, 'click', () => realPlay?.click(), 'simpPlay');
+    once(simpStop, 'click', () => realStop?.click(), 'simpStop');
+    
+    // BPM number
+    once(simpBpm, 'input', () => {
       if (realBpm){ 
         realBpm.value = simpBpm.value; 
         realBpm.dispatchEvent(new Event('input',{bubbles:true})); 
       }
       if (realBpmVal) realBpmVal.textContent = simpBpm.value;
       if (simpBpmSlider) simpBpmSlider.value = simpBpm.value;
-    });
-
+    }, 'simpBpm');
+    
     // BPM slider
-    simpBpmSlider?.addEventListener('input', () => {
+    once(simpBpmSlider, 'input', () => {
       if (realBpm){ 
         realBpm.value = simpBpmSlider.value; 
         realBpm.dispatchEvent(new Event('input',{bubbles:true})); 
       }
       if (realBpmVal) realBpmVal.textContent = simpBpmSlider.value;
       if (simpBpm) simpBpm.value = simpBpmSlider.value;
-    });
-
+    }, 'simpBpmSlider');
+    
     // Swing
-    simpSwing?.addEventListener('input', () => {
+    once(simpSwing, 'input', () => {
       if (realSwing){ 
         realSwing.value = simpSwing.value; 
         realSwing.dispatchEvent(new Event('input',{bubbles:true})); 
       }
       if (realSwingVal) realSwingVal.textContent = simpSwing.value + '%';
-    });
-
-    // Sync back from real controls
-    realBpm?.addEventListener('input', () => { 
+    }, 'simpSwing');
+    
+    // Back-sync
+    once(realBpm, 'input', () => { 
       if (simpBpm) simpBpm.value = realBpm.value; 
       if (simpBpmSlider) simpBpmSlider.value = realBpm.value;
-    });
-    realSwing?.addEventListener('input', () => { 
+    }, 'realBpm');
+    once(realSwing, 'input', () => { 
       if (simpSwing) simpSwing.value = realSwing.value; 
-    });
+    }, 'realSwing');
 
     // Progress sync (poll every 100ms)
-    setInterval(() => {
+    window.__simpleUiPoll && clearInterval(window.__simpleUiPoll);
+    window.__simpleUiPoll = setInterval(() => {
       if (realTime && simpTime) simpTime.textContent = realTime.textContent;
       if (realProgressFill && simpProgress) {
         simpProgress.style.width = realProgressFill.style.width || '0%';
       }
     }, 100);
-
-    // Tab navigation
-    steps.forEach(btn => btn.addEventListener('click', () => {
+    
+    // Tabs
+    steps.forEach(btn => once(btn, 'click', () => {
       const key = btn.dataset.go;
       const panel = byKey[key];
       if (panel?.classList.contains('pro-locked') && !store.pro) {
@@ -25383,19 +25408,48 @@ function hideSplash() {
         return;
       }
       setStep(key);
-    }));
-
-    // Toggle to Pro Mode
-    qs('#simpToggleMode')?.addEventListener('click', ()=> {
-      store.ui = 'pro';
-      location.reload();
-    });
+    }, `step_${btn.dataset.go}`));
+    
+    // Toggle to Pro
+    once(qs('#simpToggleMode'), 'click', () => disableSimpleUI(), 'togglePro');
 
     setStep(store.last);
   }
 
+  function disableSimpleUI(){
+    // stop the simple-mode poll
+    if (window.__simpleUiPoll) {
+      clearInterval(window.__simpleUiPoll);
+      window.__simpleUiPoll = null;
+    }
+
+    // 1) Unhide Pro chrome we hid in Simple
+    ['.sidebar-nav','.sidebar-toggle','.sidebar-backdrop','header .header-actions','.footer','.transport']
+      .forEach(sel => qsa(sel).forEach(el => el.style.display=''));
+  
+    // 2) Move any mounted sections back to where they came from
+    Object.values(byKey).forEach(p => {
+      if (!p || !p._origParent) return;
+      try {
+        if (p._origNext && p._origNext.parentNode === p._origParent) {
+          p._origParent.insertBefore(p, p._origNext);
+        } else {
+          p._origParent.appendChild(p);
+        }
+        p.classList.remove('simple-mounted');
+      } catch(e){ console.warn('restore panel failed', e); }
+    });
+  
+    // 3) Hide the Simple shell and class
+    shell.hidden = true;
+    document.body.classList.remove('simple-ui');
+  
+    // 4) Persist preference
+    store.ui = 'pro';
+  }
+
   window.enableSimpleUI  = () => { store.ui='simple'; enableSimpleUI(); };
-  window.disableSimpleUI = () => { store.ui='pro'; location.reload(); };
+  window.disableSimpleUI = () => { disableSimpleUI(); }; // no reload
 
   const urlUi = new URL(location.href).searchParams.get('ui');
   const savedUi = localStorage.getItem('8beat.uiMode');
@@ -25413,9 +25467,133 @@ function hideSplash() {
     markSimpleProLocks();
   };
 })();
-  
+
+// ---------- Session persistence ----------
+const SESSION_KEY = '8beat.session.v1';
+
+function getPlainPatterns(){
+  const out = {};
+  Object.keys(patterns).forEach(k=>{
+    out[k] = patterns[k].map(s => ({
+      active: !!s.active,
+      velocity: s.velocity ?? 0.8,
+      probability: s.probability ?? 100,
+      note: s.note ?? (instruments[k]?.note ?? 'C4'),
+      duration: s.duration ?? '8n'
+    }));
+  });
+  return out;
+}
+
+function saveSession(){
+  try {
+    const payload = {
+      version: 1,
+      state: {
+        bpm: state.bpm,
+        swing: state.swing,
+        sequenceLength: state.sequenceLength,
+        resolution: state.resolution,
+        currentGenre: state.currentGenre,
+        key: state.key,
+        scale: state.scale,
+        octave: state.octave,
+        progression: state.progression,
+        masterVolume: state.masterVolume,
+        aiMixing: state.aiMixing
+      },
+      patterns: getPlainPatterns(),
+      instruments: (typeof getSerializableInstruments === 'function')
+        ? getSerializableInstruments() : {},
+      fxConfig: (typeof fxConfig === 'object' && fxConfig) ? fxConfig : {}, // <-- guard
+      vibe: document.body.getAttribute('data-vibe') || null,
+      transport: {
+        pos: Tone?.Transport?.seconds || 0,
+        playing: !!state.isPlaying
+      },
+      ts: Date.now()
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+  } catch(e){
+    console.warn('saveSession failed', e);
+  }
+}
+
+
+async function restoreSessionIfAny(){
+  const raw = localStorage.getItem(SESSION_KEY);
+  if (!raw) return false;
+
+  try {
+    const sess = JSON.parse(raw) || {};
+
+    // Stop playback while swapping state
+    if (state?.isPlaying && typeof stop === 'function') stop();
+
+    // ---- Core state ----
+    Object.assign(state, sess.state || {}, { isPlaying:false, currentStep:0 });
+
+    // ---- Patterns ----
+    if (sess.patterns && typeof patterns === 'object') {
+      for (const k of Object.keys(patterns)) delete patterns[k];
+      Object.assign(patterns, sess.patterns);
+    }
+
+    // ---- Instruments (levels/pan/notes) ----
+    if (sess.instruments && typeof applyLoadedInstruments === 'function') {
+      applyLoadedInstruments(sess.instruments);
+    }
+
+    // ---- FX config ----
+    if (sess.fxConfig) {
+      if (typeof fxConfig !== 'object' || !fxConfig) window.fxConfig = {};
+      Object.assign(fxConfig, sess.fxConfig);
+    }
+
+    // ---- Vibe / theme ----
+    if (sess.vibe && typeof applyVibe === 'function') applyVibe(sess.vibe);
+
+    // ---- Re-render UI surfaces ----
+    renderSequencer?.();
+    renderMixer?.();
+    renderFX?.();
+    renderHarmony?.();
+    renderMultitrack?.();
+    updateAllDisplays?.();
+
+    // ---- Transport position ----
+    if (typeof Tone !== 'undefined' && Tone.Transport) {
+      Tone.Transport.seconds = (sess.transport?.pos) || 0;
+    }
+
+    // ---- Resume playback if it was playing ----
+    if (sess.transport?.playing && typeof play === 'function') {
+      if (Tone?.getContext()?.state === 'running') {
+        play();
+      } else {
+        state.pendingResume = true; // resumes on first user gesture (see unlockAudioOnce patch)
+        showToast?.('Tap anywhere to resume playback', 'info');
+      }
+    }
+
+    showToast?.('↺ Session restored', 'success');
+    return true;
+  } catch (e) {
+    console.warn('restoreSessionIfAny failed', e);
+    return false;
+  }
+}
+
+// Save often + on exit
+if (!window.__sessionSaver) {
+  window.__sessionSaver = setInterval(saveSession, 10000);
+}
+window.addEventListener('visibilitychange', ()=>{ if (document.hidden) saveSession(); });
+window.addEventListener('beforeunload', saveSession);
+
+
 // -------------------- Initialization --------------------
-function init() {
+async function init() {
   // === 0. Splash: start ===
   initSplash();
   updateSplash('Preparing license system…', 10);
@@ -25456,7 +25634,7 @@ function init() {
 
   // === 5. Final touches ===
   initVisualizerOnce();
-  unlockAudioOnce();
+  unlockAudioOnce();           // (see patch #2 below)
   checkAudioPermissions();
   checkSamplesLoaded();
   loadSavedVibe();
@@ -25470,15 +25648,21 @@ function init() {
   generateAvailableChords();
   renderProgressionChips();
 
+  // ✅ Restore last session (patterns, bpm/swing, harmony, FX, pos/playing)
+  await restoreSessionIfAny();
+
   updateSplash('Ready! Have fun ✨', 100);
 
-  setInterval(updateDAWStatus, 500);
+  if (!window.__dawStatusTicker) {
+    window.__dawStatusTicker = setInterval(updateDAWStatus, 500);
+  }
   initPlayheadFollow();
 
   initFAB();
   // Small delay so the user sees "Ready!" before it disappears
   setTimeout(hideSplash, 3000);
 }
+
   
 // -------------------- Entry Point --------------------
 window.addEventListener('load', () => {
