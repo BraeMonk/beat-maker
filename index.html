@@ -6926,63 +6926,53 @@ header {
   }
 }
 
-/* ===== Simple UI chrome ===== */
 :root{
   --simple-bg:#0b0d11; --simple-surface:#121620; --simple-line:#1c2230;
   --simple-text:#e8ecf3; --simple-sub:#9aa3b2; --simple-accent:#6cf;
   --simple-r:14px; --simple-pad:14px; --simple-gap:12px;
 }
 body.simple-ui{background:var(--simple-bg); color:var(--simple-text)}
-
-/* Hide complex chrome in Simple Mode */
-body.simple-ui .sidebar,
-body.simple-ui .bottom-nav,
-body.simple-ui .daw-fab,
-body.simple-ui .inspector,
+body.simple-ui .sidebar-nav,
+body.simple-ui .sidebar-toggle,
+body.simple-ui .sidebar-backdrop,
 body.simple-ui header .header-actions,
-body.simple-ui .left-panel,
-body.simple-ui .right-panel{ display:none !important; }
-
-/* Header/transport clean-up */
-body.simple-ui .app-header{
+body.simple-ui .footer{ display:none !important; }
+body.simple-ui header{
   position:sticky; top:0; z-index:50;
   backdrop-filter:blur(8px) saturate(140%);
   background:rgba(10,14,20,.6); border-bottom:1px solid var(--simple-line);
 }
-body.simple-ui .transport{ gap:10px }
-
-/* Simple shell */
-#simpleShell{ max-width:1100px; margin:0 auto; padding:var(--simple-pad) var(--simple-pad) 24px }
+body.simple-ui .transport{ gap:10px; max-width:1200px; margin:0 auto }
+#simpleShell{ max-width:1200px; margin:0 auto; padding:var(--simple-pad) var(--simple-pad) 24px }
 .simple-hero{ display:grid; grid-template-columns:1.2fr .8fr; gap:20px; align-items:center; margin:18px 0 10px }
 .simple-hero .card{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); padding:18px }
 .simple-hero h1{ margin:0 0 6px; font-size:20px }
-.simple-hero p{ margin:0; color:var(--simple-sub) }
-
-.simple-steps{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:var(--simple-gap); margin:14px 0 18px }
-.simple-step{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); padding:14px; cursor:pointer; display:flex; flex-direction:column; gap:6px }
-.simple-step .title{ font-weight:800 }
-.simple-step .desc{ color:var(--simple-sub); font-size:12px }
-.simple-step.active{ outline:2px solid var(--simple-accent) }
-
+.simple-hero p{ margin:0; color:var(--simple-sub); font-size:14px }
+.simple-steps{ display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:var(--simple-gap); margin:14px 0 18px }
+.simple-step{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all .2s; text-align:center }
+.simple-step .icon{ font-size:24px; margin-bottom:4px }
+.simple-step .title{ font-weight:800; font-size:13px }
+.simple-step .desc{ color:var(--simple-sub); font-size:11px; line-height:1.3 }
+.simple-step.active{ outline:2px solid var(--simple-accent); background:rgba(102,204,255,.08) }
+.simple-step:hover{ background:rgba(102,204,255,.05); transform:translateY(-1px) }
+.simple-step.locked{ opacity:0.5; cursor:not-allowed }
+.simple-step.locked::after{ content:'🔒'; position:absolute; top:8px; right:8px; font-size:12px }
+.simple-step{ position:relative }
 .simple-main{ background:var(--simple-surface); border:1px solid var(--simple-line); border-radius:var(--simple-r); overflow:hidden }
-.simple-toolbar{ display:flex; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--simple-line); background:#0f131b }
+.simple-toolbar{ display:flex; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--simple-line); background:#0f131b; flex-wrap:wrap }
 .simple-toolbar .group{ display:flex; gap:8px; align-items:center }
 .simple-toolbar label{ color:var(--simple-sub); font-size:12px }
 .simple-toolbar input[type="number"],
 .simple-toolbar input[type="range"]{ background:#0e131c; color:var(--simple-text); border:1px solid var(--simple-line); border-radius:10px; padding:6px }
 .simple-toolbar input[type="number"]{ width:80px }
-.simple-content{ padding:0; }
-.simple-note{ padding:10px 12px; color:var(--simple-sub); border-top:1px dashed var(--simple-line) }
-
-/* Ensure your existing panels fit */
-body.simple-ui .section{ display:none !important; border:none; background:transparent; box-shadow:none; border-radius:0 }
-body.simple-ui .section.simple-mounted{ display:block !important; padding:12px }
-
-/* Mobile */
+.simple-toolbar .btn{ font-size:12px; padding:6px 12px }
+.simple-content{ padding:0; min-height:400px }
+.simple-note{ padding:10px 12px; color:var(--simple-sub); border-top:1px dashed var(--simple-line); font-size:13px; line-height:1.5 }
+body.simple-ui .section{ display:none !important; }
+body.simple-ui .section.simple-mounted{ display:block !important; border:none; background:transparent; box-shadow:none; border-radius:0; padding:12px }
 @media (max-width: 900px){
   .simple-hero{ grid-template-columns:1fr }
-  .simple-steps{ grid-template-columns: repeat(2, minmax(0,1fr)) }
-  .simple-toolbar{ flex-wrap:wrap }
+  .simple-steps{ grid-template-columns: repeat(2, minmax(0, 1fr)) }
 }
 
   </style>
@@ -8142,18 +8132,19 @@ body.simple-ui .section.simple-mounted{ display:block !important; padding:12px }
       </div>
     </footer>
   </div>
-  <!-- Simple UI shell (free + pro) -->
+  
+  <!-- Replace existing #simpleShell HTML with this -->
   <div id="simpleShell" hidden>
     <div class="simple-hero">
       <div class="card">
-        <h1>8-Beat Studio — Simple</h1>
-        <p>Four steps: <b>Generate</b> → <b>Arrange</b> → <b>Mix</b> → <b>Export</b>. Same flow for Free and Pro.</p>
+        <h1>8-Beat Studio — Simple Mode</h1>
+        <p>All features, simplified navigation. Jump between tabs instantly.</p>
       </div>
       <div class="card">
         <div class="simple-toolbar">
           <div class="group">
-            <button id="simpPlay" class="btn btn-pill" title="Play/Pause">▶︎</button>
-            <button id="simpStop" class="btn btn-pill" title="Stop">■</button>
+            <button id="simpPlay" class="btn btn-primary btn-sm">▶︎</button>
+            <button id="simpStop" class="btn btn-secondary btn-sm">■</button>
           </div>
           <div class="group">
             <label for="simpBpm">BPM</label>
@@ -8164,33 +8155,57 @@ body.simple-ui .section.simple-mounted{ display:block !important; padding:12px }
             <input id="simpSwing" type="range" min="0" max="100" value="0" />
           </div>
           <div style="margin-left:auto"></div>
-          <button id="simpToggleMode" class="btn btn-outline btn-pill" title="Return to full UI">Pro Mode</button>
+          <button id="simpToggleMode" class="btn btn-secondary btn-sm">Pro Mode</button>
         </div>
       </div>
     </div>
   
     <div class="simple-steps" role="tablist">
       <button class="simple-step" data-go="generate" role="tab">
-        <span class="title">1 · Generate</span>
-        <span class="desc">Auto-compose starting ideas</span>
+        <span class="icon">🎲</span>
+        <span class="title">Generate</span>
+        <span class="desc">Beats & AI</span>
       </button>
       <button class="simple-step" data-go="sequencer" role="tab">
-        <span class="title">2 · Arrange</span>
-        <span class="desc">Place parts on the grid</span>
+        <span class="icon">🎹</span>
+        <span class="title">Sequencer</span>
+        <span class="desc">Step editor</span>
       </button>
-      <button class="simple-step" data-go="effects" role="tab">
-        <span class="title">3 · Mix</span>
-        <span class="desc">Balance & add effects</span>
+      <button class="simple-step" data-go="mixer" role="tab">
+        <span class="icon">🎚️</span>
+        <span class="title">Mixer</span>
+        <span class="desc">Levels & master</span>
       </button>
-      <button class="simple-step" data-go="export" role="tab">
-        <span class="title">4 · Export</span>
-        <span class="desc">Bounce your track</span>
+      <button class="simple-step" data-go="fx" role="tab">
+        <span class="icon">🎛️</span>
+        <span class="title">Effects</span>
+        <span class="desc">FX rack</span>
+      </button>
+      <button class="simple-step" data-go="harmony" role="tab">
+        <span class="icon">🎼</span>
+        <span class="title">Harmony</span>
+        <span class="desc">Keys & chords</span>
+      </button>
+      <button class="simple-step" data-go="songbuilder" role="tab">
+        <span class="icon">🧱</span>
+        <span class="title">Song Builder</span>
+        <span class="desc">Full structures</span>
+      </button>
+      <button class="simple-step" data-go="multitrack" role="tab">
+        <span class="icon">🎙️</span>
+        <span class="title">Multitrack</span>
+        <span class="desc">DAW mode</span>
+      </button>
+      <button class="simple-step" data-go="samples" role="tab">
+        <span class="icon">📂</span>
+        <span class="title">Samples</span>
+        <span class="desc">Library & editor</span>
       </button>
     </div>
   
     <div class="simple-main">
-      <div class="simple-content" id="simpleMount"><!-- panel mounts here --></div>
-      <div class="simple-note" id="simpleNote">Tip: You can switch to Pro Mode anytime. Your work stays.</div>
+      <div class="simple-content" id="simpleMount"></div>
+      <div class="simple-note" id="simpleNote">Select a tab to get started</div>
     </div>
   </div>
 
@@ -25142,16 +25157,12 @@ function hideSplash() {
   splash.el.classList.add('hidden');
 }
 
-// === SIMPLE MODE — robust, DOM-autodetecting ===
+// === SIMPLE MODE — ALL TABS, easier navigation ===
 (() => {
   if (window.__simpleUiBooted) return; window.__simpleUiBooted = true;
 
   const qs  = (s, r=document) => r.querySelector(s);
   const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
-  const first = (sels) => {
-    for (const s of sels) { const el = qs(s); if (el) return el; }
-    return null;
-  };
 
   const store = {
     get ui(){ return localStorage.getItem('8beat.uiMode') || 'simple' },
@@ -25161,23 +25172,25 @@ function hideSplash() {
     get pro(){ return localStorage.getItem('8beat.pro') === 'true' }
   };
 
-  // Shell
   const shell = qs('#simpleShell');
   const mount = qs('#simpleMount');
   const steps = qsa('.simple-step');
   const note  = qs('#simpleNote');
 
-  // Map to REAL panels with graceful fallbacks
   const byKey = {
-    generate:  first(['#tab-generate',  '[data-section="generate"]']),
-    sequencer: first(['#tab-sequencer', '[data-section="sequencer"]']),
-    effects:   first(['#tab-fx', '#tab-mixer', '[data-section="effects"]', '[data-section="mixer"]']),
-    export:    first(['#tab-export', '#tab-multitrack', '[data-section="export"]', '[data-section="multitrack"]'])
+    generate:  qs('#tab-generate'),
+    sequencer: qs('#tab-sequencer'),
+    mixer:     qs('#tab-mixer'),
+    fx:        qs('#tab-fx'),
+    harmony:   qs('#tab-harmony'),
+    songbuilder: qs('#tab-songbuilder'),
+    multitrack: qs('#tab-multitrack'),
+    samples:   qs('#tab-samples')
   };
 
   function attachPanel(key){
     const panel = byKey[key];
-    if (!panel) { console.warn('[simple-ui] Missing panel for key:', key); return; }
+    if (!panel) { console.warn('[simple-ui] Missing panel:', key); return; }
     panel.classList.add('simple-mounted');
     mount.replaceChildren(panel);
     shell.hidden = false;
@@ -25188,10 +25201,14 @@ function hideSplash() {
     attachPanel(key);
     store.last = key;
     const txt = {
-      generate: 'Use genre + build, then Play. Regenerate for variations.',
-      sequencer:'Edit notes/regions. Start with 4–8 bars and duplicate.',
-      effects:  'Light compression + a touch of reverb; keep peaks < 0 dB.',
-      export:   store.pro ? 'Use Export/Multitrack bounce/record, then download.' : 'Export is Pro — unlock to bounce audio.'
+      generate: 'Generate beats, rhythms, and AI variations.',
+      sequencer:'Edit notes and patterns on the step grid.',
+      mixer:    'Balance levels, master bus, and AI mixing.',
+      fx:       'Add effects to individual channels.',
+      harmony:  'Set key, scale, chords, and progressions.',
+      songbuilder:'Build complete song structures with sections.',
+      multitrack:'Professional DAW for recording and arranging.',
+      samples:  'Browse kits, edit samples, generate packs.'
     };
     if (note) note.textContent = txt[key] || '';
   }
@@ -25199,91 +25216,67 @@ function hideSplash() {
   function enableSimpleUI(){
     document.body.classList.add('simple-ui');
 
-    // Hide advanced chrome (won’t error if missing)
-    ['.sidebar','.bottom-nav','.inspector'].forEach(sel =>
+    ['.sidebar-nav','.sidebar-toggle','.sidebar-backdrop','header .header-actions','.footer'].forEach(sel =>
       qsa(sel).forEach(el => el.style.display='none')
     );
 
-    // Transport proxy (prefer your functions, fallback to buttons)
-    qs('#simpPlay')?.addEventListener('click', () => {
-      if (typeof window.togglePlay === 'function') return window.togglePlay();
-      qs('#playBtn')?.click();
-    });
-    qs('#simpStop')?.addEventListener('click', () => {
-      if (typeof window.stop === 'function') return window.stop();
-      qs('#stopBtn')?.click();
-    });
+    qs('#simpPlay')?.addEventListener('click', () => qs('#playBtn')?.click());
+    qs('#simpStop')?.addEventListener('click', () => qs('#stopBtn')?.click());
 
-    // Tempo / Swing: resolve real controls (multiple possible IDs)
-    const bpmUI    = qs('#simpBpm');
-    const swingUI  = qs('#simpSwing');
-    const bpmReal  = first(['#bpmSlider', '#bpmInput']);
-    const swingReal= first(['#swingSlider', '#swingInput']);
-    const bpmVal   = first(['#bpmValue', '.bpm-value']);
-    const swingVal = first(['#swingValue', '.swing-value']);
+    const bpmUI = qs('#simpBpm'), swingUI = qs('#simpSwing');
+    const bpmReal = qs('#bpmSlider'), swingReal = qs('#swingSlider');
+    const bpmVal = qs('#bpmValue'), swingVal = qs('#swingValue');
 
-    // Preload current values (so simple UI shows correct state)
-    if (bpmReal && bpmUI)   bpmUI.value   = bpmReal.value;
+    if (bpmReal && bpmUI) bpmUI.value = bpmReal.value;
     if (swingReal && swingUI) swingUI.value = swingReal.value;
 
-    // Simple → Real
     bpmUI?.addEventListener('input', () => {
       if (bpmReal){ bpmReal.value = bpmUI.value; bpmReal.dispatchEvent(new Event('input',{bubbles:true})); }
-      (window.setBPM||window.updateBPM)?.(Number(bpmUI.value));
       if (bpmVal) bpmVal.textContent = bpmUI.value;
     });
     swingUI?.addEventListener('input', () => {
       if (swingReal){ swingReal.value = swingUI.value; swingReal.dispatchEvent(new Event('input',{bubbles:true})); }
-      (window.setSwing||window.updateSwing)?.(Number(swingUI.value)/100);
       if (swingVal) swingVal.textContent = swingUI.value + '%';
     });
 
-    // Real → Simple (if user touches full UI elsewhere)
     bpmReal?.addEventListener('input', () => { if (bpmUI) bpmUI.value = bpmReal.value; });
     swingReal?.addEventListener('input', () => { if (swingUI) swingUI.value = swingReal.value; });
 
-    // Step buttons
     steps.forEach(btn => btn.addEventListener('click', () => {
       const key = btn.dataset.go;
-      if (key === 'export' && !store.pro) {
+      const panel = byKey[key];
+      if (panel?.classList.contains('pro-locked') && !store.pro) {
         const modal = qs('#unlockModal');
         if (modal) modal.classList.remove('hidden');
-        else window.showToast?.('🔒 Export is Pro only — Unlock to bounce audio');
         return;
       }
       setStep(key);
     }));
 
-    // Back to full UI
     qs('#simpToggleMode')?.addEventListener('click', ()=> {
       store.ui = 'pro';
       location.reload();
     });
 
-    // Start where user left off (or Generate)
     setStep(store.last);
   }
 
-  // Public hooks
   window.enableSimpleUI  = () => { store.ui='simple'; enableSimpleUI(); };
   window.disableSimpleUI = () => { store.ui='pro'; location.reload(); };
 
-  // Default to SIMPLE unless URL says ?ui=pro
-  const urlUi   = new URL(location.href).searchParams.get('ui'); // 'simple'|'pro'|null
+  const urlUi = new URL(location.href).searchParams.get('ui');
   const savedUi = localStorage.getItem('8beat.uiMode');
   const wantSimple = (urlUi === 'simple') || (!urlUi && savedUi !== 'pro');
   if (!savedUi) localStorage.setItem('8beat.uiMode', wantSimple ? 'simple' : 'pro');
 
-  // Boot when panels exist (handles async DOM)
-  const panelsPresent = Object.values(byKey).some(Boolean);
+  const panelsPresent = Object.values(byKey).every(Boolean);
   if (wantSimple) {
     if (panelsPresent) enableSimpleUI();
-    else requestAnimationFrame(enableSimpleUI);
+    else setTimeout(enableSimpleUI, 100);
   }
 
-  // Keep locks tidy after Pro unlock
   window.__refreshNavForPro = () => {
-    document.querySelectorAll('.sidebar-tab.locked,.bn-btn.locked').forEach(b => b.classList.remove('locked'));
+    qsa('.sidebar-tab.locked').forEach(b => b.classList.remove('locked'));
   };
 })();
   
