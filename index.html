@@ -11937,22 +11937,26 @@ async function applyAIMixing() {
     const instData = instruments[inst];
     
     if (instAnalysis.density.activeSteps === 0) return;
-    
+
     // 1. PROFESSIONAL GAIN STAGING
     if (state.aiMixing.autoGain) {
-      // Calculate optimal gain with advanced algorithm
+      // Calculate optimal linear gain 0.1–1.0
       const targetGain = calculateProfessionalGain(inst, instAnalysis, analysis);
-      
-      // Apply with smooth ramping
-      instData.volume = Math.round(targetGain * 100);
-      if (instData.channel) {
-        instData.channel.volume.rampTo(
-          20 * Math.log10(targetGain), // Convert to dB
-          0.5
-        );
+    
+      // Convert to dB for your mixer UI
+      const targetDb = 20 * Math.log10(targetGain); // e.g. 0.5 → -6 dB
+    
+      // Store in your instrument model (dB)
+      instData.volume = targetDb;
+    
+      // Apply to Tone channel in dB
+      if (instData.channel && instData.channel.volume) {
+        instData.channel.volume.rampTo(targetDb, 0.5);
       }
+    
       adjustments++;
     }
+
     
     // 2. INTELLIGENT STEREO PLACEMENT
     if (state.aiMixing.autoPan) {
@@ -12907,9 +12911,9 @@ function setupMasterControls() {
     Tone.Destination.volume.rampTo(db, 0.1);
   }
 
-  // Initial volume (default 0 dB)
+  // Initial volume (default -6 dB for headroom)
   const initialDb =
-    typeof state.masterVolume === 'number' ? state.masterVolume : 0;
+    typeof state.masterVolume === 'number' ? state.masterVolume : -6;
   applyMasterVolume(initialDb);
 
   // Mixer Master Volume slider (horizontal, existing control)
@@ -13624,88 +13628,61 @@ function handleSequencerClick(e) {
 
 function setupMixerListeners() {
   const mixerGrid = document.getElementById('mixerGrid');
-  
+  if (!mixerGrid) return;
+
+  // --- MUTE / SOLO BUTTONS ---
   mixerGrid.addEventListener('click', e => {
     const btn = e.target.closest('.channel-btn');
     if (!btn) return;
-    
+
     const inst = btn.dataset.inst;
     const action = btn.dataset.action;
-    
+
+    if (!inst || !action || !instruments[inst]) return;
+
     if (action === 'mute') {
       instruments[inst].mute = !instruments[inst].mute;
     } else if (action === 'solo') {
       instruments[inst].solo = !instruments[inst].solo;
     }
-    
+
     renderMixer();
     renderSequencer();
   });
-  
+
+  // --- FADERS (VOLUME / PAN) ---
   mixerGrid.addEventListener('input', e => {
     if (e.target.type !== 'range') return;
-    
-    const inst = e.target.dataset.inst;
+
+    const inst  = e.target.dataset.inst;
     const param = e.target.dataset.param;
     const value = parseFloat(e.target.value);
-    
+
+    if (!inst || !param || !instruments[inst]) return;
+
     instruments[inst][param] = value;
-    
+
+    // Apply to Tone.js channel
     if (param === 'volume' && instruments[inst].channel) {
+      // volume is in dB
       instruments[inst].channel.volume.value = value;
     } else if (param === 'pan' && instruments[inst].channel) {
+      // pan is -100..100 → -1..1
       instruments[inst].channel.pan.value = value / 100;
     }
-    
+
+    // Update numeric label in mixer UI
     const parent = e.target.closest('.param-control');
-    const valEl = parent.querySelector('.param-value');
-    
+    const valEl  = parent ? parent.querySelector('.param-value') : null;
+
+    if (!valEl) return;
+
     if (param === 'volume') {
       valEl.textContent = value + 'dB';
     } else if (param === 'pan') {
       const label = value > 0 ? 'R' : value < 0 ? 'L' : 'C';
       valEl.textContent = label + Math.abs(value);
     }
-  });
-
-  // AI Mixing controls
-  const toggleAIBtn = document.getElementById('toggleAIMixingBtn');
-  const applyAIMixBtn = document.getElementById('applyAIMixBtn');
-  const aiStatus = document.getElementById('aiMixingStatus');
-  
-  if (toggleAIBtn) {
-    toggleAIBtn.addEventListener('click', () => {
-      state.aiMixing.enabled = !state.aiMixing.enabled;
-      aiStatus.textContent = state.aiMixing.enabled ? 'Disable AI' : 'Enable AI';
-      toggleAIBtn.classList.toggle('btn-success', state.aiMixing.enabled);
-      applyAIMixBtn.disabled = !state.aiMixing.enabled;
-      
-      if (state.aiMixing.enabled) {
-        showToast('✅ AI Mixing enabled', 'success');
-      }
-    });
-  }
-  
-  if (applyAIMixBtn) {
-    applyAIMixBtn.addEventListener('click', () => applyAIMixing());
-  }
-  
-  ['autoGain', 'autoPan', 'autoEQ', 'autoComp'].forEach(feature => {
-    const checkbox = document.getElementById(feature + 'Checkbox');
-    if (checkbox) {
-      checkbox.addEventListener('change', (e) => {
-        const key = feature === 'autoComp' ? 'autoCompression' : feature;
-        state.aiMixing[key] = e.target.checked;
-      });
-    }
-  });
-  
-  // Mastering presets
-  document.querySelectorAll('[data-master-preset]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const preset = btn.dataset.masterPreset;
-      applyMasteringPreset(preset);
-    });
   });
 }
 
