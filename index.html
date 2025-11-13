@@ -11733,6 +11733,89 @@ function setupTabs() {
 
 // ==================== AI MIXING & MASTERING ====================
 
+// ============================================================================
+// GENRE MIX PROFILES — Gentle EQ tilt per genre (in dB)
+// Used by applyProfessionalEQ() to shape low/mid/high balance
+// ============================================================================
+
+const GENRE_MIX_PROFILES = {
+  // Fallback / safety
+  default: {
+    name: "Balanced",
+    tilt: { low: 0, mid: 0, high: 0 }
+  },
+
+  // --- POP / ROCK ---
+  poprock: {
+    name: "Pop / Rock",
+    // Tight low end, forward mids, clear highs
+    tilt: { low: -1, mid: +1.5, high: +1 }
+  },
+
+  // --- EDM / HOUSE / TRANCE ---
+  edm: {
+    name: "EDM / House",
+    // Strong lows, scooped mids, bright highs
+    tilt: { low: +2, mid: -1, high: +1.5 }
+  },
+
+  // --- HIP-HOP / LOFI / JAM ---
+  lofi: {
+    name: "Lo-Fi / Hip-Hop",
+    // Warm low end, muted highs, vintage mid bloom
+    tilt: { low: +1.5, mid: +0.5, high: -2 }
+  },
+
+  // --- METAL / HARDCORE ---
+  metal: {
+    name: "Metal / Hardcore",
+    // Lean lows, very strong mids for guitars, slightly bright top
+    tilt: { low: -2, mid: +3, high: +1 }
+  },
+
+  // --- AMBIENT / DOWNTEMPO ---
+  ambient: {
+    name: "Ambient / Downtempo",
+    // Reduced lows, open airy highs
+    tilt: { low: -2, mid: -1, high: +3 }
+  },
+
+  // --- TRAP ---
+  trap: {
+    name: "Trap",
+    // Big sub, cleaner mids, bright hats
+    tilt: { low: +2.5, mid: -1, high: +1.5 }
+  },
+
+  // --- FUNK / DISCO ---
+  funk: {
+    name: "Funk / Disco",
+    // Tight lows, punchy mids, crisp top
+    tilt: { low: -1, mid: +2, high: +1 }
+  },
+
+  // --- JAZZ / FUSION ---
+  jazz: {
+    name: "Jazz / Fusion",
+    // Natural lows, mid-rich body, gentle highs
+    tilt: { low: 0, mid: +2, high: -0.5 }
+  },
+
+  // --- DUBSTEP / BASS MUSIC ---
+  dubstep: {
+    name: "Dubstep / Bass",
+    // Heavy bass emphasis, scooped mids, slightly bright
+    tilt: { low: +3, mid: -2, high: +1 }
+  },
+
+  // --- REGGAE / DUB ---
+  reggae: {
+    name: "Reggae / Dub",
+    // Round lows, soft mids, smooth highs
+    tilt: { low: +1.5, mid: -0.5, high: -1 }
+  }
+};
+
 function analyzeTrackFrequencies(inst) {
   const synth = synths[inst];
   if (!synth) return null;
