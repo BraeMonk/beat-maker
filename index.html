@@ -11910,19 +11910,24 @@ function analyzePattern() {
     trackActivity: {}
   };
   
-  // Count active steps per track
+  // Count active steps per track using instrument names
   tracks.forEach((track, trackIndex) => {
     let activeSteps = 0;
-    for (let step = 0; step < state.sequenceLength; step++) {
-      if (currentPattern[trackIndex]?.[step]?.active) {
-        activeSteps++;
-        analysis.totalNotes++;
-        
-        // Count by instrument type
-        const name = track.name.toLowerCase();
-        if (name.includes('kick')) analysis.kickCount++;
-        else if (name.includes('snare') || name.includes('clap')) analysis.snareCount++;
-        else if (name.includes('hat')) analysis.hihatCount++;
+    const instName = track.name; // Get the instrument name from the track
+    const pattern = patterns[instName]; // Access pattern by instrument name
+    
+    if (pattern) {
+      for (let step = 0; step < state.sequenceLength; step++) {
+        if (pattern[step]?.active) {
+          activeSteps++;
+          analysis.totalNotes++;
+          
+          // Count by instrument type
+          const name = instName.toLowerCase();
+          if (name.includes('kick')) analysis.kickCount++;
+          else if (name.includes('snare') || name.includes('clap')) analysis.snareCount++;
+          else if (name.includes('hat')) analysis.hihatCount++;
+        }
       }
     }
     analysis.trackActivity[trackIndex] = activeSteps;
