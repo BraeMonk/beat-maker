@@ -9096,7 +9096,7 @@ function createDrumSynth(inst) {
   });
 
   // Per-player gain
-  const BASE_GAIN = 0.8; // ~-2 dB
+  const BASE_GAIN = 0.6; // ~-4 dB
   const playerGain = new Tone.Gain(BASE_GAIN);
   player.connect(playerGain);
 
