@@ -10753,6 +10753,105 @@ function generateSectionMelody(section, startBar, endBar) {
           }
         }
         break;
+
+      case 'solo':
+      {
+        // --- Solo settings ---
+        const scaleSteps = buildScaleStepsForKey(state.key, state.scale);
+        // Keep last note across bars for continuity
+        if (!generateSectionMelody._lastSoloMidi) {
+          // Start on a chord tone (root or 3rd usually sounds great)
+          const chordNotes = chord || buildTriadFromDegree(0, state.key, state.scale);
+          const startName = chordNotes[Math.random() < 0.6 ? 0 : 1] || chordNotes[0];
+          generateSectionMelody._lastSoloMidi = Tone.Frequency(
+            withOct(startName.replace(/\d/, ''), leadOct)
+          ).toMidi();
+        }
+    
+        const chordMidi = (chord || []).map(n => Tone.Frequency(n).toMidi());
+    
+        // How many notes this bar?
+        const baseNotes = 3 + Math.floor(4 * density); // ~3–7 notes
+        const extra = energy > 0.6 ? Math.floor(2 * energy) : 0;
+        const notesThisBar = baseNotes + extra;
+    
+        for (let i = 0; i < notesThisBar; i++) {
+          // rhythmic placement (16th grid)
+          const t = i / notesThisBar;
+          let step = Math.floor(t * (STEPS_PER_BAR - 1));
+    
+          // add some human-ish randomness
+          step += Math.floor((Math.random() - 0.5) * 2); // -1, 0, +1
+          if (step < 0) step = 0;
+          if (step >= STEPS_PER_BAR) step = STEPS_PER_BAR - 1;
+    
+          // propose a new raw note based on last one
+          const last = generateSectionMelody._lastSoloMidi;
+          const jumpPool = energy > 0.6
+            ? [-5, -3, -2, -1, 1, 2, 3, 5, 7]
+            : [-3, -2, -1, 1, 2, 3]; // calmer at low energy
+    
+          const semiJump = jumpPool[Math.floor(Math.random() * jumpPool.length)];
+          let proposed = last + semiJump;
+    
+          // quantize into key/scale with chord weighting
+          const fixedMidi = quantizeNoteToScale(
+            proposed,
+            state.key,
+            scaleSteps,
+            chordMidi
+          );
+    
+          const finalNote = Tone.Frequency(fixedMidi, 'midi').toNote();
+          generateSectionMelody._lastSoloMidi = fixedMidi;
+    
+          // velocity: accent start of bar + occasional accents
+          let vel = 0.55 + 0.35 * energy;
+          if (step === 0 || i === 0) vel += 0.1;
+          if (Math.random() < 0.15) vel += 0.1;
+          if (vel > 1) vel = 1;
+    
+          // duration: 16ths + some 8ths for breathing
+          const dur = Math.random() < 0.3 ? '8n' : '16n';
+    
+          sbSetStep('lead', offset + step, {
+            note: finalNote,
+            velocity: vel,
+            duration: dur,
+            probability: 85 + Math.floor(10 * energy)
+          });
+        }
+    
+        // occasional "lick flurry" at high energy: add a quick 3-note run at end of bar
+        if (energy > 0.7 && Math.random() < 0.5) {
+          const endStart = STEPS_PER_BAR - 4;
+          const chordMidi = (chord || []).map(n => Tone.Frequency(n).toMidi());
+          let last = generateSectionMelody._lastSoloMidi;
+    
+          for (let j = 0; j < 3; j++) {
+            const semiJump = [1, 2, -1, -2][Math.floor(Math.random() * 4)];
+            const proposed = last + semiJump;
+            const fixedMidi = quantizeNoteToScale(
+              proposed,
+              state.key,
+              scaleSteps,
+              chordMidi
+            );
+            const finalNote = Tone.Frequency(fixedMidi, 'midi').toNote();
+            last = fixedMidi;
+            generateSectionMelody._lastSoloMidi = fixedMidi;
+    
+            sbSetStep('lead', offset + endStart + j, {
+              note: finalNote,
+              velocity: 0.65 + 0.3 * energy,
+              duration: '16n',
+              probability: 95
+            });
+          }
+        }
+      }
+      break;
+
     }
   }
 }
@@ -10921,29 +11020,145 @@ function sbChooseGlobalHarmony_GenreAware() {
   return sbGlobalHarmony;
 }
 
-// Forces MIDI note into the current scale
-function quantizeNoteToScale(note, key, scaleArray) {
-  let root = Tone.Frequency(`${key}4`).toMidi();
-  let degree = (note - root) % 12;
-  if (degree < 0) degree += 12;
+// note: MIDI number
+// key: "C", "D#", etc
+// scaleArray: array of pitch classes 0–11 (relative to key)
+// chordMidi: OPTIONAL array of MIDI notes for current chord (for solo smarts)
+function quantizeNoteToScale(note, key, scaleArray, chordMidi = []) {
+  try {
+    const root = Tone.Frequency(`${key || 'C'}4`).toMidi();
 
-  // Find nearest scale step
-  let best = scaleArray[0];
-  let diff = Math.abs(degree - best);
+    // Build candidate notes near the original
+    const baseOct = Math.floor((note - root) / 12);
+    const candidates = [];
 
-  for (let s of scaleArray) {
-    let d = Math.abs(degree - s);
-    if (d < diff) { diff = d; best = s; }
+    scaleArray.forEach(step => {
+      // same octave
+      candidates.push(root + step + 12 * baseOct);
+      // nearby octaves for nicer phrasing
+      candidates.push(root + step + 12 * (baseOct - 1));
+      candidates.push(root + step + 12 * (baseOct + 1));
+    });
+
+    let best = note;
+    let bestScore = Infinity;
+
+    // Precompute chord pitch classes if provided
+    const chordPcs = (chordMidi || []).map(cm => ((cm - root) % 12 + 12) % 12);
+
+    candidates.forEach(c => {
+      let score = Math.abs(c - note); // base: distance
+
+      const cPc = ((c - root) % 12 + 12) % 12;
+
+      // ---- SOLO BRAIN STARTS HERE ----
+
+      // A) Strongly favor chord tones (1/3/5/7 etc)
+      if (chordPcs.length) {
+        chordPcs.forEach(cp => {
+          const diffPc = Math.abs(cPc - cp);
+          if (diffPc === 0) score *= 0.4;      // dead-on chord tone = big win
+          else if (diffPc === 1) score *= 0.7; // approach tone = still tasty
+        });
+      }
+
+      // B) Prefer small, singable steps
+      if (Math.abs(c - note) <= 2) score *= 0.8;  // stepwise motion feels melodic
+
+      // C) Penalize huge jumps unless they’re doing something nice
+      if (Math.abs(c - note) >= 7) score *= 1.3;
+
+      // D) Let "blue" pitches exist but not dominate (b3, b5, b7)
+      const blues = [3, 6, 10]; // relative to root
+      if (blues.includes(cPc)) {
+        score *= 1.1; // allowed spice, slight penalty so they don’t take over
+      }
+
+      // E) Leading tone (maj7) resolving to root feels good
+      // if original note is 11 semitones above root, bias candidate root
+      const notePc = ((note - root) % 12 + 12) % 12;
+      if (notePc === 11 && cPc === 0) {
+        score *= 0.3;
+      }
+
+      // ---- SOLO BRAIN ENDS ----
+
+      if (score < bestScore) {
+        bestScore = score;
+        best = c;
+      }
+    });
+
+    return best;
+  } catch (err) {
+    console.warn('quantizeNoteToScale (solo) failed, returning original', err);
+    return note;
+  }
+}
+
+// Snap a note name (e.g. "C#4") to the nearest note
+// in the current key/scale using getScaleNotes(...)
+function snapLeadNote(noteName) {
+  try {
+    // If anything critical is missing, bail out safely
+    if (typeof Tone === 'undefined' || !Tone.Frequency) return noteName;
+    if (typeof getScaleNotes !== 'function') return noteName;
+    if (!state || !state.key || !state.scale) return noteName;
+
+    const targetMidi = Tone.Frequency(noteName).toMidi();
+
+    // Get scale notes for the current key/scale
+    const scaleNames = getScaleNotes(state.key, state.scale);
+    if (!Array.isArray(scaleNames) || !scaleNames.length) return noteName;
+
+    let bestName = noteName;
+    let bestDiff = Infinity;
+
+    scaleNames.forEach(baseName => {
+      // Ensure there is an octave; if not, reuse the octave from noteName
+      let candidate = baseName;
+      if (!/\d/.test(candidate)) {
+        const oct = (noteName.match(/\d+/) || ['4'])[0];
+        candidate = candidate + oct;
+      }
+
+      // Convert to MIDI and consider nearby octaves
+      const m = Tone.Frequency(candidate).toMidi();
+      [m - 12, m, m + 12].forEach(mm => {
+        const diff = Math.abs(mm - targetMidi);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestName = Tone.Frequency(mm, 'midi').toNote();
+        }
+      });
+    });
+
+    return bestName;
+  } catch (err) {
+    console.warn('snapLeadNote failed, using original note', err);
+    return noteName;
+  }
+}
+
+function buildScaleStepsForKey(key, scaleName) {
+  if (typeof getScaleNotes !== 'function' || typeof Tone === 'undefined') {
+    return [0, 2, 4, 5, 7, 9, 11]; // fallback major
   }
 
-  return root + best + 12 * Math.floor((note - root) / 12);
+  const names = getScaleNotes(key, scaleName); // e.g. ["C4","D4","E4"...]
+  const rootMidi = Tone.Frequency(`${key}4`).toMidi();
+
+  const steps = names.map(n => {
+    const m = Tone.Frequency(n).toMidi();
+    let pc = (m - rootMidi) % 12;
+    if (pc < 0) pc += 12;
+    return pc;
+  });
+
+  // unique + sorted
+  return [...new Set(steps)].sort((a, b) => a - b);
 }
 
-function snapLeadNote(noteName) {
-  const midi     = Tone.Frequency(noteName).toMidi();
-  const fixed    = quantizeNoteToScale(midi, state.key, SCALES[state.scale]);
-  return Tone.Frequency(fixed, "midi").toNote();
-}
 // Pick a progression for a specific section type
 function sbPickProgressionForSection(section, profile) {
   const id = (section.id || '').toLowerCase();
@@ -11135,94 +11350,8 @@ function generateFullSongFromStructure_COHERENT() {
 // ==================== SONG TEMPLATE → GENRE MAP ====================
 
 function generateFullSongFromStructure() {
-  if (songBuilderState.isActive) {
-    // guard against double-click spamming
-    return;
-  }
-
-  songBuilderState.isActive = true;
-  setSongBuilderBusy(true, 'Building song…');
-
-  // 1) Pause / stop audio *first* so heavy CPU work can't glitch playback
-  const wasPlaying = Tone.Transport.state === 'started';
-
-  if (wasPlaying) {
-    // pause instead of hard stop; we'll resume at the same position
-    Tone.Transport.pause();
-  }
-
-  // Clear any previous scheduled events / main loop
-  Tone.Transport.cancel(0);
-  if (window.mainLoop) {
-    try {
-      window.mainLoop.stop();
-      window.mainLoop.dispose();
-    } catch (e) {
-      console.warn('Error disposing mainLoop', e);
-    }
-    window.mainLoop = null;
-  }
-
-  // 2) Harmony prep
-  state.progressionNotes = null;
-  ensureHarmonyGuardrails();
-
-  // 3) Decide which sections to run
-  const runSections = typeof randomizeSongBuilderSectionsForRun === 'function'
-    ? randomizeSongBuilderSectionsForRun()
-    : songBuilderState.sections.map(s => ({ ...s }));
-
-  const totalBars = Math.max(
-    2,
-    runSections.reduce((sum, s) => sum + (s.bars || 0), 0)
-  );
-  const totalSteps = totalBars * STEPS_PER_BAR;
-
-  state.sequenceLength = Math.min(CONFIG.MAX_SEQUENCE_LENGTH, totalSteps);
-  ensurePatternLength(state.sequenceLength);
-  wipeAllPatterns();
-
-  // 4) Heavy pattern generation (now with audio safely paused)
-  let currentBar = 0;
-  for (let idx = 0; idx < runSections.length; idx++) {
-    const section = runSections[idx];
-    const startBar = currentBar;
-    const endBar   = currentBar + (section.bars || 0);
-
-    if (endBar <= startBar) continue;
-
-    generateSectionDrums(section, startBar, endBar);
-    generateSectionBass(section, startBar, endBar);
-    generateSectionChords(section, startBar, endBar);
-    generateSectionMelody(section, startBar, endBar);
-
-    const nextSection = runSections[idx + 1];
-    if (nextSection) {
-      applyTransitionEffects(section, nextSection, endBar);
-    }
-
-    currentBar = endBar;
-  }
-
-  // 5) Rebuild audio + UI once, after patterns are ready
-  //    Small timeout just lets the browser breathe before initAudio
-  setTimeout(() => {
-    try {
-      sequencerInitialized = false;
-      initAudioLight();
-      renderSequencer();
-
-      if (wasPlaying) {
-        // give Tone a tiny look-ahead buffer
-        Tone.Transport.start('+0.05');
-      }
-
-      showToast('🎼 Structured song generated', 'success');
-    } finally {
-      songBuilderState.isActive = false;
-      endSongBuilderBusy();
-    }
-  }, 0);
+  // delegate to the coherent generator so the existing button still works
+  return generateFullSongFromStructure_COHERENT();
 }
 
 // ==================== SONG BUILDER UI WIRING ====================
