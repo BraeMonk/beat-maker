@@ -11913,7 +11913,7 @@ function analyzePattern() {
   // Count active steps per track
   tracks.forEach((track, trackIndex) => {
     let activeSteps = 0;
-    for (let step = 0; step < STEPS; step++) {
+    for (let step = 0; step < state.sequenceLength; step++) {
       if (currentPattern[trackIndex]?.[step]?.active) {
         activeSteps++;
         analysis.totalNotes++;
@@ -11937,8 +11937,9 @@ function applyMixingRules(analysis) {
 
   const totalSteps = state.sequenceLength || 16;
 
-  tracks.forEach((track, trackIndex) => {
-    const name = track.name.toLowerCase();
+  Object.keys(instruments).forEach((instName, trackIndex) => {
+    const track = instruments[instName]; // <-- REAL instrument object
+    const name = instName.toLowerCase();
     const activity = analysis.trackActivity[trackIndex] || 0;
 
     // === BASIC MIX (your original logic) ===
