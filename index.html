@@ -9095,7 +9095,7 @@ function createDrumSynth(inst) {
   });
 
   // Per-player gain
-  const BASE_GAIN = 0.6; // ~-4 dB
+  const BASE_GAIN = 0.8; // ~-2 dB
   const playerGain = new Tone.Gain(BASE_GAIN);
   player.connect(playerGain);
 
@@ -10677,15 +10677,15 @@ function generateSectionMelody(section, startBar, endBar) {
     const chord = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
     const pcs = chord.map(n => n.replace(/\d/, ''));
     
-    // Add scale tones for passing notes
     const scaleNotes = getScaleNotes(state.key, state.scale);
-    const allNotes = [...new Set([...pcs, ...scaleNotes])];
+    const allNotes = [...new Set([
+      ...pcs,
+      ...scaleNotes.map(n => n.replace(/\d/, ''))
+    ])];
     
     switch(melodyStyle) {
       case 'motif':
-        // Repeating melodic motif
         if (motif.length === 0 || bar % 4 === 0) {
-          // Create new motif every 4 bars
           const motifLength = Math.floor(3 + Math.random() * 3);
           motif = [];
           for (let i = 0; i < motifLength; i++) {
@@ -10696,11 +10696,10 @@ function generateSectionMelody(section, startBar, endBar) {
             });
           }
         }
-        // Apply motif
         motif.forEach(m => {
           if (m.step < STEPS_PER_BAR) {
             sbSetStep('lead', offset + m.step, {
-              note: withOct(m.note, leadOct),
+              note: snapLeadNote(withOct(m.note, leadOct)),
               velocity: m.velocity * energy,
               duration: '8n',
               probability: 85
@@ -10710,13 +10709,15 @@ function generateSectionMelody(section, startBar, endBar) {
         break;
         
       case 'scale-run':
-        // Ascending/descending scale runs
         const runLength = Math.floor(4 + Math.random() * 4);
         const ascending = Math.random() < 0.5;
         for (let i = 0; i < runLength; i++) {
-          const noteIdx = ascending ? i % allNotes.length : (allNotes.length - 1 - i) % allNotes.length;
+          const noteIdx = ascending 
+            ? i % allNotes.length 
+            : (allNotes.length - 1 - i) % allNotes.length;
+          const rawNote = withOct(allNotes[noteIdx], leadOct);
           sbSetStep('lead', offset + i * 2, {
-            note: withOct(allNotes[noteIdx], leadOct),
+            note: snapLeadNote(rawNote),
             velocity: 0.6 + (i / runLength) * 0.3,
             duration: '16n'
           });
@@ -10724,12 +10725,12 @@ function generateSectionMelody(section, startBar, endBar) {
         break;
         
       case 'sparse':
-        // Minimal, space-filled melody
         const sparseSteps = [4, 12];
         sparseSteps.forEach(step => {
           if (Math.random() < 0.6 * density) {
+            const rawNote = withOct(pcs[Math.floor(Math.random() * pcs.length)], leadOct);
             sbSetStep('lead', offset + step, {
-              note: withOct(pcs[Math.floor(Math.random() * pcs.length)], leadOct),
+              note: snapLeadNote(rawNote),
               velocity: 0.7 + 0.2 * energy,
               duration: '4n',
               probability: 90
@@ -10739,12 +10740,12 @@ function generateSectionMelody(section, startBar, endBar) {
         break;
         
       case 'dense':
-        // Busy, note-heavy melody
         for (let step = 0; step < STEPS_PER_BAR; step += 2) {
           if (Math.random() < density) {
-            const note = allNotes[Math.floor(Math.random() * allNotes.length)];
+            const basePc = allNotes[Math.floor(Math.random() * allNotes.length)];
+            const rawNote = withOct(basePc, leadOct);
             sbSetStep('lead', offset + step, {
-              note: withOct(note, leadOct),
+              note: snapLeadNote(rawNote),
               velocity: 0.6 + 0.3 * energy,
               duration: Math.random() < 0.3 ? '16n' : '8n',
               probability: 75 + Math.floor(15 * energy)
@@ -10920,6 +10921,29 @@ function sbChooseGlobalHarmony_GenreAware() {
   return sbGlobalHarmony;
 }
 
+// Forces MIDI note into the current scale
+function quantizeNoteToScale(note, key, scaleArray) {
+  let root = Tone.Frequency(`${key}4`).toMidi();
+  let degree = (note - root) % 12;
+  if (degree < 0) degree += 12;
+
+  // Find nearest scale step
+  let best = scaleArray[0];
+  let diff = Math.abs(degree - best);
+
+  for (let s of scaleArray) {
+    let d = Math.abs(degree - s);
+    if (d < diff) { diff = d; best = s; }
+  }
+
+  return root + best + 12 * Math.floor((note - root) / 12);
+}
+
+function snapLeadNote(noteName) {
+  const midi     = Tone.Frequency(noteName).toMidi();
+  const fixed    = quantizeNoteToScale(midi, state.key, SCALES[state.scale]);
+  return Tone.Frequency(fixed, "midi").toNote();
+}
 // Pick a progression for a specific section type
 function sbPickProgressionForSection(section, profile) {
   const id = (section.id || '').toLowerCase();
