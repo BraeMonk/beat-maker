@@ -8352,7 +8352,7 @@ const state = {
   countInBars: 1,
   // AI Mixing
   aiMixing: {
-    enabled: false,
+    enabled: true,
     autoGain: true,
     autoPan: true,
     autoEQ: true,
@@ -14628,29 +14628,34 @@ function generateAIVariation() {
   
 function analyzePattern() {
   const analysis = {
-    density: {},
-    complexity: 0,
-    activeSteps: 0,
-    totalSteps: state.sequenceLength,
-    instruments: {}
+    kickCount: 0,
+    snareCount: 0,
+    hihatCount: 0,
+    totalNotes: 0,
+    trackActivity: {}
   };
   
-  Object.keys(instruments).forEach(inst => {
-    const steps = patterns[inst];
-    const active = steps.filter(s => s.active).length;
-    
-    analysis.instruments[inst] = {
-      density: active / state.sequenceLength,
-      avgVelocity: active > 0 
-        ? steps.filter(s => s.active).reduce((sum, s) => sum + s.velocity, 0) / active
-        : 0,
-      pattern: steps.map(s => s.active ? 1 : 0)
-    };
-    
-    analysis.activeSteps += active;
-  });
+  const instNames = Object.keys(instruments);
   
-  analysis.complexity = analysis.activeSteps / (state.sequenceLength * Object.keys(instruments).length);
+  instNames.forEach((instName, index) => {
+    let activeSteps = 0;
+    const pattern = patterns[instName];
+    
+    if (pattern) {
+      for (let step = 0; step < state.sequenceLength; step++) {
+        if (pattern[step]?.active) {
+          activeSteps++;
+          analysis.totalNotes++;
+          
+          const name = instName.toLowerCase();
+          if (name.includes('kick')) analysis.kickCount++;
+          else if (name.includes('snare') || name.includes('clap')) analysis.snareCount++;
+          else if (name.includes('hat')) analysis.hihatCount++;
+        }
+      }
+    }
+    analysis.trackActivity[index] = activeSteps;
+  });
   
   return analysis;
 }
