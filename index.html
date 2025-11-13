@@ -10756,44 +10756,105 @@ function generateSectionMelody(section, startBar, endBar) {
 
       case 'solo':
       {
-        // --- Solo settings ---
         const scaleSteps = buildScaleStepsForKey(state.key, state.scale);
+
         // Keep last note across bars for continuity
         if (!generateSectionMelody._lastSoloMidi) {
-          // Start on a chord tone (root or 3rd usually sounds great)
           const chordNotes = chord || buildTriadFromDegree(0, state.key, state.scale);
           const startName = chordNotes[Math.random() < 0.6 ? 0 : 1] || chordNotes[0];
           generateSectionMelody._lastSoloMidi = Tone.Frequency(
             withOct(startName.replace(/\d/, ''), leadOct)
           ).toMidi();
         }
-    
+
         const chordMidi = (chord || []).map(n => Tone.Frequency(n).toMidi());
-    
+
+        // --- RHYTHM AWARENESS (but not rigid) -----------------
+
+        // Base grids (16 steps/bar)
+        const strongBeats = [0, 4, 8, 12];      // quarter notes
+        const upBeats     = [2, 6, 10, 14];     // 8th offbeats
+        const fillSlots   = [1,3,5,7,9,11,13,15];
+
+        // Build a weighted rhythm pool based on energy & density
+        const rhythmPool = [];
+
+        const pushSlots = (slots, baseWeight) => {
+          slots.forEach(step => {
+            rhythmPool.push({ step, weight: baseWeight });
+          });
+        };
+
+        // Strong beats: always present, heavier when energy is low
+        pushSlots(strongBeats, energy > 0.6 ? 1.0 : 1.4);
+
+        // Upbeats: more important at higher energy
+        pushSlots(upBeats, 1.0 + energy * 0.8);
+
+        // Fill slots: density and energy decide how much they show up
+        if (density > 0.4) {
+          pushSlots(fillSlots, 0.6 + density * 0.8);
+        }
+
+        // OPTIONAL: light drum awareness – avoid stomping exactly on snare too often
+        const barStart = startBar * STEPS_PER_BAR;
+        const snaresThisBar = [];
+        for (let s = 0; s < STEPS_PER_BAR; s++) {
+          if (patterns.snare?.[barStart + s]?.active) snaresThisBar.push(s);
+        }
+        if (snaresThisBar.length) {
+          rhythmPool.forEach(slot => {
+            if (snaresThisBar.includes(slot.step)) {
+              // slightly downweight exact snare hits
+              slot.weight *= 0.7;
+            }
+            // slightly upweight "pickup" notes right before snare
+            if (snaresThisBar.includes(slot.step + 1)) {
+              slot.weight *= 1.2;
+            }
+          });
+        }
+
+        // Small helper: weighted pick that still feels random
+        function pickRhythmStep(used) {
+          const available = rhythmPool.filter(r => !used.has(r.step));
+          if (!available.length) return null;
+
+          let total = 0;
+          available.forEach(r => total += r.weight);
+          let roll = Math.random() * total;
+
+          for (let r of available) {
+            if (roll < r.weight) return r.step;
+            roll -= r.weight;
+          }
+          return available[available.length - 1].step;
+        }
+
+        // -----------------------------------------------------
+
         // How many notes this bar?
-        const baseNotes = 3 + Math.floor(4 * density); // ~3–7 notes
+        const baseNotes = 3 + Math.floor(4 * density); // ~3–7
         const extra = energy > 0.6 ? Math.floor(2 * energy) : 0;
         const notesThisBar = baseNotes + extra;
-    
+
+        const usedSteps = new Set();
+
         for (let i = 0; i < notesThisBar; i++) {
-          // rhythmic placement (16th grid)
-          const t = i / notesThisBar;
-          let step = Math.floor(t * (STEPS_PER_BAR - 1));
-    
-          // add some human-ish randomness
-          step += Math.floor((Math.random() - 0.5) * 2); // -1, 0, +1
-          if (step < 0) step = 0;
-          if (step >= STEPS_PER_BAR) step = STEPS_PER_BAR - 1;
-    
+          // Pick a rhythm slot instead of linear spacing
+          let step = pickRhythmStep(usedSteps);
+          if (step == null) break;
+          usedSteps.add(step);
+
           // propose a new raw note based on last one
           const last = generateSectionMelody._lastSoloMidi;
           const jumpPool = energy > 0.6
             ? [-5, -3, -2, -1, 1, 2, 3, 5, 7]
-            : [-3, -2, -1, 1, 2, 3]; // calmer at low energy
-    
+            : [-3, -2, -1, 1, 2, 3];
+
           const semiJump = jumpPool[Math.floor(Math.random() * jumpPool.length)];
           let proposed = last + semiJump;
-    
+
           // quantize into key/scale with chord weighting
           const fixedMidi = quantizeNoteToScale(
             proposed,
@@ -10801,19 +10862,19 @@ function generateSectionMelody(section, startBar, endBar) {
             scaleSteps,
             chordMidi
           );
-    
+
           const finalNote = Tone.Frequency(fixedMidi, 'midi').toNote();
           generateSectionMelody._lastSoloMidi = fixedMidi;
-    
+
           // velocity: accent start of bar + occasional accents
           let vel = 0.55 + 0.35 * energy;
           if (step === 0 || i === 0) vel += 0.1;
           if (Math.random() < 0.15) vel += 0.1;
           if (vel > 1) vel = 1;
-    
+
           // duration: 16ths + some 8ths for breathing
           const dur = Math.random() < 0.3 ? '8n' : '16n';
-    
+
           sbSetStep('lead', offset + step, {
             note: finalNote,
             velocity: vel,
@@ -10821,13 +10882,12 @@ function generateSectionMelody(section, startBar, endBar) {
             probability: 85 + Math.floor(10 * energy)
           });
         }
-    
-        // occasional "lick flurry" at high energy: add a quick 3-note run at end of bar
+
+        // occasional "lick flurry" at high energy: quick 3-note run at end of bar
         if (energy > 0.7 && Math.random() < 0.5) {
           const endStart = STEPS_PER_BAR - 4;
-          const chordMidi = (chord || []).map(n => Tone.Frequency(n).toMidi());
           let last = generateSectionMelody._lastSoloMidi;
-    
+
           for (let j = 0; j < 3; j++) {
             const semiJump = [1, 2, -1, -2][Math.floor(Math.random() * 4)];
             const proposed = last + semiJump;
@@ -10840,7 +10900,7 @@ function generateSectionMelody(section, startBar, endBar) {
             const finalNote = Tone.Frequency(fixedMidi, 'midi').toNote();
             last = fixedMidi;
             generateSectionMelody._lastSoloMidi = fixedMidi;
-    
+
             sbSetStep('lead', offset + endStart + j, {
               note: finalNote,
               velocity: 0.65 + 0.3 * energy,
@@ -10851,7 +10911,6 @@ function generateSectionMelody(section, startBar, endBar) {
         }
       }
       break;
-
     }
   }
 }
