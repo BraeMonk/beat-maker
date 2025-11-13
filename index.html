@@ -12293,9 +12293,9 @@ function applyMixingRules(analysis) {
       synth.volume.rampTo(targetVolume, 0.1);
     }
 
-    const panner = panners[instId];
-    if (panner && panner.pan) {
-      panner.pan.rampTo(targetPan / 100, 0.1); // Convert to -0.5 to 0.5 range
+    const pan = pans[instId];
+    if (pan && pan.pan) {
+      pan.pan.rampTo(targetPan / 100, 0.1); // Convert to -0.5 to 0.5 range
     }
   });
 
@@ -20961,7 +20961,6 @@ async function bounceAllTracks() {
     showToast(`❌ Bounce failed: ${err.message}`, 'error');
   }
 }
-
   
 // Add this NEW function
 async function validateAllArmedTracks() {
@@ -27182,9 +27181,9 @@ async function restoreSessionIfAny(){
             synth.volume.value = volumeDb;
           }
           
-          const panner = panners[tracks[idx].name];
-          if (panner) {
-            panner.pan.value = tracks[idx].pan;
+          const pan = pans[tracks[idx].name];
+          if (pan) {
+            pan.pan.value = tracks[idx].pan;
           }
         }
       });
