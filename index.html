@@ -11754,6 +11754,278 @@ function analyzeTrackFrequencies(inst) {
   return profiles[inst] || profiles.keys;
 }
 
+// ============================================================================
+// GENRE-AWARE MIX PROFILES (aligned to your REAL instruments)
+// ============================================================================
+const GENRE_MIX_PROFILES = {
+  default: {
+    name: 'Balanced',
+    gain: {
+      kick: 1.0, snare: 1.0, hihat: 1.0, tom: 1.0,
+      clap: 1.0, rimshot: 1.0, crash: 1.0, ride: 1.0,
+      bass: 1.0, lead: 1.0, synth: 1.0, pad: 1.0,
+      perc: 1.0, fx: 1.0, riser: 1.0, ambience: 1.0,
+      _default: 1.0
+    },
+    tilt: { low: 0, mid: 0, high: 0 }
+  },
+
+  // ==========================================================================
+  // LO-FI
+  // ==========================================================================
+  lofi: {
+    name: 'Lo-Fi / Chill',
+    gain: {
+      kick: 0.9, bass: 0.95, snare: 0.9,
+      hihat: 0.8, perc: 0.8, clap: 0.85,
+      tom: 0.8, rimshot: 0.85, ride: 0.75, crash: 0.75,
+
+      lead: 0.95, synth: 1.0, pad: 1.15,
+      fx: 1.0, riser: 0.8, ambience: 1.2,
+
+      _default: 0.95
+    },
+    tilt: { low: +0.5, mid: +1.0, high: -1.5 }
+  },
+
+  // ==========================================================================
+  // HIP-HOP
+  // ==========================================================================
+  hiphop: {
+    name: 'Hip-Hop',
+    gain: {
+      kick: 1.15, bass: 1.1,
+      snare: 1.05, clap: 1.0, rimshot: 1.1,
+
+      hihat: 0.95, perc: 0.9, tom: 0.95,
+      crash: 0.8, ride: 0.85,
+
+      lead: 1.05, synth: 1.0, pad: 0.9,
+      fx: 1.0, riser: 1.0, ambience: 0.9,
+
+      _default: 1.0
+    },
+    tilt: { low: +1.0, mid: 0, high: +0.5 }
+  },
+
+  // ==========================================================================
+  // TRAP (808 style)
+  // ==========================================================================
+  trap: {
+    name: 'Trap / 808',
+    gain: {
+      kick: 1.1, bass: 1.25, snare: 1.0,
+      hihat: 1.05, clap: 1.0, rimshot: 1.05,
+      tom: 1.0, perc: 1.0,
+
+      crash: 0.9, ride: 0.9,
+
+      lead: 1.05, synth: 1.0, pad: 0.9,
+      fx: 1.1, riser: 1.2, ambience: 0.85,
+
+      _default: 1.0
+    },
+    tilt: { low: +1.2, mid: -0.2, high: +0.8 }
+  },
+
+  // ==========================================================================
+  // R&B
+  // ==========================================================================
+  rnb: {
+    name: 'R&B / Soul',
+    gain: {
+      kick: 1.0, bass: 1.05, snare: 0.95,
+      hihat: 0.9, clap: 0.95, perc: 0.95,
+      tom: 0.95, rimshot: 0.9,
+
+      crash: 0.85, ride: 0.9,
+
+      lead: 1.15, synth: 1.0, pad: 1.05,
+      fx: 0.9, riser: 0.9, ambience: 1.0,
+
+      _default: 1.0
+    },
+    tilt: { low: +0.5, mid: +0.6, high: +0.3 }
+  },
+
+  // ==========================================================================
+  // POP ROCK
+  // ==========================================================================
+  poprock: {
+    name: 'Pop Rock',
+    gain: {
+      kick: 1.05, snare: 1.1, bass: 1.0,
+      hihat: 1.0, clap: 1.0, rimshot: 1.1,
+      perc: 1.0, tom: 1.1,
+
+      crash: 1.0, ride: 1.0,
+
+      lead: 1.1, synth: 1.0, pad: 1.0,
+      fx: 0.95, riser: 1.0, ambience: 1.0,
+
+      _default: 1.0
+    },
+    tilt: { low: +0.4, mid: +1.0, high: +0.4 }
+  },
+
+  // ==========================================================================
+  // FUNK
+  // ==========================================================================
+  funk: {
+    name: 'Funk / Groove',
+    gain: {
+      kick: 1.05, bass: 1.15, snare: 1.0,
+      hihat: 1.0, clap: 1.1, perc: 1.1,
+
+      tom: 1.0, rimshot: 1.05,
+      crash: 0.9, ride: 1.1,
+
+      lead: 1.0, synth: 1.05, pad: 0.95,
+      fx: 1.0, riser: 0.9, ambience: 1.0,
+
+      _default: 1.0
+    },
+    tilt: { low: +0.8, mid: +0.8, high: +0.2 }
+  },
+
+  // ==========================================================================
+  // JAZZ
+  // ==========================================================================
+  jazz: {
+    name: 'Jazz / Soulful',
+    gain: {
+      kick: 0.9, bass: 1.05, snare: 0.95,
+      hihat: 1.05, clap: 0.9, perc: 1.0,
+
+      tom: 1.05, rimshot: 0.95,
+      crash: 0.85, ride: 1.15,
+
+      lead: 1.1, synth: 1.05, pad: 1.0,
+      fx: 1.0, riser: 0.9, ambience: 1.05,
+
+      _default: 1.0
+    },
+    tilt: { low: +0.3, mid: +1.0, high: +0.4 }
+  },
+
+  // ==========================================================================
+  // AMBIENT
+  // ==========================================================================
+  ambient: {
+    name: 'Ambient',
+    gain: {
+      kick: 0.6, snare: 0.6, bass: 0.8,
+      hihat: 0.7, clap: 0.6, perc: 0.75,
+
+      tom: 0.7, rimshot: 0.6,
+      crash: 0.7, ride: 0.7,
+
+      lead: 0.9, synth: 1.15, pad: 1.25,
+      fx: 1.1, riser: 1.1, ambience: 1.4,
+
+      _default: 1.0
+    },
+    tilt: { low: 0, mid: -0.5, high: +1.2 }
+  },
+
+  // ==========================================================================
+  // REGGAE
+  // ==========================================================================
+  reggae: {
+    name: 'Reggae / Dub',
+    gain: {
+      kick: 0.9, bass: 1.2, snare: 0.9,
+      hihat: 0.85, clap: 0.9, perc: 1.0,
+
+      tom: 0.9, rimshot: 0.9,
+      crash: 0.8, ride: 0.85,
+
+      lead: 0.95, synth: 1.0, pad: 1.05,
+      fx: 1.0, riser: 1.0, ambience: 1.1,
+
+      _default: 1.0
+    },
+    tilt: { low: +1.0, mid: +0.3, high: -0.3 }
+  },
+
+  // ==========================================================================
+  // METAL
+  // ==========================================================================
+  metal: {
+    name: 'Metal / Hardcore',
+    gain: {
+      kick: 1.15, bass: 1.05, snare: 1.1,
+      hihat: 1.0, clap: 0.95, perc: 1.05,
+
+      tom: 1.2, rimshot: 1.1,
+      crash: 1.15, ride: 1.1,
+
+      lead: 1.05, synth: 0.9, pad: 0.9,
+      fx: 1.0, riser: 1.1, ambience: 0.95,
+
+      _default: 1.0
+    },
+    tilt: { low: +0.8, mid: +1.3, high: +0.6 }
+  },
+
+  // ==========================================================================
+  // EDM / DUBSTEP
+  // ==========================================================================
+  edm: {
+    name: 'EDM / House',
+    gain: {
+      kick: 1.2, bass: 1.05, snare: 1.0,
+      hihat: 1.05, clap: 1.05, perc: 1.0,
+
+      tom: 1.0, rimshot: 1.0,
+      crash: 1.1, ride: 1.1,
+
+      lead: 1.15, synth: 1.1, pad: 1.0,
+      fx: 1.1, riser: 1.2, ambience: 1.0,
+
+      _default: 1.0
+    },
+    tilt: { low: +1.0, mid: +0.2, high: +0.8 }
+  },
+
+  dubstep: {
+    name: 'Dubstep',
+    gain: {
+      kick: 1.1, bass: 1.25, snare: 1.05,
+      hihat: 1.0, clap: 1.0, perc: 1.0,
+
+      tom: 1.0, rimshot: 1.05,
+      crash: 1.1, ride: 1.05,
+
+      lead: 1.05, synth: 1.1, pad: 0.9,
+      fx: 1.15, riser: 1.3, ambience: 0.9,
+
+      _default: 1.0
+    },
+    tilt: { low: +1.4, mid: +0.4, high: +0.9 }
+  },
+
+  // ==========================================================================
+  // DAZECORE (YOUR GENRE)
+  // ==========================================================================
+  dazecore: {
+    name: 'Dazecore / Glitch',
+    gain: {
+      kick: 1.1, bass: 1.1, snare: 1.05,
+      hihat: 1.0, clap: 1.0, perc: 1.05,
+      tom: 1.0, rimshot: 1.0,
+
+      crash: 1.05, ride: 1.0,
+
+      lead: 1.15, synth: 1.1, pad: 0.95,
+      fx: 1.2, riser: 1.3, ambience: 1.05,
+
+      _default: 1.0
+    },
+    tilt: { low: +0.7, mid: +0.5, high: +1.0 }
+  }
+};
+
 function calculateOptimalGain(inst) {
   const instData = instruments[inst];
   const type = instData.type;
@@ -11937,62 +12209,66 @@ function analyzePattern() {
 }
 
 function applyMixingRules(analysis) {
-  // Prevent crashes
+  // Safety
   if (!analysis || !analysis.trackActivity) return;
+  if (!Array.isArray(tracks) || tracks.length === 0) {
+    console.warn('⚠️ AI Mix: no tracks to mix.');
+    return;
+  }
 
   const totalSteps = state.sequenceLength || 16;
 
-  // Iterate through TRACKS array (the actual audio sources)
   tracks.forEach((track, trackIndex) => {
-    const name = track.name.toLowerCase();
+    if (!track || !track.name) return;
+
+    const instId   = String(track.name);       // your REAL instrument ID
+    const roleName = instId.toLowerCase();     // only for classification
     const activity = analysis.trackActivity[trackIndex] || 0;
 
-    // === BASIC MIX (your original logic) ===
-    if (name.includes('kick')) {
+    // --- 1. BASIC MIX RULES (unchanged, just using roleName) ---
+    if (roleName.includes('kick')) {
       track.volume = 0.9;
-      track.pan = 0;
-    } else if (name.includes('snare') || name.includes('clap')) {
+      track.pan    = 0;
+    } else if (roleName.includes('snare') || roleName.includes('clap')) {
       track.volume = 0.75;
-      track.pan = 0;
-    } else if (name.includes('hat')) {
+      track.pan    = 0;
+    } else if (roleName.includes('hat')) {
       track.volume = 0.5;
-      track.pan = name.includes('closed') ? -0.15 : 0.15;
-    } else if (name.includes('perc') || name.includes('shaker') || name.includes('rim')) {
+      track.pan    = roleName.includes('closed') ? -0.15 : 0.15;
+    } else if (roleName.includes('perc') || roleName.includes('shaker') || roleName.includes('rim')) {
       track.volume = 0.4;
-      track.pan = (trackIndex % 2 === 0) ? -0.3 : 0.3;
-    } else if (name.includes('bass') || name.includes('808')) {
+      track.pan    = (trackIndex % 2 === 0) ? -0.3 : 0.3;
+    } else if (roleName.includes('bass') || roleName.includes('808')) {
       track.volume = 0.85;
-      track.pan = 0;
-    } else if (name.includes('synth') || name.includes('melody') || name.includes('lead')) {
+      track.pan    = 0;
+    } else if (roleName.includes('synth') || roleName.includes('melody') || roleName.includes('lead')) {
       track.volume = 0.6;
-      track.pan = (trackIndex % 2 === 0) ? -0.2 : 0.2;
-    } else if (name.includes('pad') || name.includes('atmos')) {
+      track.pan    = (trackIndex % 2 === 0) ? -0.2 : 0.2;
+    } else if (roleName.includes('pad') || roleName.includes('atmos')) {
       track.volume = 0.35;
-      track.pan = (trackIndex % 2 === 0) ? -0.4 : 0.4;
+      track.pan    = (trackIndex % 2 === 0) ? -0.4 : 0.4;
     } else {
       track.volume = 0.6;
-      track.pan = 0;
+      track.pan    = 0;
     }
 
-    // Activity-based mix
+    // --- 2. Activity-based tweaks ---
     if (activity > totalSteps * 0.75) track.volume *= 0.9;
     if (activity < totalSteps * 0.25) track.volume *= 1.1;
 
-    // Clamp values
+    // --- 3. Clamp ---
     track.volume = Math.max(0.1, Math.min(1.0, track.volume));
-    track.pan = Math.max(-1, Math.min(1, track.pan));
+    track.pan    = Math.max(-1, Math.min(1,   track.pan));
 
-    // CRITICAL: Apply to actual Tone.js synths/channels
-    const synth = synths[track.name];
+    // --- 4. APPLY TO YOUR ACTUAL AUDIO GRAPH (keeping original instId) ---
+    const synth  = synths[instId];
     if (synth && synth.volume) {
-      // Convert 0-1 to dB (roughly -60 to 0)
-      const volumeDb = (track.volume - 1) * 60;
+      const volumeDb = (track.volume - 1) * 60; // 1 -> 0 dB, 0.5 -> ~-30 dB
       synth.volume.rampTo(volumeDb, 0.1);
     }
-    
-    // Apply panning if panner exists
-    const panner = panners[track.name];
-    if (panner) {
+
+    const panner = panners[instId];
+    if (panner && panner.pan) {
       panner.pan.rampTo(track.pan, 0.1);
     }
   });
@@ -12001,28 +12277,37 @@ function applyMixingRules(analysis) {
 }
 
 function updateAllMixerChannels() {
+  if (!Array.isArray(tracks)) return;
+
   tracks.forEach((track, index) => {
-    // Update volume slider
-    const volumeSlider = document.querySelector(`#mixerGrid .mixer-channel:nth-child(${index + 1}) input[type="range"]`);
+    if (!track || !track.name) return;
+    const instId = String(track.name);
+
+    // Use nth-child as you had it, but now it's always tied to the same `tracks` index
+    const channelEl = document.querySelector(
+      `#mixerGrid .mixer-channel:nth-child(${index + 1})`
+    );
+    if (!channelEl) return;
+
+    const volumeSlider = channelEl.querySelector('input[type="range"]');
     if (volumeSlider) {
       volumeSlider.value = track.volume;
     }
-    
-    // Update pan slider if exists
-    const panSlider = document.querySelector(`#mixerGrid .mixer-channel:nth-child(${index + 1}) .pan-slider`);
+
+    const panSlider = channelEl.querySelector('.pan-slider');
     if (panSlider) {
       panSlider.value = track.pan;
     }
-    
-    // CRITICAL: Apply to actual audio (in case not done in applyMixingRules)
-    const synth = synths[track.name];
+
+    // Safety: keep audio graph tightly synced
+    const synth  = synths[instId];
     if (synth && synth.volume) {
       const volumeDb = (track.volume - 1) * 60;
       synth.volume.rampTo(volumeDb, 0.1);
     }
-    
-    const panner = panners[track.name];
-    if (panner) {
+
+    const panner = panners[instId];
+    if (panner && panner.pan) {
       panner.pan.rampTo(track.pan, 0.1);
     }
   });
@@ -12052,278 +12337,6 @@ function analyzeTrackFrequenciesAdvanced(inst) {
     perc: { subBass: 0.00, bass: 0.05, lowMid: 0.10, mid: 0.30, highMid: 0.30, presence: 0.20, brilliance: 0.05 },
     synth: { subBass: 0.10, bass: 0.20, lowMid: 0.25, mid: 0.25, highMid: 0.12, presence: 0.06, brilliance: 0.02 },
     lead: { subBass: 0.00, bass: 0.05, lowMid: 0.15, mid: 0.35, highMid: 0.25, presence: 0.15, brilliance: 0.05 }
-  };
-
-  // ============================================================================
-  // GENRE-AWARE MIX PROFILES (aligned to your REAL instruments)
-  // ============================================================================
-  const GENRE_MIX_PROFILES = {
-    default: {
-      name: 'Balanced',
-      gain: {
-        kick: 1.0, snare: 1.0, hihat: 1.0, tom: 1.0,
-        clap: 1.0, rimshot: 1.0, crash: 1.0, ride: 1.0,
-        bass: 1.0, lead: 1.0, synth: 1.0, pad: 1.0,
-        perc: 1.0, fx: 1.0, riser: 1.0, ambience: 1.0,
-        _default: 1.0
-      },
-      tilt: { low: 0, mid: 0, high: 0 }
-    },
-  
-    // ==========================================================================
-    // LO-FI
-    // ==========================================================================
-    lofi: {
-      name: 'Lo-Fi / Chill',
-      gain: {
-        kick: 0.9, bass: 0.95, snare: 0.9,
-        hihat: 0.8, perc: 0.8, clap: 0.85,
-        tom: 0.8, rimshot: 0.85, ride: 0.75, crash: 0.75,
-  
-        lead: 0.95, synth: 1.0, pad: 1.15,
-        fx: 1.0, riser: 0.8, ambience: 1.2,
-  
-        _default: 0.95
-      },
-      tilt: { low: +0.5, mid: +1.0, high: -1.5 }
-    },
-  
-    // ==========================================================================
-    // HIP-HOP
-    // ==========================================================================
-    hiphop: {
-      name: 'Hip-Hop',
-      gain: {
-        kick: 1.15, bass: 1.1,
-        snare: 1.05, clap: 1.0, rimshot: 1.1,
-  
-        hihat: 0.95, perc: 0.9, tom: 0.95,
-        crash: 0.8, ride: 0.85,
-  
-        lead: 1.05, synth: 1.0, pad: 0.9,
-        fx: 1.0, riser: 1.0, ambience: 0.9,
-  
-        _default: 1.0
-      },
-      tilt: { low: +1.0, mid: 0, high: +0.5 }
-    },
-  
-    // ==========================================================================
-    // TRAP (808 style)
-    // ==========================================================================
-    trap: {
-      name: 'Trap / 808',
-      gain: {
-        kick: 1.1, bass: 1.25, snare: 1.0,
-        hihat: 1.05, clap: 1.0, rimshot: 1.05,
-        tom: 1.0, perc: 1.0,
-  
-        crash: 0.9, ride: 0.9,
-  
-        lead: 1.05, synth: 1.0, pad: 0.9,
-        fx: 1.1, riser: 1.2, ambience: 0.85,
-  
-        _default: 1.0
-      },
-      tilt: { low: +1.2, mid: -0.2, high: +0.8 }
-    },
-  
-    // ==========================================================================
-    // R&B
-    // ==========================================================================
-    rnb: {
-      name: 'R&B / Soul',
-      gain: {
-        kick: 1.0, bass: 1.05, snare: 0.95,
-        hihat: 0.9, clap: 0.95, perc: 0.95,
-        tom: 0.95, rimshot: 0.9,
-  
-        crash: 0.85, ride: 0.9,
-  
-        lead: 1.15, synth: 1.0, pad: 1.05,
-        fx: 0.9, riser: 0.9, ambience: 1.0,
-  
-        _default: 1.0
-      },
-      tilt: { low: +0.5, mid: +0.6, high: +0.3 }
-    },
-  
-    // ==========================================================================
-    // POP ROCK
-    // ==========================================================================
-    poprock: {
-      name: 'Pop Rock',
-      gain: {
-        kick: 1.05, snare: 1.1, bass: 1.0,
-        hihat: 1.0, clap: 1.0, rimshot: 1.1,
-        perc: 1.0, tom: 1.1,
-  
-        crash: 1.0, ride: 1.0,
-  
-        lead: 1.1, synth: 1.0, pad: 1.0,
-        fx: 0.95, riser: 1.0, ambience: 1.0,
-  
-        _default: 1.0
-      },
-      tilt: { low: +0.4, mid: +1.0, high: +0.4 }
-    },
-  
-    // ==========================================================================
-    // FUNK
-    // ==========================================================================
-    funk: {
-      name: 'Funk / Groove',
-      gain: {
-        kick: 1.05, bass: 1.15, snare: 1.0,
-        hihat: 1.0, clap: 1.1, perc: 1.1,
-  
-        tom: 1.0, rimshot: 1.05,
-        crash: 0.9, ride: 1.1,
-  
-        lead: 1.0, synth: 1.05, pad: 0.95,
-        fx: 1.0, riser: 0.9, ambience: 1.0,
-  
-        _default: 1.0
-      },
-      tilt: { low: +0.8, mid: +0.8, high: +0.2 }
-    },
-  
-    // ==========================================================================
-    // JAZZ
-    // ==========================================================================
-    jazz: {
-      name: 'Jazz / Soulful',
-      gain: {
-        kick: 0.9, bass: 1.05, snare: 0.95,
-        hihat: 1.05, clap: 0.9, perc: 1.0,
-  
-        tom: 1.05, rimshot: 0.95,
-        crash: 0.85, ride: 1.15,
-  
-        lead: 1.1, synth: 1.05, pad: 1.0,
-        fx: 1.0, riser: 0.9, ambience: 1.05,
-  
-        _default: 1.0
-      },
-      tilt: { low: +0.3, mid: +1.0, high: +0.4 }
-    },
-  
-    // ==========================================================================
-    // AMBIENT
-    // ==========================================================================
-    ambient: {
-      name: 'Ambient',
-      gain: {
-        kick: 0.6, snare: 0.6, bass: 0.8,
-        hihat: 0.7, clap: 0.6, perc: 0.75,
-  
-        tom: 0.7, rimshot: 0.6,
-        crash: 0.7, ride: 0.7,
-  
-        lead: 0.9, synth: 1.15, pad: 1.25,
-        fx: 1.1, riser: 1.1, ambience: 1.4,
-  
-        _default: 1.0
-      },
-      tilt: { low: 0, mid: -0.5, high: +1.2 }
-    },
-  
-    // ==========================================================================
-    // REGGAE
-    // ==========================================================================
-    reggae: {
-      name: 'Reggae / Dub',
-      gain: {
-        kick: 0.9, bass: 1.2, snare: 0.9,
-        hihat: 0.85, clap: 0.9, perc: 1.0,
-  
-        tom: 0.9, rimshot: 0.9,
-        crash: 0.8, ride: 0.85,
-  
-        lead: 0.95, synth: 1.0, pad: 1.05,
-        fx: 1.0, riser: 1.0, ambience: 1.1,
-  
-        _default: 1.0
-      },
-      tilt: { low: +1.0, mid: +0.3, high: -0.3 }
-    },
-  
-    // ==========================================================================
-    // METAL
-    // ==========================================================================
-    metal: {
-      name: 'Metal / Hardcore',
-      gain: {
-        kick: 1.15, bass: 1.05, snare: 1.1,
-        hihat: 1.0, clap: 0.95, perc: 1.05,
-  
-        tom: 1.2, rimshot: 1.1,
-        crash: 1.15, ride: 1.1,
-  
-        lead: 1.05, synth: 0.9, pad: 0.9,
-        fx: 1.0, riser: 1.1, ambience: 0.95,
-  
-        _default: 1.0
-      },
-      tilt: { low: +0.8, mid: +1.3, high: +0.6 }
-    },
-  
-    // ==========================================================================
-    // EDM / DUBSTEP
-    // ==========================================================================
-    edm: {
-      name: 'EDM / House',
-      gain: {
-        kick: 1.2, bass: 1.05, snare: 1.0,
-        hihat: 1.05, clap: 1.05, perc: 1.0,
-  
-        tom: 1.0, rimshot: 1.0,
-        crash: 1.1, ride: 1.1,
-  
-        lead: 1.15, synth: 1.1, pad: 1.0,
-        fx: 1.1, riser: 1.2, ambience: 1.0,
-  
-        _default: 1.0
-      },
-      tilt: { low: +1.0, mid: +0.2, high: +0.8 }
-    },
-  
-    dubstep: {
-      name: 'Dubstep',
-      gain: {
-        kick: 1.1, bass: 1.25, snare: 1.05,
-        hihat: 1.0, clap: 1.0, perc: 1.0,
-  
-        tom: 1.0, rimshot: 1.05,
-        crash: 1.1, ride: 1.05,
-  
-        lead: 1.05, synth: 1.1, pad: 0.9,
-        fx: 1.15, riser: 1.3, ambience: 0.9,
-  
-        _default: 1.0
-      },
-      tilt: { low: +1.4, mid: +0.4, high: +0.9 }
-    },
-  
-    // ==========================================================================
-    // DAZECORE (YOUR GENRE)
-    // ==========================================================================
-    dazecore: {
-      name: 'Dazecore / Glitch',
-      gain: {
-        kick: 1.1, bass: 1.1, snare: 1.05,
-        hihat: 1.0, clap: 1.0, perc: 1.05,
-        tom: 1.0, rimshot: 1.0,
-  
-        crash: 1.05, ride: 1.0,
-  
-        lead: 1.15, synth: 1.1, pad: 0.95,
-        fx: 1.2, riser: 1.3, ambience: 1.05,
-  
-        _default: 1.0
-      },
-      tilt: { low: +0.7, mid: +0.5, high: +1.0 }
-    }
   };
   
   const instProfile = profiles[inst] || profiles.synth;
