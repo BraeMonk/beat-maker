@@ -11937,9 +11937,9 @@ function applyMixingRules(analysis) {
 
   const totalSteps = state.sequenceLength || 16;
 
-  Object.keys(instruments).forEach((instName, trackIndex) => {
-    const track = instruments[instName]; // <-- REAL instrument object
-    const name = instName.toLowerCase();
+  // Iterate through TRACKS array (the actual audio sources)
+  tracks.forEach((track, trackIndex) => {
+    const name = track.name.toLowerCase();
     const activity = analysis.trackActivity[trackIndex] || 0;
 
     // === BASIC MIX (your original logic) ===
@@ -11976,6 +11976,20 @@ function applyMixingRules(analysis) {
     // Clamp values
     track.volume = Math.max(0.1, Math.min(1.0, track.volume));
     track.pan = Math.max(-1, Math.min(1, track.pan));
+
+    // CRITICAL: Apply to actual Tone.js synths/channels
+    const synth = synths[track.name];
+    if (synth && synth.volume) {
+      // Convert 0-1 to dB (roughly -60 to 0)
+      const volumeDb = (track.volume - 1) * 60;
+      synth.volume.rampTo(volumeDb, 0.1);
+    }
+    
+    // Apply panning if panner exists
+    const panner = panners[track.name];
+    if (panner) {
+      panner.pan.rampTo(track.pan, 0.1);
+    }
   });
 
   updateAllMixerChannels();
@@ -11993,6 +12007,18 @@ function updateAllMixerChannels() {
     const panSlider = document.querySelector(`#mixerGrid .mixer-channel:nth-child(${index + 1}) .pan-slider`);
     if (panSlider) {
       panSlider.value = track.pan;
+    }
+    
+    // CRITICAL: Apply to actual audio (in case not done in applyMixingRules)
+    const synth = synths[track.name];
+    if (synth && synth.volume) {
+      const volumeDb = (track.volume - 1) * 60;
+      synth.volume.rampTo(volumeDb, 0.1);
+    }
+    
+    const panner = panners[track.name];
+    if (panner) {
+      panner.pan.rampTo(track.pan, 0.1);
     }
   });
 }
