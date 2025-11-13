@@ -10473,13 +10473,7 @@ function generateSectionBass(section, startBar, endBar) {
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
     // Stronger chord fallback logic
-    let chord = getChordNotesForBar(bar);
-    
-    // If the template didn't assign chords for this bar, use the progression
-    if (!chord || !chord.length) {
-      const degree = state.progression?.[bar % state.progression.length] ?? 0;
-      chord = buildTriadFromDegree(degree, state.key, state.scale);
-    }
+    const chord  = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
     const pcs    = chord.map(n => n.replace(/\d/, ''));
     const [root, third, fifth] = pcs;
 
@@ -10598,7 +10592,7 @@ function generateSectionChords(section, startBar, endBar) {
   
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
-    const chord = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
+    const chord = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
     const [root, third, fifth] = chord.map(n => n.replace(/\d/, ''));
     
     switch(chordPattern) {
@@ -10679,7 +10673,7 @@ function generateSectionMelody(section, startBar, endBar) {
   
   // Keep melodic continuity across bars using MIDI numbers
   if (!generateSectionMelody._lastLeadMidi) {
-    const firstChord = getChordNotesForBar(startBar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
+    const firstChord = sbGetChordForBar(startBar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
     const startNote = firstChord[Math.random() < 0.7 ? 0 : 1];
     generateSectionMelody._lastLeadMidi = Tone.Frequency(withOct(startNote.replace(/\d/, ''), leadOct)).toMidi();
   }
@@ -10688,7 +10682,7 @@ function generateSectionMelody(section, startBar, endBar) {
   
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
-    const chord = getChordNotesForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
+    const chord = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
     const chordMidi = chord.map(n => Tone.Frequency(n).toMidi());
     
     switch(melodyStyle) {
@@ -11263,15 +11257,6 @@ function sbGetChordForBar(bar) {
   return buildTriadFromDegree(degree, sbGlobalHarmony.key, sbGlobalHarmony.scale);
 }
 
-// main hook used by bass / chords / melody
-function getChordNotesForBar(bar) {
-  return sbGetChordForBar(bar);
-}
-
-// Override the helper used by bass/chords/melody
-function getChordNotesForBar(bar) {
-  return sbGetChordForBar(bar);
-}
 
 // --- Thematic memory pools ---
 let sbMotifCache = [];
