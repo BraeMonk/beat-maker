@@ -11885,175 +11885,137 @@ function calculateIntelligentEQ(inst, freqProfile, density) {
 }
 
 // ============================================================================
-// ENHANCED applyAIMixing() - Professional Grade
+// SAFE applyAIMixing() — gain + pan + master only, no routing changes
 // ============================================================================
-
 async function applyAIMixing() {
-  if (!state.aiMixing.enabled) return;
-  
+  if (!state.aiMixing || !state.aiMixing.enabled) return;
+
   showToast('🤖 AI analyzing mix...', 'info');
-  
+
   const analysis = {
     instruments: {},
     totalDensity: 0,
     activeInstruments: 0,
-    freqMasking: {},
-    stereoBalance: 0
+    freqMasking: {}
   };
-  
-  // PHASE 1: Deep Analysis
+
+  // PHASE 1: Deep Analysis (but read-only – no node changes)
   Object.keys(instruments).forEach(inst => {
+    const instData = instruments[inst];
+    if (!instData || !patterns[inst]) return;
+
     const density = analyzePatternDensity(inst);
+    if (!density || density.activeSteps === 0) return;
+
     const freqProfile = analyzeTrackFrequenciesAdvanced(inst);
-    
+
     analysis.instruments[inst] = {
       density,
       freqProfile,
-      currentGain: instruments[inst].volume,
-      currentPan: instruments[inst].pan,
+      currentGain: instData.volume ?? 0.8,
+      currentPan: instData.pan ?? 0,
       dynamicRange: calculateDynamicRange(inst),
       peakFrequency: freqProfile.peakFreq,
       spectralCentroid: calculateSpectralCentroid(freqProfile)
     };
-    
-    if (density.activeSteps > 0) {
-      analysis.totalDensity += density.importance;
-      analysis.activeInstruments++;
-    }
+
+    analysis.totalDensity += density.importance;
+    analysis.activeInstruments++;
   });
-  
-  // Calculate frequency masking matrix
-  Object.keys(instruments).forEach(inst => {
+
+  // Frequency masking matrix (analysis only)
+  Object.keys(analysis.instruments).forEach(inst => {
     analysis.freqMasking[inst] = calculateFrequencyMasking(inst, analysis);
   });
-  
+
   state.aiMixing.lastAnalysis = analysis;
-  
-  // PHASE 2: Professional Mixing
+
+  // PHASE 2: Professional Mixing (GAIN + PAN ONLY)
   let adjustments = 0;
-  
-  Object.keys(instruments).forEach(inst => {
+
+  Object.keys(analysis.instruments).forEach(inst => {
     const instAnalysis = analysis.instruments[inst];
     const instData = instruments[inst];
-    
-    if (instAnalysis.density.activeSteps === 0) return;
-    
+    if (!instData) return;
+
     // 1. PROFESSIONAL GAIN STAGING
     if (state.aiMixing.autoGain) {
-      // Calculate optimal gain with advanced algorithm
-      const targetGain = calculateProfessionalGain(inst, instAnalysis, analysis);
-      
-      // Apply with smooth ramping
-      instData.volume = Math.round(targetGain * 100);
-      if (instData.channel) {
+      const targetGain = calculateProfessionalGain(inst, instAnalysis, analysis); // 0.1–1.0
+
+      instData.volume = targetGain;
+
+      if (instData.channel && instData.channel.volume) {
+        // channel.volume is in dB, targetGain is linear
         instData.channel.volume.rampTo(
-          20 * Math.log10(targetGain), // Convert to dB
+          20 * Math.log10(targetGain),
           0.5
         );
       }
       adjustments++;
     }
-    
+
     // 2. INTELLIGENT STEREO PLACEMENT
     if (state.aiMixing.autoPan) {
-      const targetPan = calculateIntelligentPan(inst, instAnalysis, analysis);
+      const targetPan = calculateIntelligentPan(inst, instAnalysis, analysis); // -50..50
       instData.pan = targetPan;
-      
-      if (instData.channel) {
+
+      if (instData.channel && instData.channel.pan) {
         instData.channel.pan.rampTo(targetPan / 100, 0.5);
       }
       adjustments++;
     }
-    
-    // 3. SURGICAL EQ
-    if (state.aiMixing.autoEQ) {
-      const eq = applyProfessionalEQ(inst, instAnalysis, analysis);
-      
-      // Create or update EQ nodes
-      if (!instData.eq) {
-        instData.eq = {
-          low: new Tone.EQ3(),
-          mid: new Tone.Filter(),
-          high: new Tone.EQ3()
-        };
-        instData.channel.chain(instData.eq.low, instData.eq.mid, instData.eq.high);
+
+    // 3. OPTIONAL: store suggested EQ/comp settings ONLY (no audio-node changes)
+    if (state.aiMixing.autoEQ || state.aiMixing.autoCompression) {
+      instData._aiSuggestions = instData._aiSuggestions || {};
+
+      if (state.aiMixing.autoEQ) {
+        instData._aiSuggestions.eq = applyProfessionalEQ(inst, instAnalysis, analysis);
       }
-      
-      // Apply EQ settings
-      if (instData.eq.low) {
-        instData.eq.low.low.value = eq.low;
-        instData.eq.low.mid.value = eq.mid;
-        instData.eq.low.high.value = eq.high;
-      }
-      
-      console.log(`🎛️ ${inst} EQ: L${eq.low > 0 ? '+' : ''}${eq.low.toFixed(1)}dB M${eq.mid > 0 ? '+' : ''}${eq.mid.toFixed(1)}dB H${eq.high > 0 ? '+' : ''}${eq.high.toFixed(1)}dB`);
-      adjustments++;
-    }
-    
-    // 4. DYNAMIC COMPRESSION
-    if (state.aiMixing.autoCompression) {
-      const compSettings = calculateIntelligentCompression(inst, instAnalysis, analysis);
-      
-      if (compSettings.enabled) {
-        if (!instData.compressor) {
-          instData.compressor = new Tone.Compressor();
-          instData.channel.chain(instData.compressor);
-        }
-        
-        instData.compressor.threshold.rampTo(compSettings.threshold, 0.5);
-        instData.compressor.ratio.value = compSettings.ratio;
-        instData.compressor.attack.rampTo(compSettings.attack, 0.5);
-        instData.compressor.release.rampTo(compSettings.release, 0.5);
-        instData.compressor.knee.value = compSettings.knee;
-        
-        console.log(`📊 ${inst} compression: ${compSettings.ratio}:1 @ ${compSettings.threshold}dB`);
-        adjustments++;
+
+      if (state.aiMixing.autoCompression) {
+        instData._aiSuggestions.comp = calculateIntelligentCompression(inst, instAnalysis, analysis);
       }
     }
   });
-  
-  // PHASE 3: Master Bus Intelligence
+
+  // PHASE 3: Master Bus Intelligence (safe: only touches existing master nodes)
   const mixCharacteristics = analyzeMixCharacteristics(analysis);
-  
-  // Adaptive master compression
-  if (mixCharacteristics.density > 0.7) {
-    // Dense mix - multiband approach
-    master.comp.threshold.rampTo(-18, 0.5);
-    master.comp.ratio.value = 4;
-    master.comp.attack.rampTo(0.005, 0.5);
-    master.comp.release.rampTo(0.12, 0.5);
-  } else if (mixCharacteristics.density > 0.4) {
-    // Medium density - gentle glue
-    master.comp.threshold.rampTo(-22, 0.5);
-    master.comp.ratio.value = 3;
-    master.comp.attack.rampTo(0.01, 0.5);
-    master.comp.release.rampTo(0.15, 0.5);
-  } else {
-    // Sparse mix - transparent
-    master.comp.threshold.rampTo(-26, 0.5);
-    master.comp.ratio.value = 2.5;
-    master.comp.attack.rampTo(0.02, 0.5);
-    master.comp.release.rampTo(0.2, 0.5);
-  }
-  
-  // Adaptive master EQ
-  if (mixCharacteristics.lowEndEnergy > 0.4) {
-    // Tighten bass
-    if (master.lowCutFilter) {
-      master.lowCutFilter.frequency.rampTo(35, 0.5);
+
+  if (master && master.comp) {
+    if (mixCharacteristics.density > 0.7) {
+      // Dense mix - multiband feel
+      master.comp.threshold.rampTo(-18, 0.5);
+      master.comp.ratio.value = 4;
+      master.comp.attack.rampTo(0.005, 0.5);
+      master.comp.release.rampTo(0.12, 0.5);
+    } else if (mixCharacteristics.density > 0.4) {
+      // Medium density - gentle glue
+      master.comp.threshold.rampTo(-22, 0.5);
+      master.comp.ratio.value = 3;
+      master.comp.attack.rampTo(0.01, 0.5);
+      master.comp.release.rampTo(0.15, 0.5);
+    } else {
+      // Sparse mix - transparent
+      master.comp.threshold.rampTo(-26, 0.5);
+      master.comp.ratio.value = 2.5;
+      master.comp.attack.rampTo(0.02, 0.5);
+      master.comp.release.rampTo(0.2, 0.5);
     }
   }
-  
-  if (mixCharacteristics.highEndEnergy < 0.15) {
-    // Add air
-    if (master.highShelf) {
-      master.highShelf.gain.rampTo(1.5, 0.5);
-    }
+
+  // Optional gentle master EQ moves based on mix char
+  if (master && master.lowCutFilter && mixCharacteristics.lowEndEnergy > 0.4) {
+    master.lowCutFilter.frequency.rampTo(35, 0.5);
   }
-  
+
+  if (master && master.highCutFilter && mixCharacteristics.highEndEnergy < 0.15) {
+    // add a bit of “air”
+    master.highCutFilter.frequency.rampTo(18000, 0.5);
+  }
+
   renderMixer();
-  
-  // Detailed reporting
+
   console.log('🤖 Professional AI Mixing Complete:');
   console.log(`   ✓ ${adjustments} intelligent adjustments`);
   console.log(`   ✓ ${analysis.activeInstruments} instruments balanced`);
@@ -12061,7 +12023,7 @@ async function applyAIMixing() {
   console.log(`   ✓ Frequency balance: ${mixCharacteristics.balance}`);
   console.log(`   ✓ Stereo width: ${mixCharacteristics.stereoWidth.toFixed(1)}%`);
   console.log(`   ✓ Dynamic range: ${mixCharacteristics.dynamicRange.toFixed(1)}dB`);
-  
+
   showToast(`✅ Professional mix: ${analysis.activeInstruments} tracks`, 'success');
 }
 
