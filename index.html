@@ -13701,13 +13701,11 @@ function showToast(message, type = 'info') {
 function generateBeat() {
   const genre = state.currentGenre || 'lofi';
 
-  // Basic guard: we need a genre + templates
   if (!genre) {
     showToast?.('Set a genre first!', 'error');
     return;
   }
 
-  // Pause / clear transport so we don’t glitch audio while regenerating
   const wasPlaying = Tone.Transport.state === 'started';
   if (wasPlaying) Tone.Transport.pause();
   Tone.Transport.cancel(0);
@@ -13716,7 +13714,7 @@ function generateBeat() {
     window.mainLoop = null;
   }
 
-  // ---- Pick a Song Builder template that matches the current genre ----
+  // Pick a Song Builder template that matches the current genre
   let templateId = null;
   for (const [id, g] of Object.entries(TEMPLATE_TO_GENRE)) {
     if (g === genre) {
@@ -13725,7 +13723,6 @@ function generateBeat() {
     }
   }
   if (!templateId) {
-    // Fallback if genre isn’t mapped
     templateId = 'intro-verse-chorus';
   }
 
@@ -13736,17 +13733,17 @@ function generateBeat() {
     return;
   }
 
-  // Prefer a "main" groove section (verse / hook / drop), otherwise first one
+  // Find the main groove section (verse/hook/drop)
   let baseSection =
-    tpl.find(s => /verse|hook|drop|build/i.test((s.id || '') + (s.label || '')))
+    tpl.find(s => /verse|hook|drop|chorus/i.test((s.id || '') + (s.label || '')))
     || tpl[0];
 
-  // ---- Make a compact "beat" section (Song Builder but short) ----
   const clampLocal = typeof clamp === 'function'
     ? clamp
     : (v, min, max) => Math.max(min, Math.min(max, v));
 
-  const bars = clampLocal(baseSection.bars || 4, 2, 8); // 2–8 bar loop
+  // Create a 4-8 bar loop
+  const bars = clampLocal(baseSection.bars || 4, 4, 8);
 
   const beatSection = {
     ...baseSection,
@@ -13755,21 +13752,18 @@ function generateBeat() {
     bars
   };
 
-  // Mild energy/density wiggle so it’s not identical every time
+  // Subtle variation on energy/density (±10% instead of ±15%)
   const baseEnergy  = typeof beatSection.energy  === 'number' ? beatSection.energy  : 0.7;
   const baseDensity = typeof beatSection.density === 'number' ? beatSection.density : 0.7;
 
-  beatSection.energy  = clampLocal(baseEnergy  + (Math.random() * 0.3 - 0.15), 0.25, 1.0);
-  beatSection.density = clampLocal(baseDensity + (Math.random() * 0.3 - 0.15), 0.25, 1.0);
+  beatSection.energy  = clampLocal(baseEnergy  + (Math.random() * 0.2 - 0.1), 0.3, 0.95);
+  beatSection.density = clampLocal(baseDensity + (Math.random() * 0.2 - 0.1), 0.3, 0.9);
 
-  // ---- Harmony: use the SAME planner as Song Builder ----
-  // This fills sbChordDegrees + sbGlobalHarmony, so getChordNotesForBar()
-  // and the section generators all stay in key and in progression.
+  // Plan harmony for the entire beat (coherent chord progression)
   sbPlanHarmonyForSong([beatSection]);
   state.key   = sbGlobalHarmony.key;
   state.scale = sbGlobalHarmony.scale;
 
-  // ---- Pattern length: just this one section ----
   const totalBars  = beatSection.bars;
   const totalSteps = totalBars * STEPS_PER_BAR;
 
@@ -13779,24 +13773,342 @@ function generateBeat() {
   ensurePatternLength(state.sequenceLength);
   wipeAllPatterns();
 
-  // ---- Actually generate the beat using Song Builder section engines ----
+  // Generate with coherent structure
   generateSectionDrums(beatSection, 0, beatSection.bars);
   generateSectionBass(beatSection, 0, beatSection.bars);
   generateSectionChords(beatSection, 0, beatSection.bars);
   generateSectionMelody(beatSection, 0, beatSection.bars);
 
-  // NOTE: we intentionally do NOT call randomizeHarmony() or addRandomShuffling()
-  // here — that’s what made it feel chaotic / off-key before.
+  // Add subtle variation every 4 bars (keeps it interesting)
+  addSubtleStructuralVariation(beatSection.bars);
 
-  // ---- Rebuild audio + UI and resume playback if it was running ----
   sequencerInitialized = false;
   if (typeof initAudioLight === 'function') initAudioLight();
   if (typeof renderSequencer === 'function') renderSequencer();
   if (wasPlaying) Tone.Transport.start('+0.05');
 
-  showToast?.('🥁 Beat generated (Song Builder style)', 'success');
+  showToast?.('🥁 Professional beat generated', 'success');
   console.log('[Beat] Generated from template', templateId, 'genre', genre, 'section', beatSection);
-}  
+}
+
+// Add subtle variations every 4 bars to keep things interesting
+function addSubtleStructuralVariation(totalBars) {
+  if (totalBars < 4) return;
+
+  const barIndices = [];
+  for (let i = 4; i < totalBars; i += 4) {
+    barIndices.push(i);
+  }
+
+  barIndices.forEach(barIdx => {
+    const offset = barIdx * STEPS_PER_BAR;
+
+    // Add subtle drum variation (10% chance per hit)
+    if (Math.random() < 0.3) {
+      // Add ghost snare
+      const ghostStep = offset + 2 + Math.floor(Math.random() * 4) * 4;
+      if (patterns.snare && patterns.snare[ghostStep]) {
+        patterns.snare[ghostStep].active = true;
+        patterns.snare[ghostStep].velocity = 0.25 + Math.random() * 0.15;
+        patterns.snare[ghostStep].probability = 70;
+      }
+    }
+
+    // Add hi-hat variation (20% chance)
+    if (Math.random() < 0.2 && patterns.hihat) {
+      for (let s = 0; s < 4; s++) {
+        const step = offset + 12 + s;
+        if (step < state.sequenceLength && Math.random() < 0.6) {
+          patterns.hihat[step].active = true;
+          patterns.hihat[step].velocity = 0.4 + Math.random() * 0.2;
+        }
+      }
+    }
+
+    // Add percussion accent (15% chance)
+    if (Math.random() < 0.15 && patterns.rimshot) {
+      const accentStep = offset + 6;
+      if (patterns.rimshot[accentStep]) {
+        patterns.rimshot[accentStep].active = true;
+        patterns.rimshot[accentStep].velocity = 0.5 + Math.random() * 0.2;
+      }
+    }
+  });
+}
+
+// ==================== IMPROVED DRUM GENERATION ====================
+function generateSectionDrums(section, startBar, endBar) {
+  if (!section.drums) return;
+  
+  const drumPattern = section.drumPattern || 'four-floor';
+  const density = section.density || 0.7;
+  const energy = section.energy || 0.7;
+  const fillEvery = songBuilderState.fillEvery || 4;
+  
+  // Get genre-specific drum characteristics
+  const genreStyle = getGenreDrumStyle(state.currentGenre || 'lofi');
+  
+  for (let bar = startBar; bar < endBar; bar++) {
+    const offset = bar * STEPS_PER_BAR;
+    const barInSection = bar - startBar;
+    
+    // Determine if this is a fill bar
+    const isFillBar = fillEvery > 0 && ((barInSection + 1) % fillEvery === 0);
+    
+    switch(drumPattern) {
+      case 'four-floor':
+        generateFourFloorDrums(offset, density, energy, genreStyle, isFillBar);
+        break;
+        
+      case 'breakbeat':
+        generateBreakbeatDrums(offset, density, energy, genreStyle, isFillBar);
+        break;
+        
+      case 'trap':
+        generateTrapDrums(offset, density, energy, genreStyle, isFillBar);
+        break;
+        
+      case 'half-time':
+        generateHalfTimeDrums(offset, density, energy, genreStyle, isFillBar, bar);
+        break;
+        
+      default:
+        generateFourFloorDrums(offset, density, energy, genreStyle, isFillBar);
+    }
+  }
+}
+
+// Genre-specific drum characteristics
+function getGenreDrumStyle(genre) {
+  const styles = {
+    lofi: { kickVel: 0.8, snareVel: 0.75, hatVel: 0.5, swing: 0.3, ghostProb: 0.25 },
+    hiphop: { kickVel: 0.9, snareVel: 0.85, hatVel: 0.6, swing: 0.2, ghostProb: 0.2 },
+    trap: { kickVel: 0.95, snareVel: 0.9, hatVel: 0.7, swing: 0, ghostProb: 0.15 },
+    rnb: { kickVel: 0.85, snareVel: 0.8, hatVel: 0.55, swing: 0.25, ghostProb: 0.3 },
+    postpunk: { kickVel: 0.85, snareVel: 0.85, hatVel: 0.65, swing: 0, ghostProb: 0.1 },
+    ambient: { kickVel: 0.7, snareVel: 0.65, hatVel: 0.4, swing: 0.1, ghostProb: 0.2 },
+    dazecore: { kickVel: 0.8, snareVel: 0.75, hatVel: 0.55, swing: 0.2, ghostProb: 0.25 }
+  };
+  return styles[genre] || styles.lofi;
+}
+
+function generateFourFloorDrums(offset, density, energy, style, isFillBar) {
+  // Kick on every beat
+  [0, 4, 8, 12].forEach(s => {
+    sbSetStep('kick', offset + s, { 
+      velocity: style.kickVel * (0.95 + Math.random() * 0.1),
+      probability: 100
+    });
+  });
+  
+  // Snare on 2 & 4
+  sbSetStep('snare', offset + 4, { velocity: style.snareVel * (0.95 + Math.random() * 0.1) });
+  sbSetStep('snare', offset + 12, { velocity: style.snareVel * (0.98 + Math.random() * 0.05) });
+  
+  // Hi-hats (8ths)
+  if (patterns.hihat) {
+    for (let i = 0; i < 16; i += 2) {
+      const isUpbeat = i % 4 === 2;
+      const vel = isUpbeat ? style.hatVel * 0.7 : style.hatVel;
+      
+      if (Math.random() < density * 0.9) {
+        sbSetStep('hihat', offset + i, { 
+          velocity: vel * (0.9 + Math.random() * 0.2),
+          probability: isUpbeat ? 90 : 100
+        });
+      }
+    }
+    
+    // Add 16th hats for higher density
+    if (density > 0.7) {
+      for (let i = 1; i < 16; i += 4) {
+        if (Math.random() < (density - 0.7) * 1.5) {
+          sbSetStep('hihat', offset + i, { 
+            velocity: style.hatVel * 0.5,
+            probability: 75
+          });
+        }
+      }
+    }
+  }
+  
+  // Ghost notes on snare
+  if (Math.random() < style.ghostProb && density > 0.5) {
+    const ghostSteps = [2, 6, 10, 14];
+    ghostSteps.forEach(s => {
+      if (Math.random() < 0.4) {
+        sbSetStep('snare', offset + s, { 
+          velocity: 0.25 + Math.random() * 0.15,
+          probability: 70
+        });
+      }
+    });
+  }
+  
+  // Fill on last bar
+  if (isFillBar) {
+    addDrumFill(offset, energy, style);
+  }
+}
+
+function generateBreakbeatDrums(offset, density, energy, style, isFillBar) {
+  // Syncopated kick pattern
+  sbSetStep('kick', offset + 0, { velocity: style.kickVel });
+  sbSetStep('kick', offset + 6, { velocity: style.kickVel * 0.85 });
+  sbSetStep('kick', offset + 10, { velocity: style.kickVel * 0.8 });
+  
+  if (energy > 0.7) {
+    sbSetStep('kick', offset + 13, { velocity: style.kickVel * 0.75, probability: 90 });
+  }
+  
+  // Snare backbeat
+  sbSetStep('snare', offset + 4, { velocity: style.snareVel });
+  sbSetStep('snare', offset + 12, { velocity: style.snareVel * 1.05 });
+  
+  // Busy hi-hats
+  if (patterns.hihat) {
+    for (let i = 0; i < 16; i++) {
+      const onBeat = i % 4 === 0;
+      const vel = onBeat ? style.hatVel : style.hatVel * 0.6;
+      
+      if (Math.random() < density * 0.8) {
+        sbSetStep('hihat', offset + i, { 
+          velocity: vel * (0.85 + Math.random() * 0.3),
+          probability: onBeat ? 100 : 80
+        });
+      }
+    }
+  }
+  
+  if (isFillBar) {
+    addDrumFill(offset, energy, style);
+  }
+}
+
+function generateTrapDrums(offset, density, energy, style, isFillBar) {
+  // Heavy kick
+  sbSetStep('kick', offset + 0, { velocity: style.kickVel });
+  sbSetStep('kick', offset + 8, { velocity: style.kickVel * 0.9 });
+  
+  if (energy > 0.7) {
+    sbSetStep('kick', offset + 14, { velocity: style.kickVel * 0.8, probability: 90 });
+  }
+  
+  // Snare
+  sbSetStep('snare', offset + 4, { velocity: style.snareVel });
+  sbSetStep('snare', offset + 12, { velocity: style.snareVel * 1.05 });
+  
+  // Trap hi-hat rolls
+  if (patterns.hihat) {
+    // Base pattern
+    for (let i = 0; i < 16; i += 2) {
+      sbSetStep('hihat', offset + i, { velocity: style.hatVel * 0.7 });
+    }
+    
+    // Roll sections
+    const rollStart = Math.random() < 0.5 ? 6 : 14;
+    for (let i = rollStart; i < Math.min(rollStart + 2, 16); i++) {
+      sbSetStep('hihat', offset + i, { 
+        velocity: style.hatVel * (0.8 + Math.random() * 0.3),
+        probability: 95
+      });
+    }
+    
+    // Extra 16ths for density
+    if (density > 0.6) {
+      for (let i = 3; i < 16; i += 4) {
+        if (Math.random() < density * 0.7) {
+          sbSetStep('hihat', offset + i, { 
+            velocity: style.hatVel * 0.5,
+            probability: 80
+          });
+        }
+      }
+    }
+  }
+  
+  if (isFillBar) {
+    addDrumFill(offset, energy, style);
+  }
+}
+
+function generateHalfTimeDrums(offset, density, energy, style, isFillBar, bar) {
+  // Half-time feel (slower)
+  if (bar % 2 === 0) {
+    sbSetStep('kick', offset + 0, { velocity: style.kickVel });
+    sbSetStep('snare', offset + 8, { velocity: style.snareVel });
+  }
+  
+  // Steady hats
+  if (patterns.hihat) {
+    for (let i = 0; i < 16; i += 2) {
+      if (Math.random() < density * 0.85) {
+        sbSetStep('hihat', offset + i, { 
+          velocity: style.hatVel * (0.9 + Math.random() * 0.2)
+        });
+      }
+    }
+  }
+  
+  if (isFillBar && bar % 2 === 1) {
+    addDrumFill(offset, energy, style);
+  }
+}
+
+function addDrumFill(offset, energy, style) {
+  const fillLength = Math.floor(3 + energy * 3); // 3-6 steps
+  const startStep = 16 - fillLength;
+  
+  const fillType = Math.random();
+  
+  if (fillType < 0.4) {
+    // Tom roll
+    for (let i = startStep; i < 16; i++) {
+      if (Math.random() < 0.85 && patterns.tom) {
+        sbSetStep('tom', offset + i, {
+          velocity: 0.6 + ((i - startStep) / fillLength) * 0.3,
+          probability: 95
+        });
+      }
+    }
+  } else if (fillType < 0.7) {
+    // Snare roll
+    for (let i = startStep; i < 16; i++) {
+      if ((i % 2 === 0 || energy > 0.7) && patterns.snare) {
+        sbSetStep('snare', offset + i, {
+          velocity: 0.5 + ((i - startStep) / fillLength) * 0.35,
+          probability: 90
+        });
+      }
+    }
+  } else {
+    // Mixed fill
+    const fillPattern = [
+      { inst: 'tom', vel: 0.6 },
+      { inst: 'tom', vel: 0.7 },
+      { inst: 'snare', vel: 0.75 },
+      { inst: 'snare', vel: 0.85 }
+    ];
+    
+    fillPattern.forEach((hit, idx) => {
+      const step = startStep + idx;
+      if (step < 16 && patterns[hit.inst]) {
+        sbSetStep(hit.inst, offset + step, {
+          velocity: hit.vel * (0.95 + Math.random() * 0.1),
+          probability: 95
+        });
+      }
+    });
+    
+    // Crash on the last step
+    if (patterns.crash) {
+      sbSetStep('crash', offset + 15, { velocity: 0.85, probability: 100 });
+    }
+  }
+}
+
+console.log('✅ Coherent beat generator loaded');
+ 
   
 // AI-powered beat generation
 function generateAIVariation() {
