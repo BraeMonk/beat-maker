@@ -12292,11 +12292,6 @@ function applyMixingRules(analysis) {
     if (synth && synth.volume) {
       synth.volume.rampTo(targetVolume, 0.1);
     }
-
-    const pan = pans[instId];
-    if (pan && pan.pan) {
-      pan.pan.rampTo(targetPan / 100, 0.1); // Convert to -0.5 to 0.5 range
-    }
   });
 
   updateAllMixerChannels();
@@ -27263,8 +27258,8 @@ async function restoreSessionIfAny(){
     if (highCutSlider) highCutSlider.value = state.highCut;
     if (highCutValue) highCutValue.textContent = state.highCut + 'Hz';
     
-    const compSlider = document.getElementById('compressorSlider');
-    const compValue = document.getElementById('compressorValue');
+    const compSlider = document.getElementById('compSlider');
+    const compValue  = document.getElementById('compValue');
     if (compSlider) compSlider.value = state.compressor;
     if (compValue) compValue.textContent = state.compressor + 'dB';
     
@@ -27285,7 +27280,19 @@ async function restoreSessionIfAny(){
     if (aiMixToggle) {
       aiMixToggle.checked = state.aiMixing?.enabled ?? false;
     }
+
+    const autoGainCheckbox = document.getElementById('autoGainCheckbox');
+    if (autoGainCheckbox) autoGainCheckbox.checked = !!state.aiMixing?.autoGain;
     
+    const autoPanCheckbox = document.getElementById('autoPanCheckbox');
+    if (autoPanCheckbox) autoPanCheckbox.checked = !!state.aiMixing?.autoPan;
+    
+    const autoEQCheckbox = document.getElementById('autoEQCheckbox');
+    if (autoEQCheckbox) autoEQCheckbox.checked = !!state.aiMixing?.autoEQ;
+    
+    const autoCompCheckbox = document.getElementById('autoCompCheckbox');
+    if (autoCompCheckbox) autoCompCheckbox.checked = !!state.aiMixing?.autoCompression;
+        
     // Genre selector
     const genreSelect = document.getElementById('genreSelect');
     if (genreSelect) {
