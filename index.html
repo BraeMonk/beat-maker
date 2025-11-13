@@ -27020,69 +27020,266 @@ function saveSession(){
     const payload = {
       version: 1,
       state: {
+        // Transport & timing
         bpm: state.bpm,
         swing: state.swing,
         sequenceLength: state.sequenceLength,
         resolution: state.resolution,
+        duration: state.duration,
+        
+        // Musical settings
         currentGenre: state.currentGenre,
         key: state.key,
         scale: state.scale,
         octave: state.octave,
         progression: state.progression,
+        complexity: state.complexity,
+        humanize: state.humanize,
+        
+        // Master controls
         masterVolume: state.masterVolume,
-        aiMixing: state.aiMixing
+        tapeSaturation: state.tapeSaturation,
+        vinylNoise: state.vinylNoise,
+        lowCut: state.lowCut,
+        highCut: state.highCut,
+        compressor: state.compressor,
+        
+        // Metronome
+        metronomeEnabled: state.metronomeEnabled,
+        metronomeVolume: state.metronomeVolume,
+        countInBars: state.countInBars,
+        
+        // AI Mixing (full object)
+        aiMixing: {
+          enabled: state.aiMixing?.enabled ?? false,
+          autoGain: state.aiMixing?.autoGain ?? true,
+          autoPan: state.aiMixing?.autoPan ?? true,
+          autoEQ: state.aiMixing?.autoEQ ?? true,
+          autoCompression: state.aiMixing?.autoCompression ?? true,
+          referenceLevel: state.aiMixing?.referenceLevel ?? -14
+        },
+        
+        // UI state
+        currentTab: state.currentTab
       },
+      
+      // Patterns with full data
       patterns: getPlainPatterns(),
+      
+      // Instruments (levels/pan/notes)
       instruments: (typeof getSerializableInstruments === 'function')
         ? getSerializableInstruments() : {},
-      fxConfig: (typeof fxConfig === 'object' && fxConfig) ? fxConfig : {}, // <-- guard
+      
+      // Track volumes and pans
+      tracks: tracks.map(t => ({
+        name: t.name,
+        volume: t.volume ?? 0.8,
+        pan: t.pan ?? 0,
+        mute: t.mute ?? false,
+        solo: t.solo ?? false
+      })),
+      
+      // FX config
+      fxConfig: (typeof fxConfig === 'object' && fxConfig) ? fxConfig : {},
+      
+      // Vibe/theme
       vibe: document.body.getAttribute('data-vibe') || null,
+      
+      // Transport position
       transport: {
         pos: Tone?.Transport?.seconds || 0,
         playing: !!state.isPlaying
       },
+      
       ts: Date.now()
     };
+    
     localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    console.log('💾 Session saved:', new Date().toLocaleTimeString());
   } catch(e){
     console.warn('saveSession failed', e);
   }
 }
 
-
 async function restoreSessionIfAny(){
   const raw = localStorage.getItem(SESSION_KEY);
   if (!raw) return false;
-
+  
   try {
     const sess = JSON.parse(raw) || {};
-
+    console.log('📂 Restoring session from:', new Date(sess.ts).toLocaleString());
+    
     // Stop playback while swapping state
     if (state?.isPlaying && typeof stop === 'function') stop();
-
-    // ---- Core state ----
-    Object.assign(state, sess.state || {}, { isPlaying:false, currentStep:0 });
-
+    
+    // ---- Core state (merge all saved properties) ----
+    Object.assign(state, sess.state || {}, { 
+      isPlaying: false, 
+      currentStep: 0,
+      cursorSeconds: 0
+    });
+    
     // ---- Patterns ----
     if (sess.patterns && typeof patterns === 'object') {
       for (const k of Object.keys(patterns)) delete patterns[k];
       Object.assign(patterns, sess.patterns);
     }
-
+    
+    // ---- Tracks (restore volumes/pans/mute/solo) ----
+    if (sess.tracks && Array.isArray(sess.tracks)) {
+      sess.tracks.forEach((savedTrack, idx) => {
+        if (tracks[idx]) {
+          tracks[idx].volume = savedTrack.volume ?? 0.8;
+          tracks[idx].pan = savedTrack.pan ?? 0;
+          tracks[idx].mute = savedTrack.mute ?? false;
+          tracks[idx].solo = savedTrack.solo ?? false;
+          
+          // Apply to Tone.js
+          const synth = synths[tracks[idx].name];
+          if (synth && synth.volume) {
+            const volumeDb = (tracks[idx].volume - 1) * 60;
+            synth.volume.value = volumeDb;
+          }
+          
+          const panner = panners[tracks[idx].name];
+          if (panner) {
+            panner.pan.value = tracks[idx].pan;
+          }
+        }
+      });
+    }
+    
     // ---- Instruments (levels/pan/notes) ----
     if (sess.instruments && typeof applyLoadedInstruments === 'function') {
       applyLoadedInstruments(sess.instruments);
     }
-
+    
     // ---- FX config ----
     if (sess.fxConfig) {
       if (typeof fxConfig !== 'object' || !fxConfig) window.fxConfig = {};
       Object.assign(fxConfig, sess.fxConfig);
     }
-
+    
     // ---- Vibe / theme ----
-    if (sess.vibe && typeof applyVibe === 'function') applyVibe(sess.vibe);
-
+    if (sess.vibe && typeof applyVibe === 'function') {
+      applyVibe(sess.vibe);
+    }
+    
+    // ---- Update ALL UI controls ----
+    // BPM
+    const bpmSlider = document.getElementById('bpmSlider');
+    const bpmValue = document.getElementById('bpmValue');
+    if (bpmSlider) bpmSlider.value = state.bpm;
+    if (bpmValue) bpmValue.textContent = state.bpm;
+    
+    // Swing
+    const swingSlider = document.getElementById('swingSlider');
+    const swingValue = document.getElementById('swingValue');
+    if (swingSlider) swingSlider.value = state.swing;
+    if (swingValue) swingValue.textContent = state.swing + '%';
+    
+    // Duration
+    const durSlider = document.getElementById('durSlider');
+    const durValue = document.getElementById('durValue');
+    if (durSlider) durSlider.value = state.duration;
+    if (durValue) durValue.textContent = state.duration + ' min';
+    
+    // Complexity
+    const complexSlider = document.getElementById('complexSlider');
+    const complexValue = document.getElementById('complexValue');
+    const complexLabels = ['Simple', 'Medium', 'Complex'];
+    if (complexSlider) complexSlider.value = state.complexity;
+    if (complexValue) complexValue.textContent = complexLabels[state.complexity - 1] || 'Medium';
+    
+    // Humanize
+    const humanSlider = document.getElementById('humanSlider');
+    const humanValue = document.getElementById('humanValue');
+    if (humanSlider) humanSlider.value = state.humanize;
+    if (humanValue) humanValue.textContent = state.humanize + 'ms';
+    
+    // Master controls
+    const masterVolSlider = document.getElementById('masterVolSlider');
+    const masterVolValue = document.getElementById('masterVolValue');
+    if (masterVolSlider) masterVolSlider.value = state.masterVolume;
+    if (masterVolValue) masterVolValue.textContent = state.masterVolume + 'dB';
+    
+    const tapeSlider = document.getElementById('tapeSlider');
+    const tapeValue = document.getElementById('tapeValue');
+    if (tapeSlider) tapeSlider.value = state.tapeSaturation;
+    if (tapeValue) tapeValue.textContent = state.tapeSaturation + '%';
+    
+    const vinylSlider = document.getElementById('vinylSlider');
+    const vinylValue = document.getElementById('vinylValue');
+    if (vinylSlider) vinylSlider.value = state.vinylNoise;
+    if (vinylValue) vinylValue.textContent = state.vinylNoise + '%';
+    
+    const lowCutSlider = document.getElementById('lowCutSlider');
+    const lowCutValue = document.getElementById('lowCutValue');
+    if (lowCutSlider) lowCutSlider.value = state.lowCut;
+    if (lowCutValue) lowCutValue.textContent = state.lowCut + 'Hz';
+    
+    const highCutSlider = document.getElementById('highCutSlider');
+    const highCutValue = document.getElementById('highCutValue');
+    if (highCutSlider) highCutSlider.value = state.highCut;
+    if (highCutValue) highCutValue.textContent = state.highCut + 'Hz';
+    
+    const compSlider = document.getElementById('compressorSlider');
+    const compValue = document.getElementById('compressorValue');
+    if (compSlider) compSlider.value = state.compressor;
+    if (compValue) compValue.textContent = state.compressor + 'dB';
+    
+    // Metronome buttons
+    const metronomeBtn = document.getElementById('metronomeBtn');
+    if (metronomeBtn) {
+      metronomeBtn.textContent = state.metronomeEnabled ? '🥁 Click: On' : '🥁 Click: Off';
+    }
+    
+    const countInBtn = document.getElementById('countInBtn');
+    if (countInBtn) {
+      const countLabels = ['⏱️ Count: Off', '⏱️ Count: 1 bar', '⏱️ Count: 2 bars'];
+      countInBtn.textContent = countLabels[state.countInBars] || countLabels[0];
+    }
+    
+    // AI Mixing toggle
+    const aiMixToggle = document.getElementById('aiMixToggle');
+    if (aiMixToggle) {
+      aiMixToggle.checked = state.aiMixing?.enabled ?? false;
+    }
+    
+    // Genre selector
+    const genreSelect = document.getElementById('genreSelect');
+    if (genreSelect) {
+      genreSelect.value = state.currentGenre || 'lofi';
+    }
+    
+    // Apply Tone.js settings
+    if (typeof Tone !== 'undefined' && Tone.Transport) {
+      Tone.Transport.bpm.value = state.bpm;
+      Tone.Transport.swing = state.swing / 100;
+      Tone.Transport.swingSubdivision = '8n';
+      Tone.Destination.volume.value = state.masterVolume;
+    }
+    
+    // Apply master FX
+    if (master) {
+      if (master.tapeDistortion) {
+        master.tapeDistortion.distortion = (state.tapeSaturation / 100) * 0.2;
+        master.tapeDistortion.wet.value = (state.tapeSaturation / 100) * 0.6;
+      }
+      if (master.vinylNoise) {
+        master.vinylNoise.volume.value = -50 + (state.vinylNoise / 100) * 15;
+      }
+      if (master.lowCutFilter) {
+        master.lowCutFilter.frequency.value = state.lowCut;
+      }
+      if (master.highCutFilter) {
+        master.highCutFilter.frequency.value = state.highCut;
+      }
+      if (master.comp) {
+        master.comp.threshold.value = state.compressor;
+      }
+    }
+    
     // ---- Re-render UI surfaces ----
     renderSequencer?.();
     renderMixer?.();
@@ -27090,28 +27287,29 @@ async function restoreSessionIfAny(){
     renderHarmony?.();
     renderMultitrack?.();
     updateAllDisplays?.();
-
-    // 🔁 NEW: make all controls reflect the restored bpm/swing
+    
+    // Sync tempo controls
     if (typeof syncTempoControlsFromState === 'function') {
       syncTempoControlsFromState();
     }
-
+    
     // ---- Transport position ----
     if (typeof Tone !== 'undefined' && Tone.Transport) {
       Tone.Transport.seconds = (sess.transport?.pos) || 0;
     }
-
+    
     // ---- Resume playback if it was playing ----
     if (sess.transport?.playing && typeof play === 'function') {
       if (Tone?.getContext()?.state === 'running') {
         play();
       } else {
-        state.pendingResume = true; // resumes on first user gesture (see unlockAudioOnce patch)
+        state.pendingResume = true;
         showToast?.('Tap anywhere to resume playback', 'info');
       }
     }
-
-    showToast?.('↺ Session restored', 'success');
+    
+    showToast?.('↺ Session fully restored', 'success');
+    console.log('✅ Session restore complete');
     return true;
   } catch (e) {
     console.warn('restoreSessionIfAny failed', e);
@@ -27121,12 +27319,15 @@ async function restoreSessionIfAny(){
 
 // Save often + on exit
 if (!window.__sessionSaver) {
-  window.__sessionSaver = setInterval(saveSession, 10000);
+  window.__sessionSaver = setInterval(saveSession, 10000); // Every 10 seconds
 }
 window.addEventListener('visibilitychange', ()=>{ if (document.hidden) saveSession(); });
 window.addEventListener('beforeunload', saveSession);
+window.addEventListener('pagehide', saveSession); // For mobile Safari
 
-
+// Manual save function (can be called from UI)
+window.saveSessionNow = saveSession;
+  
 // -------------------- Initialization --------------------
 async function init() {
   // === 0. Splash: start ===
