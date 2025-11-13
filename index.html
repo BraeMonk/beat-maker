@@ -12304,36 +12304,33 @@ function applyMixingRules(analysis) {
 }
 
 function updateAllMixerChannels() {
-  const instNames = Object.keys(instruments);
-  
-  instNames.forEach((instId, index) => {
+  Object.keys(instruments).forEach((instId) => {
     const inst = instruments[instId];
     if (!inst) return;
 
-    // Find the mixer channel element
-    const channelEl = document.querySelector(
-      `#mixerGrid .mixer-channel:nth-child(${index + 1})`
-    );
-    if (!channelEl) return;
-
-    // Update volume slider
-    const volumeSlider = channelEl.querySelector('input[data-param="volume"]');
+    // Find the channel by data attribute instead of nth-child
+    const volumeSlider = document.querySelector(`input[data-inst="${instId}"][data-param="volume"]`);
     if (volumeSlider) {
       volumeSlider.value = inst.volume;
-      const valueDisplay = channelEl.querySelector('.param-value');
+      
+      // Update the value display
+      const paramControl = volumeSlider.closest('.param-control');
+      const valueDisplay = paramControl?.querySelector('.param-value');
       if (valueDisplay) {
         valueDisplay.textContent = inst.volume.toFixed(0) + 'dB';
       }
     }
 
-    // Update pan slider
-    const panSlider = channelEl.querySelector('input[data-param="pan"]');
+    const panSlider = document.querySelector(`input[data-inst="${instId}"][data-param="pan"]`);
     if (panSlider) {
       panSlider.value = inst.pan;
-      const panDisplay = channelEl.querySelector('.param-value');
-      if (panDisplay && panDisplay.closest('.param-control').querySelector('input[data-param="pan"]')) {
+      
+      // Update the pan display
+      const paramControl = panSlider.closest('.param-control');
+      const valueDisplay = paramControl?.querySelector('.param-value');
+      if (valueDisplay) {
         const label = inst.pan > 0 ? 'R' : inst.pan < 0 ? 'L' : 'C';
-        panDisplay.textContent = label + Math.abs(inst.pan);
+        valueDisplay.textContent = label + Math.abs(inst.pan);
       }
     }
   });
