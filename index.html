@@ -13425,20 +13425,29 @@ function autoApplyAIMixingIfEnabled() {
   if (!state.aiMixing || !state.aiMixing.enabled) {
     return;
   }
-  
+
   console.log('🤖 Auto-applying AI mixing after generation...');
-  
+
   // Small delay to let patterns settle
   setTimeout(async () => {
     try {
       await applyAIMixing();
-      renderMixer();
-      
+
+      // ✅ Only try to render the mixer if it's in the DOM
+      const grid = document.getElementById('mixerGrid');
+      if (grid) {
+        renderMixer();
+      } else {
+        console.log('🎚️ Auto-mix: mixerGrid not found, skipping renderMixer()');
+      }
+
       const score = getMixHealthScore();
       console.log(`✅ Auto-mix complete. Health: ${score}/100`);
       showToast(`🤖 Auto-mixed! Health: ${score}/100`, 'success');
     } catch (error) {
       console.error('❌ Auto-mix failed:', error);
+      console.error('Stack trace:', error.stack);
+      showToast('❌ Auto-mix failed: ' + error.message, 'error');
     }
   }, 500);
 }
