@@ -12758,7 +12758,7 @@ function comparePresets() {
 // Call this to apply AI mixing with current settings
 function autoMixNow() {
   if (state.aiMixing && state.aiMixing.enabled) {
-    applyAIMix();
+    applyAIMixing();
   } else {
     showToast('Enable AI Mixing first', 'warning');
   }
@@ -13249,7 +13249,7 @@ function setupMixerListeners() {
   }
   
   if (applyAIMixBtn) {
-    applyAIMixBtn.addEventListener('click', () => applyAIMix());
+    applyAIMixBtn.addEventListener('click', () => applyAIMixing());
   }
   
   ['autoGain', 'autoPan', 'autoEQ', 'autoComp'].forEach(feature => {
