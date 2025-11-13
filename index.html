@@ -10472,7 +10472,14 @@ function generateSectionBass(section, startBar, endBar) {
 
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
-    const chord  = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
+    // Stronger chord fallback logic
+    let chord = getChordNotesForBar(bar);
+    
+    // If the template didn't assign chords for this bar, use the progression
+    if (!chord || !chord.length) {
+      const degree = state.progression?.[bar % state.progression.length] ?? 0;
+      chord = buildTriadFromDegree(degree, state.key, state.scale);
+    }
     const pcs    = chord.map(n => n.replace(/\d/, ''));
     const [root, third, fifth] = pcs;
 
@@ -16076,28 +16083,90 @@ function generateKeyPattern() {
 
 function generateLeadMelody() {
   songBuilderState.isActive = false;
-  const scaleIntervals = scales[state.scale];
-  const keyIndex = keysArr.indexOf(state.key);
-  const octave = 4; // Medium-low register
-  
-  const scaleNotes = scaleIntervals.map(iv => keysArr[(keyIndex + iv) % 12] + octave);
-  
-  let lastIndex = 0;
-  const density = state.complexity === 1 ? 2 : state.complexity === 2 ? 3 : 5; // Very sparse
-  
-  for (let i = 0; i < state.sequenceLength; i++) {
-    // Much sparser - only occasional notes
-    if (Math.random() < (density / 32)) { // Half the normal density
-      // Prefer downward motion (darker feel)
-      const jump = Math.random() < 0.6 ? -1 : (Math.random() < 0.7 ? 1 : 2);
-      
-      lastIndex = clamp(lastIndex + jump, 0, scaleNotes.length - 1);
-      
-      patterns.lead[i].active = true;
-      patterns.lead[i].note = scaleNotes[lastIndex];
-      patterns.lead[i].velocity = 0.4 + Math.random() * 0.2; // Quiet, ghostly
-      patterns.lead[i].duration = Math.random() < 0.7 ? '4n' : '2n'; // Longer notes
-      patterns.lead[i].probability = Math.random() < 0.6 ? 100 : 70; // Some randomness
+
+  // If you have this helper, it's nice to ensure harmony is sane:
+  if (typeof ensureHarmonyGuardrails === 'function') {
+    ensureHarmonyGuardrails();
+  }
+
+  const len     = state.sequenceLength;
+  const bars    = Math.max(1, Math.floor(len / STEPS_PER_BAR));
+  const leadOct = (state.octave || 3) + 1;
+  const density = state.complexity === 1 ? 0.3 :
+                  state.complexity === 2 ? 0.5 : 0.8;
+
+  // Wipe only the lead lane
+  if (patterns.lead) {
+    patterns.lead.forEach(step => {
+      step.active      = false;
+      step.velocity    = 0.8;
+      step.probability = 100;
+      step.note        = instruments.lead?.note || step.note;
+      step.duration    = '8n';
+    });
+  }
+
+  let lastMidi = null;
+
+  for (let bar = 0; bar < bars; bar++) {
+    const offset = bar * STEPS_PER_BAR;
+
+    // === THIS IS YOUR SNIPPET ===
+    const chord = getChordNotesForBar(bar) || buildTriadFromDegree(0, state.key, state.scale);
+    const pcs   = chord.map(n => n.replace(/\d/, ''));
+    const [root, third, fifth] = pcs;
+    // =============================
+
+    // Safe chord-tone pool (fallbacks if third/fifth are missing)
+    const chordPool = [root, third || root, fifth || root].filter(Boolean);
+
+    // Strong beats where we really want chord tones
+    const strongSteps = [0, 4, 8, 12];
+
+    strongSteps.forEach(step => {
+      if (Math.random() > density) return;
+
+      const pc = chordPool[Math.floor(Math.random() * chordPool.length)];
+      const noteName = withOct(pc, leadOct);
+      const idx = offset + step;
+
+      if (!patterns.lead[idx]) return;
+
+      patterns.lead[idx].active   = true;
+      patterns.lead[idx].note     = noteName;
+      patterns.lead[idx].velocity = 0.65 + 0.2 * Math.random();
+      patterns.lead[idx].duration = '8n';
+      patterns.lead[idx].probability = 95;
+
+      lastMidi = Tone.Frequency(noteName).toMidi();
+    });
+
+    // Optional passing tones between chord hits, still quantized to scale
+    if (lastMidi != null && typeof buildScaleStepsForKey === 'function' && typeof quantizeNoteToScale === 'function') {
+      const scaleSteps = buildScaleStepsForKey(state.key, state.scale);
+
+      for (let step = 1; step < STEPS_PER_BAR; step += 2) {
+        if (Math.random() > density * 0.5) continue;
+        const idx = offset + step;
+        if (!patterns.lead[idx]) continue;
+
+        const jump     = [-2, -1, 1, 2][Math.floor(Math.random() * 4)];
+        const target   = quantizeNoteToScale(
+          lastMidi + jump,
+          state.key,
+          scaleSteps,
+          chord.map(n => Tone.Frequency(n).toMidi())
+        );
+        const noteName = Tone.Frequency(target, 'midi').toNote();
+
+        patterns.lead[idx].active   = true;
+        patterns.lead[idx].note     = noteName;
+        patterns.lead[idx].velocity = 0.5 + 0.2 * Math.random();
+        patterns.lead[idx].duration = '16n';
+        patterns.lead[idx].probability = 85;
+
+        lastMidi = target;
+      }
     }
   }
 }
