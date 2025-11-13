@@ -11754,278 +11754,6 @@ function analyzeTrackFrequencies(inst) {
   return profiles[inst] || profiles.keys;
 }
 
-// ============================================================================
-// GENRE-AWARE MIX PROFILES (aligned to your REAL instruments)
-// ============================================================================
-const GENRE_MIX_PROFILES = {
-  default: {
-    name: 'Balanced',
-    gain: {
-      kick: 1.0, snare: 1.0, hihat: 1.0, tom: 1.0,
-      clap: 1.0, rimshot: 1.0, crash: 1.0, ride: 1.0,
-      bass: 1.0, lead: 1.0, synth: 1.0, pad: 1.0,
-      perc: 1.0, fx: 1.0, riser: 1.0, ambience: 1.0,
-      _default: 1.0
-    },
-    tilt: { low: 0, mid: 0, high: 0 }
-  },
-
-  // ==========================================================================
-  // LO-FI
-  // ==========================================================================
-  lofi: {
-    name: 'Lo-Fi / Chill',
-    gain: {
-      kick: 0.9, bass: 0.95, snare: 0.9,
-      hihat: 0.8, perc: 0.8, clap: 0.85,
-      tom: 0.8, rimshot: 0.85, ride: 0.75, crash: 0.75,
-
-      lead: 0.95, synth: 1.0, pad: 1.15,
-      fx: 1.0, riser: 0.8, ambience: 1.2,
-
-      _default: 0.95
-    },
-    tilt: { low: +0.5, mid: +1.0, high: -1.5 }
-  },
-
-  // ==========================================================================
-  // HIP-HOP
-  // ==========================================================================
-  hiphop: {
-    name: 'Hip-Hop',
-    gain: {
-      kick: 1.15, bass: 1.1,
-      snare: 1.05, clap: 1.0, rimshot: 1.1,
-
-      hihat: 0.95, perc: 0.9, tom: 0.95,
-      crash: 0.8, ride: 0.85,
-
-      lead: 1.05, synth: 1.0, pad: 0.9,
-      fx: 1.0, riser: 1.0, ambience: 0.9,
-
-      _default: 1.0
-    },
-    tilt: { low: +1.0, mid: 0, high: +0.5 }
-  },
-
-  // ==========================================================================
-  // TRAP (808 style)
-  // ==========================================================================
-  trap: {
-    name: 'Trap / 808',
-    gain: {
-      kick: 1.1, bass: 1.25, snare: 1.0,
-      hihat: 1.05, clap: 1.0, rimshot: 1.05,
-      tom: 1.0, perc: 1.0,
-
-      crash: 0.9, ride: 0.9,
-
-      lead: 1.05, synth: 1.0, pad: 0.9,
-      fx: 1.1, riser: 1.2, ambience: 0.85,
-
-      _default: 1.0
-    },
-    tilt: { low: +1.2, mid: -0.2, high: +0.8 }
-  },
-
-  // ==========================================================================
-  // R&B
-  // ==========================================================================
-  rnb: {
-    name: 'R&B / Soul',
-    gain: {
-      kick: 1.0, bass: 1.05, snare: 0.95,
-      hihat: 0.9, clap: 0.95, perc: 0.95,
-      tom: 0.95, rimshot: 0.9,
-
-      crash: 0.85, ride: 0.9,
-
-      lead: 1.15, synth: 1.0, pad: 1.05,
-      fx: 0.9, riser: 0.9, ambience: 1.0,
-
-      _default: 1.0
-    },
-    tilt: { low: +0.5, mid: +0.6, high: +0.3 }
-  },
-
-  // ==========================================================================
-  // POP ROCK
-  // ==========================================================================
-  poprock: {
-    name: 'Pop Rock',
-    gain: {
-      kick: 1.05, snare: 1.1, bass: 1.0,
-      hihat: 1.0, clap: 1.0, rimshot: 1.1,
-      perc: 1.0, tom: 1.1,
-
-      crash: 1.0, ride: 1.0,
-
-      lead: 1.1, synth: 1.0, pad: 1.0,
-      fx: 0.95, riser: 1.0, ambience: 1.0,
-
-      _default: 1.0
-    },
-    tilt: { low: +0.4, mid: +1.0, high: +0.4 }
-  },
-
-  // ==========================================================================
-  // FUNK
-  // ==========================================================================
-  funk: {
-    name: 'Funk / Groove',
-    gain: {
-      kick: 1.05, bass: 1.15, snare: 1.0,
-      hihat: 1.0, clap: 1.1, perc: 1.1,
-
-      tom: 1.0, rimshot: 1.05,
-      crash: 0.9, ride: 1.1,
-
-      lead: 1.0, synth: 1.05, pad: 0.95,
-      fx: 1.0, riser: 0.9, ambience: 1.0,
-
-      _default: 1.0
-    },
-    tilt: { low: +0.8, mid: +0.8, high: +0.2 }
-  },
-
-  // ==========================================================================
-  // JAZZ
-  // ==========================================================================
-  jazz: {
-    name: 'Jazz / Soulful',
-    gain: {
-      kick: 0.9, bass: 1.05, snare: 0.95,
-      hihat: 1.05, clap: 0.9, perc: 1.0,
-
-      tom: 1.05, rimshot: 0.95,
-      crash: 0.85, ride: 1.15,
-
-      lead: 1.1, synth: 1.05, pad: 1.0,
-      fx: 1.0, riser: 0.9, ambience: 1.05,
-
-      _default: 1.0
-    },
-    tilt: { low: +0.3, mid: +1.0, high: +0.4 }
-  },
-
-  // ==========================================================================
-  // AMBIENT
-  // ==========================================================================
-  ambient: {
-    name: 'Ambient',
-    gain: {
-      kick: 0.6, snare: 0.6, bass: 0.8,
-      hihat: 0.7, clap: 0.6, perc: 0.75,
-
-      tom: 0.7, rimshot: 0.6,
-      crash: 0.7, ride: 0.7,
-
-      lead: 0.9, synth: 1.15, pad: 1.25,
-      fx: 1.1, riser: 1.1, ambience: 1.4,
-
-      _default: 1.0
-    },
-    tilt: { low: 0, mid: -0.5, high: +1.2 }
-  },
-
-  // ==========================================================================
-  // REGGAE
-  // ==========================================================================
-  reggae: {
-    name: 'Reggae / Dub',
-    gain: {
-      kick: 0.9, bass: 1.2, snare: 0.9,
-      hihat: 0.85, clap: 0.9, perc: 1.0,
-
-      tom: 0.9, rimshot: 0.9,
-      crash: 0.8, ride: 0.85,
-
-      lead: 0.95, synth: 1.0, pad: 1.05,
-      fx: 1.0, riser: 1.0, ambience: 1.1,
-
-      _default: 1.0
-    },
-    tilt: { low: +1.0, mid: +0.3, high: -0.3 }
-  },
-
-  // ==========================================================================
-  // METAL
-  // ==========================================================================
-  metal: {
-    name: 'Metal / Hardcore',
-    gain: {
-      kick: 1.15, bass: 1.05, snare: 1.1,
-      hihat: 1.0, clap: 0.95, perc: 1.05,
-
-      tom: 1.2, rimshot: 1.1,
-      crash: 1.15, ride: 1.1,
-
-      lead: 1.05, synth: 0.9, pad: 0.9,
-      fx: 1.0, riser: 1.1, ambience: 0.95,
-
-      _default: 1.0
-    },
-    tilt: { low: +0.8, mid: +1.3, high: +0.6 }
-  },
-
-  // ==========================================================================
-  // EDM / DUBSTEP
-  // ==========================================================================
-  edm: {
-    name: 'EDM / House',
-    gain: {
-      kick: 1.2, bass: 1.05, snare: 1.0,
-      hihat: 1.05, clap: 1.05, perc: 1.0,
-
-      tom: 1.0, rimshot: 1.0,
-      crash: 1.1, ride: 1.1,
-
-      lead: 1.15, synth: 1.1, pad: 1.0,
-      fx: 1.1, riser: 1.2, ambience: 1.0,
-
-      _default: 1.0
-    },
-    tilt: { low: +1.0, mid: +0.2, high: +0.8 }
-  },
-
-  dubstep: {
-    name: 'Dubstep',
-    gain: {
-      kick: 1.1, bass: 1.25, snare: 1.05,
-      hihat: 1.0, clap: 1.0, perc: 1.0,
-
-      tom: 1.0, rimshot: 1.05,
-      crash: 1.1, ride: 1.05,
-
-      lead: 1.05, synth: 1.1, pad: 0.9,
-      fx: 1.15, riser: 1.3, ambience: 0.9,
-
-      _default: 1.0
-    },
-    tilt: { low: +1.4, mid: +0.4, high: +0.9 }
-  },
-
-  // ==========================================================================
-  // DAZECORE (YOUR GENRE)
-  // ==========================================================================
-  dazecore: {
-    name: 'Dazecore / Glitch',
-    gain: {
-      kick: 1.1, bass: 1.1, snare: 1.05,
-      hihat: 1.0, clap: 1.0, perc: 1.05,
-      tom: 1.0, rimshot: 1.0,
-
-      crash: 1.05, ride: 1.0,
-
-      lead: 1.15, synth: 1.1, pad: 0.95,
-      fx: 1.2, riser: 1.3, ambience: 1.05,
-
-      _default: 1.0
-    },
-    tilt: { low: +0.7, mid: +0.5, high: +1.0 }
-  }
-};
-
 function calculateOptimalGain(inst) {
   const instData = instruments[inst];
   const type = instData.type;
@@ -12156,179 +11884,185 @@ function calculateIntelligentEQ(inst, freqProfile, density) {
   return eq;
 }
 
-async function applyAIMix() {
-  if (!state.aiMixing || !state.aiMixing.enabled) {
-    showToast('⚠️ AI Mixing is disabled. Enable it first.', 'warning');
-    return;
-  }
+// ============================================================================
+// ENHANCED applyAIMixing() - Professional Grade
+// ============================================================================
 
-  showToast('⚙️ Analyzing and applying smart mix…', 'info');
+async function applyAIMixing() {
+  if (!state.aiMixing.enabled) return;
   
-  try {
-    // Analyze the current pattern
-    const analysis = analyzePattern();
-    
-    console.log('🎛️ AI Mix Analysis:', analysis);
-    
-    // Apply mixing improvements based on analysis
-    applyMixingRules(analysis);
-    
-    console.log('✅ AI Mix applied successfully');
-    showToast('✨ Smart mix applied!', 'success');
-  } catch (error) {
-    console.error('❌ Mix error:', error);
-    showToast('❌ Mix failed: ' + error.message, 'error');
-  }
-}
-
-function analyzePattern() {
+  showToast('🤖 AI analyzing mix...', 'info');
+  
   const analysis = {
-    kickCount: 0,
-    snareCount: 0,
-    hihatCount: 0,
-    totalNotes: 0,
-    trackActivity: {}
+    instruments: {},
+    totalDensity: 0,
+    activeInstruments: 0,
+    freqMasking: {},
+    stereoBalance: 0
   };
   
-  // Count active steps per track using instrument names
-  tracks.forEach((track, trackIndex) => {
-    let activeSteps = 0;
-    const instName = track.name; // Get the instrument name from the track
-    const pattern = patterns[instName]; // Access pattern by instrument name
+  // PHASE 1: Deep Analysis
+  Object.keys(instruments).forEach(inst => {
+    const density = analyzePatternDensity(inst);
+    const freqProfile = analyzeTrackFrequenciesAdvanced(inst);
     
-    if (pattern) {
-      for (let step = 0; step < state.sequenceLength; step++) {
-        if (pattern[step]?.active) {
-          activeSteps++;
-          analysis.totalNotes++;
-          
-          // Count by instrument type
-          const name = instName.toLowerCase();
-          if (name.includes('kick')) analysis.kickCount++;
-          else if (name.includes('snare') || name.includes('clap')) analysis.snareCount++;
-          else if (name.includes('hat')) analysis.hihatCount++;
-        }
-      }
+    analysis.instruments[inst] = {
+      density,
+      freqProfile,
+      currentGain: instruments[inst].volume,
+      currentPan: instruments[inst].pan,
+      dynamicRange: calculateDynamicRange(inst),
+      peakFrequency: freqProfile.peakFreq,
+      spectralCentroid: calculateSpectralCentroid(freqProfile)
+    };
+    
+    if (density.activeSteps > 0) {
+      analysis.totalDensity += density.importance;
+      analysis.activeInstruments++;
     }
-    analysis.trackActivity[trackIndex] = activeSteps;
   });
   
-  return analysis;
-}
-
-function applyMixingRules(analysis) {
-  // Safety
-  if (!analysis || !analysis.trackActivity) {
-    console.warn('⚠️ AI Mix: no analysis data');
-    return;
+  // Calculate frequency masking matrix
+  Object.keys(instruments).forEach(inst => {
+    analysis.freqMasking[inst] = calculateFrequencyMasking(inst, analysis);
+  });
+  
+  state.aiMixing.lastAnalysis = analysis;
+  
+  // PHASE 2: Professional Mixing
+  let adjustments = 0;
+  
+  Object.keys(instruments).forEach(inst => {
+    const instAnalysis = analysis.instruments[inst];
+    const instData = instruments[inst];
+    
+    if (instAnalysis.density.activeSteps === 0) return;
+    
+    // 1. PROFESSIONAL GAIN STAGING
+    if (state.aiMixing.autoGain) {
+      // Calculate optimal gain with advanced algorithm
+      const targetGain = calculateProfessionalGain(inst, instAnalysis, analysis);
+      
+      // Apply with smooth ramping
+      instData.volume = Math.round(targetGain * 100);
+      if (instData.channel) {
+        instData.channel.volume.rampTo(
+          20 * Math.log10(targetGain), // Convert to dB
+          0.5
+        );
+      }
+      adjustments++;
+    }
+    
+    // 2. INTELLIGENT STEREO PLACEMENT
+    if (state.aiMixing.autoPan) {
+      const targetPan = calculateIntelligentPan(inst, instAnalysis, analysis);
+      instData.pan = targetPan;
+      
+      if (instData.channel) {
+        instData.channel.pan.rampTo(targetPan / 100, 0.5);
+      }
+      adjustments++;
+    }
+    
+    // 3. SURGICAL EQ
+    if (state.aiMixing.autoEQ) {
+      const eq = applyProfessionalEQ(inst, instAnalysis, analysis);
+      
+      // Create or update EQ nodes
+      if (!instData.eq) {
+        instData.eq = {
+          low: new Tone.EQ3(),
+          mid: new Tone.Filter(),
+          high: new Tone.EQ3()
+        };
+        instData.channel.chain(instData.eq.low, instData.eq.mid, instData.eq.high);
+      }
+      
+      // Apply EQ settings
+      if (instData.eq.low) {
+        instData.eq.low.low.value = eq.low;
+        instData.eq.low.mid.value = eq.mid;
+        instData.eq.low.high.value = eq.high;
+      }
+      
+      console.log(`🎛️ ${inst} EQ: L${eq.low > 0 ? '+' : ''}${eq.low.toFixed(1)}dB M${eq.mid > 0 ? '+' : ''}${eq.mid.toFixed(1)}dB H${eq.high > 0 ? '+' : ''}${eq.high.toFixed(1)}dB`);
+      adjustments++;
+    }
+    
+    // 4. DYNAMIC COMPRESSION
+    if (state.aiMixing.autoCompression) {
+      const compSettings = calculateIntelligentCompression(inst, instAnalysis, analysis);
+      
+      if (compSettings.enabled) {
+        if (!instData.compressor) {
+          instData.compressor = new Tone.Compressor();
+          instData.channel.chain(instData.compressor);
+        }
+        
+        instData.compressor.threshold.rampTo(compSettings.threshold, 0.5);
+        instData.compressor.ratio.value = compSettings.ratio;
+        instData.compressor.attack.rampTo(compSettings.attack, 0.5);
+        instData.compressor.release.rampTo(compSettings.release, 0.5);
+        instData.compressor.knee.value = compSettings.knee;
+        
+        console.log(`📊 ${inst} compression: ${compSettings.ratio}:1 @ ${compSettings.threshold}dB`);
+        adjustments++;
+      }
+    }
+  });
+  
+  // PHASE 3: Master Bus Intelligence
+  const mixCharacteristics = analyzeMixCharacteristics(analysis);
+  
+  // Adaptive master compression
+  if (mixCharacteristics.density > 0.7) {
+    // Dense mix - multiband approach
+    master.comp.threshold.rampTo(-18, 0.5);
+    master.comp.ratio.value = 4;
+    master.comp.attack.rampTo(0.005, 0.5);
+    master.comp.release.rampTo(0.12, 0.5);
+  } else if (mixCharacteristics.density > 0.4) {
+    // Medium density - gentle glue
+    master.comp.threshold.rampTo(-22, 0.5);
+    master.comp.ratio.value = 3;
+    master.comp.attack.rampTo(0.01, 0.5);
+    master.comp.release.rampTo(0.15, 0.5);
+  } else {
+    // Sparse mix - transparent
+    master.comp.threshold.rampTo(-26, 0.5);
+    master.comp.ratio.value = 2.5;
+    master.comp.attack.rampTo(0.02, 0.5);
+    master.comp.release.rampTo(0.2, 0.5);
   }
-
-  const totalSteps = state.sequenceLength || 16;
-  const instNames = Object.keys(instruments);
-
-  instNames.forEach((instId, index) => {
-    const inst = instruments[instId];
-    if (!inst) return;
-
-    const roleName = instId.toLowerCase();
-    const activity = analysis.trackActivity[index] || 0;
-
-    // --- 1. BASIC MIX RULES (QUIETER DEFAULTS) ---
-    let targetVolume = -12; // dB
-    let targetPan = 0;
-
-    if (roleName.includes('kick')) {
-      targetVolume = -6;
-      targetPan = 0;
-    } else if (roleName.includes('snare') || roleName.includes('clap')) {
-      targetVolume = -9;
-      targetPan = 0;
-    } else if (roleName.includes('hat')) {
-      targetVolume = -14;
-      targetPan = roleName.includes('closed') ? -15 : 15;
-    } else if (roleName.includes('perc') || roleName.includes('shaker') || roleName.includes('rim')) {
-      targetVolume = -16;
-      targetPan = (index % 2 === 0) ? -30 : 30;
-    } else if (roleName.includes('bass') || roleName.includes('808')) {
-      targetVolume = -8;
-      targetPan = 0;
-    } else if (roleName.includes('synth') || roleName.includes('melody') || roleName.includes('lead')) {
-      targetVolume = -12;
-      targetPan = (index % 2 === 0) ? -20 : 20;
-    } else if (roleName.includes('pad') || roleName.includes('atmos')) {
-      targetVolume = -16;
-      targetPan = (index % 2 === 0) ? -40 : 40;
-    } else if (roleName.includes('fx') || roleName.includes('riser')) {
-      targetVolume = -18;
-      targetPan = (index % 2 === 0) ? -25 : 25;
-    } else if (roleName.includes('tom')) {
-      targetVolume = -10;
-      targetPan = 0;
-    } else if (roleName.includes('crash') || roleName.includes('ride')) {
-      targetVolume = -12;
-      targetPan = roleName.includes('crash') ? 40 : -40;
-    } else if (roleName.includes('guitar')) {
-      targetVolume = -10;
-      targetPan = 35;
-    } else if (roleName.includes('keys')) {
-      targetVolume = -12;
-      targetPan = -25;
+  
+  // Adaptive master EQ
+  if (mixCharacteristics.lowEndEnergy > 0.4) {
+    // Tighten bass
+    if (master.lowCutFilter) {
+      master.lowCutFilter.frequency.rampTo(35, 0.5);
     }
-
-    // --- 2. Activity-based tweaks ---
-    if (activity > totalSteps * 0.75) targetVolume -= 2;
-    if (activity < totalSteps * 0.25) targetVolume += 2;
-
-    // --- 3. Clamp ---
-    targetVolume = Math.max(-60, Math.min(0, targetVolume));
-    targetPan = Math.max(-50, Math.min(50, targetPan));
-
-    // --- 4. Store in instruments object ---
-    instruments[instId].volume = targetVolume;
-    instruments[instId].pan = targetPan;
-
-    // --- 5. APPLY TO AUDIO GRAPH ---
-    const synth = synths[instId];
-    if (synth && synth.volume) {
-      synth.volume.rampTo(targetVolume, 0.1);
+  }
+  
+  if (mixCharacteristics.highEndEnergy < 0.15) {
+    // Add air
+    if (master.highShelf) {
+      master.highShelf.gain.rampTo(1.5, 0.5);
     }
-  });
-
-  updateAllMixerChannels();
-  console.log('✅ AI Mix applied to all instruments');
-}
-
-function updateAllMixerChannels() {
-  Object.keys(instruments).forEach((instId) => {
-    const inst = instruments[instId];
-    if (!inst) return;
-
-    // Find the channel by data attribute instead of nth-child
-    const volumeSlider = document.querySelector(`input[data-inst="${instId}"][data-param="volume"]`);
-    if (volumeSlider) {
-      volumeSlider.value = inst.volume;
-      
-      // Update the value display
-      const paramControl = volumeSlider.closest('.param-control');
-      const valueDisplay = paramControl?.querySelector('.param-value');
-      if (valueDisplay) {
-        valueDisplay.textContent = inst.volume.toFixed(0) + 'dB';
-      }
-    }
-
-    const panSlider = document.querySelector(`input[data-inst="${instId}"][data-param="pan"]`);
-    if (panSlider) {
-      panSlider.value = inst.pan;
-      
-      // Update the pan display
-      const paramControl = panSlider.closest('.param-control');
-      const valueDisplay = paramControl?.querySelector('.param-value');
-      if (valueDisplay) {
-        const label = inst.pan > 0 ? 'R' : inst.pan < 0 ? 'L' : 'C';
-        valueDisplay.textContent = label + Math.abs(inst.pan);
-      }
-    }
-  });
+  }
+  
+  renderMixer();
+  
+  // Detailed reporting
+  console.log('🤖 Professional AI Mixing Complete:');
+  console.log(`   ✓ ${adjustments} intelligent adjustments`);
+  console.log(`   ✓ ${analysis.activeInstruments} instruments balanced`);
+  console.log(`   ✓ Mix density: ${mixCharacteristics.density.toFixed(2)}`);
+  console.log(`   ✓ Frequency balance: ${mixCharacteristics.balance}`);
+  console.log(`   ✓ Stereo width: ${mixCharacteristics.stereoWidth.toFixed(1)}%`);
+  console.log(`   ✓ Dynamic range: ${mixCharacteristics.dynamicRange.toFixed(1)}dB`);
+  
+  showToast(`✅ Professional mix: ${analysis.activeInstruments} tracks`, 'success');
 }
 
 // Helper: Advanced frequency analysis
@@ -12448,71 +12182,53 @@ function calculateFrequencyMasking(inst, analysis) {
   };
 }
 
-// Helper: Professional, GENRE-AWARE gain calculation
+// Helper: Professional gain calculation
 function calculateProfessionalGain(inst, instAnalysis, mixAnalysis) {
-  // 0) Resolve genre profile
-  const genreKey = (state.currentGenre || 'default').toLowerCase();
-  const genreProfile = GENRE_MIX_PROFILES[genreKey] || GENRE_MIX_PROFILES.default;
-  const genreGainMap = genreProfile.gain || {};
-
-  // 1) LUFS-aware base target levels (instrument archetypes)
+  // LUFS-aware target levels
   const targetLevels = {
-    // Low-end foundation
-    kick: 0.71,   // -3.0 dB (anchor)
-    bass: 0.63,   // -4.0 dB
-
-    // Transient drums
-    snare: 0.56,  // -5.0 dB
-    clap: 0.50,   // -6.0 dB
-
-    // High-frequency elements
-    hihat: 0.40,  // -8.0 dB
-    perc: 0.35,   // -9.0 dB
-
-    // Melodic
-    lead: 0.63,   // -4.0 dB
-    synth: 0.56,  // -5.0 dB
-    pad: 0.45,    // -7.0 dB
-
-    // Default
-    default: 0.50 // -6.0 dB
+    // Low-end foundation (-3 to -6 dB for punch with headroom)
+    kick: 0.71,   // -3.0 dB (loudest element, anchor)
+    bass: 0.63,   // -4.0 dB (sits just under kick)
+    
+    // Transient elements (-6 to -9 dB for clarity without harshness)
+    snare: 0.56,  // -5.0 dB (second most prominent)
+    clap: 0.50,   // -6.0 dB (accent layer)
+    
+    // High-frequency elements (-9 to -12 dB for air, not fatigue)
+    hihat: 0.40,  // -8.0 dB (constant presence)
+    perc: 0.35,   // -9.0 dB (textural)
+    
+    // Melodic elements (-4 to -7 dB for musical presence)
+    lead: 0.63,   // -4.0 dB (focal point when active)
+    synth: 0.56,  // -5.0 dB (supporting harmony)
+    pad: 0.45,    // -7.0 dB (atmosphere)
+    
+    // Default for unknown instruments
+    default: 0.50 // -6.0 dB (safe middle ground)
   };
-
-  let targetGain = targetLevels[inst] || targetLevels.default;
-
-  // 2) Apply genre-specific emphasis (per-instrument multipliers)
-  const genreMult =
-    genreGainMap[inst] != null
-      ? genreGainMap[inst]
-      : (genreGainMap._default != null ? genreGainMap._default : 1.0);
-
-  targetGain *= genreMult;
-
-  // 3) Density compensation (busy patterns = slightly quieter)
+  
+  let targetGain = targetLevels[inst] || 0.65;
+  
+  // 1. Density compensation (busy patterns quieter)
   const densityFactor = Math.pow(instAnalysis.density.density, 0.5);
   targetGain *= (1 - densityFactor * 0.25);
-
-  // 4) Frequency masking compensation (crowded bands = quieter)
+  
+  // 2. Frequency masking compensation (conflicts = quieter)
   const masking = mixAnalysis.freqMasking[inst];
-  if (masking) {
-    targetGain *= (1 - masking.score * 0.3);
-  }
-
-  // 5) Mix crowding compensation (lots of instruments = all tucked a bit)
+  targetGain *= (1 - masking.score * 0.3);
+  
+  // 3. Mix crowding compensation
   const crowdingFactor = Math.min(mixAnalysis.activeInstruments / 8, 1);
   targetGain *= (1 - crowdingFactor * 0.2);
-
-  // 6) Importance boost (feature tracks get a bump)
-  if (mixAnalysis.totalDensity > 0) {
-    const importanceRatio = instAnalysis.density.importance / mixAnalysis.totalDensity;
-    targetGain *= (1 + importanceRatio * 0.4);
-  }
-
-  // 7) Dynamic range consideration
+  
+  // 4. Importance boost
+  const importanceRatio = instAnalysis.density.importance / mixAnalysis.totalDensity;
+  targetGain *= (1 + importanceRatio * 0.4);
+  
+  // 5. Dynamic range consideration
   const drFactor = instAnalysis.dynamicRange / 14;
   targetGain *= (0.85 + drFactor * 0.15);
-
-  // Clamp to safe range
+  
   return Math.max(0.1, Math.min(1.0, targetGain));
 }
 
