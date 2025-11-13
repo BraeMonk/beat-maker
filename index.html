@@ -13076,6 +13076,444 @@ function setupMasterMeters() {
   requestAnimationFrame(update);
 }
 
+// ============================================================================
+// 🎛️ PROFESSIONAL AI MIXING & MASTERING - COMPLETE UPGRADED SYSTEM
+// ============================================================================
+
+// This goes RIGHT AFTER your existing applyMasteringPreset() function
+
+// ============================================================================
+// MASTER INITIALIZATION
+// ============================================================================
+
+function initializeAIMixingSystem() {
+  console.log('🎛️ Initializing Professional AI Mixing & Mastering...');
+  
+  // State already exists from your chunk, just verify it
+  if (!state.aiMixing) {
+    state.aiMixing = {
+      enabled: false,
+      autoGain: true,
+      autoPan: true,
+      autoEQ: true,
+      autoCompression: true,
+      lastAnalysis: null
+    };
+  }
+  
+  // Wire up all controls
+  setupAIMixingToggle();
+  setupAIMixingFeatures();
+  setupAIMixingApplyButton();
+  setupMasteringPresets();
+  
+  console.log('✅ Professional AI Mixing System Ready');
+  console.log('🎚️ Features: Gain staging, Panning, Surgical EQ, Compression');
+  console.log('🎛️ Presets: gentle, modern, aggressive, lofi');
+}
+
+// ============================================================================
+// TOGGLE AI MIXING ON/OFF
+// ============================================================================
+
+function setupAIMixingToggle() {
+  const toggleBtn = document.getElementById('toggleAIMixingBtn');
+  const statusText = document.getElementById('aiMixingStatus');
+  const applyBtn = document.getElementById('applyAIMixBtn');
+  
+  if (!toggleBtn) {
+    console.warn('⚠️ toggleAIMixingBtn not found in DOM');
+    return;
+  }
+  
+  toggleBtn.addEventListener('click', () => {
+    // Toggle state
+    state.aiMixing.enabled = !state.aiMixing.enabled;
+    
+    // Update status text
+    if (statusText) {
+      statusText.textContent = state.aiMixing.enabled ? '🤖 AI Active' : 'Enable AI';
+    }
+    
+    // Update button styling
+    toggleBtn.classList.remove('btn-secondary', 'btn-success');
+    toggleBtn.classList.add(state.aiMixing.enabled ? 'btn-success' : 'btn-secondary');
+    
+    // Enable/disable apply button
+    if (applyBtn) {
+      applyBtn.disabled = !state.aiMixing.enabled;
+      applyBtn.classList.remove('btn-primary', 'btn-secondary');
+      applyBtn.classList.add(state.aiMixing.enabled ? 'btn-primary' : 'btn-secondary');
+    }
+    
+    // User feedback
+    const message = state.aiMixing.enabled 
+      ? '✅ AI Mixing enabled - Generate or click "Apply AI Mix"' 
+      : '❌ AI Mixing disabled';
+    const type = state.aiMixing.enabled ? 'success' : 'info';
+    
+    showToast(message, type);
+    console.log(`🤖 AI Mixing: ${state.aiMixing.enabled ? 'ENABLED' : 'DISABLED'}`);
+  });
+}
+
+// ============================================================================
+// FEATURE CHECKBOXES (Gain, Pan, EQ, Compression)
+// ============================================================================
+
+function setupAIMixingFeatures() {
+  const featureMap = {
+    'autoGainCheckbox': 'autoGain',
+    'autoPanCheckbox': 'autoPan',
+    'autoEQCheckbox': 'autoEQ',
+    'autoCompCheckbox': 'autoCompression'
+  };
+  
+  const featureNames = {
+    autoGain: 'Gain Staging',
+    autoPan: 'Stereo Panning',
+    autoEQ: 'Surgical EQ',
+    autoCompression: 'Dynamics Compression'
+  };
+  
+  Object.entries(featureMap).forEach(([checkboxId, stateKey]) => {
+    const checkbox = document.getElementById(checkboxId);
+    
+    if (!checkbox) {
+      console.warn(`⚠️ ${checkboxId} not found in DOM`);
+      return;
+    }
+    
+    // Set initial state from state.aiMixing
+    checkbox.checked = state.aiMixing[stateKey];
+    
+    // Listen for changes
+    checkbox.addEventListener('change', (e) => {
+      state.aiMixing[stateKey] = e.target.checked;
+      
+      const status = e.target.checked ? 'ENABLED' : 'DISABLED';
+      const emoji = e.target.checked ? '✅' : '❌';
+      
+      console.log(`${emoji} ${featureNames[stateKey]}: ${status}`);
+      
+      // Show toast if AI mixing is active
+      if (state.aiMixing.enabled) {
+        showToast(`${featureNames[stateKey]} ${e.target.checked ? 'enabled' : 'disabled'}`, 'info');
+      }
+    });
+  });
+  
+  console.log('🎛️ AI Feature Controls initialized');
+}
+
+// ============================================================================
+// APPLY AI MIXING BUTTON (Main processing)
+// ============================================================================
+
+function setupAIMixingApplyButton() {
+  const applyBtn = document.getElementById('applyAIMixBtn');
+  
+  if (!applyBtn) {
+    console.warn('⚠️ applyAIMixBtn not found in DOM');
+    return;
+  }
+  
+  applyBtn.addEventListener('click', async () => {
+    // Safety check
+    if (!state.aiMixing.enabled) {
+      showToast('⚠️ Enable AI Mixing first', 'warning');
+      return;
+    }
+    
+    // Disable button during processing
+    const originalText = applyBtn.textContent;
+    applyBtn.disabled = true;
+    applyBtn.textContent = '⏳ Analyzing...';
+    
+    try {
+      console.log('🤖 Starting Professional AI Mixing...');
+      
+      // Run the professional AI mixing engine
+      await applyAIMixing();
+      
+      // Update mixer display
+      renderMixer();
+      
+      // Get detailed analysis report
+      const report = getMixAnalysisReport();
+      
+      if (report) {
+        // Beautiful console output
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📊 PROFESSIONAL MIX ANALYSIS REPORT');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log(`   🎚️ Active Instruments: ${report.activeInstruments}`);
+        console.log(`   🎵 Frequency Balance: ${report.frequencyBalance}`);
+        console.log(`   ↔️  Stereo Width: ${report.stereoWidth}`);
+        console.log(`   📊 Dynamic Range: ${report.dynamicRange}`);
+        console.log(`   🔊 Estimated LUFS: ${report.estimatedLUFS}`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        if (report.recommendations && report.recommendations.length > 0) {
+          console.log('💡 PROFESSIONAL RECOMMENDATIONS:');
+          report.recommendations.forEach(rec => console.log(`   ${rec}`));
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        }
+        
+        // Calculate mix health score
+        const healthScore = getMixHealthScore();
+        let healthEmoji = '✅';
+        let healthLabel = 'Excellent';
+        let healthColor = '#00ff00';
+        
+        if (healthScore < 60) {
+          healthEmoji = '⚠️';
+          healthLabel = 'Needs Work';
+          healthColor = '#ff4444';
+        } else if (healthScore < 80) {
+          healthEmoji = '👍';
+          healthLabel = 'Good';
+          healthColor = '#ffaa00';
+        }
+        
+        console.log(`${healthEmoji} MIX HEALTH SCORE: ${healthScore}/100 (${healthLabel})`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        // User feedback
+        showToast(`${healthEmoji} Mix complete! Health: ${healthScore}/100`, 'success');
+      } else {
+        showToast('✅ AI Mixing applied', 'success');
+      }
+      
+    } catch (error) {
+      console.error('❌ AI Mixing Error:', error);
+      console.error('Stack trace:', error.stack);
+      showToast('❌ Mixing failed: ' + error.message, 'error');
+    } finally {
+      // Re-enable button
+      applyBtn.disabled = false;
+      applyBtn.textContent = originalText;
+    }
+  });
+  
+  console.log('🎚️ AI Apply Button initialized');
+}
+
+// ============================================================================
+// MASTERING PRESETS (One-click professional mastering)
+// ============================================================================
+
+function setupMasteringPresets() {
+  const presetButtons = document.querySelectorAll('[data-master-preset]');
+  
+  if (presetButtons.length === 0) {
+    console.warn('⚠️ No mastering preset buttons found');
+    return;
+  }
+  
+  presetButtons.forEach(btn => {
+    const preset = btn.dataset.masterPreset;
+    
+    btn.addEventListener('click', () => {
+      // Visual feedback
+      btn.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        btn.style.transform = '';
+      }, 150);
+      
+      // Apply the professional mastering preset
+      console.log(`🎚️ Applying ${preset} mastering preset...`);
+      applyMasteringPreset(preset);
+    });
+  });
+  
+  console.log(`🎛️ Registered ${presetButtons.length} mastering presets`);
+}
+
+// ============================================================================
+// AUTO-APPLY AI MIXING (Optional - triggers after beat generation)
+// ============================================================================
+
+function autoApplyAIMixingIfEnabled() {
+  if (!state.aiMixing || !state.aiMixing.enabled) {
+    return;
+  }
+  
+  console.log('🤖 Auto-applying AI mixing after generation...');
+  
+  // Small delay to let patterns settle
+  setTimeout(async () => {
+    try {
+      await applyAIMixing();
+      renderMixer();
+      
+      const score = getMixHealthScore();
+      console.log(`✅ Auto-mix complete. Health: ${score}/100`);
+      showToast(`🤖 Auto-mixed! Health: ${score}/100`, 'success');
+    } catch (error) {
+      console.error('❌ Auto-mix failed:', error);
+    }
+  }, 500);
+}
+
+// ============================================================================
+// KEYBOARD SHORTCUTS (Optional power-user feature)
+// ============================================================================
+
+function setupAIMixingKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Ignore if typing in input field
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      return;
+    }
+    
+    // Cmd/Ctrl + M = Toggle AI Mixing
+    if ((e.metaKey || e.ctrlKey) && e.key === 'm' && !e.shiftKey) {
+      e.preventDefault();
+      const toggleBtn = document.getElementById('toggleAIMixingBtn');
+      if (toggleBtn) {
+        toggleBtn.click();
+        console.log('⌨️ Keyboard shortcut: Toggle AI Mixing');
+      }
+    }
+    
+    // Cmd/Ctrl + Shift + M = Apply AI Mix
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'M') {
+      e.preventDefault();
+      const applyBtn = document.getElementById('applyAIMixBtn');
+      if (applyBtn && !applyBtn.disabled) {
+        applyBtn.click();
+        console.log('⌨️ Keyboard shortcut: Apply AI Mix');
+      }
+    }
+  });
+  
+  console.log('⌨️ AI Mixing keyboard shortcuts enabled:');
+  console.log('   Cmd/Ctrl + M = Toggle AI Mixing');
+  console.log('   Cmd/Ctrl + Shift + M = Apply AI Mix');
+}
+
+// ============================================================================
+// UTILITY: Export Mix Analysis as JSON
+// ============================================================================
+
+function exportMixAnalysisToJSON() {
+  const analysis = exportMixAnalysis();
+  
+  if (!analysis) {
+    showToast('⚠️ No mix analysis available. Apply AI mixing first.', 'warning');
+    return;
+  }
+  
+  const blob = new Blob([JSON.stringify(analysis, null, 2)], { 
+    type: 'application/json' 
+  });
+  
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mix-analysis-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  showToast('📊 Mix analysis exported', 'success');
+  console.log('📊 Mix Analysis Exported:', analysis);
+}
+
+// ============================================================================
+// UTILITY: Compare All Presets
+// ============================================================================
+
+function displayPresetComparison() {
+  comparePresets(); // Uses your existing function
+  
+  const presets = ['gentle', 'modern', 'aggressive', 'lofi', 'broadcast', 'vinyl'];
+  showToast(`📊 Check console for ${presets.length} preset comparisons`, 'info');
+}
+
+// ============================================================================
+// PATCH: Auto-apply after generation (if enabled)
+// ============================================================================
+
+// Store original functions
+const _originalGenerateBeat = typeof generateBeat !== 'undefined' ? generateBeat : null;
+const _originalGenerateMelodicPatterns = typeof generateMelodicPatterns !== 'undefined' ? generateMelodicPatterns : null;
+
+// Override generateBeat to include auto-mixing
+if (_originalGenerateBeat) {
+  generateBeat = function() {
+    const result = _originalGenerateBeat.apply(this, arguments);
+    autoApplyAIMixingIfEnabled();
+    return result;
+  };
+}
+
+// Override generateMelodicPatterns to include auto-mixing
+if (_originalGenerateMelodicPatterns) {
+  generateMelodicPatterns = function() {
+    const result = _originalGenerateMelodicPatterns.apply(this, arguments);
+    autoApplyAIMixingIfEnabled();
+    return result;
+  };
+}
+
+// ============================================================================
+// CONSOLE COMMANDS (for power users)
+// ============================================================================
+
+// Make these globally accessible for console use
+window.aiMixingCommands = {
+  toggle: () => document.getElementById('toggleAIMixingBtn')?.click(),
+  apply: () => document.getElementById('applyAIMixBtn')?.click(),
+  preset: (name) => applyMasteringPreset(name),
+  health: () => {
+    const score = getMixHealthScore();
+    console.log(`🏥 Mix Health: ${score}/100`);
+    return score;
+  },
+  export: () => exportMixAnalysisToJSON(),
+  compare: () => displayPresetComparison(),
+  report: () => {
+    const report = getMixAnalysisReport();
+    if (report) {
+      console.table(report);
+    } else {
+      console.log('No analysis available. Apply AI mixing first.');
+    }
+    return report;
+  }
+};
+
+console.log('🎛️ Professional AI Mixing & Mastering System Loaded');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('📊 Features:');
+console.log('   ✓ Professional gain staging');
+console.log('   ✓ Intelligent stereo panning');
+console.log('   ✓ Surgical EQ (7-band analysis)');
+console.log('   ✓ Dynamic compression');
+console.log('   ✓ Frequency masking detection');
+console.log('   ✓ Mix health scoring');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('🎚️ Mastering Presets:');
+console.log('   • gentle - Natural & Dynamic (-18 LUFS)');
+console.log('   • modern - Streaming Ready (-14 LUFS)');
+console.log('   • aggressive - Club/Loud (-11 LUFS)');
+console.log('   • lofi - Vintage Warmth (-16 LUFS)');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('💡 Console Commands (window.aiMixingCommands):');
+console.log('   .toggle() - Toggle AI mixing');
+console.log('   .apply() - Apply AI mix');
+console.log('   .preset("modern") - Apply preset');
+console.log('   .health() - Get mix health score');
+console.log('   .export() - Export analysis JSON');
+console.log('   .compare() - Compare all presets');
+console.log('   .report() - Show detailed report');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('📝 Call initializeAIMixingSystem() to activate UI');
+console.log('⌨️ Call setupAIMixingKeyboardShortcuts() for shortcuts');
+
 function setupGeneratorButtons() {
   document.getElementById('generateBtn').addEventListener('click', () => {
     generateBeat();
@@ -27150,6 +27588,9 @@ async function init() {
   populateHarmonySelectors();
   generateAvailableChords();
   renderProgressionChips();
+
+  initializeAIMixingSystem();
+  setupAIMixingKeyboardShortcuts();
 
   // ✅ Restore last session (patterns, bpm/swing, harmony, FX, pos/playing)
   await restoreSessionIfAny();
