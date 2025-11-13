@@ -13024,7 +13024,7 @@ function comparePresets() {
 // Call this to apply AI mixing with current settings
 function autoMixNow() {
   if (state.aiMixing && state.aiMixing.enabled) {
-    applyAIMixing();
+    applyAIMix();
   } else {
     showToast('Enable AI Mixing first', 'warning');
   }
