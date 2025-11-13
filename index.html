@@ -11932,82 +11932,51 @@ function analyzePattern() {
 }
 
 function applyMixingRules(analysis) {
+  // Prevent crashes
+  if (!analysis || !analysis.trackActivity) return;
+
+  const totalSteps = state.sequenceLength || 16;
+
   tracks.forEach((track, trackIndex) => {
     const name = track.name.toLowerCase();
     const activity = analysis.trackActivity[trackIndex] || 0;
-    
-    // **KICK DRUM**: Loud, centered, punchy
+
+    // === BASIC MIX (your original logic) ===
     if (name.includes('kick')) {
-      track.volume = 0.9;  // Loud
-      track.pan = 0;       // Center
-      // Apply compression for punch (if you have FX)
-      if (track.fx?.compressor) {
-        track.fx.compressor.threshold = -20;
-        track.fx.compressor.ratio = 4;
-      }
-    }
-    
-    // **SNARE/CLAP**: Slightly lower, centered
-    else if (name.includes('snare') || name.includes('clap')) {
+      track.volume = 0.9;
+      track.pan = 0;
+    } else if (name.includes('snare') || name.includes('clap')) {
       track.volume = 0.75;
       track.pan = 0;
-    }
-    
-    // **HI-HATS**: Moderate volume, slight stereo width
-    else if (name.includes('hat')) {
+    } else if (name.includes('hat')) {
       track.volume = 0.5;
-      // Alternate panning for closed/open hats
-      if (name.includes('closed')) track.pan = -0.15;
-      else if (name.includes('open')) track.pan = 0.15;
-    }
-    
-    // **PERCUSSION**: Lower volume, wider stereo
-    else if (name.includes('perc') || name.includes('shaker') || name.includes('rim')) {
+      track.pan = name.includes('closed') ? -0.15 : 0.15;
+    } else if (name.includes('perc') || name.includes('shaker') || name.includes('rim')) {
       track.volume = 0.4;
-      track.pan = (trackIndex % 2 === 0) ? -0.3 : 0.3; // Alternate L/R
-    }
-    
-    // **BASS**: Loud, centered, mono
-    else if (name.includes('bass') || name.includes('808')) {
+      track.pan = (trackIndex % 2 === 0) ? -0.3 : 0.3;
+    } else if (name.includes('bass') || name.includes('808')) {
       track.volume = 0.85;
       track.pan = 0;
-    }
-    
-    // **MELODY/SYNTH**: Moderate, with stereo spread
-    else if (name.includes('synth') || name.includes('melody') || name.includes('lead')) {
+    } else if (name.includes('synth') || name.includes('melody') || name.includes('lead')) {
       track.volume = 0.6;
       track.pan = (trackIndex % 2 === 0) ? -0.2 : 0.2;
-    }
-    
-    // **PAD/ATMOSPHERE**: Quiet, wide stereo
-    else if (name.includes('pad') || name.includes('atmos')) {
+    } else if (name.includes('pad') || name.includes('atmos')) {
       track.volume = 0.35;
       track.pan = (trackIndex % 2 === 0) ? -0.4 : 0.4;
-    }
-    
-    // **DEFAULT**: Balanced mix
-    else {
+    } else {
       track.volume = 0.6;
       track.pan = 0;
     }
-    
-    // **ACTIVITY-BASED ADJUSTMENTS**
-    // If track is very busy, reduce volume slightly
-    if (activity > STEPS * 0.75) {
-      track.volume *= 0.9;
-    }
-    
-    // If track is sparse, it can be louder
-    if (activity < STEPS * 0.25) {
-      track.volume *= 1.1;
-    }
-    
-    // Keep volume in safe range
+
+    // Activity-based mix
+    if (activity > totalSteps * 0.75) track.volume *= 0.9;
+    if (activity < totalSteps * 0.25) track.volume *= 1.1;
+
+    // Clamp values
     track.volume = Math.max(0.1, Math.min(1.0, track.volume));
     track.pan = Math.max(-1, Math.min(1, track.pan));
   });
-  
-  // Update UI for all mixer channels
+
   updateAllMixerChannels();
 }
 
