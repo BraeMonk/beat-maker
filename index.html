@@ -12157,19 +12157,27 @@ function calculateIntelligentEQ(inst, freqProfile, density) {
 }
 
 async function applyAIMix() {
+  if (!state.aiMixing || !state.aiMixing.enabled) {
+    showToast('⚠️ AI Mixing is disabled. Enable it first.', 'warning');
+    return;
+  }
+
   showToast('⚙️ Analyzing and applying smart mix…', 'info');
   
   try {
     // Analyze the current pattern
     const analysis = analyzePattern();
     
+    console.log('🎛️ AI Mix Analysis:', analysis);
+    
     // Apply mixing improvements based on analysis
     applyMixingRules(analysis);
     
+    console.log('✅ AI Mix applied successfully');
     showToast('✨ Smart mix applied!', 'success');
   } catch (error) {
-    console.error('Mix error:', error);
-    showToast('❌ Mix failed', 'error');
+    console.error('❌ Mix error:', error);
+    showToast('❌ Mix failed: ' + error.message, 'error');
   }
 }
 
@@ -12210,105 +12218,123 @@ function analyzePattern() {
 
 function applyMixingRules(analysis) {
   // Safety
-  if (!analysis || !analysis.trackActivity) return;
-  if (!Array.isArray(tracks) || tracks.length === 0) {
-    console.warn('⚠️ AI Mix: no tracks to mix.');
+  if (!analysis || !analysis.trackActivity) {
+    console.warn('⚠️ AI Mix: no analysis data');
     return;
   }
 
   const totalSteps = state.sequenceLength || 16;
+  const instNames = Object.keys(instruments);
 
-  tracks.forEach((track, trackIndex) => {
-    if (!track || !track.name) return;
+  instNames.forEach((instId, index) => {
+    const inst = instruments[instId];
+    if (!inst) return;
 
-    const instId   = String(track.name);       // your REAL instrument ID
-    const roleName = instId.toLowerCase();     // only for classification
-    const activity = analysis.trackActivity[trackIndex] || 0;
+    const roleName = instId.toLowerCase();
+    const activity = analysis.trackActivity[index] || 0;
 
-    // --- 1. BASIC MIX RULES (unchanged, just using roleName) ---
+    // --- 1. BASIC MIX RULES (QUIETER DEFAULTS) ---
+    let targetVolume = -12; // dB
+    let targetPan = 0;
+
     if (roleName.includes('kick')) {
-      track.volume = 0.9;
-      track.pan    = 0;
+      targetVolume = -6;
+      targetPan = 0;
     } else if (roleName.includes('snare') || roleName.includes('clap')) {
-      track.volume = 0.75;
-      track.pan    = 0;
+      targetVolume = -9;
+      targetPan = 0;
     } else if (roleName.includes('hat')) {
-      track.volume = 0.5;
-      track.pan    = roleName.includes('closed') ? -0.15 : 0.15;
+      targetVolume = -14;
+      targetPan = roleName.includes('closed') ? -15 : 15;
     } else if (roleName.includes('perc') || roleName.includes('shaker') || roleName.includes('rim')) {
-      track.volume = 0.4;
-      track.pan    = (trackIndex % 2 === 0) ? -0.3 : 0.3;
+      targetVolume = -16;
+      targetPan = (index % 2 === 0) ? -30 : 30;
     } else if (roleName.includes('bass') || roleName.includes('808')) {
-      track.volume = 0.85;
-      track.pan    = 0;
+      targetVolume = -8;
+      targetPan = 0;
     } else if (roleName.includes('synth') || roleName.includes('melody') || roleName.includes('lead')) {
-      track.volume = 0.6;
-      track.pan    = (trackIndex % 2 === 0) ? -0.2 : 0.2;
+      targetVolume = -12;
+      targetPan = (index % 2 === 0) ? -20 : 20;
     } else if (roleName.includes('pad') || roleName.includes('atmos')) {
-      track.volume = 0.35;
-      track.pan    = (trackIndex % 2 === 0) ? -0.4 : 0.4;
-    } else {
-      track.volume = 0.6;
-      track.pan    = 0;
+      targetVolume = -16;
+      targetPan = (index % 2 === 0) ? -40 : 40;
+    } else if (roleName.includes('fx') || roleName.includes('riser')) {
+      targetVolume = -18;
+      targetPan = (index % 2 === 0) ? -25 : 25;
+    } else if (roleName.includes('tom')) {
+      targetVolume = -10;
+      targetPan = 0;
+    } else if (roleName.includes('crash') || roleName.includes('ride')) {
+      targetVolume = -12;
+      targetPan = roleName.includes('crash') ? 40 : -40;
+    } else if (roleName.includes('guitar')) {
+      targetVolume = -10;
+      targetPan = 35;
+    } else if (roleName.includes('keys')) {
+      targetVolume = -12;
+      targetPan = -25;
     }
 
     // --- 2. Activity-based tweaks ---
-    if (activity > totalSteps * 0.75) track.volume *= 0.9;
-    if (activity < totalSteps * 0.25) track.volume *= 1.1;
+    if (activity > totalSteps * 0.75) targetVolume -= 2;
+    if (activity < totalSteps * 0.25) targetVolume += 2;
 
     // --- 3. Clamp ---
-    track.volume = Math.max(0.1, Math.min(1.0, track.volume));
-    track.pan    = Math.max(-1, Math.min(1,   track.pan));
+    targetVolume = Math.max(-60, Math.min(0, targetVolume));
+    targetPan = Math.max(-50, Math.min(50, targetPan));
 
-    // --- 4. APPLY TO YOUR ACTUAL AUDIO GRAPH (keeping original instId) ---
-    const synth  = synths[instId];
+    // --- 4. Store in instruments object ---
+    instruments[instId].volume = targetVolume;
+    instruments[instId].pan = targetPan;
+
+    // --- 5. APPLY TO AUDIO GRAPH ---
+    const synth = synths[instId];
     if (synth && synth.volume) {
-      const volumeDb = (track.volume - 1) * 60; // 1 -> 0 dB, 0.5 -> ~-30 dB
-      synth.volume.rampTo(volumeDb, 0.1);
+      synth.volume.rampTo(targetVolume, 0.1);
     }
 
     const panner = panners[instId];
     if (panner && panner.pan) {
-      panner.pan.rampTo(track.pan, 0.1);
+      panner.pan.rampTo(targetPan / 100, 0.1); // Convert to -0.5 to 0.5 range
     }
   });
 
   updateAllMixerChannels();
+  console.log('✅ AI Mix applied to all instruments');
 }
 
 function updateAllMixerChannels() {
-  if (!Array.isArray(tracks)) return;
+  const instNames = Object.keys(instruments);
+  
+  instNames.forEach((instId, index) => {
+    const inst = instruments[instId];
+    if (!inst) return;
 
-  tracks.forEach((track, index) => {
-    if (!track || !track.name) return;
-    const instId = String(track.name);
-
-    // Use nth-child as you had it, but now it's always tied to the same `tracks` index
+    // Find the mixer channel element
     const channelEl = document.querySelector(
       `#mixerGrid .mixer-channel:nth-child(${index + 1})`
     );
     if (!channelEl) return;
 
-    const volumeSlider = channelEl.querySelector('input[type="range"]');
+    // Update volume slider
+    const volumeSlider = channelEl.querySelector('input[data-param="volume"]');
     if (volumeSlider) {
-      volumeSlider.value = track.volume;
+      volumeSlider.value = inst.volume;
+      const valueDisplay = channelEl.querySelector('.param-value');
+      if (valueDisplay) {
+        valueDisplay.textContent = inst.volume.toFixed(0) + 'dB';
+      }
     }
 
-    const panSlider = channelEl.querySelector('.pan-slider');
+    // Update pan slider
+    const panSlider = channelEl.querySelector('input[data-param="pan"]');
     if (panSlider) {
-      panSlider.value = track.pan;
-    }
-
-    // Safety: keep audio graph tightly synced
-    const synth  = synths[instId];
-    if (synth && synth.volume) {
-      const volumeDb = (track.volume - 1) * 60;
-      synth.volume.rampTo(volumeDb, 0.1);
-    }
-
-    const panner = panners[instId];
-    if (panner && panner.pan) {
-      panner.pan.rampTo(track.pan, 0.1);
+      panSlider.value = inst.pan;
+      const panDisplay = channelEl.querySelector('.param-value');
+      if (panDisplay && panDisplay.closest('.param-control').querySelector('input[data-param="pan"]')) {
+        const label = inst.pan > 0 ? 'R' : inst.pan < 0 ? 'L' : 'C';
+        panDisplay.textContent = label + Math.abs(inst.pan);
+      }
     }
   });
 }
