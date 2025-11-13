@@ -12271,53 +12271,47 @@ function calculateFrequencyMasking(inst, analysis) {
 
 // Helper: Professional gain calculation
 function calculateProfessionalGain(inst, instAnalysis, mixAnalysis) {
-  // LUFS-aware target levels
   const targetLevels = {
-    // Low-end foundation (-3 to -6 dB for punch with headroom)
-    kick: 0.71,   // -3.0 dB (loudest element, anchor)
-    bass: 0.63,   // -4.0 dB (sits just under kick)
-    
-    // Transient elements (-6 to -9 dB for clarity without harshness)
-    snare: 0.56,  // -5.0 dB (second most prominent)
-    clap: 0.50,   // -6.0 dB (accent layer)
-    
-    // High-frequency elements (-9 to -12 dB for air, not fatigue)
-    hihat: 0.40,  // -8.0 dB (constant presence)
-    perc: 0.35,   // -9.0 dB (textural)
-    
-    // Melodic elements (-4 to -7 dB for musical presence)
-    lead: 0.63,   // -4.0 dB (focal point when active)
-    synth: 0.56,  // -5.0 dB (supporting harmony)
-    pad: 0.45,    // -7.0 dB (atmosphere)
-    
-    // Default for unknown instruments
-    default: 0.50 // -6.0 dB (safe middle ground)
+    kick: 0.71,
+    bass: 0.63,
+    snare: 0.56,
+    clap: 0.50,
+    hihat: 0.40,
+    perc: 0.35,
+    lead: 0.63,
+    synth: 0.56,
+    pad: 0.45,
+    default: 0.50
   };
   
   let targetGain = targetLevels[inst] || 0.65;
   
-  // 1. Density compensation (busy patterns quieter)
+  // 1. Density compensation (softer)
   const densityFactor = Math.pow(instAnalysis.density.density, 0.5);
-  targetGain *= (1 - densityFactor * 0.25);
+  targetGain *= (1 - densityFactor * 0.15);  // was 0.25
   
-  // 2. Frequency masking compensation (conflicts = quieter)
+  // 2. Frequency masking compensation (softer)
   const masking = mixAnalysis.freqMasking[inst];
-  targetGain *= (1 - masking.score * 0.3);
+  targetGain *= (1 - masking.score * 0.15);  // was 0.3
   
-  // 3. Mix crowding compensation
+  // 3. Mix crowding compensation (softer)
   const crowdingFactor = Math.min(mixAnalysis.activeInstruments / 8, 1);
-  targetGain *= (1 - crowdingFactor * 0.2);
+  targetGain *= (1 - crowdingFactor * 0.10); // was 0.2
   
-  // 4. Importance boost
+  // 4. Importance boost (keep)
   const importanceRatio = instAnalysis.density.importance / mixAnalysis.totalDensity;
   targetGain *= (1 + importanceRatio * 0.4);
   
-  // 5. Dynamic range consideration
+  // 5. Dynamic range consideration (keep)
   const drFactor = instAnalysis.dynamicRange / 14;
   targetGain *= (0.85 + drFactor * 0.15);
+
+  // Small overall loudness bump & higher floor
+  targetGain *= 1.15;
   
-  return Math.max(0.1, Math.min(1.0, targetGain));
+  return Math.max(0.2, Math.min(1.0, targetGain)); // floor at 0.2 instead of 0.1
 }
+
 
 // Helper: Intelligent panning
 function calculateIntelligentPan(inst, instAnalysis, mixAnalysis) {
@@ -12869,24 +12863,30 @@ function quickMaster(style) {
 // Get current mix health score (0-100)
 function getMixHealthScore() {
   const report = getMixAnalysisReport();
-  if (!report) return 50;
+  if (!report) return 75; // neutral if no data yet
   
-  let score = 100;
+  // Start from a realistic “good but improvable” baseline
+  let score = 85;
   
-  // Deduct for issues
   const mixChar = analyzeMixCharacteristics(state.aiMixing.lastAnalysis);
   
-  if (mixChar.lowEndEnergy > 0.5) score -= 10;
-  if (mixChar.highEndEnergy < 0.15) score -= 10;
-  if (mixChar.density > 0.8) score -= 8;
-  if (mixChar.dynamicRange < 6) score -= 15;
-  if (mixChar.dynamicRange > 14) score -= 8;
+  // Much softer penalties
+  if (mixChar.lowEndEnergy > 0.55) score -= 5;   // slightly bass-heavy
+  if (mixChar.highEndEnergy < 0.15) score -= 5;  // slightly dull
+  if (mixChar.density > 0.85) score -= 5;        // very dense
   
+  if (mixChar.dynamicRange < 6)  score -= 8;     // too crushed
+  if (mixChar.dynamicRange > 14) score -= 5;     // super wide dynamics (maybe too loose)
+  
+  // Masking: add up small penalties but cap it
+  let maskingPenalty = 0;
   Object.values(state.aiMixing.lastAnalysis.freqMasking || {}).forEach(masking => {
-    if (masking.score > 0.6) score -= 5;
+    if (masking.score > 0.6) maskingPenalty += 3;
   });
+  score -= Math.min(maskingPenalty, 12);
   
-  return Math.max(0, Math.min(100, score));
+  // Clamp to a sane window: 20–100
+  return Math.max(20, Math.min(100, score));
 }
 
 console.log('🎛️ Professional AI Mixing & Mastering System Loaded');
@@ -12996,7 +12996,7 @@ function setupMasterControls() {
 
   // Initial volume (default -6 dB for headroom)
   const initialDb =
-    typeof state.masterVolume === 'number' ? state.masterVolume : -6;
+    typeof state.masterVolume === 'number' ? state.masterVolume : -3;
   applyMasterVolume(initialDb);
 
   // Mixer Master Volume slider (horizontal, existing control)
