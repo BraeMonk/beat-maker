@@ -27644,6 +27644,30 @@ async function restoreSessionIfAny() {
   }
 }
 
+// ---------- Global autosave hook ----------
+
+// Use your existing debounce helper; if you don't have one in scope here,
+// you can define a tiny one.
+const scheduleGlobalSessionSave = debounce(() => {
+  try {
+    saveSession();
+  } catch (e) {
+    console.warn('global autosave failed', e);
+  }
+}, 500);
+
+// Listen to *all* UI changes at the document level
+['input', 'change'].forEach(evt => {
+  document.addEventListener(
+    evt,
+    () => {
+      scheduleGlobalSessionSave();
+    },
+    { capture: true } // capture = catch events even if stopped later
+  );
+});
+
+
 // Save often + on exit
 if (!window.__sessionSaver) {
   window.__sessionSaver = setInterval(saveSession, 10000); // Every 10 seconds
