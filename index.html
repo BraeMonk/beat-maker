@@ -25734,163 +25734,325 @@ async function bufferToWavBlob(audioBuffer) {
 // Initialize sample library
 const synth = new SampleSynthesizer();
 
-// Sample kits database
+// Sample kits database with professional authenticity enhancements
 const sampleKits = {
   lofi: {
-    kick: { type: 'kick', pitch: -3, decay: 0.28, tone: 38, noise: 22, lofi: 45, dist: 18 },
-    snare: { type: 'snare', pitch: -2, decay: 0.16, tone: 42, noise: 72, lofi: 40, dist: 12 },
-    hihatClosed: { type: 'hihat', pitch: -1, decay: 0.045, tone: 38, noise: 83, lofi: 35, closed: true },
-    hihatOpen: { type: 'hihat', pitch: -1, decay: 0.18, tone: 42, noise: 78, lofi: 35, closed: false },
-    clap: { type: 'clap', pitch: -1, decay: 0.13, tone: 28, noise: 88, lofi: 30, dist: 8 },
-    rimshot: { type: 'snare', pitch: 6, decay: 0.055, tone: 58, noise: 42, lofi: 25 },
-    tomLow: { type: 'tom', pitch: -5, decay: 0.38, tone: 62, noise: 16, lofi: 30 },
-    tomHigh: { type: 'tom', pitch: 1, decay: 0.28, tone: 58, noise: 18, lofi: 30 },
-    // lofi instruments - warm, dusty
-    bass: { type: 'bass', pitch: -1, decay: 0.72, tone: 46, attack: 0.009, lofi: 38, dist: 16 },
-    keys: { type: 'keys', pitch: 2, decay: 0.88, tone: 43, attack: 0.013, lofi: 42 },
-    guitar: { type: 'guitar', pitch: -2, decay: 0.82, tone: 49, attack: 0.007, lofi: 36 }
+    // Kit character: Small bedroom studio, close mics, vintage gear from ~1995
+    _kitMeta: { roomSize: 0.25, roomBrightness: 38, micDistance: 0.35, vintageYear: 1995, wear: 0.6 },
+    
+    kick: { type: 'kick', pitch: -3, decay: 0.28, tone: 38, noise: 22, lofi: 45, dist: 18, 
+            attack: 0.008, velocitySensitivity: 0.72, stereoWidth: 0.25, harmonicContent: 42 },
+    snare: { type: 'snare', pitch: -2, decay: 0.16, tone: 42, noise: 72, lofi: 40, dist: 12, 
+             snareRattle: 28, attack: 0.006, velocitySensitivity: 0.68, stereoWidth: 0.3, harmonicContent: 48 },
+    hihatClosed: { type: 'hihat', pitch: -1, decay: 0.045, tone: 38, noise: 83, lofi: 35, closed: true,
+                   attack: 0.003, velocitySensitivity: 0.75, stereoWidth: 0.65, harmonicContent: 52 },
+    hihatOpen: { type: 'hihat', pitch: -1, decay: 0.18, tone: 42, noise: 78, lofi: 35, closed: false,
+                 attack: 0.004, velocitySensitivity: 0.73, stereoWidth: 0.7, harmonicContent: 55 },
+    clap: { type: 'clap', pitch: -1, decay: 0.13, tone: 28, noise: 88, lofi: 30, dist: 8,
+            attack: 0.005, velocitySensitivity: 0.7, stereoWidth: 0.5, harmonicContent: 38 },
+    rimshot: { type: 'snare', pitch: 6, decay: 0.055, tone: 58, noise: 42, lofi: 25,
+               attack: 0.002, velocitySensitivity: 0.78, stereoWidth: 0.35, harmonicContent: 58 },
+    tomLow: { type: 'tom', pitch: -5, decay: 0.38, tone: 62, noise: 16, lofi: 30,
+              attack: 0.007, velocitySensitivity: 0.74, stereoWidth: 0.4, harmonicContent: 50 },
+    tomHigh: { type: 'tom', pitch: 1, decay: 0.28, tone: 58, noise: 18, lofi: 30,
+               attack: 0.006, velocitySensitivity: 0.76, stereoWidth: 0.45, harmonicContent: 52 },
+    
+    bass: { type: 'bass', pitch: -1, decay: 0.72, tone: 46, attack: 0.009, lofi: 38, dist: 16,
+            velocitySensitivity: 0.82, stereoWidth: 0.2, harmonicContent: 45, bitDepth: 12 },
+    keys: { type: 'keys', pitch: 2, decay: 0.88, tone: 43, attack: 0.013, lofi: 42,
+            velocitySensitivity: 0.85, stereoWidth: 0.55, harmonicContent: 48, vinylCrackle: 12 },
+    guitar: { type: 'guitar', pitch: -2, decay: 0.82, tone: 49, attack: 0.007, lofi: 36,
+              velocitySensitivity: 0.8, stereoWidth: 0.6, harmonicContent: 52 }
   },
+
   metal: {
-    // Drums - tight, punchy, aggressive
-    kick: { type: 'kick', pitch: -12, decay: 0.12, tone: 72, noise: 8, lofi: 0, dist: 62 },
-    snare: { type: 'snare', pitch: 8, decay: 0.11, tone: 84, noise: 88, lofi: 0, dist: 52 },
-    hihatClosed: { type: 'hihat', pitch: 9, decay: 0.018, tone: 92, noise: 96, lofi: 0, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 8, decay: 0.09, tone: 90, noise: 94, lofi: 0, closed: false },
-    clap: { type: 'clap', pitch: 4, decay: 0.08, tone: 48, noise: 94, lofi: 0, dist: 38 },
-    rimshot: { type: 'snare', pitch: 16, decay: 0.035, tone: 88, noise: 24, lofi: 0 },
-    tomLow: { type: 'tom', pitch: -8, decay: 0.28, tone: 68, noise: 8, lofi: 0 },
-    tomHigh: { type: 'tom', pitch: 0, decay: 0.24, tone: 66, noise: 10, lofi: 0 },
+    // Kit character: Large studio, distant mics for room, modern pristine recording ~2020
+    _kitMeta: { roomSize: 0.65, roomBrightness: 78, micDistance: 0.55, vintageYear: 2020, wear: 0.1 },
+    
+    kick: { type: 'kick', pitch: -12, decay: 0.12, tone: 72, noise: 8, lofi: 0, dist: 62,
+            attack: 0.0005, transientGain: 1.45, velocitySensitivity: 0.88, stereoWidth: 0.15, harmonicContent: 68 },
+    snare: { type: 'snare', pitch: 8, decay: 0.11, tone: 84, noise: 88, lofi: 0, dist: 52,
+             snareRattle: 45, attack: 0.0003, transientGain: 1.5, velocitySensitivity: 0.9, stereoWidth: 0.25, harmonicContent: 78 },
+    hihatClosed: { type: 'hihat', pitch: 9, decay: 0.018, tone: 92, noise: 96, lofi: 0, closed: true,
+                   attack: 0.0002, velocitySensitivity: 0.92, stereoWidth: 0.8, harmonicContent: 82 },
+    hihatOpen: { type: 'hihat', pitch: 8, decay: 0.09, tone: 90, noise: 94, lofi: 0, closed: false,
+                 attack: 0.0003, velocitySensitivity: 0.9, stereoWidth: 0.85, harmonicContent: 80 },
+    clap: { type: 'clap', pitch: 4, decay: 0.08, tone: 48, noise: 94, lofi: 0, dist: 38,
+            attack: 0.0004, velocitySensitivity: 0.85, stereoWidth: 0.6, harmonicContent: 65 },
+    rimshot: { type: 'snare', pitch: 16, decay: 0.035, tone: 88, noise: 24, lofi: 0,
+               attack: 0.0002, velocitySensitivity: 0.88, stereoWidth: 0.3, harmonicContent: 75 },
+    tomLow: { type: 'tom', pitch: -8, decay: 0.28, tone: 68, noise: 8, lofi: 0,
+              attack: 0.0006, velocitySensitivity: 0.86, stereoWidth: 0.35, harmonicContent: 62 },
+    tomHigh: { type: 'tom', pitch: 0, decay: 0.24, tone: 66, noise: 10, lofi: 0,
+               attack: 0.0005, velocitySensitivity: 0.87, stereoWidth: 0.5, harmonicContent: 64 },
   
-    // Djent instruments - ultra-tight, heavily processed
-    bass: { type: 'bass', pitch: -14, decay: 0.32, tone: 62, attack: 0.0004, lofi: 0, dist: 68 },
-    guitar: { type: 'guitar', pitch: -14, decay: 0.28, tone: 58, attack: 0.0006, lofi: 0, dist: 78 },
-    lead: { type: 'lead', pitch: -2, decay: 0.42, tone: 72, attack: 0.0048, lofi: 0, dist: 58 }
+    bass: { type: 'bass', pitch: -14, decay: 0.32, tone: 62, attack: 0.0004, lofi: 0, dist: 68,
+            velocitySensitivity: 0.88, stereoWidth: 0.25, harmonicContent: 72, transientGain: 1.3 },
+    guitar: { type: 'guitar', pitch: -14, decay: 0.28, tone: 58, attack: 0.0006, lofi: 0, dist: 78,
+              velocitySensitivity: 0.9, stereoWidth: 0.7, harmonicContent: 75, transientGain: 1.35 },
+    lead: { type: 'lead', pitch: -2, decay: 0.42, tone: 72, attack: 0.0048, lofi: 0, dist: 58,
+            velocitySensitivity: 0.85, stereoWidth: 0.5, harmonicContent: 70 }
   },
+
   hiphop: {
-    kick: { type: 'kick', pitch: -4, decay: 0.45, tone: 52, noise: 16, lofi: 18, dist: 28 },
-    snare: { type: 'snare', pitch: 0, decay: 0.19, tone: 48, noise: 78, lofi: 12, dist: 22 },
-    hihatClosed: { type: 'hihat', pitch: 1, decay: 0.05, tone: 46, noise: 88, lofi: 15, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 1, decay: 0.22, tone: 50, noise: 84, lofi: 15, closed: false },
-    clap: { type: 'clap', pitch: 0, decay: 0.16, tone: 34, noise: 94, lofi: 8, dist: 18 },
-    rimshot: { type: 'snare', pitch: 9, decay: 0.06, tone: 68, noise: 36, lofi: 12 },
-    tomLow: { type: 'tom', pitch: -3, decay: 0.32, tone: 68, noise: 13, lofi: 15 },
-    tomHigh: { type: 'tom', pitch: 3, decay: 0.24, tone: 64, noise: 15, lofi: 15 },
-    // hip-hop instruments - punchy, groovy
-    bass: { type: 'bass', pitch: -3, decay: 1.05, tone: 56, attack: 0.0065, lofi: 14, dist: 27 },
-    keys: { type: 'keys', pitch: 14, decay: 1.18, tone: 51, attack: 0.0082, lofi: 16 },
-    lead: { type: 'lead', pitch: -1, decay: 0.68, tone: 64, attack: 0.016, lofi: 11 }
+    // Kit character: Medium studio, balanced room/close mix, slight vintage vibe ~2005
+    _kitMeta: { roomSize: 0.4, roomBrightness: 52, micDistance: 0.45, vintageYear: 2005, wear: 0.3 },
+    
+    kick: { type: 'kick', pitch: -4, decay: 0.45, tone: 52, noise: 16, lofi: 18, dist: 28,
+            attack: 0.005, transientGain: 1.25, velocitySensitivity: 0.8, stereoWidth: 0.2, harmonicContent: 55 },
+    snare: { type: 'snare', pitch: 0, decay: 0.19, tone: 48, noise: 78, lofi: 12, dist: 22,
+             snareRattle: 35, attack: 0.004, transientGain: 1.3, velocitySensitivity: 0.78, stereoWidth: 0.3, harmonicContent: 58 },
+    hihatClosed: { type: 'hihat', pitch: 1, decay: 0.05, tone: 46, noise: 88, lofi: 15, closed: true,
+                   attack: 0.003, velocitySensitivity: 0.82, stereoWidth: 0.7, harmonicContent: 60 },
+    hihatOpen: { type: 'hihat', pitch: 1, decay: 0.22, tone: 50, noise: 84, lofi: 15, closed: false,
+                 attack: 0.004, velocitySensitivity: 0.8, stereoWidth: 0.75, harmonicContent: 62 },
+    clap: { type: 'clap', pitch: 0, decay: 0.16, tone: 34, noise: 94, lofi: 8, dist: 18,
+            attack: 0.004, velocitySensitivity: 0.75, stereoWidth: 0.55, harmonicContent: 48 },
+    rimshot: { type: 'snare', pitch: 9, decay: 0.06, tone: 68, noise: 36, lofi: 12,
+               attack: 0.003, velocitySensitivity: 0.84, stereoWidth: 0.35, harmonicContent: 65 },
+    tomLow: { type: 'tom', pitch: -3, decay: 0.32, tone: 68, noise: 13, lofi: 15,
+              attack: 0.006, velocitySensitivity: 0.79, stereoWidth: 0.4, harmonicContent: 58 },
+    tomHigh: { type: 'tom', pitch: 3, decay: 0.24, tone: 64, noise: 15, lofi: 15,
+               attack: 0.005, velocitySensitivity: 0.81, stereoWidth: 0.48, harmonicContent: 60 },
+    
+    bass: { type: 'bass', pitch: -3, decay: 1.05, tone: 56, attack: 0.0065, lofi: 14, dist: 27,
+            velocitySensitivity: 0.85, stereoWidth: 0.25, harmonicContent: 58, sampleRate: 38000 },
+    keys: { type: 'keys', pitch: 14, decay: 1.18, tone: 51, attack: 0.0082, lofi: 16,
+            velocitySensitivity: 0.88, stereoWidth: 0.6, harmonicContent: 55, vinylCrackle: 8 },
+    lead: { type: 'lead', pitch: -1, decay: 0.68, tone: 64, attack: 0.016, lofi: 11,
+            velocitySensitivity: 0.83, stereoWidth: 0.5, harmonicContent: 62 }
   },
+
   trap: {
-    kick: { type: 'kick', pitch: -11, decay: 1.2, tone: 48, noise: 4, lofi: 0, dist: 22 }, // Deep 808-style
-    snare: { type: 'snare', pitch: 6, decay: 0.08, tone: 38, noise: 92, lofi: 0, dist: 48 }, // Sharp, snappy
-    hihatClosed: { type: 'hihat', pitch: 8, decay: 0.018, tone: 72, noise: 98, lofi: 0, closed: true }, // Razor sharp
-    hihatOpen: { type: 'hihat', pitch: 7, decay: 0.35, tone: 68, noise: 96, lofi: 0, closed: false }, // Long tail
-    clap: { type: 'clap', pitch: 4, decay: 0.11, tone: 22, noise: 97, lofi: 0, dist: 42 }, // Bright, layered
-    rimshot: { type: 'snare', pitch: 15, decay: 0.028, tone: 86, noise: 22, lofi: 0 },
-    tomLow: { type: 'tom', pitch: -6, decay: 0.65, tone: 82, noise: 6, lofi: 0 }, // Melodic toms
-    tomHigh: { type: 'tom', pitch: 2, decay: 0.48, tone: 78, noise: 8, lofi: 0 },
+    // Kit character: Modern studio, pristine digital, wide stereo field ~2022
+    _kitMeta: { roomSize: 0.5, roomBrightness: 65, micDistance: 0.4, vintageYear: 2022, wear: 0.05 },
+    
+    kick: { type: 'kick', pitch: -11, decay: 1.2, tone: 48, noise: 4, lofi: 0, dist: 22,
+            attack: 0.001, transientGain: 1.2, velocitySensitivity: 0.92, stereoWidth: 0.1, harmonicContent: 62 },
+    snare: { type: 'snare', pitch: 6, decay: 0.08, tone: 38, noise: 92, lofi: 0, dist: 48,
+             snareRattle: 42, attack: 0.0002, transientGain: 1.5, velocitySensitivity: 0.95, stereoWidth: 0.3, harmonicContent: 72 },
+    hihatClosed: { type: 'hihat', pitch: 8, decay: 0.018, tone: 72, noise: 98, lofi: 0, closed: true,
+                   attack: 0.0001, velocitySensitivity: 0.95, stereoWidth: 0.85, harmonicContent: 80 },
+    hihatOpen: { type: 'hihat', pitch: 7, decay: 0.35, tone: 68, noise: 96, lofi: 0, closed: false,
+                 attack: 0.0002, velocitySensitivity: 0.93, stereoWidth: 0.9, harmonicContent: 78 },
+    clap: { type: 'clap', pitch: 4, decay: 0.11, tone: 22, noise: 97, lofi: 0, dist: 42,
+            attack: 0.0003, velocitySensitivity: 0.9, stereoWidth: 0.65, harmonicContent: 68 },
+    rimshot: { type: 'snare', pitch: 15, decay: 0.028, tone: 86, noise: 22, lofi: 0,
+               attack: 0.0002, velocitySensitivity: 0.92, stereoWidth: 0.4, harmonicContent: 75 },
+    tomLow: { type: 'tom', pitch: -6, decay: 0.65, tone: 82, noise: 6, lofi: 0,
+              attack: 0.004, velocitySensitivity: 0.88, stereoWidth: 0.45, harmonicContent: 70 },
+    tomHigh: { type: 'tom', pitch: 2, decay: 0.48, tone: 78, noise: 8, lofi: 0,
+               attack: 0.003, velocitySensitivity: 0.9, stereoWidth: 0.55, harmonicContent: 72 },
   
-    bass: { type: 'bass', pitch: -16, decay: 1.8, tone: 52, attack: 0.0015, lofi: 0, dist: 28 }, // Sliding 808
-    lead: { type: 'lead', pitch: 17, decay: 0.42, tone: 82, attack: 0.008, lofi: 0 }, // Bell/pluck leads
-    keys: { type: 'keys', pitch: 0, decay: 0.95, tone: 65, attack: 0.004, lofi: 0 }
+    bass: { type: 'bass', pitch: -16, decay: 1.8, tone: 52, attack: 0.0015, lofi: 0, dist: 28,
+            velocitySensitivity: 0.95, stereoWidth: 0.15, harmonicContent: 65, wowFlutter: 0 },
+    lead: { type: 'lead', pitch: 17, decay: 0.42, tone: 82, attack: 0.008, lofi: 0,
+            velocitySensitivity: 0.9, stereoWidth: 0.6, harmonicContent: 78 },
+    keys: { type: 'keys', pitch: 0, decay: 0.95, tone: 65, attack: 0.004, lofi: 0,
+            velocitySensitivity: 0.92, stereoWidth: 0.7, harmonicContent: 72 }
   },
+
   house: {
-    kick: { type: 'kick', pitch: -1, decay: 0.38, tone: 68, noise: 7, lofi: 3, dist: 12 },
-    snare: { type: 'snare', pitch: 1, decay: 0.15, tone: 56, noise: 74, lofi: 5, dist: 8 },
-    hihatClosed: { type: 'hihat', pitch: 2, decay: 0.042, tone: 62, noise: 86, lofi: 4, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 2, decay: 0.19, tone: 66, noise: 81, lofi: 4, closed: false },
-    clap: { type: 'clap', pitch: 0, decay: 0.14, tone: 41, noise: 89, lofi: 2, dist: 13 },
-    rimshot: { type: 'snare', pitch: 9, decay: 0.052, tone: 76, noise: 31, lofi: 4 },
-    tomLow: { type: 'tom', pitch: -1, decay: 0.34, tone: 74, noise: 10, lofi: 4 },
-    tomHigh: { type: 'tom', pitch: 5, decay: 0.26, tone: 70, noise: 11, lofi: 4 },
-    // house instruments - smooth, driving
-    bass: { type: 'bass', pitch: 1, decay: 0.78, tone: 66, attack: 0.0048, lofi: 0, dist: 9 },
-    keys: { type: 'keys', pitch: -3, decay: 1.02, tone: 61, attack: 0.0052, lofi: 0 },
-    lead: { type: 'lead', pitch: 11, decay: 0.92, tone: 67, attack: 0.011, lofi: 0 }
+    // Kit character: Medium club room, balanced mix, modern clean ~2018
+    _kitMeta: { roomSize: 0.55, roomBrightness: 68, micDistance: 0.48, vintageYear: 2018, wear: 0.15 },
+    
+    kick: { type: 'kick', pitch: -1, decay: 0.38, tone: 68, noise: 7, lofi: 3, dist: 12,
+            attack: 0.003, transientGain: 1.25, velocitySensitivity: 0.85, stereoWidth: 0.18, harmonicContent: 68 },
+    snare: { type: 'snare', pitch: 1, decay: 0.15, tone: 56, noise: 74, lofi: 5, dist: 8,
+             snareRattle: 32, attack: 0.003, transientGain: 1.2, velocitySensitivity: 0.83, stereoWidth: 0.32, harmonicContent: 62 },
+    hihatClosed: { type: 'hihat', pitch: 2, decay: 0.042, tone: 62, noise: 86, lofi: 4, closed: true,
+                   attack: 0.002, velocitySensitivity: 0.87, stereoWidth: 0.75, harmonicContent: 70 },
+    hihatOpen: { type: 'hihat', pitch: 2, decay: 0.19, tone: 66, noise: 81, lofi: 4, closed: false,
+                 attack: 0.003, velocitySensitivity: 0.85, stereoWidth: 0.8, harmonicContent: 72 },
+    clap: { type: 'clap', pitch: 0, decay: 0.14, tone: 41, noise: 89, lofi: 2, dist: 13,
+            attack: 0.004, velocitySensitivity: 0.8, stereoWidth: 0.6, harmonicContent: 58 },
+    rimshot: { type: 'snare', pitch: 9, decay: 0.052, tone: 76, noise: 31, lofi: 4,
+               attack: 0.002, velocitySensitivity: 0.88, stereoWidth: 0.38, harmonicContent: 72 },
+    tomLow: { type: 'tom', pitch: -1, decay: 0.34, tone: 74, noise: 10, lofi: 4,
+              attack: 0.005, velocitySensitivity: 0.82, stereoWidth: 0.42, harmonicContent: 65 },
+    tomHigh: { type: 'tom', pitch: 5, decay: 0.26, tone: 70, noise: 11, lofi: 4,
+               attack: 0.004, velocitySensitivity: 0.84, stereoWidth: 0.52, harmonicContent: 68 },
+    
+    bass: { type: 'bass', pitch: 1, decay: 0.78, tone: 66, attack: 0.0048, lofi: 0, dist: 9,
+            velocitySensitivity: 0.88, stereoWidth: 0.22, harmonicContent: 68 },
+    keys: { type: 'keys', pitch: -3, decay: 1.02, tone: 61, attack: 0.0052, lofi: 0,
+            velocitySensitivity: 0.9, stereoWidth: 0.65, harmonicContent: 65 },
+    lead: { type: 'lead', pitch: 11, decay: 0.92, tone: 67, attack: 0.011, lofi: 0,
+            velocitySensitivity: 0.86, stereoWidth: 0.58, harmonicContent: 70 }
   },
+
   techno: {
-    kick: { type: 'kick', pitch: 1, decay: 0.26, tone: 78, noise: 3, lofi: 0, dist: 32 }, // 909-style punch
-    snare: { type: 'snare', pitch: 6, decay: 0.075, tone: 46, noise: 84, lofi: 0, dist: 28 }, // Dry snap
-    hihatClosed: { type: 'hihat', pitch: 7, decay: 0.022, tone: 74, noise: 95, lofi: 0, closed: true }, // Metallic
-    hihatOpen: { type: 'hihat', pitch: 6, decay: 0.11, tone: 76, noise: 92, lofi: 0, closed: false }, // Short open
-    clap: { type: 'clap', pitch: 4, decay: 0.09, tone: 28, noise: 94, lofi: 0, dist: 32 },
-    rimshot: { type: 'snare', pitch: 14, decay: 0.032, tone: 88, noise: 22, lofi: 0 },
-    tomLow: { type: 'tom', pitch: 1, decay: 0.28, tone: 84, noise: 6, lofi: 0 },
-    tomHigh: { type: 'tom', pitch: 8, decay: 0.21, tone: 82, noise: 7, lofi: 0 },
+    // Kit character: Large warehouse, bright open space, modern pristine ~2021
+    _kitMeta: { roomSize: 0.7, roomBrightness: 78, micDistance: 0.5, vintageYear: 2021, wear: 0.08 },
+    
+    kick: { type: 'kick', pitch: 1, decay: 0.26, tone: 78, noise: 3, lofi: 0, dist: 32,
+            attack: 0.0008, transientGain: 1.4, velocitySensitivity: 0.9, stereoWidth: 0.12, harmonicContent: 75 },
+    snare: { type: 'snare', pitch: 6, decay: 0.075, tone: 46, noise: 84, lofi: 0, dist: 28,
+             snareRattle: 38, attack: 0.0004, transientGain: 1.45, velocitySensitivity: 0.92, stereoWidth: 0.28, harmonicContent: 68 },
+    hihatClosed: { type: 'hihat', pitch: 7, decay: 0.022, tone: 74, noise: 95, lofi: 0, closed: true,
+                   attack: 0.0002, velocitySensitivity: 0.94, stereoWidth: 0.82, harmonicContent: 82 },
+    hihatOpen: { type: 'hihat', pitch: 6, decay: 0.11, tone: 76, noise: 92, lofi: 0, closed: false,
+                 attack: 0.0003, velocitySensitivity: 0.92, stereoWidth: 0.85, harmonicContent: 80 },
+    clap: { type: 'clap', pitch: 4, decay: 0.09, tone: 28, noise: 94, lofi: 0, dist: 32,
+            attack: 0.0004, velocitySensitivity: 0.88, stereoWidth: 0.62, harmonicContent: 65 },
+    rimshot: { type: 'snare', pitch: 14, decay: 0.032, tone: 88, noise: 22, lofi: 0,
+               attack: 0.0002, velocitySensitivity: 0.9, stereoWidth: 0.35, harmonicContent: 78 },
+    tomLow: { type: 'tom', pitch: 1, decay: 0.28, tone: 84, noise: 6, lofi: 0,
+              attack: 0.004, velocitySensitivity: 0.87, stereoWidth: 0.4, harmonicContent: 72 },
+    tomHigh: { type: 'tom', pitch: 8, decay: 0.21, tone: 82, noise: 7, lofi: 0,
+               attack: 0.003, velocitySensitivity: 0.89, stereoWidth: 0.5, harmonicContent: 75 },
   
-    bass: { type: 'bass', pitch: 0, decay: 0.42, tone: 76, attack: 0.0012, lofi: 0, dist: 26 }, // Driving pulse
-    lead: { type: 'lead', pitch: 0, decay: 0.48, tone: 82, attack: 0.0032, lofi: 0 }, // Acid-style
-    fx: { type: 'fx', pitch: 5, decay: 1.2, tone: 52, attack: 0.0008, lofi: 0, dist: 22 } // Industrial
+    bass: { type: 'bass', pitch: 0, decay: 0.42, tone: 76, attack: 0.0012, lofi: 0, dist: 26,
+            velocitySensitivity: 0.92, stereoWidth: 0.2, harmonicContent: 78 },
+    lead: { type: 'lead', pitch: 0, decay: 0.48, tone: 82, attack: 0.0032, lofi: 0,
+            velocitySensitivity: 0.9, stereoWidth: 0.55, harmonicContent: 80 },
+    fx: { type: 'fx', pitch: 5, decay: 1.2, tone: 52, attack: 0.0008, lofi: 0, dist: 22,
+          velocitySensitivity: 0.85, stereoWidth: 0.85, harmonicContent: 65 }
   },
+
   dnb: {
-    kick: { type: 'kick', pitch: -1, decay: 0.15, tone: 68, noise: 14, lofi: 0, dist: 52 }, // Tight, punchy
-    snare: { type: 'snare', pitch: 7, decay: 0.09, tone: 38, noise: 94, lofi: 0, dist: 46 }, // Amen snap
-    hihatClosed: { type: 'hihat', pitch: 8, decay: 0.016, tone: 76, noise: 97, lofi: 0, closed: true }, // Frantic
-    hihatOpen: { type: 'hihat', pitch: 7, decay: 0.08, tone: 72, noise: 93, lofi: 0, closed: false }, // Quick splash
-    clap: { type: 'clap', pitch: 4, decay: 0.07, tone: 26, noise: 96, lofi: 0, dist: 38 },
-    rimshot: { type: 'snare', pitch: 16, decay: 0.025, tone: 89, noise: 20, lofi: 0 },
-    tomLow: { type: 'tom', pitch: 2, decay: 0.22, tone: 78, noise: 8, lofi: 0 },
-    tomHigh: { type: 'tom', pitch: 9, decay: 0.16, tone: 76, noise: 9, lofi: 0 },
+    // Kit character: Studio with tight room, aggressive close mics, modern ~2020
+    _kitMeta: { roomSize: 0.45, roomBrightness: 72, micDistance: 0.35, vintageYear: 2020, wear: 0.12 },
+    
+    kick: { type: 'kick', pitch: -1, decay: 0.15, tone: 68, noise: 14, lofi: 0, dist: 52,
+            attack: 0.0005, transientGain: 1.5, velocitySensitivity: 0.92, stereoWidth: 0.15, harmonicContent: 72 },
+    snare: { type: 'snare', pitch: 7, decay: 0.09, tone: 38, noise: 94, lofi: 0, dist: 46,
+             snareRattle: 48, attack: 0.0003, transientGain: 1.55, velocitySensitivity: 0.95, stereoWidth: 0.32, harmonicContent: 75 },
+    hihatClosed: { type: 'hihat', pitch: 8, decay: 0.016, tone: 76, noise: 97, lofi: 0, closed: true,
+                   attack: 0.0001, velocitySensitivity: 0.96, stereoWidth: 0.8, harmonicContent: 85 },
+    hihatOpen: { type: 'hihat', pitch: 7, decay: 0.08, tone: 72, noise: 93, lofi: 0, closed: false,
+                 attack: 0.0002, velocitySensitivity: 0.94, stereoWidth: 0.85, harmonicContent: 82 },
+    clap: { type: 'clap', pitch: 4, decay: 0.07, tone: 26, noise: 96, lofi: 0, dist: 38,
+            attack: 0.0003, velocitySensitivity: 0.9, stereoWidth: 0.6, harmonicContent: 68 },
+    rimshot: { type: 'snare', pitch: 16, decay: 0.025, tone: 89, noise: 20, lofi: 0,
+               attack: 0.0002, velocitySensitivity: 0.93, stereoWidth: 0.38, harmonicContent: 80 },
+    tomLow: { type: 'tom', pitch: 2, decay: 0.22, tone: 78, noise: 8, lofi: 0,
+              attack: 0.003, velocitySensitivity: 0.89, stereoWidth: 0.42, harmonicContent: 72 },
+    tomHigh: { type: 'tom', pitch: 9, decay: 0.16, tone: 76, noise: 9, lofi: 0,
+               attack: 0.002, velocitySensitivity: 0.91, stereoWidth: 0.52, harmonicContent: 75 },
   
-    bass: { type: 'bass', pitch: -11, decay: 0.52, tone: 44, attack: 0.0008, lofi: 0, dist: 64 }, // Reese wobble
-    lead: { type: 'lead', pitch: 16, decay: 0.38, tone: 84, attack: 0.0028, lofi: 0 }, // Bright stabs
-    fx: { type: 'fx', pitch: -2, decay: 0.88, tone: 62, attack: 0.0006, lofi: 0, dist: 34 } // Atmospheric
+    bass: { type: 'bass', pitch: -11, decay: 0.52, tone: 44, attack: 0.0008, lofi: 0, dist: 64,
+            velocitySensitivity: 0.93, stereoWidth: 0.25, harmonicContent: 68, transientGain: 1.3 },
+    lead: { type: 'lead', pitch: 16, decay: 0.38, tone: 84, attack: 0.0028, lofi: 0,
+            velocitySensitivity: 0.9, stereoWidth: 0.6, harmonicContent: 82 },
+    fx: { type: 'fx', pitch: -2, decay: 0.88, tone: 62, attack: 0.0006, lofi: 0, dist: 34,
+          velocitySensitivity: 0.85, stereoWidth: 0.9, harmonicContent: 70 }
   },
+
   ambient: {
-    kick: { type: 'kick', pitch: -8, decay: 1.4, tone: 28, noise: 35, lofi: 62, dist: 2 }, // Distant thump
-    snare: { type: 'snare', pitch: -5, decay: 0.72, tone: 32, noise: 64, lofi: 58, dist: 3 },
-    hihatClosed: { type: 'hihat', pitch: -4, decay: 0.14, tone: 30, noise: 72, lofi: 52, closed: true },
-    hihatOpen: { type: 'hihat', pitch: -4, decay: 0.68, tone: 34, noise: 68, lofi: 52, closed: false }, // Long wash
-    clap: { type: 'clap', pitch: -4, decay: 0.38, tone: 26, noise: 78, lofi: 48, dist: 2 },
-    rimshot: { type: 'snare', pitch: 3, decay: 0.16, tone: 48, noise: 52, lofi: 42 },
-    tomLow: { type: 'tom', pitch: -9, decay: 1.1, tone: 46, noise: 28, lofi: 48 },
-    tomHigh: { type: 'tom', pitch: -3, decay: 0.82, tone: 44, noise: 30, lofi: 48 },
+    // Kit character: Cathedral-like space, very distant mics, worn vintage ~1975
+    _kitMeta: { roomSize: 0.9, roomBrightness: 32, micDistance: 0.85, vintageYear: 1975, wear: 0.75 },
+    
+    kick: { type: 'kick', pitch: -8, decay: 1.4, tone: 28, noise: 35, lofi: 62, dist: 2,
+            attack: 0.05, bleed: 18, velocitySensitivity: 0.65, stereoWidth: 0.4, harmonicContent: 32 },
+    snare: { type: 'snare', pitch: -5, decay: 0.72, tone: 32, noise: 64, lofi: 58, dist: 3,
+             snareRattle: 15, attack: 0.04, bleed: 16, velocitySensitivity: 0.62, stereoWidth: 0.45, harmonicContent: 35 },
+    hihatClosed: { type: 'hihat', pitch: -4, decay: 0.14, tone: 30, noise: 72, lofi: 52, closed: true,
+                   attack: 0.02, velocitySensitivity: 0.68, stereoWidth: 0.75, harmonicContent: 38 },
+    hihatOpen: { type: 'hihat', pitch: -4, decay: 0.68, tone: 34, noise: 68, lofi: 52, closed: false,
+                 attack: 0.025, velocitySensitivity: 0.66, stereoWidth: 0.85, harmonicContent: 40 },
+    clap: { type: 'clap', pitch: -4, decay: 0.38, tone: 26, noise: 78, lofi: 48, dist: 2,
+            attack: 0.03, velocitySensitivity: 0.6, stereoWidth: 0.65, harmonicContent: 30 },
+    rimshot: { type: 'snare', pitch: 3, decay: 0.16, tone: 48, noise: 52, lofi: 42,
+               attack: 0.015, velocitySensitivity: 0.7, stereoWidth: 0.5, harmonicContent: 45 },
+    tomLow: { type: 'tom', pitch: -9, decay: 1.1, tone: 46, noise: 28, lofi: 48,
+              attack: 0.035, bleed: 14, velocitySensitivity: 0.64, stereoWidth: 0.55, harmonicContent: 40 },
+    tomHigh: { type: 'tom', pitch: -3, decay: 0.82, tone: 44, noise: 30, lofi: 48,
+               attack: 0.03, bleed: 12, velocitySensitivity: 0.66, stereoWidth: 0.6, harmonicContent: 42 },
   
-    keys: { type: 'keys', pitch: 5, decay: 3.8, tone: 36, attack: 0.24, lofi: 28 }, // Pad-like
-    lead: { type: 'lead', pitch: 17, decay: 3.2, tone: 42, attack: 0.38, lofi: 24 }, // Glacial
-    riser: { type: 'riser', pitch: -6, decay: 5.2, tone: 48, attack: 1.2, lofi: 18 } // Cinematic
+    keys: { type: 'keys', pitch: 5, decay: 3.8, tone: 36, attack: 0.24, lofi: 28,
+            velocitySensitivity: 0.75, stereoWidth: 0.8, harmonicContent: 38, vinylCrackle: 18 },
+    lead: { type: 'lead', pitch: 17, decay: 3.2, tone: 42, attack: 0.38, lofi: 24,
+            velocitySensitivity: 0.78, stereoWidth: 0.85, harmonicContent: 42, wowFlutter: 0.25 },
+    riser: { type: 'riser', pitch: -6, decay: 5.2, tone: 48, attack: 1.2, lofi: 18,
+             velocitySensitivity: 0.72, stereoWidth: 0.95, harmonicContent: 45 }
   },
+
   rock: {
-    kick: { type: 'kick', pitch: -2, decay: 0.32, tone: 56, noise: 19, lofi: 8, dist: 18 },
-    snare: { type: 'snare', pitch: 0, decay: 0.17, tone: 54, noise: 76, lofi: 6, dist: 16 },
-    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.048, tone: 50, noise: 85, lofi: 8, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.24, tone: 54, noise: 81, lofi: 8, closed: false },
-    clap: { type: 'clap', pitch: 0, decay: 0.15, tone: 39, noise: 87, lofi: 6, dist: 10 },
-    rimshot: { type: 'snare', pitch: 8, decay: 0.058, tone: 70, noise: 39, lofi: 7 },
-    tomLow: { type: 'tom', pitch: -4, decay: 0.42, tone: 70, noise: 15, lofi: 8 },
-    tomHigh: { type: 'tom', pitch: 3, decay: 0.32, tone: 67, noise: 17, lofi: 8 },
-    // rock instruments - raw, powerful
-    bass: { type: 'bass', pitch: -2, decay: 0.84, tone: 63, attack: 0.0038, lofi: 9, dist: 24 },
-    guitar: { type: 'guitar', pitch: 1, decay: 1.36, tone: 69, attack: 0.0022, lofi: 6, dist: 26 },
-    keys: { type: 'keys', pitch: -4, decay: 1.08, tone: 57, attack: 0.0062, lofi: 7 }
+    // Kit character: Medium live room, balanced mics, slightly vintage ~2010
+    _kitMeta: { roomSize: 0.6, roomBrightness: 58, micDistance: 0.52, vintageYear: 2010, wear: 0.25 },
+    
+    kick: { type: 'kick', pitch: -2, decay: 0.32, tone: 56, noise: 19, lofi: 8, dist: 18,
+            attack: 0.004, transientGain: 1.2, bleed: 8, velocitySensitivity: 0.82, stereoWidth: 0.22, harmonicContent: 58 },
+    snare: { type: 'snare', pitch: 0, decay: 0.17, tone: 54, noise: 76, lofi: 6, dist: 16,
+             snareRattle: 38, attack: 0.003, transientGain: 1.25, bleed: 10, velocitySensitivity: 0.8, stereoWidth: 0.35, harmonicContent: 62 },
+    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.048, tone: 50, noise: 85, lofi: 8, closed: true,
+                   attack: 0.002, velocitySensitivity: 0.84, stereoWidth: 0.72, harmonicContent: 64 },
+    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.24, tone: 54, noise: 81, lofi: 8, closed: false,
+                 attack: 0.003, velocitySensitivity: 0.82, stereoWidth: 0.78, harmonicContent: 66 },
+    clap: { type: 'clap', pitch: 0, decay: 0.15, tone: 39, noise: 87, lofi: 6, dist: 10,
+            attack: 0.004, velocitySensitivity: 0.78, stereoWidth: 0.58, harmonicContent: 52 },
+    rimshot: { type: 'snare', pitch: 8, decay: 0.058, tone: 70, noise: 39, lofi: 7,
+               attack: 0.002, velocitySensitivity: 0.85, stereoWidth: 0.4, harmonicContent: 68 },
+    tomLow: { type: 'tom', pitch: -4, decay: 0.42, tone: 70, noise: 15, lofi: 8,
+              attack: 0.005, bleed: 9, velocitySensitivity: 0.81, stereoWidth: 0.45, harmonicContent: 62 },
+    tomHigh: { type: 'tom', pitch: 3, decay: 0.32, tone: 67, noise: 17, lofi: 8,
+               attack: 0.004, bleed: 8, velocitySensitivity: 0.83, stereoWidth: 0.55, harmonicContent: 65 },
+    
+    bass: { type: 'bass', pitch: -2, decay: 0.84, tone: 63, attack: 0.0038, lofi: 9, dist: 24,
+            velocitySensitivity: 0.86, stereoWidth: 0.28, harmonicContent: 62 },
+    guitar: { type: 'guitar', pitch: 1, decay: 1.36, tone: 69, attack: 0.0022, lofi: 6, dist: 26,
+              velocitySensitivity: 0.84, stereoWidth: 0.68, harmonicContent: 68 },
+    keys: { type: 'keys', pitch: -4, decay: 1.08, tone: 57, attack: 0.0062, lofi: 7,
+            velocitySensitivity: 0.88, stereoWidth: 0.62, harmonicContent: 60 }
   },
+
   jazz: {
-    kick: { type: 'kick', pitch: -3, decay: 0.4, tone: 46, noise: 24, lofi: 22, dist: 8 },
-    snare: { type: 'snare', pitch: -1, decay: 0.22, tone: 50, noise: 70, lofi: 20, dist: 6 },
-    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.055, tone: 44, noise: 82, lofi: 18, closed: true },
-    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.32, tone: 50, noise: 78, lofi: 18, closed: false },
-    clap: { type: 'clap', pitch: -1, decay: 0.17, tone: 36, noise: 84, lofi: 16, dist: 5 },
-    rimshot: { type: 'snare', pitch: 7, decay: 0.065, tone: 67, noise: 44, lofi: 14 },
-    tomLow: { type: 'tom', pitch: -5, decay: 0.48, tone: 64, noise: 17, lofi: 20 },
-    tomHigh: { type: 'tom', pitch: 2, decay: 0.36, tone: 62, noise: 19, lofi: 20 },
-    // jazz instruments - warm, natural
-    bass: { type: 'bass', pitch: 1, decay: 0.64, tone: 51, attack: 0.012, lofi: 17, dist: 6 },
-    keys: { type: 'keys', pitch: -5, decay: 1.28, tone: 49, attack: 0.0088, lofi: 19 },
-    guitar: { type: 'guitar', pitch: 3, decay: 0.96, tone: 59, attack: 0.0054, lofi: 18 }
+    // Kit character: Intimate jazz club, close warm mics, vintage character ~1985
+    _kitMeta: { roomSize: 0.35, roomBrightness: 48, micDistance: 0.42, vintageYear: 1985, wear: 0.4 },
+    
+    kick: { type: 'kick', pitch: -3, decay: 0.4, tone: 46, noise: 24, lofi: 22, dist: 8,
+            attack: 0.006, bleed: 12, velocitySensitivity: 0.76, stereoWidth: 0.25, harmonicContent: 48 },
+    snare: { type: 'snare', pitch: -1, decay: 0.22, tone: 50, noise: 70, lofi: 20, dist: 6,
+             snareRattle: 30, attack: 0.005, bleed: 14, velocitySensitivity: 0.74, stereoWidth: 0.38, harmonicContent: 52 },
+    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.055, tone: 44, noise: 82, lofi: 18, closed: true,
+                   attack: 0.003, velocitySensitivity: 0.78, stereoWidth: 0.68, harmonicContent: 56 },
+    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.32, tone: 50, noise: 78, lofi: 18, closed: false,
+                 attack: 0.004, velocitySensitivity: 0.76, stereoWidth: 0.75, harmonicContent: 58 },
+    clap: { type: 'clap', pitch: -1, decay: 0.17, tone: 36, noise: 84, lofi: 16, dist: 5,
+            attack: 0.005, velocitySensitivity: 0.72, stereoWidth: 0.55, harmonicContent: 46 },
+    rimshot: { type: 'snare', pitch: 7, decay: 0.065, tone: 67, noise: 44, lofi: 14,
+               attack: 0.003, velocitySensitivity: 0.8, stereoWidth: 0.42, harmonicContent: 62 },
+    tomLow: { type: 'tom', pitch: -5, decay: 0.48, tone: 64, noise: 17, lofi: 20,
+              attack: 0.007, bleed: 11, velocitySensitivity: 0.75, stereoWidth: 0.48, harmonicContent: 55 },
+    tomHigh: { type: 'tom', pitch: 2, decay: 0.36, tone: 62, noise: 19, lofi: 20,
+               attack: 0.006, bleed: 10, velocitySensitivity: 0.77, stereoWidth: 0.58, harmonicContent: 58 },
+    
+    bass: { type: 'bass', pitch: 1, decay: 0.64, tone: 51, attack: 0.012, lofi: 17, dist: 6,
+            velocitySensitivity: 0.84, stereoWidth: 0.3, harmonicContent: 52, vinylCrackle: 10 },
+    keys: { type: 'keys', pitch: -5, decay: 1.28, tone: 49, attack: 0.0088, lofi: 19,
+            velocitySensitivity: 0.86, stereoWidth: 0.65, harmonicContent: 55, wowFlutter: 0.15 },
+    guitar: { type: 'guitar', pitch: 3, decay: 0.96, tone: 59, attack: 0.0054, lofi: 18,
+              velocitySensitivity: 0.82, stereoWidth: 0.7, harmonicContent: 58 }
   },
+
   vintage: {
-    kick: { type: 'kick', pitch: -4, decay: 0.3, tone: 36, noise: 30, lofi: 60, dist: 28 },
-    snare: { type: 'snare', pitch: -2, decay: 0.18, tone: 40, noise: 73, lofi: 55, dist: 22 },
-    hihatClosed: { type: 'hihat', pitch: -3, decay: 0.06, tone: 36, noise: 80, lofi: 50, closed: true },
-    hihatOpen: { type: 'hihat', pitch: -3, decay: 0.26, tone: 40, noise: 76, lofi: 50, closed: false },
-    clap: { type: 'clap', pitch: -2, decay: 0.16, tone: 31, noise: 86, lofi: 45, dist: 16 },
-    rimshot: { type: 'snare', pitch: 5, decay: 0.07, tone: 56, noise: 50, lofi: 40 },
-    tomLow: { type: 'tom', pitch: -6, decay: 0.45, tone: 53, noise: 22, lofi: 45 },
-    tomHigh: { type: 'tom', pitch: 0, decay: 0.34, tone: 50, noise: 24, lofi: 45 },
-    // vintage instruments - nostalgic, character-rich
-    bass: { type: 'bass', pitch: -4, decay: 0.68, tone: 47, attack: 0.014, lofi: 52, dist: 21 },
-    keys: { type: 'keys', pitch: 4, decay: 0.94, tone: 44, attack: 0.017, lofi: 56 },
-    guitar: { type: 'guitar', pitch: -1, decay: 0.88, tone: 55, attack: 0.0092, lofi: 49 }
+    // Kit character: Small vintage studio, close mics, heavy tape character ~1970
+    _kitMeta: { roomSize: 0.3, roomBrightness: 38, micDistance: 0.38, vintageYear: 1970, wear: 0.7 },
+    
+    kick: { type: 'kick', pitch: -4, decay: 0.3, tone: 36, noise: 30, lofi: 60, dist: 28,
+            attack: 0.008, bleed: 15, velocitySensitivity: 0.68, stereoWidth: 0.2, harmonicContent: 38, bitDepth: 10 },
+    snare: { type: 'snare', pitch: -2, decay: 0.18, tone: 40, noise: 73, lofi: 55, dist: 22,
+             snareRattle: 22, attack: 0.006, bleed: 18, velocitySensitivity: 0.65, stereoWidth: 0.32, harmonicContent: 42, bitDepth: 10 },
+    hihatClosed: { type: 'hihat', pitch: -3, decay: 0.06, tone: 36, noise: 80, lofi: 50, closed: true,
+                   attack: 0.004, velocitySensitivity: 0.7, stereoWidth: 0.62, harmonicContent: 46, bitDepth: 10 },
+    hihatOpen: { type: 'hihat', pitch: -3, decay: 0.26, tone: 40, noise: 76, lofi: 50, closed: false,
+                 attack: 0.005, velocitySensitivity: 0.68, stereoWidth: 0.68, harmonicContent: 48, bitDepth: 10 },
+    clap: { type: 'clap', pitch: -2, decay: 0.16, tone: 31, noise: 86, lofi: 45, dist: 16,
+            attack: 0.006, velocitySensitivity: 0.64, stereoWidth: 0.52, harmonicContent: 36 },
+    rimshot: { type: 'snare', pitch: 5, decay: 0.07, tone: 56, noise: 50, lofi: 40,
+               attack: 0.004, velocitySensitivity: 0.72, stereoWidth: 0.38, harmonicContent: 54 },
+    tomLow: { type: 'tom', pitch: -6, decay: 0.45, tone: 53, noise: 22, lofi: 45,
+              attack: 0.008, bleed: 14, velocitySensitivity: 0.67, stereoWidth: 0.44, harmonicContent: 48, bitDepth: 10 },
+    tomHigh: { type: 'tom', pitch: 0, decay: 0.34, tone: 50, noise: 24, lofi: 45,
+               attack: 0.007, bleed: 13, velocitySensitivity: 0.69, stereoWidth: 0.54, harmonicContent: 50, bitDepth: 10 },
+    
+    bass: { type: 'bass', pitch: -4, decay: 0.68, tone: 47, attack: 0.014, lofi: 52, dist: 21,
+            velocitySensitivity: 0.78, stereoWidth: 0.25, harmonicContent: 45, vinylCrackle: 20, wowFlutter: 0.22, sampleRate: 32000 },
+    keys: { type: 'keys', pitch: 4, decay: 0.94, tone: 44, attack: 0.017, lofi: 56,
+            velocitySensitivity: 0.8, stereoWidth: 0.6, harmonicContent: 48, vinylCrackle: 22, wowFlutter: 0.2, bitDepth: 10 },
+    guitar: { type: 'guitar', pitch: -1, decay: 0.88, tone: 55, attack: 0.0092, lofi: 49,
+              velocitySensitivity: 0.76, stereoWidth: 0.65, harmonicContent: 52, vinylCrackle: 18, wowFlutter: 0.18 }
   }
 };
 
@@ -26103,59 +26265,203 @@ function generateBufferForSampleConfig(config) {
 function generateRandomizedKit(kitName) {
   const baseKit = baseSampleKits[kitName];
   if (!baseKit) return null;
-
+  
   // Read generator controls
-  const character = parseFloat(document.getElementById('genCharacter')?.value || 50); // 0–100
-  const variation = parseFloat(document.getElementById('genVariation')?.value || 0);  // 0–100
-  const lofi = parseFloat(document.getElementById('genLofi')?.value || 0);            // 0–100
-
-  const charNorm = (character - 50) / 50; // -1 (warm/dark) .. +1 (bright/punchy)
-  const varNorm = variation / 100;        // 0..1 how wild to go
-  const lofiNorm = lofi / 100;            // 0..1 lo-fi intensity
-
+  const character = parseFloat(document.getElementById('genCharacter')?.value || 50);
+  const variation = parseFloat(document.getElementById('genVariation')?.value || 0);
+  const lofi = parseFloat(document.getElementById('genLofi')?.value || 0);
+  
+  const charNorm = (character - 50) / 50;
+  const varNorm = variation / 100;
+  const lofiNorm = lofi / 100;
+  
+  // KIT-WIDE COHESION: Real kits are recorded together with shared characteristics
+  const kitCharacter = {
+    roomSize: 0.3 + Math.random() * 0.4, // 0.3-0.7: small studio to large hall
+    roomBrightness: 40 + (Math.random() * 2 - 1) * 15, // Shared room tone
+    micDistance: 0.4 + Math.random() * 0.4, // 0.4-0.8: close to distant mic
+    tuningCoherence: Math.random() * 0.3, // How well-tuned the kit is
+    wear: Math.random() * lofiNorm, // Drum head wear (affects all drums)
+    vintageYear: lofiNorm > 0.5 ? 1960 + Math.random() * 40 : 2020 // Vintage character
+  };
+  
   const newKit = {};
-
+  
   Object.entries(baseKit).forEach(([sampleKey, base]) => {
     const cfg = { ...base };
-
-    // 1) Pitch: more variation = more semitone wander
-    const maxPitchSpread = 2 + 6 * varNorm; // up to ±8 semis at 100% variation
-    const randPitchOffset = (Math.random() * 2 - 1) * maxPitchSpread;
-    cfg.pitch = (base.pitch || 0) + randPitchOffset;
-
-    // 2) Decay: ± up to 40% depending on variation
-    const decayFactor = 1 + (Math.random() * 2 - 1) * (0.4 * varNorm);
-    cfg.decay = +(base.decay * decayFactor).toFixed(3);
-
-    // 3) Tone: "Character" biases darker or brighter + some random
-    const toneBaseShift = charNorm * 25;                       // -25 to +25
-    const toneRand = (Math.random() * 2 - 1) * (10 * varNorm); // extra spice
-    cfg.tone = clamp(base.tone + toneBaseShift + toneRand, 0, 100);
-
-    // 4) Noise: mostly driven by variation (more variation = more chaos)
-    const noiseRand = (Math.random() * 2 - 1) * (20 * varNorm);
-    cfg.noise = clamp(base.noise + noiseRand, 0, 100);
-
-    // 5) Distortion: mostly increases as Character goes “bright”
-    const distBase = base.dist || 0;
-    const distChar = Math.max(0, charNorm) * 30;              // up to +30 from character
-    const distRand = (Math.random() * 2 - 1) * (10 * varNorm);
-    cfg.dist = clamp(distBase + distChar + distRand, 0, 100);
-
-    // 6) Lo-Fi: blend base lo-fi with slider value, biasing toward slider
+    
+    // Identify sample type with more granularity
+    const isDrum = ['kick', 'snare', 'tom', 'rimshot', 'clap'].some(t => sampleKey.includes(t));
+    const isCymbal = ['hat', 'crash', 'ride', 'china', 'splash'].some(t => sampleKey.includes(t));
+    const isPercussion = ['conga', 'bongo', 'cowbell', 'shaker', 'tamb'].some(t => sampleKey.includes(t));
+    const isTonal = ['bass', 'lead', 'pad', 'keys', 'synth'].some(t => sampleKey.includes(t));
+    const isKick = sampleKey.includes('kick');
+    const isSnare = sampleKey.includes('snare');
+    const isHat = sampleKey.includes('hat');
+    
+    // 1) PITCH: Musical tuning with kit coherence
+    let maxPitchSpread;
+    if (isDrum) {
+      // Drums stay in musical intervals when well-tuned
+      maxPitchSpread = (0.3 + 1.5 * varNorm) * (1 + kitCharacter.tuningCoherence);
+      const musicalIntervals = [-2, -1, 0, 1, 2, 3.5, 5, 7]; // Musical intervals
+      if (varNorm < 0.3 && Math.random() > 0.5) {
+        // Sometimes snap to musical intervals for tonal kits
+        const interval = musicalIntervals[Math.floor(Math.random() * musicalIntervals.length)];
+        cfg.pitch = (base.pitch || 0) + interval + (Math.random() * 2 - 1) * 0.3;
+      } else {
+        cfg.pitch = (base.pitch || 0) + (Math.random() * 2 - 1) * maxPitchSpread;
+      }
+    } else if (isCymbal) {
+      maxPitchSpread = 0.8 + 3 * varNorm;
+      cfg.pitch = (base.pitch || 0) + (Math.random() * 2 - 1) * maxPitchSpread;
+    } else if (isTonal) {
+      // Tonal instruments need precise tuning
+      maxPitchSpread = 0.05 + 0.2 * varNorm; // Very tight
+      cfg.pitch = (base.pitch || 0) + (Math.random() * 2 - 1) * maxPitchSpread;
+    } else {
+      maxPitchSpread = 1 + 3 * varNorm;
+      cfg.pitch = (base.pitch || 0) + (Math.random() * 2 - 1) * maxPitchSpread;
+    }
+    
+    // 2) DECAY: Context-aware with room influence
+    let decayVariance = 0.2;
+    let decayBase = base.decay;
+    
+    // Room size affects decay (bigger room = longer natural reverb)
+    const roomDecayMultiplier = 0.9 + kitCharacter.roomSize * 0.3;
+    
+    if (isKick) {
+      decayVariance = 0.12; // Kicks are consistent
+      decayBase *= (0.8 + charNorm * 0.4); // Character = punchier (shorter) vs boomy
+    } else if (isSnare) {
+      decayVariance = 0.15;
+      // Snare wire rattle adds complexity
+      cfg.snareRattle = 20 + Math.random() * 30 * (1 - kitCharacter.wear);
+    } else if (isCymbal) {
+      decayVariance = 0.3;
+      decayBase *= (1 + kitCharacter.roomSize * 0.5); // Cymbals ring in big rooms
+    }
+    
+    const decayFactor = (1 + (Math.random() * 2 - 1) * decayVariance * varNorm) * roomDecayMultiplier;
+    cfg.decay = +(decayBase * decayFactor).toFixed(3);
+    
+    // 3) TONE: Shared room characteristics + individual tuning
+    const roomToneInfluence = kitCharacter.roomBrightness * 0.3; // Room affects all samples
+    const toneBaseShift = charNorm * 18 + roomToneInfluence;
+    const toneRand = (Math.random() * 2 - 1) * (6 * varNorm);
+    
+    // Mic distance affects tone (close = more low end, far = more room)
+    const micProximityEffect = isDrum ? (1 - kitCharacter.micDistance) * 8 : 0;
+    
+    cfg.tone = clamp(base.tone + toneBaseShift + toneRand + micProximityEffect, 0, 100);
+    
+    // 4) NOISE: Realistic noise sources
+    let noiseAmount = 0;
+    
+    // Tape hiss (vintage recordings)
+    const tapeHiss = kitCharacter.vintageYear < 2000 ? (2000 - kitCharacter.vintageYear) / 40 : 0;
+    
+    // Room noise (ambient)
+    const roomNoise = kitCharacter.micDistance * 3;
+    
+    // Drum wear (old heads, worn cymbals)
+    const wearNoise = kitCharacter.wear * (isDrum ? 8 : isCymbal ? 12 : 0);
+    
+    // Intentional noise for character
+    const characterNoise = (Math.random() * 2 - 1) * (10 * varNorm);
+    
+    noiseAmount = tapeHiss + roomNoise + wearNoise + characterNoise + (lofiNorm * 15);
+    cfg.noise = clamp(noiseAmount, 0, 100);
+    
+    // 5) DISTORTION: Context-based saturation
+    let distAmount = 0;
+    
+    // Tape saturation (vintage)
+    const tapeSat = kitCharacter.vintageYear < 1990 ? (1990 - kitCharacter.vintageYear) / 30 : 0;
+    
+    // Preamp drive (character)
+    const preampDrive = Math.max(0, charNorm) * 15;
+    
+    // Transient clipping (aggressive character)
+    const transientClip = Math.max(0, charNorm - 0.5) * 20;
+    
+    distAmount = tapeSat + preampDrive + transientClip + (Math.random() * 2 - 1) * (6 * varNorm);
+    cfg.dist = clamp(distAmount, 0, 100);
+    
+    // 6) LO-FI: Authentic degradation
     const baseLofi = base.lofi || 0;
-    const mix = 0.4 + 0.6 * lofiNorm; // 40–100% influence from slider
-    cfg.lofi = clamp(baseLofi * (1 - mix) + lofi * mix, 0, 100);
-
-    // Preserve type/closed flags
+    let lofiAmount = baseLofi;
+    
+    if (lofiNorm > 0) {
+      // Bit depth reduction (vintage samplers)
+      cfg.bitDepth = Math.floor(16 - lofiNorm * 8); // 16-bit down to 8-bit
+      
+      // Sample rate reduction
+      cfg.sampleRate = Math.floor(44100 * (1 - lofiNorm * 0.5)); // 44.1kHz down to 22kHz
+      
+      // Vinyl crackle
+      cfg.vinylCrackle = lofiNorm * 30 * Math.random();
+      
+      // Wow and flutter (tape warble)
+      cfg.wowFlutter = lofiNorm * 0.3 * Math.random(); // ±0.3% pitch variation
+      
+      lofiAmount = lofiNorm * 70 + baseLofi * 0.3;
+    }
+    
+    cfg.lofi = clamp(lofiAmount, 0, 100);
+    
+    // 7) DYNAMICS: Velocity response and transient shaping
+    if (isDrum || isCymbal) {
+      // Natural dynamic range
+      cfg.velocitySensitivity = 0.6 + Math.random() * 0.35; // 60-95%
+      
+      // Attack transient (punch)
+      cfg.attack = clamp(1 + charNorm * 3, 0.1, 5); // Punchy = faster attack
+      
+      // Transient emphasis
+      cfg.transientGain = clamp(1 + Math.max(0, charNorm) * 0.4, 1, 1.5);
+    } else if (isTonal) {
+      cfg.velocitySensitivity = 0.8 + Math.random() * 0.2; // More consistent
+    }
+    
+    // 8) BLEED: Drums bleed into each other in real recordings
+    if (isDrum && kitCharacter.micDistance > 0.6) {
+      cfg.bleed = Math.random() * kitCharacter.micDistance * 20; // Up to 20% bleed
+    }
+    
+    // 9) PHASE: Slight phase variations from multi-mic setups
+    if (isDrum || isCymbal) {
+      cfg.phaseShift = (Math.random() * 2 - 1) * 15 * kitCharacter.micDistance; // ±15ms
+    }
+    
+    // 10) STEREO WIDTH: Realistic mic positioning
+    if (isCymbal) {
+      cfg.stereoWidth = 0.7 + Math.random() * 0.3; // Wide
+    } else if (isKick || isDrum) {
+      cfg.stereoWidth = 0.2 + Math.random() * 0.3; // More centered
+    } else {
+      cfg.stereoWidth = 0.4 + Math.random() * 0.4; // Medium
+    }
+    
+    // 11) HARMONICS: Natural overtones
+    cfg.harmonicContent = clamp(
+      50 + (charNorm * 20) + (Math.random() * 2 - 1) * 10,
+      20, 90
+    );
+    
+    // Preserve original properties
     cfg.type = base.type;
     if (base.closed !== undefined) {
       cfg.closed = base.closed;
     }
-
+    
+    // Add metadata about the generation
+    cfg._kitCharacter = kitCharacter; // Store for UI display
+    
     newKit[sampleKey] = cfg;
   });
-
+  
   return newKit;
 }
 
