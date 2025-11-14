@@ -14016,7 +14016,6 @@ function clearMelodicLanes() {
      patterns.snare?.length ||
      patterns.hihat?.length ||
      0);
-
   melodicInstruments.forEach(inst => {
     const lane = patterns[inst];
     if (!lane) return;
@@ -14030,7 +14029,6 @@ function clearMelodicLanes() {
       cell.note        = instruments[inst]?.note || cell.note;
     }
   });
-
   if (typeof renderSequencer === 'function') {
     renderSequencer();
   }
@@ -14040,70 +14038,109 @@ function setupGeneratorButtons() {
   const beatBtn    = document.getElementById('generateBtn');
   const bothBtn    = document.getElementById('generateSongBtn');
   const rhythmBtn  = document.getElementById('generateRhythmBtn');
-
-  // 🥁 Generate Beat = drums only (plus drum polish)
+  
+  // 🥁 Generate Beat = drums only
   if (beatBtn) {
     beatBtn.addEventListener('click', () => {
-      // Let generateBeat do its thing (template, harmony, length, etc.)
-      generateBeat();
-
-      // Then strip melodic lanes so this is truly just "the beat"
-      clearMelodicLanes();
-
       ensureHarmonyGuardrails?.();
-
-      // Optional drum-level polish
+      
+      // Calculate total bars
+      const totalBars = Math.ceil((state.sequenceLength || 64) / STEPS_PER_BAR);
+      
+      // Create a drum section
+      const section = {
+        id: 'beat-regen',
+        drums: true,
+        drumPattern: 'four-floor', // could vary based on genre/complexity
+        energy: state.complexity ? state.complexity / 3 : 0.7,
+        density: 0.7
+      };
+      
+      // Clear melodic lanes first
+      clearMelodicLanes();
+      
+      // Generate drums using the section generator
+      generateSectionDrums(section, 0, totalBars);
+      
+      // Optional drum polish
       if (state.complexity >= 2 && typeof addRhythmicVariety === 'function') {
         addRhythmicVariety();
       }
       if (typeof addDrumFills === 'function') addDrumFills();
       if (typeof addSwingVariations === 'function') addSwingVariations();
+      
+      renderSequencer();
+      showToast?.('🥁 Beat generated', 'success');
     });
   }
-
+  
   // 🎵 Generate Both = full beat + melodic patterns
   if (bothBtn) {
-    bothBtn.addEventListener('click', async () => {
+    bothBtn.addEventListener('click', () => {
       showToast?.('🎶 Generating full song...', 'info');
-
-      // 1️⃣ Beat + drums (and base section/harmony/length)
-      generateBeat();
-
-      // 2️⃣ Harmony lock (progression + key)
       ensureHarmonyGuardrails?.();
-
-      // 3️⃣ Melodic structure (bass/keys/lead/guitar per genre/mood)
-      generateMelodicPatterns();
-
-      // 4️⃣ Optional polish
+      
+      const totalBars = Math.ceil((state.sequenceLength || 64) / STEPS_PER_BAR);
+      
+      const section = {
+        id: 'full-song',
+        drums: true,
+        bass: true,
+        chords: true,
+        lead: true,
+        drumPattern: 'four-floor',
+        bassPattern: 'root-fifth',
+        chordPattern: 'sustained',
+        energy: state.complexity ? state.complexity / 3 : 0.7,
+        density: 0.7
+      };
+      
+      // Generate everything
+      generateSectionDrums(section, 0, totalBars);
+      generateSectionBass(section, 0, totalBars);
+      generateSectionChords(section, 0, totalBars);
+      generateSectionMelody(section, 0, totalBars);
+      
+      // Optional polish
       if (state.complexity >= 2 && typeof addRhythmicVariety === 'function') {
         addRhythmicVariety();
       }
       if (typeof addDrumFills === 'function') addDrumFills();
       if (typeof addSwingVariations === 'function') addSwingVariations();
-
+      
+      renderSequencer();
       showToast?.('✅ Song ready!', 'success');
     });
   }
-
-  // 🎼 Generate Rhythm = melodic only (plus light groove polish so you can hear it)
+  
+  // 🎼 Generate Rhythm = melodic only (regenerate melodies on existing beat)
   if (rhythmBtn) {
     rhythmBtn.addEventListener('click', () => {
-      // Make sure harmony is sane
-      if (typeof ensureHarmonyGuardrails === 'function') {
-        ensureHarmonyGuardrails();
-      }
-      // Re-roll lead/melodic patterns on the existing beat
-      generateMelodicPatterns();
+      ensureHarmonyGuardrails?.();
       
-      // REMOVED drum functions - melodic only!
+      const totalBars = Math.ceil((state.sequenceLength || 64) / STEPS_PER_BAR);
       
-      if (typeof showToast === 'function') {
-        showToast('🎼 Regenerated melodies on top of your current beat', 'success');
-      }
+      const section = {
+        id: 'rhythm-regen',
+        bass: true,
+        chords: true,
+        lead: true,
+        bassPattern: 'root-fifth',
+        chordPattern: 'sustained',
+        energy: state.complexity ? state.complexity / 3 : 0.6,
+        density: 0.7
+      };
+      
+      // Generate melodic content only (drums stay intact)
+      generateSectionBass(section, 0, totalBars);
+      generateSectionChords(section, 0, totalBars);
+      generateSectionMelody(section, 0, totalBars);
+      
+      renderSequencer();
+      showToast?.('🎼 Regenerated melodies on current beat', 'success');
     });
   }
-
+  
   // AI variations and groove templates stay the same
   document.getElementById('aiVariationBtn')?.addEventListener('click', generateAIVariation);
   document.getElementById('aiMelodicBtn')?.addEventListener('click', generateMelodicAIVariation);
