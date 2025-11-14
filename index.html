@@ -10678,17 +10678,18 @@ function generateSectionChords(section, startBar, endBar) {
 }
 
 function getMoodMelodyProfile(mood, section) {
-  const energy   = section?.energy ?? 0.5;
-  const baseVel  = 0.7 + (energy - 0.5) * 0.4; // tie to section energy a bit
+  const energy  = section?.energy ?? 0.5;
+  const baseVel = 0.7 + (energy - 0.5) * 0.4; // tie to section energy a bit
 
   const profiles = {
+    // Balanced, genre-neutral
     default: {
-      densityFactor    : 1.0,
-      offbeatWeight    : 0.9,
-      restChance       : 0.15,
-      resetMotifChance : 0.1,
-      registerOffset   : 0,     // stays near leadOctBase
-      preferChordWeight: 1.0,   // equal chord/scale tones
+      densityFactor     : 1.0,
+      offbeatWeight     : 0.9,
+      restChance        : 0.15,
+      resetMotifChance  : 0.12,
+      registerOffset    : 0,     // stays near leadOctBase
+      preferChordWeight : 1.0,   // equal chord/scale tones
       brightToneWeight  : 1.0,
       darkToneWeight    : 1.0,
       // contour
@@ -10702,127 +10703,132 @@ function getMoodMelodyProfile(mood, section) {
       minProb           : 80,
       maxProb           : 100,
       // durations
-      longNoteChance    : 0.2,
+      longNoteChance    : 0.25,
       mediumNoteValue   : '8n',
       longNoteValue     : '4n',
-      shortNoteChance   : 0.2,
+      shortNoteChance   : 0.25,
       shortNoteValue    : energy > 0.6 ? '16n' : '8n'
     },
 
+    // Low, heavy, brooding, not super busy
     dark: {
-      densityFactor    : 0.9,
-      offbeatWeight    : 0.7,
-      restChance        : 0.2,
+      densityFactor     : 0.75,
+      offbeatWeight     : 0.6,    // less bouncy
+      restChance        : 0.25,
       resetMotifChance  : 0.15,
-      registerOffset    : -1,
-      preferChordWeight : 1.5,
-      brightToneWeight  : 0.6,
-      darkToneWeight    : 1.4,
-      biasUpwards       : 0.4,
-      biasDownwards     : 0.6,
-      smallStepBias     : 0.8,
-      bigLeapBias       : 0.2,
-      minVel            : 0.55,
-      maxVel            : 0.85,
-      minProb           : 75,
+      registerOffset    : -1,     // lower octave
+      preferChordWeight : 1.8,    // stick to chord tones
+      brightToneWeight  : 0.4,    // avoid bright notes
+      darkToneWeight    : 1.8,    // really lean into flats
+      biasUpwards       : 0.35,
+      biasDownwards     : 0.65,   // phrases tend to fall
+      smallStepBias     : 0.9,    // mostly stepwise
+      bigLeapBias       : 0.1,
+      minVel            : 0.5,
+      maxVel            : 0.8,
+      minProb           : 70,
       maxProb           : 95,
-      longNoteChance    : 0.25,
+      longNoteChance    : 0.35,
       mediumNoteValue   : '8n',
       longNoteValue     : '4n',
       shortNoteChance   : 0.15,
       shortNoteValue    : '16n'
     },
 
+    // Very sparse, lots of silence, sad falls, long notes
     sad: {
-      densityFactor     : 0.6,
-      offbeatWeight     : 0.6,
-      restChance        : 0.35,
-      resetMotifChance  : 0.12,
+      densityFactor     : 0.5,
+      offbeatWeight     : 0.5,
+      restChance        : 0.5,    // lots of space
+      resetMotifChance  : 0.1,
       registerOffset    : -1,
-      preferChordWeight : 1.8,
-      brightToneWeight  : 0.4,
-      darkToneWeight    : 1.6,
-      biasUpwards       : 0.35,
-      biasDownwards     : 0.65,
-      smallStepBias     : 0.9,
-      bigLeapBias       : 0.1,
-      minVel            : 0.45,
-      maxVel            : 0.75,
-      minProb           : 70,
-      maxProb           : 95,
-      longNoteChance    : 0.4,
+      preferChordWeight : 2.0,
+      brightToneWeight  : 0.3,
+      darkToneWeight    : 2.0,
+      biasUpwards       : 0.25,
+      biasDownwards     : 0.75,   // lines fall
+      smallStepBias     : 0.95,   // very smooth stepwise
+      bigLeapBias       : 0.05,
+      minVel            : 0.4,
+      maxVel            : 0.7,
+      minProb           : 65,
+      maxProb           : 90,
+      longNoteChance    : 0.6,    // lots of held tones
       mediumNoteValue   : '8n',
       longNoteValue     : '2n',
-      shortNoteChance   : 0.1,
+      shortNoteChance   : 0.05,
       shortNoteValue    : '8n'
     },
 
+    // Hyper, jagged, busy, lots of tension + offbeats
     tense: {
-      densityFactor     : 1.3,
-      offbeatWeight     : 1.2,
-      restChance        : 0.1,
-      resetMotifChance  : 0.2,
+      densityFactor     : 1.6,
+      offbeatWeight     : 1.5,    // heavy offbeat emphasis
+      restChance        : 0.05,   // almost always playing
+      resetMotifChance  : 0.25,
       registerOffset    : 0,
-      preferChordWeight : 1.0,
-      brightToneWeight  : 0.7,
-      darkToneWeight    : 1.3,
+      preferChordWeight : 0.9,    // allow more non-chord tones
+      brightToneWeight  : 0.8,
+      darkToneWeight    : 1.4,    // lean to darker degrees
       biasUpwards       : 0.55,
       biasDownwards     : 0.45,
-      smallStepBias     : 0.5,
-      bigLeapBias       : 0.5,
-      minVel            : 0.7,
+      smallStepBias     : 0.4,    // more leaps
+      bigLeapBias       : 0.6,
+      minVel            : 0.8,
       maxVel            : 1.0,
       minProb           : 85,
       maxProb           : 100,
-      longNoteChance    : 0.1,
+      longNoteChance    : 0.05,
       mediumNoteValue   : '8n',
       longNoteValue     : '4n',
-      shortNoteChance   : 0.4,
+      shortNoteChance   : 0.6,
       shortNoteValue    : '16n'
     },
 
+    // Warm, smooth, gently moving, no extreme highs or lows
     mellow: {
       densityFactor     : 0.8,
-      offbeatWeight     : 0.8,
+      offbeatWeight     : 0.7,
       restChance        : 0.25,
-      resetMotifChance  : 0.1,
+      resetMotifChance  : 0.12,
       registerOffset    : 0,
-      preferChordWeight : 1.3,
+      preferChordWeight : 1.7,    // strongly chord-centered
       brightToneWeight  : 1.1,
       darkToneWeight    : 0.9,
       biasUpwards       : 0.5,
       biasDownwards     : 0.5,
-      smallStepBias     : 0.85,
-      bigLeapBias       : 0.15,
+      smallStepBias     : 0.9,    // mostly steps
+      bigLeapBias       : 0.1,
       minVel            : 0.5,
       maxVel            : 0.8,
       minProb           : 75,
       maxProb           : 98,
-      longNoteChance    : 0.3,
+      longNoteChance    : 0.35,
       mediumNoteValue   : '8n',
       longNoteValue     : '4n',
       shortNoteChance   : 0.2,
       shortNoteValue    : '8n'
     },
 
+    // Floaty, high register, leaps, long notes, bright tones
     dreamy: {
-      densityFactor     : 0.7,
-      offbeatWeight     : 1.0,
+      densityFactor     : 0.65,
+      offbeatWeight     : 1.1,
       restChance        : 0.3,
       resetMotifChance  : 0.2,
-      registerOffset    : +1,
-      preferChordWeight : 1.0,
-      brightToneWeight  : 1.6,
-      darkToneWeight    : 0.8,
-      biasUpwards       : 0.6,
-      biasDownwards     : 0.4,
-      smallStepBias     : 0.5,
-      bigLeapBias       : 0.5,
-      minVel            : 0.5,
+      registerOffset    : +1,     // push up an octave
+      preferChordWeight : 1.2,
+      brightToneWeight  : 2.0,    // really favor bright tones
+      darkToneWeight    : 0.7,
+      biasUpwards       : 0.65,   // tends to drift upward
+      biasDownwards     : 0.35,
+      smallStepBias     : 0.55,
+      bigLeapBias       : 0.45,   // more dramatic jumps
+      minVel            : 0.45,
       maxVel            : 0.85,
       minProb           : 70,
       maxProb           : 98,
-      longNoteChance    : 0.5,
+      longNoteChance    : 0.7,    // lots of sustained floaty notes
       mediumNoteValue   : '8n',
       longNoteValue     : '2n',
       shortNoteChance   : 0.15,
@@ -10910,15 +10916,40 @@ function generateSectionMelody(section, startBar, endBar) {
   if (!section.lead) return;
   if (!patterns.lead) return;
 
-  const mood   = (typeof songBuilderState !== 'undefined' && songBuilderState.mood)
+  const mood = (typeof songBuilderState !== 'undefined' && songBuilderState.mood)
     ? songBuilderState.mood
     : (state.mood || 'default');
 
-  const profile     = getMoodMelodyProfile(mood, section);
-  const leadOctBase = (state.octave || 3) + 1;
+  const energy         = section?.energy ?? 0.5;
+  const baseProfile    = getMoodMelodyProfile(mood, section);
+  const leadOctBase    = (state.octave || 3) + 1;
 
-  let lastPcIndex   = null;
-  let lastWasRest   = true;
+  // Detect solo sections: explicit flag, or id/label includes "solo", or super high-energy lead
+  const isSoloSection =
+    section.solo === true ||
+    /solo/i.test(section.id || '') ||
+    /solo/i.test(section.label || '') ||
+    (section.lead && energy >= 0.9);
+
+  // Clone + optionally boost for solo, so we don't mutate the base profile object
+  const profile = { ...baseProfile };
+
+  if (isSoloSection) {
+    // More notes, more offbeats, less resting, more register & expression
+    profile.densityFactor  *= 1.4;
+    profile.offbeatWeight  *= 1.3;
+    profile.restChance     *= 0.4;        // less silence
+    profile.registerOffset += 1;          // push solos up an octave
+    profile.smallStepBias   = Math.max(0.2, profile.smallStepBias * 0.7);
+    profile.bigLeapBias     = Math.min(0.8, profile.bigLeapBias + 0.3);
+    profile.minVel          = Math.min(0.85, (profile.minVel || 0.6) + 0.1);
+    profile.maxVel          = Math.min(1.0, (profile.maxVel || 0.9) + 0.1);
+    profile.longNoteChance  = Math.max(0.15, profile.longNoteChance - 0.1);
+    profile.shortNoteChance = Math.min(0.7, profile.shortNoteChance + 0.2);
+  }
+
+  let lastPcIndex = null;
+  let lastWasRest = true;
 
   for (let bar = startBar; bar < endBar; bar++) {
     const offset   = bar * STEPS_PER_BAR;
@@ -10934,31 +10965,40 @@ function generateSectionMelody(section, startBar, endBar) {
       const cell = patterns.lead[idx];
       if (!cell) continue;
 
-      // Reset the cell first
+      // Reset cell
       cell.active      = false;
       cell.velocity    = 0.8;
       cell.probability = 100;
       cell.duration    = '8n';
       cell.note        = instruments.lead?.note || `C${leadOctBase}`;
 
-      // Rhythm grid: only place on certain divisions depending on mood
-      const isStrongBeat   = (step % 4 === 0);
-      const isOffBeat      = (step % 2 === 1);
-      const localDensity   = (section.density ?? 0.6) * profile.densityFactor;
-      const baseHitChance  = isStrongBeat ? localDensity : localDensity * profile.offbeatWeight;
+      // Beat classification
+      const isStrongBeat = (step % 4 === 0);
+      const isOffBeat    = (step % 2 === 1);
 
-      if (Math.random() > baseHitChance) {
+      // Section energy drives overall hit chance
+      const energyFactor = 0.7 + energy * 0.6; // 0.7–1.3
+      const baseDensity  = (section.density ?? 0.6) * profile.densityFactor * energyFactor;
+
+      let hitChance = isStrongBeat
+        ? baseDensity
+        : baseDensity * (isOffBeat ? profile.offbeatWeight : 0.8);
+
+      // Clamp to sane range
+      hitChance = Math.max(0, Math.min(1.2, hitChance));
+
+      if (Math.random() > hitChance) {
         lastWasRest = true;
         continue;
       }
 
-      // Extra rest chance for "sad", "dreamy", etc.
+      // For sad/dreamy/etc: extra chance to rest even if density wants a note
       if (Math.random() < profile.restChance) {
         lastWasRest = true;
         continue;
       }
 
-      // Choose pitch class index
+      // Pick pitch class index
       let pcIndex;
       if (lastPcIndex == null || lastWasRest || Math.random() < profile.resetMotifChance) {
         pcIndex = pickMoodPitchClassIndex(scalePcs, chordPcs, profile);
@@ -10971,9 +11011,9 @@ function generateSectionMelody(section, startBar, endBar) {
       lastPcIndex = pcIndex;
       lastWasRest = false;
 
-      const pc        = scalePcs[pcIndex];
-      const noteOct   = leadOctBase + profile.registerOffset;
-      const noteName  = `${pc}${noteOct}`;
+      const pc       = scalePcs[pcIndex];
+      const noteOct  = leadOctBase + profile.registerOffset;
+      const noteName = `${pc}${noteOct}`;
 
       cell.active      = true;
       cell.note        = noteName;
