@@ -26081,6 +26081,11 @@ let currentSample = null;
 let currentBuffer = null;
 let sampleParams = {};
 
+// Helper function
+function clamp(val, min, max) {
+  return Math.max(min, Math.min(max, val));
+}
+
 // Initialize UI
 function initSampleLibrary() {
   renderSampleList();
@@ -26095,7 +26100,11 @@ function renderSampleList() {
   sampleList.innerHTML = '';
   
   Object.keys(kit).forEach(sampleKey => {
+    if (sampleKey.startsWith('_')) return; // Skip metadata
+    
     const info = sampleInfo[sampleKey];
+    if (!info) return; // Skip if no info available
+    
     const params = kit[sampleKey];
     
     const item = document.createElement('div');
@@ -26229,7 +26238,6 @@ function generateSampleBuffer() {
     case 'hihat': return synth.generateHihat(params, closed);
     case 'clap':  return synth.generateClap(params);
     case 'tom':   return synth.generateTom(params, sampleParams.pitch || 0);
-    // NEW
     case 'bass':  return synth.generateBass(params);
     case 'guitar':return synth.generateGuitar(params);
     case 'keys':  return synth.generateKeys(params);
@@ -26240,23 +26248,25 @@ function generateSampleBuffer() {
   }
 }
 
-
 function generateBufferForSampleConfig(config) {
   if (!config) return null;
 
   const { type, closed } = config;
   let buffer = null;
 
-  if (type === 'kick') {
-    buffer = synth.generateKick(config);
-  } else if (type === 'snare') {
-    buffer = synth.generateSnare(config);
-  } else if (type === 'hihat') {
-    buffer = synth.generateHihat(config, closed);
-  } else if (type === 'clap') {
-    buffer = synth.generateClap(config);
-  } else if (type === 'tom') {
-    buffer = synth.generateTom(config, config.pitch || 0);
+  switch (type) {
+    case 'kick':   buffer = synth.generateKick(config); break;
+    case 'snare':  buffer = synth.generateSnare(config); break;
+    case 'hihat':  buffer = synth.generateHihat(config, closed); break;
+    case 'clap':   buffer = synth.generateClap(config); break;
+    case 'tom':    buffer = synth.generateTom(config, config.pitch || 0); break;
+    case 'bass':   buffer = synth.generateBass(config); break;
+    case 'guitar': buffer = synth.generateGuitar(config); break;
+    case 'keys':   buffer = synth.generateKeys(config); break;
+    case 'lead':   buffer = synth.generateLead(config); break;
+    case 'riser':  buffer = synth.generateRiser(config); break;
+    case 'fx':     buffer = synth.generateFX(config); break;
+    default: break;
   }
 
   return buffer;
@@ -26288,6 +26298,11 @@ function generateRandomizedKit(kitName) {
   const newKit = {};
   
   Object.entries(baseKit).forEach(([sampleKey, base]) => {
+    if (sampleKey.startsWith('_')) {
+      newKit[sampleKey] = base;
+      return;
+    }
+    
     const cfg = { ...base };
     
     // Identify sample type with more granularity
@@ -26481,15 +26496,16 @@ async function buildKitZip(kitName = currentKit) {
   const folder = zip.folder(`${kitName}_kit`);
 
   for (const [sampleKey, config] of Object.entries(kit)) {
+    if (sampleKey.startsWith('_')) continue; // Skip metadata
+    
     const buffer = generateBufferForSampleConfig(config);
     if (!buffer) continue;
 
     const wavArrayBuffer = synth.bufferToWav(buffer);
     const filename = `${kitName}_${sampleKey}.wav`;
-    folder.file(filename, wavArrayBuffer); // ArrayBuffer is fine
+    folder.file(filename, wavArrayBuffer);
   }
 
-  // Generate zip as a Blob
   const blob = await zip.generateAsync({ type: 'blob' });
   return blob;
 }
@@ -26501,29 +26517,9 @@ async function previewSample(sampleKey) {
   const params = kit[sampleKey];
   if (!params) return;
 
-  const type = params.type;
-  const closed = params.closed;
-
-  // Generate audio buffer from SampleSynthesizer
-  let buffer = null;
-  switch (type) {
-    case 'kick':   buffer = synth.generateKick(params); break;
-    case 'snare':  buffer = synth.generateSnare(params); break;
-    case 'hihat':  buffer = synth.generateHihat(params, closed); break;
-    case 'clap':   buffer = synth.generateClap(params); break;
-    case 'tom':    buffer = synth.generateTom(params, params.pitch || 0); break;
-    case 'bass':   buffer = synth.generateBass(params); break;
-    case 'guitar': buffer = synth.generateGuitar(params); break;
-    case 'keys':   buffer = synth.generateKeys(params); break;
-    case 'lead':   buffer = synth.generateLead(params); break;
-    case 'riser':  buffer = synth.generateRiser(params); break;
-    case 'fx':     buffer = synth.generateFX(params); break;
-    default:       return;
-  }
-
+  const buffer = generateBufferForSampleConfig(params);
   if (!buffer) return;
 
-  // Make sure the synth's AudioContext is running
   const ac = synth.audioContext;
   if (ac && ac.state === 'suspended') {
     try {
@@ -26533,58 +26529,28 @@ async function previewSample(sampleKey) {
     }
   }
 
-  // Play at a safe level (dB)
-  //   0  dB = full blast
-  //  -6 dB = half power
-  // -12 dB = nice safe preview
   synth.play(buffer, -12);
 }
-
 
 function exportSample(sampleKey) {
   const params = sampleKits[currentKit][sampleKey];
   if (!params) return;
 
-  const info = sampleInfo[sampleKey];
-  const type = params.type;
-  const closed = params.closed;
-
-  let buffer;
-  if (type === 'kick') {
-    buffer = synth.generateKick(params);
-  } else if (type === 'snare') {
-    buffer = synth.generateSnare(params);
-  } else if (type === 'hihat') {
-    buffer = synth.generateHihat(params, closed);
-  } else if (type === 'clap') {
-    buffer = synth.generateClap(params);
-  } else if (type === 'tom') {
-    buffer = synth.generateTom(params, params.pitch || 0);
-  } else if (type === 'bass') {
-    buffer = synth.generateBass(params);
-  } else if (type === 'guitar') {
-    buffer = synth.generateGuitar(params);
-  } else if (type === 'keys') {
-    buffer = synth.generateKeys(params);
-  } else if (type === 'lead') {
-    buffer = synth.generateLead(params);
-  } else if (type === 'riser') {
-    buffer = synth.generateRiser(params);
-  } else if (type === 'fx') {
-    buffer = synth.generateFX(params);
-  }
+  const buffer = generateBufferForSampleConfig(params);
 
   if (buffer) {
-    const niceName = info?.name || sampleKey;
+    const info = sampleInfo[sampleKey];
     const filename = `${currentKit}_${sampleKey}.wav`;
     synth.exportWAV(buffer, filename);
   }
 }
 
-
 function updateSampleCount() {
-  const count = Object.keys(sampleKits[currentKit]).length;
-  document.getElementById('sampleCount').textContent = `${count} sounds`;
+  const count = Object.keys(sampleKits[currentKit]).filter(k => !k.startsWith('_')).length;
+  const countEl = document.getElementById('sampleCount');
+  if (countEl) {
+    countEl.textContent = `${count} sounds`;
+  }
 }
 
 function attachEventListeners() {
@@ -26599,8 +26565,10 @@ function attachEventListeners() {
       currentSample = null;
       currentBuffer = null;
       
-      document.getElementById('selectedSampleName').textContent = 'Select a sample';
-      document.getElementById('selectedSampleInfo').textContent = 'Click any sample to edit';
+      const nameEl = document.getElementById('selectedSampleName');
+      const infoEl = document.getElementById('selectedSampleInfo');
+      if (nameEl) nameEl.textContent = 'Select a sample';
+      if (infoEl) infoEl.textContent = 'Click any sample to edit';
     });
   });
 
@@ -26621,402 +26589,429 @@ function attachEventListeners() {
   });
 
   // Preview button
-  document.getElementById('previewSampleBtn')?.addEventListener('click', () => {
-    if (currentBuffer) {
-      const volume = parseFloat(document.getElementById('sampleVolume').value);
-      synth.play(currentBuffer, volume);
-    }
-  });
+  const previewBtn = document.getElementById('previewSampleBtn');
+  if (previewBtn) {
+    previewBtn.addEventListener('click', () => {
+      if (currentBuffer) {
+        const volume = parseFloat(document.getElementById('sampleVolume').value);
+        synth.play(currentBuffer, volume);
+      }
+    });
+  }
 
   // Save button
-  document.getElementById('saveSampleBtn')?.addEventListener('click', () => {
-    if (!currentSample) return;
-    
-    sampleKits[currentKit][currentSample] = {
-      ...sampleParams,
-      pitch: parseFloat(document.getElementById('samplePitch').value),
-      decay: parseFloat(document.getElementById('sampleDecay').value),
-      tone: parseFloat(document.getElementById('sampleTone').value),
-      noise: parseFloat(document.getElementById('sampleNoise').value),
-      attack: parseFloat(document.getElementById('sampleAttack').value),
-      lofi: parseFloat(document.getElementById('sampleLofi').value),
-      dist: parseFloat(document.getElementById('sampleDist').value)
-    };
-    
-    alert('✓ Sample saved to kit!');
-  });
+  const saveBtn = document.getElementById('saveSampleBtn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      if (!currentSample) return;
+      
+      sampleKits[currentKit][currentSample] = {
+        ...sampleParams,
+        pitch: parseFloat(document.getElementById('samplePitch').value),
+        decay: parseFloat(document.getElementById('sampleDecay').value),
+        tone: parseFloat(document.getElementById('sampleTone').value),
+        noise: parseFloat(document.getElementById('sampleNoise').value),
+        attack: parseFloat(document.getElementById('sampleAttack').value),
+        lofi: parseFloat(document.getElementById('sampleLofi').value),
+        dist: parseFloat(document.getElementById('sampleDist').value)
+      };
+      
+      alert('✓ Sample saved to kit!');
+    });
+  }
 
   // Export button
-  document.getElementById('exportSampleBtn')?.addEventListener('click', () => {
-    if (currentBuffer && currentSample) {
-      const info = sampleInfo[currentSample];
-      const filename = `${currentKit}_${currentSample}_custom.wav`;
-      synth.exportWAV(currentBuffer, filename);
-    }
-  });
+  const exportBtn = document.getElementById('exportSampleBtn');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      if (currentBuffer && currentSample) {
+        const info = sampleInfo[currentSample];
+        const filename = `${currentKit}_${currentSample}_custom.wav`;
+        synth.exportWAV(currentBuffer, filename);
+      }
+    });
+  }
 
   // Reset button
-  document.getElementById('resetSampleBtn')?.addEventListener('click', () => {
-    if (currentSample) {
-      sampleParams = { ...sampleKits[currentKit][currentSample] };
-      updateEditor();
-      generateAndDisplayWaveform();
-    }
-  });
+  const resetBtn = document.getElementById('resetSampleBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (currentSample) {
+        sampleParams = { ...sampleKits[currentKit][currentSample] };
+        updateEditor();
+        generateAndDisplayWaveform();
+      }
+    });
+  }
 
   // Send current sample to multitrack
-  document.getElementById('sendSampleToMultitrackBtn')?.addEventListener('click', () => {
-    if (!currentBuffer || !currentSample) {
-      alert('No sample selected / generated yet.');
-      return;
-    }
-  
-    if (typeof addExternalAudioTrackFromBuffer !== 'function') {
-      alert('Multitrack system not ready yet.');
-      return;
-    }
-  
-    const name = `${currentKit}_${currentSample}_oneShot.wav`;
-  
-    try {
-      // currentBuffer is an AudioBuffer from SampleSynthesizer
-      addExternalAudioTrackFromBuffer(currentBuffer, name);
-  
-      if (typeof renderMultitrack === 'function') {
-        renderMultitrack();
+  const sendToMultitrackBtn = document.getElementById('sendSampleToMultitrackBtn');
+  if (sendToMultitrackBtn) {
+    sendToMultitrackBtn.addEventListener('click', () => {
+      if (!currentBuffer || !currentSample) {
+        alert('No sample selected / generated yet.');
+        return;
       }
-  
-      if (typeof showToast === 'function') {
-        showToast(`📥 Sent "${name}" to the multitrack`, 'success');
-      } else {
-        alert(`📥 Sent "${name}" to the multitrack!`);
+    
+      if (typeof addExternalAudioTrackFromBuffer !== 'function') {
+        alert('Multitrack system not ready yet.');
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      alert('Failed to send sample to multitrack. Check the console for details.');
-    }
-  });
+    
+      const name = `${currentKit}_${currentSample}_oneShot.wav`;
+    
+      try {
+        addExternalAudioTrackFromBuffer(currentBuffer, name);
+    
+        if (typeof renderMultitrack === 'function') {
+          renderMultitrack();
+        }
+    
+        if (typeof showToast === 'function') {
+          showToast(`📥 Sent "${name}" to the multitrack`, 'success');
+        } else {
+          alert(`📥 Sent "${name}" to the multitrack!`);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to send sample to multitrack. Check the console for details.');
+      }
+    });
+  }
   
   // Helper: turn an AudioBuffer from SampleSynthesizer into a Blob URL
   function bufferToObjectUrlFromSynth(buffer) {
-    // use the *global* synth (SampleSynthesizer instance) you already created
-    const wavArrayBuffer = synth.bufferToWav(buffer); // returns ArrayBuffer for WAV
+    const wavArrayBuffer = synth.bufferToWav(buffer);
     const blob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
     return URL.createObjectURL(blob);
   }
 
-  // ==================== KIT SELECTOR GRID ====================
+  // Kit selector grid
   const kitSelector = document.getElementById('kitSelector');
   if (kitSelector) {
     kitSelector.addEventListener('click', (e) => {
       const preset = e.target.closest('.preset');
       if (!preset) return;
   
-      // Remove active class from all presets
       kitSelector.querySelectorAll('.preset').forEach(btn => btn.classList.remove('active'));
-  
-      // Mark this one active
       preset.classList.add('active');
-  
-      // Set the currentKit from data-kit
       currentKit = preset.dataset.kit || 'default';
   
-      // Feedback
-      showToast(`🎛 Selected "${currentKit}" kit`, 'info');
+      if (typeof showToast === 'function') {
+        showToast(`🎛 Selected "${currentKit}" kit`, 'info');
+      }
     });
   }
 
-  // ==================== LOAD KIT (DRUMS + INSTRUMENTS) ====================
-  document.getElementById('loadKitBtn')?.addEventListener('click', () => {
-    if (
-      typeof DRUM_SAMPLES === 'undefined' ||
-      typeof synths === 'undefined' ||
-      typeof instruments === 'undefined'
-    ) {
-      alert('Sequencer is not ready yet. Try again after the app finishes loading.');
-      return;
-    }
-  
-    const kit = sampleKits[currentKit];
-    if (!kit) {
-      alert(`No kit found for "${currentKit}".`);
-      return;
-    }
-  
-    // Use the same engine as the Samples tab
-    const synthEngine = window.synth instanceof SampleSynthesizer
-      ? window.synth
-      : new SampleSynthesizer();
-  
-    // For each entry in the kit (drums + instruments)
-    Object.entries(kit).forEach(([name, cfg]) => {
-      let buffer = null;
-  
-      switch (cfg.type) {
-        case 'kick':   buffer = synthEngine.generateKick(cfg);   break;
-        case 'snare':  buffer = synthEngine.generateSnare(cfg);  break;
-        case 'hihat':  buffer = synthEngine.generateHihat(cfg, cfg.closed); break;
-        case 'clap':   buffer = synthEngine.generateClap(cfg);   break;
-        case 'tom':    buffer = synthEngine.generateTom(cfg, cfg.pitch || 0); break;
-  
-        case 'bass':   buffer = synthEngine.generateBass(cfg);   break;
-        case 'guitar': buffer = synthEngine.generateGuitar(cfg); break;
-        case 'keys':   buffer = synthEngine.generateKeys(cfg);   break;
-        case 'lead':   buffer = synthEngine.generateLead(cfg);   break;
-        case 'riser':  buffer = synthEngine.generateRiser(cfg);  break;
-        case 'fx':     buffer = synthEngine.generateFX(cfg);     break;
-        default:
-          // if something exotic sneaks in, bail quietly
+  // Load kit button (drums + instruments)
+  const loadKitBtn = document.getElementById('loadKitBtn');
+  if (loadKitBtn) {
+    loadKitBtn.addEventListener('click', () => {
+      if (
+        typeof DRUM_SAMPLES === 'undefined' ||
+        typeof synths === 'undefined' ||
+        typeof instruments === 'undefined'
+      ) {
+        alert('Sequencer is not ready yet. Try again after the app finishes loading.');
+        return;
+      }
+    
+      const kit = sampleKits[currentKit];
+      if (!kit) {
+        alert(`No kit found for "${currentKit}".`);
+        return;
+      }
+    
+      const synthEngine = window.synth instanceof SampleSynthesizer
+        ? window.synth
+        : new SampleSynthesizer();
+    
+      Object.entries(kit).forEach(([name, cfg]) => {
+        if (name.startsWith('_')) return;
+        
+        let buffer = null;
+    
+        switch (cfg.type) {
+          case 'kick':   buffer = synthEngine.generateKick(cfg);   break;
+          case 'snare':  buffer = synthEngine.generateSnare(cfg);  break;
+          case 'hihat':  buffer = synthEngine.generateHihat(cfg, cfg.closed); break;
+          case 'clap':   buffer = synthEngine.generateClap(cfg);   break;
+          case 'tom':    buffer = synthEngine.generateTom(cfg, cfg.pitch || 0); break;
+          case 'bass':   buffer = synthEngine.generateBass(cfg);   break;
+          case 'guitar': buffer = synthEngine.generateGuitar(cfg); break;
+          case 'keys':   buffer = synthEngine.generateKeys(cfg);   break;
+          case 'lead':   buffer = synthEngine.generateLead(cfg);   break;
+          case 'riser':  buffer = synthEngine.generateRiser(cfg);  break;
+          case 'fx':     buffer = synthEngine.generateFX(cfg);     break;
+          default:
+            return;
+        }
+    
+        if (!buffer) return;
+    
+        if (typeof normalizeBufferInPlace === 'function') {
+          normalizeBufferInPlace(buffer, -1);
+        }
+    
+        const url = bufferToObjectUrlFromSynth(buffer);
+    
+        // Drum mapping
+        switch (name) {
+          case 'kick':
+            DRUM_SAMPLES.kick = url;
+            break;
+          case 'snare':
+            DRUM_SAMPLES.snare = url;
+            break;
+          case 'hihatClosed':
+            DRUM_SAMPLES.hihat = url;
+            break;
+          case 'hihatOpen':
+            DRUM_SAMPLES.crash = url;
+            DRUM_SAMPLES.ride  = url;
+            break;
+          case 'clap':
+            DRUM_SAMPLES.clap = url;
+            break;
+          case 'rimshot':
+            DRUM_SAMPLES.rimshot = url;
+            break;
+          case 'tomLow':
+          case 'tomHigh':
+            DRUM_SAMPLES.tom = url;
+            break;
+          default:
+            break;
+        }
+    
+        // Drum tracks: rebuild synths
+        const instMeta = instruments[name];
+        if (instMeta && instMeta.type === 'drum') {
+          if (synths[name]?.dispose) {
+            try { synths[name].dispose(); } catch {}
+          }
+          synths[name] = createDrumSynth(name);
+          if (instMeta.channel && synths[name]?.connect) {
+            synths[name].connect(instMeta.channel);
+          }
           return;
-      }
-  
-      if (!buffer) return;
-  
-      // Keep headroom
-      if (typeof normalizeBufferInPlace === 'function') {
-        normalizeBufferInPlace(buffer, -1); // ~8 dB
-      }
-  
-      const url = bufferToObjectUrlFromSynth(buffer);
-  
-      // ----------------- DRUM MAPPING → DRUM_SAMPLES -----------------
-      switch (name) {
-        case 'kick':
-          DRUM_SAMPLES.kick = url;
-          break;
-        case 'snare':
-          DRUM_SAMPLES.snare = url;
-          break;
-        case 'hihatClosed':
-          // your drum engine uses "hihat" only
-          DRUM_SAMPLES.hihat = url;
-          break;
-        case 'hihatOpen':
-          // use open hat as crash/ride stand-ins
-          DRUM_SAMPLES.crash = url;
-          DRUM_SAMPLES.ride  = url;
-          break;
-        case 'clap':
-          DRUM_SAMPLES.clap = url;
-          break;
-        case 'rimshot':
-          DRUM_SAMPLES.rimshot = url;
-          break;
-        case 'tomLow':
-        case 'tomHigh':
-          DRUM_SAMPLES.tom = url;
-          break;
-        default:
-          break;
-      }
-  
-      // ----------------- DRUM TRACKS: rebuild synths -----------------
-      const instMeta = instruments[name];
-      if (instMeta && instMeta.type === 'drum') {
-        // drum track whose id matches sample name (kick, snare, etc.)
-        if (synths[name]?.dispose) {
-          try { synths[name].dispose(); } catch {}
         }
-        synths[name] = createDrumSynth(name);
-        if (instMeta.channel && synths[name]?.connect) {
-          synths[name].connect(instMeta.channel);
+    
+        // Instrument tracks (bass/keys/guitar/lead/fx/riser)
+        if (['bass', 'guitar', 'keys', 'lead', 'fx', 'riser'].includes(name)) {
+          const inst = instruments[name];
+          if (!inst) return;
+        
+          if (synths[name]?.dispose) {
+            try { synths[name].dispose(); } catch {}
+          }
+        
+          const player = new Tone.Player({
+            url,
+            autostart: false,
+            fadeOut: 0.05,
+            volume: -6
+          });
+        
+          if (inst.channel) {
+            player.connect(inst.channel);
+          } else if (window.SEQUENCER_MASTER_BUS) {
+            player.connect(window.SEQUENCER_MASTER_BUS);
+          } else {
+            player.toDestination();
+          }
+        
+          synths[name] = {
+            player,
+        
+            triggerAttackRelease: (note, duration, time, velocity = 1) => {
+              if (!player.loaded) return;
+        
+              const when = time ?? Tone.now();
+        
+              const currentChord =
+                state.currentChord ||
+                (state.progression && state.progression[0]) ||
+                null;
+        
+              const noteName = getInstrumentNote(name, 0, currentChord);
+              const rate = getPlaybackRateForNote(noteName);
+        
+              player.playbackRate = rate;
+              player.start(when);
+            },
+        
+            connect: (node) => {
+              player.disconnect();
+              player.connect(node);
+              return player;
+            },
+        
+            toDestination: () => player.toDestination(),
+            dispose: () => player.dispose(),
+            get loaded() {
+              return player.loaded;
+            }
+          };
         }
-        return; // don’t treat this one as a melodic instrument
+      });
+    
+      if (typeof showToast === 'function') {
+        showToast(`🎹 Loaded "${currentKit}" kit (drums + instruments) into the sequencer.`, 'success');
+      } else {
+        alert(`🎹 Loaded "${currentKit}" kit into the sequencer.`);
       }
-  
-      // ----------------- INSTRUMENT TRACKS (bass/keys/guitar/lead/fx/riser) -----------------
-      if (['bass', 'guitar', 'keys', 'lead', 'fx', 'riser'].includes(name)) {
+    });
+  }
+
+  // Reset to factory drum samples
+  const defaultKitBtn = document.getElementById('defaultKitBtn');
+  if (defaultKitBtn) {
+    defaultKitBtn.addEventListener('click', () => {
+      if (typeof DEFAULT_DRUM_SAMPLES !== 'undefined' && typeof DRUM_SAMPLES !== 'undefined') {
+        Object.keys(DEFAULT_DRUM_SAMPLES).forEach(key => {
+          DRUM_SAMPLES[key] = DEFAULT_DRUM_SAMPLES[key];
+        });
+      }
+    
+      const drumNames = ['kick','snare','hihat','tom','clap','rimshot','crash','ride','fx','riser','ambience'];
+    
+      drumNames.forEach(name => {
+        if (typeof instruments === 'undefined' || typeof synths === 'undefined') return;
+        
         const inst = instruments[name];
         if (!inst) return;
-      
-        // Dispose old synth if present
+    
         if (synths[name]?.dispose) {
-          try { synths[name].dispose(); } catch {}
-        }
-      
-        const player = new Tone.Player({
-          url,
-          autostart: false,
-          fadeOut: 0.05,
-          volume: -6
-        });
-      
-        // Wire through existing channel -> mixer already handles routing
-        if (inst.channel) {
-          player.connect(inst.channel);
-        } else if (window.SEQUENCER_MASTER_BUS) {
-          player.connect(window.SEQUENCER_MASTER_BUS);
-        } else {
-          player.toDestination();
-        }
-      
-        synths[name] = {
-          player,
-      
-          // 🎹 Theory-aware trigger
-          triggerAttackRelease: (note, duration, time, velocity = 1) => {
-            if (!player.loaded) return;
-      
-            const when = time ?? Tone.now();
-      
-            // Pick a harmony-based note for this instrument
-            const currentChord =
-              state.currentChord ||
-              (state.progression && state.progression[0]) ||
-              null;
-      
-            const noteName = getInstrumentNote(name, 0, currentChord);
-            const rate = getPlaybackRateForNote(noteName);
-      
-            // Apply pitch via playbackRate
-            player.playbackRate = rate;
-      
-            // (optional) map velocity -> volume if you want later
-            player.start(when);
-          },
-      
-          connect: (node) => {
-            player.disconnect();
-            player.connect(node);
-            return player;
-          },
-      
-          toDestination: () => player.toDestination(),
-          dispose: () => player.dispose(),
-          get loaded() {
-            return player.loaded;
+          try { synths[name].dispose(); } catch (e) {
+            console.warn(`Error disposing old synth for ${name}`, e);
           }
-        };
-      }
-    });
-  
-    showToast?.(`🎹 Loaded "${currentKit}" kit (drums + instruments) into the sequencer.`, 'success');
-  });
-
-  // ==================== RESET TO FACTORY DRUM SAMPLES ====================
-  document.getElementById('defaultKitBtn')?.addEventListener('click', () => {
-    // 1) Restore the original drum sample URLs
-    Object.keys(DEFAULT_DRUM_SAMPLES).forEach(key => {
-      DRUM_SAMPLES[key] = DEFAULT_DRUM_SAMPLES[key];
-    });
-  
-    // 2) Rebuild the drum synths so the sequencer uses the factory sounds again
-    const drumNames = ['kick','snare','hihat','tom','clap','rimshot','crash','ride','fx','riser','ambience'];
-  
-    drumNames.forEach(name => {
-      const inst = instruments[name];
-      if (!inst) return;
-  
-      // dispose old synth if present
-      if (synths[name]?.dispose) {
-        try { synths[name].dispose(); } catch (e) {
-          console.warn(`Error disposing old synth for ${name}`, e);
         }
-      }
-  
-      const s = createDrumSynth(name);
-      synths[name] = s;
-  
-      // reconnect through existing channel / mixer
-      if (inst.channel && s.connect) {
-        s.connect(inst.channel);
+    
+        if (typeof createDrumSynth === 'function') {
+          const s = createDrumSynth(name);
+          synths[name] = s;
+    
+          if (inst.channel && s.connect) {
+            s.connect(inst.channel);
+          }
+        }
+      });
+    
+      if (typeof showToast === 'function') {
+        showToast('🥁 Restored factory drum samples.', 'success');
+      } else {
+        alert('🥁 Restored factory drum samples.');
       }
     });
-  
-    showToast('🥁 Restored factory drum samples.', 'success');
-  });
+  }
   
   // Generate pack (real randomizer)
-  document.getElementById('generatePackBtn')?.addEventListener('click', () => {
-    const newKit = generateRandomizedKit(currentKit);
-    if (!newKit) {
-      alert('Unable to generate kit – base kit not found.');
-      return;
-    }
-  
-    // Overwrite the working kit with the new randomized one
-    sampleKits[currentKit] = newKit;
-  
-    // Re-render the list so meta text stays fresh
-    renderSampleList();
-  
-    // Clear selection so user intentionally picks a sample to edit
-    currentSample = null;
-    currentBuffer = null;
-    document.getElementById('selectedSampleName').textContent = 'Select a sample';
-    document.getElementById('selectedSampleInfo').textContent =
-      `Randomized ${currentKit} kit — click any sample to edit`;
-  
-    if (typeof showToast === 'function') {
-      showToast(`🎲 Generated a new ${currentKit} kit`, 'info');
-    } else {
-      alert(`🎲 Generated a new variant of the "${currentKit}" kit!`);
-    }
-  });
+  const generatePackBtn = document.getElementById('generatePackBtn');
+  if (generatePackBtn) {
+    generatePackBtn.addEventListener('click', () => {
+      const newKit = generateRandomizedKit(currentKit);
+      if (!newKit) {
+        alert('Unable to generate kit – base kit not found.');
+        return;
+      }
+    
+      sampleKits[currentKit] = newKit;
+      renderSampleList();
+    
+      currentSample = null;
+      currentBuffer = null;
+      
+      const nameEl = document.getElementById('selectedSampleName');
+      const infoEl = document.getElementById('selectedSampleInfo');
+      if (nameEl) nameEl.textContent = 'Select a sample';
+      if (infoEl) {
+        infoEl.textContent = `Randomized ${currentKit} kit — click any sample to edit`;
+      }
+    
+      if (typeof showToast === 'function') {
+        showToast(`🎲 Generated a new ${currentKit} kit`, 'info');
+      } else {
+        alert(`🎲 Generated a new variant of the "${currentKit}" kit!`);
+      }
+    });
+  }
 
   // Download pack (real ZIP export)
-  document.getElementById('downloadPackBtn')?.addEventListener('click', async () => {
-    const btn = document.getElementById('downloadPackBtn');
-  
-    try {
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = '⏳ Building pack...';
+  const downloadPackBtn = document.getElementById('downloadPackBtn');
+  if (downloadPackBtn) {
+    downloadPackBtn.addEventListener('click', async () => {
+      try {
+        downloadPackBtn.disabled = true;
+        downloadPackBtn.textContent = '⏳ Building pack...';
+    
+        const zipBlob = await buildKitZip(currentKit);
+        if (!zipBlob) return;
+    
+        const dateStamp = new Date().toISOString().slice(0, 10);
+        const filename = `${currentKit}_kit_${dateStamp}.zip`;
+    
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    
+        if (typeof showToast === 'function') {
+          showToast(`📦 Downloaded "${currentKit}" kit as ZIP`, 'success');
+        } else {
+          alert(`📦 Downloaded "${currentKit}" kit as ${filename}`);
+        }
+      } catch (err) {
+        console.error('Error building kit ZIP:', err);
+        alert('Failed to build sample pack ZIP. Check console for details.');
+      } finally {
+        downloadPackBtn.disabled = false;
+        downloadPackBtn.textContent = '📦 Download Pack';
       }
-  
-      const zipBlob = await buildKitZip(currentKit);
-      if (!zipBlob) return;
-  
-      const dateStamp = new Date().toISOString().slice(0, 10); // e.g. 2025-11-07
-      const filename = `${currentKit}_kit_${dateStamp}.zip`;
-  
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-  
-      if (typeof showToast === 'function') {
-        showToast(`📦 Downloaded "${currentKit}" kit as ZIP`, 'success');
-      } else {
-        alert(`📦 Downloaded "${currentKit}" kit as ${filename}`);
-      }
-    } catch (err) {
-      console.error('Error building kit ZIP:', err);
-      alert('Failed to build sample pack ZIP. Check console for details.');
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = '📦 Download Pack';
-      }
-    }
-  });
+    });
+  }
 
   // Generator sliders
-  document.getElementById('genCharacter')?.addEventListener('input', (e) => {
-    const val = e.target.value;
-    const label = val < 33 ? 'Warm' : val < 66 ? 'Balanced' : 'Bright';
-    document.getElementById('genCharacterValue').textContent = label;
-  });
+  const genCharacterSlider = document.getElementById('genCharacter');
+  if (genCharacterSlider) {
+    genCharacterSlider.addEventListener('input', (e) => {
+      const val = e.target.value;
+      const label = val < 33 ? 'Warm' : val < 66 ? 'Balanced' : 'Bright';
+      const valueEl = document.getElementById('genCharacterValue');
+      if (valueEl) valueEl.textContent = label;
+    });
+  }
 
-  document.getElementById('genVariation')?.addEventListener('input', (e) => {
-    const val = e.target.value;
-    const label = val < 33 ? 'Low' : val < 66 ? 'Medium' : 'High';
-    document.getElementById('genVariationValue').textContent = label;
-  });
+  const genVariationSlider = document.getElementById('genVariation');
+  if (genVariationSlider) {
+    genVariationSlider.addEventListener('input', (e) => {
+      const val = e.target.value;
+      const label = val < 33 ? 'Low' : val < 66 ? 'Medium' : 'High';
+      const valueEl = document.getElementById('genVariationValue');
+      if (valueEl) valueEl.textContent = label;
+    });
+  }
 
-  document.getElementById('genLofi')?.addEventListener('input', (e) => {
-    document.getElementById('genLofiValue').textContent = e.target.value + '%';
-  });
+  const genLofiSlider = document.getElementById('genLofi');
+  if (genLofiSlider) {
+    genLofiSlider.addEventListener('input', (e) => {
+      const valueEl = document.getElementById('genLofiValue');
+      if (valueEl) valueEl.textContent = e.target.value + '%';
+    });
+  }
 
   // Refresh button
-  document.getElementById('refreshSamplesBtn')?.addEventListener('click', () => {
-    renderSampleList();
-    alert('✓ Sample library refreshed!');
-  });
+  const refreshSamplesBtn = document.getElementById('refreshSamplesBtn');
+  if (refreshSamplesBtn) {
+    refreshSamplesBtn.addEventListener('click', () => {
+      renderSampleList();
+      alert('✓ Sample library refreshed!');
+    });
+  }
 }
 
 // ==================== FAB CONTROLLER ====================
