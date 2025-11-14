@@ -14007,43 +14007,95 @@ console.log('━━━━━━━━━━━━━━━━━━━━━━�
 console.log('📝 Call initializeAIMixingSystem() to activate UI');
 console.log('⌨️ Call setupAIMixingKeyboardShortcuts() for shortcuts');
 
-function setupGeneratorButtons() {
-  document.getElementById('generateBtn').addEventListener('click', () => {
-    generateBeat();
-    ensureHarmonyGuardrails();
-    
-    if (state.complexity >= 2) {
-      addRhythmicVariety();
+// Clear only melodic instruments (bass/keys/lead/guitar) and leave drums alone
+function clearMelodicLanes() {
+  const melodicInstruments = ['bass', 'keys', 'lead', 'guitar'];
+  const len =
+    state.sequenceLength ||
+    (patterns.kick?.length ||
+     patterns.snare?.length ||
+     patterns.hihat?.length ||
+     0);
+
+  melodicInstruments.forEach(inst => {
+    const lane = patterns[inst];
+    if (!lane) return;
+    for (let i = 0; i < len; i++) {
+      const cell = lane[i];
+      if (!cell) continue;
+      cell.active      = false;
+      cell.velocity    = 0.8;
+      cell.probability = 100;
+      cell.duration    = '8n';
+      cell.note        = instruments[inst]?.note || cell.note;
     }
   });
 
-  // === Combined Beat + Rhythm generator ===
-  document.getElementById('generateSongBtn')?.addEventListener('click', async () => {
-    showToast('🎶 Generating full song...', 'info');
+  if (typeof renderSequencer === 'function') {
+    renderSequencer();
+  }
+}
   
-    // 1️⃣  Beat + drums
-    generateBeat();
-  
-    // 2️⃣  Harmony lock (progression + key)
-    ensureHarmonyGuardrails();
-  
-    // 3️⃣  Melodic structure
-    generateMelodicPatterns();
-  
-    // 4️⃣  Optional polish
-    if (state.complexity >= 2) addRhythmicVariety();
-    addDrumFills();
-    addSwingVariations();
-  
-    showToast('✅ Song ready!', 'success');
-  });
+function setupGeneratorButtons() {
+  const beatBtn    = document.getElementById('generateBtn');
+  const bothBtn    = document.getElementById('generateSongBtn');
+  const rhythmBtn  = document.getElementById('generateRhythmBtn');
 
-  document.getElementById('generateRhythmBtn').addEventListener('click', () => {
-    generateMelodicPatterns();
-    addDrumFills();
-    addSwingVariations();
-  });
+  // 🥁 Generate Beat = drums only (plus drum polish)
+  if (beatBtn) {
+    beatBtn.addEventListener('click', () => {
+      // Let generateBeat do its thing (template, harmony, length, etc.)
+      generateBeat();
 
+      // Then strip melodic lanes so this is truly just "the beat"
+      clearMelodicLanes();
+
+      ensureHarmonyGuardrails?.();
+
+      // Optional drum-level polish
+      if (state.complexity >= 2 && typeof addRhythmicVariety === 'function') {
+        addRhythmicVariety();
+      }
+      if (typeof addDrumFills === 'function') addDrumFills();
+      if (typeof addSwingVariations === 'function') addSwingVariations();
+    });
+  }
+
+  // 🎵 Generate Both = full beat + melodic patterns
+  if (bothBtn) {
+    bothBtn.addEventListener('click', async () => {
+      showToast?.('🎶 Generating full song...', 'info');
+
+      // 1️⃣ Beat + drums (and base section/harmony/length)
+      generateBeat();
+
+      // 2️⃣ Harmony lock (progression + key)
+      ensureHarmonyGuardrails?.();
+
+      // 3️⃣ Melodic structure (bass/keys/lead/guitar per genre/mood)
+      generateMelodicPatterns();
+
+      // 4️⃣ Optional polish
+      if (state.complexity >= 2 && typeof addRhythmicVariety === 'function') {
+        addRhythmicVariety();
+      }
+      if (typeof addDrumFills === 'function') addDrumFills();
+      if (typeof addSwingVariations === 'function') addSwingVariations();
+
+      showToast?.('✅ Song ready!', 'success');
+    });
+  }
+
+  // 🎼 Generate Rhythm = melodic only, keep drums
+  if (rhythmBtn) {
+    rhythmBtn.addEventListener('click', () => {
+      // Uses existing sequence length + harmony
+      generateMelodicPatterns();
+      // NO drum fills or swing changes here – drums stay exactly as they were
+    });
+  }
+
+  // AI variations and groove templates stay the same
   document.getElementById('aiVariationBtn')?.addEventListener('click', generateAIVariation);
   document.getElementById('aiMelodicBtn')?.addEventListener('click', generateMelodicAIVariation);
   
@@ -14054,9 +14106,9 @@ function setupGeneratorButtons() {
     });
   });
   
-  document.getElementById('randomVelBtn').addEventListener('click', randomizeVelocity);
-  document.getElementById('randomProbBtn').addEventListener('click', randomizeProbability);
-  document.getElementById('clearBtn').addEventListener('click', clearPattern);
+  document.getElementById('randomVelBtn')?.addEventListener('click', randomizeVelocity);
+  document.getElementById('randomProbBtn')?.addEventListener('click', randomizeProbability);
+  document.getElementById('clearBtn')?.addEventListener('click', clearPattern);
 }
 
 function setupSequencerControls() {
