@@ -7206,8 +7206,9 @@ body.simple-ui .section.simple-mounted{ display:block !important; border:none; b
                 <span class="param-value" id="humanValue">10ms</span>
               </div>
               <input type="range" id="humanSlider" min="0" max="30" value="10">
-            </div>
+            </div>           
           </div>
+          
           
           <div class="flex">
             <button class="btn btn-primary" id="generateBtn">🎲 Generate Beat</button>
@@ -7541,6 +7542,18 @@ body.simple-ui .section.simple-mounted{ display:block !important; border:none; b
               </div>
             </div>
 
+            <label style="font-size:var(--text-xs); text-transform:uppercase; letter-spacing:0.08em; color:var(--text-tertiary); display:block; margin-bottom:var(--space-2);">
+              Mood
+            </label>
+            <select id="moodSelect" class="input" style="min-width:220px;">
+              <option value="default">Default / Neutral</option>
+              <option value="dark">Dark</option>
+              <option value="sad">Sad / Melancholy</option>
+              <option value="tense">Tense / Aggressive</option>
+              <option value="mellow">Soft / Chill</option>
+              <option value="dreamy">Dreamy / Floaty</option>
+            </select>
+
             <label for="songDurationSelect">Duration</label>
             <select id="songDurationSelect" class="input">
               <option value="1">~ 1 minute</option>
@@ -7548,7 +7561,7 @@ body.simple-ui .section.simple-mounted{ display:block !important; border:none; b
               <option value="3">~ 3 minutes</option>
               <option value="4">~ 4 minutes</option>
             </select>
-          
+
             <!-- Randomize now lives here -->
             <div style="
                 display:flex;
@@ -9781,7 +9794,8 @@ let songBuilderState = {
   fillEvery: 4,
   durationMins: 2,
   isActive: false,  // ADD THIS FLAG
-  genre: state.currentGenre
+  genre: state.currentGenre,
+  mood: (state && state.mood) || 'default'
 };
 
 // ===== RISER AUTOMATION SCHEDULER HELPERS =====
@@ -11038,17 +11052,44 @@ let sbChordDegrees = [];
 
 function sbChooseGlobalHarmony_GenreAware() {
   const genre = songBuilderState.genre || state.currentGenre || 'lofi';
-
-  
+  const mood  = songBuilderState.mood || state.mood || 'default';
 
   const profile = GENRE_PROFILES[genre] || GENRE_PROFILES.default;
 
+  // Start from the genre’s default scale list
+  let scalePool = profile.scales.slice();
+
+  const minorish   = ['minor', 'aeolian', 'dorian', 'phrygian', 'locrian'];
+  const brightish  = ['major', 'mixolydian', 'lydian'];
+
+  // Mood → scale biasing
+  if (mood === 'dark' || mood === 'sad') {
+    const filtered = scalePool.filter(s => minorish.includes(s));
+    if (filtered.length) scalePool = filtered;
+  } else if (mood === 'tense') {
+    const filtered = scalePool.filter(s =>
+      ['phrygian', 'locrian', 'minor', 'aeolian'].includes(s)
+    );
+    if (filtered.length) scalePool = filtered;
+  } else if (mood === 'mellow') {
+    const filtered = scalePool.filter(s =>
+      ['major', 'mixolydian', 'dorian'].includes(s)
+    );
+    if (filtered.length) scalePool = filtered;
+  } else if (mood === 'dreamy') {
+    const filtered = scalePool.filter(s =>
+      ['lydian', 'mixolydian', 'dorian', 'major'].includes(s)
+    );
+    if (filtered.length) scalePool = filtered;
+  }
+  // 'default' falls back to whatever the genre profile had
+
   const key = profile.keys[Math.floor(Math.random() * profile.keys.length)];
-  const scale = profile.scales[Math.floor(Math.random() * profile.scales.length)];
+  const scale = scalePool[Math.floor(Math.random() * scalePool.length)];
   const progression = profile.progressions[Math.floor(Math.random() * profile.progressions.length)];
 
-  sbGlobalHarmony = { key, scale, progression, genre };
-  console.log(`🎸 Genre-aware harmony → ${genre}:`, sbGlobalHarmony);
+  sbGlobalHarmony = { key, scale, progression, genre, mood };
+  console.log(`🎸 Genre-aware harmony → ${genre} [${mood}]`, sbGlobalHarmony);
   return sbGlobalHarmony;
 }
 
@@ -11437,6 +11478,23 @@ function setupSongBuilderControls() {
     );
     if (sequencerTabBtn) sequencerTabBtn.click();
   });
+
+  const moodSelect = document.getElementById('moodSelect');
+  if (moodSelect && !moodSelect.dataset._wired) {
+    moodSelect.dataset._wired = 'true';
+
+    const initialMood = songBuilderState.mood || state.mood || 'default';
+    moodSelect.value = initialMood;
+    songBuilderState.mood = initialMood;
+    state.mood = initialMood;
+
+    moodSelect.addEventListener('change', (e) => {
+      const m = e.target.value || 'default';
+      songBuilderState.mood = m;
+      state.mood = m;
+      console.log('🎭 Song mood set to', m);
+    });
+  }
 
   // --- ⬇️ Export to Multitrack (disabled for now) ---
   // const exportBtn = document.getElementById('songBuilderToMultitrackBtn');
@@ -17005,15 +17063,48 @@ function applyFxActiveState(fxName, active) {
 }
 
 function randomizeHarmony() {
-  // TODO: swap these out for your actual key/scale options if you have constants
-  const possibleKeys   = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-  const possibleScales = ['major', 'minor', 'dorian', 'mixolydian'];
+  const possibleKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
-  // If you already have something like HARMONY_KEYS / HARMONY_SCALES, use those instead:
-  // const possibleKeys = HARMONY_KEYS;
-  // const possibleScales = HARMONY_SCALES;
+  // Base scale pool (what you already had)
+  const BASE_SCALES = ['major', 'minor', 'dorian', 'mixolydian'];
 
-  // Chord preset IDs – plug in your real preset map / list here
+  // Read mood from Song Builder / global state
+  const mood = (typeof songBuilderState !== 'undefined' && songBuilderState.mood)
+    ? songBuilderState.mood
+    : (state.mood || 'default');
+
+  let possibleScales;
+
+  switch (mood) {
+    case 'dark':
+    case 'sad':
+      // Heavier bias toward minor / dorian
+      possibleScales = ['minor', 'minor', 'dorian', 'minor', 'mixolydian'];
+      break;
+
+    case 'tense':
+      // More edgy, modal vibes
+      possibleScales = ['dorian', 'minor', 'dorian', 'mixolydian'];
+      break;
+
+    case 'mellow':
+      // Softer, happier mix
+      possibleScales = ['major', 'major', 'mixolydian', 'mixolydian', 'dorian'];
+      break;
+
+    case 'dreamy':
+      // Bright, floaty – use lydian as well
+      possibleScales = ['lydian', 'lydian', 'major', 'mixolydian'];
+      break;
+
+    case 'default':
+    default:
+      // EXACTLY what you had before
+      possibleScales = BASE_SCALES.slice();
+      break;
+  }
+
+  // Chord preset IDs – unchanged
   let chordPresetIds = [];
   if (typeof CHORD_PRESETS === 'object' && CHORD_PRESETS !== null) {
     chordPresetIds = Object.keys(CHORD_PRESETS);
@@ -17048,7 +17139,7 @@ function randomizeHarmony() {
   }
 
   console.log(
-    `🎹 Randomized harmony → Key: ${newKey}, Scale: ${newScale}` +
+    `🎹 Randomized harmony → Key: ${newKey}, Scale: ${newScale}, Mood: ${mood}` +
     (newPreset ? `, Chords: ${newPreset}` : '')
   );
 }
