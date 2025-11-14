@@ -7212,7 +7212,7 @@ body.simple-ui .section.simple-mounted{ display:block !important; border:none; b
           
           <div class="flex">
             <button class="btn btn-primary" id="generateBtn">🎲 Generate Beat</button>
-            <button id="generateSongBtn" class="btn btn-primary btn-sm">🎵 Generate Both!</button>
+            <button id="generateSongBtn" class="btn btn-primary btn-sm">🎵 Generate Song!</button>
             <button class="btn btn-primary" id="generateRhythmBtn">🥁 Generate Rhythm</button>
             <button class="btn btn-secondary" id="randomVelBtn">🎯 Random Velocity</button>
             <button class="btn btn-secondary" id="randomProbBtn">🎲 Random Prob</button>
@@ -14093,18 +14093,11 @@ function setupGeneratorButtons() {
       if (typeof ensureHarmonyGuardrails === 'function') {
         ensureHarmonyGuardrails();
       }
-
       // Re-roll lead/melodic patterns on the existing beat
       generateMelodicPatterns();
-
-      // Optional: tiny bit of groove polish so it’s clearly audible
-      if (typeof addDrumFills === 'function') {
-        addDrumFills();
-      }
-      if (typeof addSwingVariations === 'function') {
-        addSwingVariations();
-      }
-
+      
+      // REMOVED drum functions - melodic only!
+      
       if (typeof showToast === 'function') {
         showToast('🎼 Regenerated melodies on top of your current beat', 'success');
       }
