@@ -10909,7 +10909,7 @@ function pcDegreeHint(pc) {
   if (!pc) return '';
   return pc;
 }
-
+  
 // ==================== MOOD-AWARE MELODY ENGINE ====================
 
 function generateSectionMelody(section, startBar, endBar) {
@@ -10920,9 +10920,9 @@ function generateSectionMelody(section, startBar, endBar) {
     ? songBuilderState.mood
     : (state.mood || 'default');
 
-  const energy         = section?.energy ?? 0.5;
-  const baseProfile    = getMoodMelodyProfile(mood, section);
-  const leadOctBase    = (state.octave || 3) + 1;
+  const energy      = section?.energy ?? 0.5;
+  const baseProfile = getMoodMelodyProfile(mood, section);
+  const leadOctBase = (state.octave || 3) + 1;
 
   // Detect solo sections: explicit flag, or id/label includes "solo", or super high-energy lead
   const isSoloSection =
@@ -10931,21 +10931,21 @@ function generateSectionMelody(section, startBar, endBar) {
     /solo/i.test(section.label || '') ||
     (section.lead && energy >= 0.9);
 
-  // Clone + optionally boost for solo, so we don't mutate the base profile object
+  // Clone profile so we can tweak it for solos without mutating the shared object
   const profile = { ...baseProfile };
 
   if (isSoloSection) {
-    // More notes, more offbeats, less resting, more register & expression
-    profile.densityFactor  *= 1.4;
-    profile.offbeatWeight  *= 1.3;
-    profile.restChance     *= 0.4;        // less silence
+    // Rhythm-tightened, more expressive for solos
+    profile.densityFactor  *= 1.2;
+    profile.offbeatWeight  *= 1.1;
+    profile.restChance     *= 0.6;        // fewer rests
     profile.registerOffset += 1;          // push solos up an octave
     profile.smallStepBias   = Math.max(0.2, profile.smallStepBias * 0.7);
-    profile.bigLeapBias     = Math.min(0.8, profile.bigLeapBias + 0.3);
+    profile.bigLeapBias     = Math.min(0.9, profile.bigLeapBias + 0.2);
     profile.minVel          = Math.min(0.85, (profile.minVel || 0.6) + 0.1);
     profile.maxVel          = Math.min(1.0, (profile.maxVel || 0.9) + 0.1);
-    profile.longNoteChance  = Math.max(0.15, profile.longNoteChance - 0.1);
-    profile.shortNoteChance = Math.min(0.7, profile.shortNoteChance + 0.2);
+    profile.longNoteChance  = Math.max(0.1, profile.longNoteChance - 0.1);
+    profile.shortNoteChance = Math.min(0.7, profile.shortNoteChance + 0.1);
   }
 
   let lastPcIndex = null;
@@ -10960,76 +10960,288 @@ function generateSectionMelody(section, startBar, endBar) {
     const scalePcs   = [...new Set(scaleNotes.map(n => n.replace(/\d/, '')))];
     if (!scalePcs.length) continue;
 
-    for (let step = 0; step < STEPS_PER_BAR; step++) {
-      const idx  = offset + step;
-      const cell = patterns.lead[idx];
-      if (!cell) continue;
+    if (isSoloSection) {
+      // ---------- SOLO MODE: RHYTHM-GRID BASED ----------
+      const soloPattern = getSoloRhythmPattern(mood, section, profile);
+      const fillPattern = getSoloFillPattern(mood, section, profile);
 
-      // Reset cell
-      cell.active      = false;
-      cell.velocity    = 0.8;
-      cell.probability = 100;
-      cell.duration    = '8n';
-      cell.note        = instruments.lead?.note || `C${leadOctBase}`;
+      for (let step = 0; step < STEPS_PER_BAR; step++) {
+        const idx  = offset + step;
+        const cell = patterns.lead[idx];
+        if (!cell) continue;
 
-      // Beat classification
-      const isStrongBeat = (step % 4 === 0);
-      const isOffBeat    = (step % 2 === 1);
+        // Reset
+        cell.active      = false;
+        cell.velocity    = 0.8;
+        cell.probability = 100;
+        cell.duration    = '8n';
+        cell.note        = instruments.lead?.note || `C${leadOctBase}`;
 
-      // Section energy drives overall hit chance
-      const energyFactor = 0.7 + energy * 0.6; // 0.7–1.3
-      const baseDensity  = (section.density ?? 0.6) * profile.densityFactor * energyFactor;
+        const isMainHit = soloPattern.includes(step);
+        const isFillHit = !isMainHit && fillPattern.includes(step);
 
-      let hitChance = isStrongBeat
-        ? baseDensity
-        : baseDensity * (isOffBeat ? profile.offbeatWeight : 0.8);
+        if (!isMainHit && !isFillHit) {
+          lastWasRest = true;
+          continue;
+        }
 
-      // Clamp to sane range
-      hitChance = Math.max(0, Math.min(1.2, hitChance));
+        // Main hits are more reliable; fills obey density
+        if (isFillHit) {
+          const fillDensity = (section.density ?? 0.6) * profile.densityFactor;
+          if (Math.random() > fillDensity) {
+            lastWasRest = true;
+            continue;
+          }
+        }
 
-      if (Math.random() > hitChance) {
-        lastWasRest = true;
-        continue;
+        // Extra rest chance for some moods (sad, dreamy, etc.)
+        if (Math.random() < profile.restChance) {
+          lastWasRest = true;
+          continue;
+        }
+
+        // Choose pitch class index with contour + mood bias
+        let pcIndex;
+        if (lastPcIndex == null || lastWasRest || Math.random() < profile.resetMotifChance) {
+          pcIndex = pickMoodPitchClassIndex(scalePcs, chordPcs, profile);
+        } else {
+          const dir      = pickContourDirection(profile);
+          const interval = pickIntervalStep(profile);
+          pcIndex        = clampPcIndex(lastPcIndex + dir * interval, scalePcs.length);
+        }
+
+        lastPcIndex = pcIndex;
+        lastWasRest = false;
+
+        const pc      = scalePcs[pcIndex];
+        const noteOct = leadOctBase + profile.registerOffset;
+        const note    = `${pc}${noteOct}`;
+
+        cell.active      = true;
+        cell.note        = note;
+        cell.velocity    = randRange(profile.minVel, profile.maxVel);
+        cell.probability = randRange(profile.minProb, profile.maxProb);
+
+        // Note length choices: main hits vs fills
+        if (isMainHit) {
+          if (Math.random() < profile.longNoteChance) {
+            cell.duration = profile.longNoteValue;
+          } else {
+            cell.duration = profile.mediumNoteValue;
+          }
+        } else {
+          // fills tend to be shorter
+          if (Math.random() < profile.shortNoteChance) {
+            cell.duration = profile.shortNoteValue;
+          } else {
+            cell.duration = '16n';
+          }
+        }
       }
 
-      // For sad/dreamy/etc: extra chance to rest even if density wants a note
-      if (Math.random() < profile.restChance) {
-        lastWasRest = true;
-        continue;
+    } else {
+      // ---------- NON-SOLO: YOUR EXISTING GRID-BASED MOOD ENGINE ----------
+      for (let step = 0; step < STEPS_PER_BAR; step++) {
+        const idx  = offset + step;
+        const cell = patterns.lead[idx];
+        if (!cell) continue;
+
+        // Reset
+        cell.active      = false;
+        cell.velocity    = 0.8;
+        cell.probability = 100;
+        cell.duration    = '8n';
+        cell.note        = instruments.lead?.note || `C${leadOctBase}`;
+
+        const isStrongBeat = (step % 4 === 0);
+        const isOffBeat    = (step % 2 === 1);
+
+        const energyFactor = 0.7 + energy * 0.6; // 0.7–1.3
+        const baseDensity  = (section.density ?? 0.6) * profile.densityFactor * energyFactor;
+
+        let hitChance = isStrongBeat
+          ? baseDensity
+          : baseDensity * (isOffBeat ? profile.offbeatWeight : 0.8);
+
+        hitChance = Math.max(0, Math.min(1.2, hitChance));
+
+        if (Math.random() > hitChance) {
+          lastWasRest = true;
+          continue;
+        }
+
+        if (Math.random() < profile.restChance) {
+          lastWasRest = true;
+          continue;
+        }
+
+        let pcIndex;
+        if (lastPcIndex == null || lastWasRest || Math.random() < profile.resetMotifChance) {
+          pcIndex = pickMoodPitchClassIndex(scalePcs, chordPcs, profile);
+        } else {
+          const dir      = pickContourDirection(profile);
+          const interval = pickIntervalStep(profile);
+          pcIndex        = clampPcIndex(lastPcIndex + dir * interval, scalePcs.length);
+        }
+
+        lastPcIndex = pcIndex;
+        lastWasRest = false;
+
+        const pc      = scalePcs[pcIndex];
+        const noteOct = leadOctBase + profile.registerOffset;
+        const note    = `${pc}${noteOct}`;
+
+        cell.active      = true;
+        cell.note        = note;
+        cell.velocity    = randRange(profile.minVel, profile.maxVel);
+        cell.probability = randRange(profile.minProb, profile.maxProb);
+
+        if (Math.random() < profile.longNoteChance) {
+          cell.duration = profile.longNoteValue;
+        } else if (Math.random() < profile.shortNoteChance) {
+          cell.duration = profile.shortNoteValue;
+        } else {
+          cell.duration = profile.mediumNoteValue;
+        }
       }
+    } // end solo vs non-solo
+  } // end bars
+}
 
-      // Pick pitch class index
-      let pcIndex;
-      if (lastPcIndex == null || lastWasRest || Math.random() < profile.resetMotifChance) {
-        pcIndex = pickMoodPitchClassIndex(scalePcs, chordPcs, profile);
-      } else {
-        const dir      = pickContourDirection(profile);
-        const interval = pickIntervalStep(profile);
-        pcIndex        = clampPcIndex(lastPcIndex + dir * interval, scalePcs.length);
-      }
+// Solo rhythm: main grid per mood, tied to 16-step bar
+function getSoloRhythmPattern(mood, section, profile) {
+  const base = [
+    [0, 4, 8, 12],          // straight 4-on-the-floor phrasing
+    [0, 4, 10, 14],         // end-weighted
+    [0, 3, 7, 11],          // slightly pushed
+    [0, 4, 7, 11, 14]       // more active
+  ];
 
-      lastPcIndex = pcIndex;
-      lastWasRest = false;
+  const darkSad = [
+    [0, 8],                 // two long phrases
+    [0, 6, 12],             // 3-point arc
+    [4, 12]                 // off-center phrases
+  ];
 
-      const pc       = scalePcs[pcIndex];
-      const noteOct  = leadOctBase + profile.registerOffset;
-      const noteName = `${pc}${noteOct}`;
+  const tensePatterns = [
+    [0, 2, 4, 6, 8, 10, 12, 14],      // 8th-note drive
+    [0, 3, 4, 7, 8, 11, 12, 15],      // syncopated
+    [0, 2, 5, 7, 10, 12, 14]          // jagged
+  ];
 
-      cell.active      = true;
-      cell.note        = noteName;
-      cell.velocity    = randRange(profile.minVel, profile.maxVel);
-      cell.probability = randRange(profile.minProb, profile.maxProb);
+  const dreamyPatterns = [
+    [0, 8, 12],                        // long, floaty phrases
+    [0, 6, 10, 14],                    // airy but rhythmic
+    [2, 8, 14]                         // drifty off-center
+  ];
 
-      // Note length / articulation
-      if (Math.random() < profile.longNoteChance) {
-        cell.duration = profile.longNoteValue;
-      } else if (Math.random() < profile.shortNoteChance) {
-        cell.duration = profile.shortNoteValue;
-      } else {
-        cell.duration = profile.mediumNoteValue;
-      }
-    }
+  const mellowPatterns = [
+    [0, 4, 8],                         // simple, smooth
+    [0, 4, 8, 12],                     // straight but gentle
+    [2, 6, 10, 14]                     // soft syncopation
+  ];
+
+  let pool = base;
+
+  switch (mood) {
+    case 'dark':
+      pool = darkSad;
+      break;
+    case 'sad':
+      pool = darkSad;
+      break;
+    case 'tense':
+      pool = tensePatterns;
+      break;
+    case 'dreamy':
+      pool = dreamyPatterns;
+      break;
+    case 'mellow':
+      pool = mellowPatterns;
+      break;
+    default:
+      pool = base;
+      break;
   }
+
+  // Slightly bias simpler patterns for low-energy sections
+  const energy = section?.energy ?? 0.5;
+  let candidates = pool;
+  if (energy < 0.6 && pool.length > 1) {
+    candidates = pool.slice(0, Math.max(1, Math.floor(pool.length * 0.6)));
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+// Solo fills: extra in-between hits per mood
+function getSoloFillPattern(mood, section, profile) {
+  const baseFills = [
+    [1, 3, 5, 7, 9, 11, 13, 15],      // all 16th off-steps
+    [3, 7, 11, 15],                   // end-of-beat pushes
+    [1, 5, 9, 13]                     // light pushes
+  ];
+
+  const darkSadFills = [
+    [7, 11, 15],                      // end-of-bar flicks
+    [5, 9],                           // mid-bar pushes
+    []                                // sometimes no fills at all
+  ];
+
+  const tenseFills = [
+    [1, 3, 5, 7, 9, 11, 13, 15],      // continuous 16ths potential
+    [1, 2, 5, 6, 9, 10, 13, 14],      // clustered bursts
+    [3, 4, 7, 8, 11, 12, 15]          // syncopated flurries
+  ];
+
+  const dreamyFills = [
+    [3, 7, 11, 15],                   // light sparkles
+    [2, 6, 10, 14],                   // airy offsets
+    [5, 9]                            // gentle mid-bar nudges
+  ];
+
+  const mellowFills = [
+    [3, 7, 11],                       // subtle & sparse
+    [5, 9],                           // mid-bar
+    []                                // sometimes none
+  ];
+
+  let pool = baseFills;
+
+  switch (mood) {
+    case 'dark':
+      pool = darkSadFills;
+      break;
+    case 'sad':
+      pool = darkSadFills;
+      break;
+    case 'tense':
+      pool = tenseFills;
+      break;
+    case 'dreamy':
+      pool = dreamyFills;
+      break;
+    case 'mellow':
+      pool = mellowFills;
+      break;
+    default:
+      pool = baseFills;
+      break;
+  }
+
+  const energy = section?.energy ?? 0.5;
+  let candidates = pool;
+
+  // For low energy, bias toward sparser fill sets
+  if (energy < 0.6 && pool.length > 1) {
+    candidates = pool.slice(1); // skip the heaviest option
+  }
+  // For very high energy, bias toward heavier fills if available
+  else if (energy > 0.85 && pool.length > 1) {
+    candidates = pool;
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 // Helper: Get scale notes
