@@ -14086,12 +14086,28 @@ function setupGeneratorButtons() {
     });
   }
 
-  // 🎼 Generate Rhythm = melodic only, keep drums
+  // 🎼 Generate Rhythm = melodic only (plus light groove polish so you can hear it)
   if (rhythmBtn) {
     rhythmBtn.addEventListener('click', () => {
-      // Uses existing sequence length + harmony
+      // Make sure harmony is sane
+      if (typeof ensureHarmonyGuardrails === 'function') {
+        ensureHarmonyGuardrails();
+      }
+
+      // Re-roll lead/melodic patterns on the existing beat
       generateMelodicPatterns();
-      // NO drum fills or swing changes here – drums stay exactly as they were
+
+      // Optional: tiny bit of groove polish so it’s clearly audible
+      if (typeof addDrumFills === 'function') {
+        addDrumFills();
+      }
+      if (typeof addSwingVariations === 'function') {
+        addSwingVariations();
+      }
+
+      if (typeof showToast === 'function') {
+        showToast('🎼 Regenerated melodies on top of your current beat', 'success');
+      }
     });
   }
 
