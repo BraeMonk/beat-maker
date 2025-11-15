@@ -10491,7 +10491,7 @@ function generateSectionDrums(section, startBar, endBar) {
   }
 }
 
-// --- SIMPLE, COHERENT BASS GENERATOR ---
+// --- BASS GENERATOR WITH VARIATION ---
 function generateSectionBass(section, startBar, endBar) {
   if (!section.bass) return;
   if (!patterns.bass) return;
@@ -10509,119 +10509,193 @@ function generateSectionBass(section, startBar, endBar) {
   const isChorus = id.includes('chorus') || id.includes('hook') || isDrop;
   const isVerse  = id.includes('verse');
 
-  // One motif per logical section type so it's stable within a song
-  if (!window.sbBassMotifs) window.sbBassMotifs = {};
-  const motifKey = section.id || `${bassPattern}-${isChorus ? 'chorus' : isVerse ? 'verse' : 'other'}`;
-
-  let motif = window.sbBassMotifs[motifKey];
-  if (!motif) {
-    motif = buildBassMotif(bassPattern, {
-      isIntro, isOutro, isBreak, isChorus, isVerse, energy, density
-    });
-    window.sbBassMotifs[motifKey] = motif;
-  }
+  // ❌ removed global cache
+  // ✔ build fresh motifSet for this generation
+  const motifSet = buildBassMotifSet(bassPattern, {
+    isIntro, isOutro, isBreak, isChorus, isVerse, energy, density
+  });
 
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
-    // Stronger chord fallback logic
     const chord  = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
     const pcs    = chord.map(n => n.replace(/\d/, ''));
     const [root, third, fifth] = pcs;
 
+    const barInSection = bar - startBar;
+    let motif;
+
+    if (barInSection % 4 === 3 && motifSet.fill) {
+      motif = motifSet.fill;
+    } else if (barInSection % 8 === 0 && motifSet.variant2) {
+      motif = motifSet.variant2;
+    } else if (barInSection % 2 === 1 && motifSet.variant1) {
+      motif = motifSet.variant1;
+    } else {
+      motif = motifSet.main;
+    }
+
+    if (isBreak && barInSection % 8 === 7) {
+      continue;
+    }
+
     motif.forEach(ev => {
-      // lock degrees to chord tones
       let notePc;
       switch (ev.degree) {
         case 'third': notePc = third || root; break;
         case 'fifth': notePc = fifth || root; break;
+        case 'seventh': notePc = pcs[3] || fifth || root; break;
         default:      notePc = root; break;
       }
 
+      const velocityVar = (Math.random() - 0.5) * 0.1;
+      const baseVel = ev.velocity ?? (0.7 + energy * 0.2);
+
       sbSetStep('bass', offset + ev.step, {
         note: withOct(notePc, bassOct + (ev.octShift || 0)),
-        velocity: ev.velocity ?? (0.7 + energy * 0.2),
+        velocity: Math.max(0.4, Math.min(1.0, baseVel + velocityVar)),
         duration: ev.duration || '8n',
-        probability: ev.probability ?? 100  // core hits never randomly disappear
+        probability: ev.probability ?? 100
       });
     });
   }
 }
 
-// Builds a small, fixed bass motif per section
-function buildBassMotif(patternType, ctx) {
+// Builds a SET of motif variations instead of just one
+function buildBassMotifSet(patternType, ctx) {
   const { isIntro, isOutro, isBreak, isChorus, isVerse, energy } = ctx;
-  const motif = [];
-
-  // Very chill sections: simpler patterns
   const isChill = isIntro || isOutro || isBreak;
+  const isHigh = isChorus || energy > 0.7;
 
-  // --- PEDAL (ambient / breakdown stuff) ---
+  const set = {
+    main: [],
+    variant1: [],
+    variant2: [],
+    fill: []
+  };
+
+  // --- PEDAL ---
   if (patternType === 'pedal') {
-    motif.push({
-      step: 0,
-      degree: 'root',
-      duration: '1n',
-      velocity: 0.75
+    set.main.push({
+      step: 0, degree: 'root', duration: '1n', velocity: 0.75
     });
-    if (isChorus && !isBreak) {
-      motif.push({
-        step: 8,
-        degree: 'root',
-        duration: '4n',
-        velocity: 0.7
-      });
-    }
-    return motif;
+    
+    set.variant1.push({
+      step: 0, degree: 'root', duration: '2n', velocity: 0.75
+    });
+    set.variant1.push({
+      step: 8, degree: 'fifth', duration: '2n', velocity: 0.7
+    });
+    
+    set.fill.push({
+      step: 0, degree: 'root', duration: '4n', velocity: 0.8
+    });
+    set.fill.push({
+      step: 8, degree: 'third', duration: '4n', velocity: 0.75
+    });
+    set.fill.push({
+      step: 12, degree: 'fifth', duration: '4n', velocity: 0.7
+    });
+    
+    set.variant2 = set.variant1;
+    return set;
   }
 
-  // --- WALKING (jazz / funk / busy) ---
+  // --- WALKING ---
   if (patternType === 'walking') {
-    const steps    = [0, 4, 8, 12];
-    const degrees  = ['root', 'third', 'fifth', 'third'];
-    steps.forEach((s, i) => {
-      motif.push({
+    // Main: classic walk
+    [0, 4, 8, 12].forEach((s, i) => {
+      set.main.push({
         step: s,
-        degree: degrees[i],
+        degree: ['root', 'third', 'fifth', 'third'][i],
         duration: '4n',
         velocity: 0.75 - i * 0.05
       });
     });
-    return motif;
+
+    // Variant 1: reversed walk
+    [0, 4, 8, 12].forEach((s, i) => {
+      set.variant1.push({
+        step: s,
+        degree: ['root', 'fifth', 'third', 'root'][i],
+        duration: '4n',
+        velocity: 0.75 - i * 0.05
+      });
+    });
+
+    // Variant 2: denser walk
+    [0, 2, 4, 6, 8, 10, 12, 14].forEach((s, i) => {
+      set.variant2.push({
+        step: s,
+        degree: ['root', 'third', 'third', 'fifth', 'fifth', 'third', 'third', 'root'][i],
+        duration: '8n',
+        velocity: 0.7 - i * 0.02
+      });
+    });
+
+    // Fill: chromatic approach
+    set.fill.push({ step: 0, degree: 'root', duration: '4n', velocity: 0.85 });
+    set.fill.push({ step: 4, degree: 'third', duration: '8n', velocity: 0.8 });
+    set.fill.push({ step: 6, degree: 'fifth', duration: '8n', velocity: 0.8 });
+    set.fill.push({ step: 8, degree: 'fifth', duration: '4n', velocity: 0.8 });
+    set.fill.push({ step: 13, degree: 'third', duration: '16n', velocity: 0.75 });
+    set.fill.push({ step: 14, degree: 'third', duration: '16n', velocity: 0.75 });
+    
+    return set;
   }
 
-  // --- SYNCOPATED (funky / trap-ish) ---
+  // --- SYNCOPATED ---
   if (patternType === 'syncopated') {
-    // base syncopation
-    motif.push({ step: 0,  degree: 'root',  duration: '8n',  velocity: 0.85 });
-    motif.push({ step: 6,  degree: 'fifth', duration: '8n',  velocity: 0.8  });
-
+    // Main: your original
+    set.main.push({ step: 0,  degree: 'root',  duration: '8n', velocity: 0.85 });
+    set.main.push({ step: 6,  degree: 'fifth', duration: '8n', velocity: 0.8 });
     if (!isChill) {
-      motif.push({ step: 10, degree: 'third', duration: '8n', velocity: 0.78 });
-      if (isChorus || energy > 0.7) {
-        motif.push({ step: 14, degree: 'root', duration: '16n', velocity: 0.7 });
+      set.main.push({ step: 10, degree: 'third', duration: '8n', velocity: 0.78 });
+      if (isHigh) {
+        set.main.push({ step: 14, degree: 'root', duration: '16n', velocity: 0.7 });
       }
     }
-    return motif;
+
+    // Variant 1: different syncopation
+    set.variant1.push({ step: 0,  degree: 'root',  duration: '8n', velocity: 0.85 });
+    set.variant1.push({ step: 5,  degree: 'third', duration: '16n', velocity: 0.75 });
+    set.variant1.push({ step: 8,  degree: 'fifth', duration: '8n', velocity: 0.8 });
+    set.variant1.push({ step: 13, degree: 'root',  duration: '16n', velocity: 0.75 });
+
+    // Variant 2: heavier
+    set.variant2.push({ step: 0,  degree: 'root',  duration: '8n', velocity: 0.9 });
+    set.variant2.push({ step: 3,  degree: 'root',  duration: '16n', velocity: 0.7 });
+    set.variant2.push({ step: 6,  degree: 'fifth', duration: '8n', velocity: 0.85 });
+    set.variant2.push({ step: 10, degree: 'third', duration: '8n', velocity: 0.8 });
+    set.variant2.push({ step: 12, degree: 'root',  duration: '16n', velocity: 0.75 });
+
+    // Fill: rapid fire
+    set.fill.push({ step: 0,  degree: 'root',  duration: '16n', velocity: 0.9 });
+    set.fill.push({ step: 2,  degree: 'third', duration: '16n', velocity: 0.85 });
+    set.fill.push({ step: 4,  degree: 'fifth', duration: '16n', velocity: 0.8 });
+    set.fill.push({ step: 6,  degree: 'third', duration: '16n', velocity: 0.8 });
+    set.fill.push({ step: 8,  degree: 'root',  duration: '8n', velocity: 0.9 });
+    set.fill.push({ step: 12, degree: 'fifth', duration: '8n', velocity: 0.85 });
+    set.fill.push({ step: 14, degree: 'root',  duration: '8n', velocity: 0.8 });
+
+    return set;
   }
 
   // --- ROOT-FIFTH (default) ---
-  // simpler for intro/break, fuller for chorus
-  motif.push({
+  // Main: your original
+  set.main.push({
     step: 0,
     degree: 'root',
     duration: isChill ? '2n' : '4n',
     velocity: 0.85
   });
-
-  motif.push({
+  set.main.push({
     step: 8,
     degree: isBreak ? 'root' : 'fifth',
     duration: '4n',
     velocity: 0.8
   });
-
-  if ((isChorus || isVerse) && energy > 0.6 && !isBreak) {
-    motif.push({
+  if (isHigh && !isBreak) {
+    set.main.push({
       step: 12,
       degree: 'root',
       duration: '8n',
@@ -10629,9 +10703,70 @@ function buildBassMotif(patternType, ctx) {
     });
   }
 
-  return motif;
-}
+  // Variant 1: add octave jump
+  set.variant1.push({
+    step: 0,
+    degree: 'root',
+    duration: '4n',
+    velocity: 0.85
+  });
+  set.variant1.push({
+    step: 6,
+    degree: 'fifth',
+    duration: '8n',
+    velocity: 0.75
+  });
+  set.variant1.push({
+    step: 8,
+    degree: 'root',
+    octShift: 1,
+    duration: '8n',
+    velocity: 0.8
+  });
+  set.variant1.push({
+    step: 12,
+    degree: 'fifth',
+    duration: '4n',
+    velocity: 0.75
+  });
 
+  // Variant 2: busier rhythm
+  set.variant2.push({
+    step: 0,
+    degree: 'root',
+    duration: '8n',
+    velocity: 0.85
+  });
+  set.variant2.push({
+    step: 4,
+    degree: 'third',
+    duration: '8n',
+    velocity: 0.75
+  });
+  set.variant2.push({
+    step: 8,
+    degree: 'fifth',
+    duration: '8n',
+    velocity: 0.8
+  });
+  set.variant2.push({
+    step: 12,
+    degree: 'root',
+    duration: '8n',
+    velocity: 0.8
+  });
+
+  // Fill: dramatic run
+  set.fill.push({ step: 0,  degree: 'root',  duration: '8n', velocity: 0.9 });
+  set.fill.push({ step: 4,  degree: 'third', duration: '8n', velocity: 0.85 });
+  set.fill.push({ step: 8,  degree: 'fifth', duration: '8n', velocity: 0.85 });
+  set.fill.push({ step: 10, degree: 'fifth', duration: '16n', velocity: 0.8 });
+  set.fill.push({ step: 12, degree: 'root',  duration: '8n', velocity: 0.85 });
+  set.fill.push({ step: 14, degree: 'root',  octShift: 1, duration: '8n', velocity: 0.9 });
+
+  return set;
+}
+  
 function generateSectionChords(section, startBar, endBar) {
   if (!section.chords) return;
   if (!patterns.keys) return;
@@ -17650,18 +17785,29 @@ const PROGRESSION_TEMPLATES = {
 function buildTriadFromDegree(degree, keyRoot = state.key, scaleName = state.scale) {
   const keyIndex = keysArr.indexOf(keyRoot);
   const scaleIntervals = scales[scaleName] || scales.major; // fallback
-  const deg = ((degree % scaleIntervals.length) + scaleIntervals.length) % scaleIntervals.length;
 
-  const rootSemis  = scaleIntervals[deg];
-  const thirdSemis = scaleIntervals[(deg + 2) % scaleIntervals.length];
-  const fifthSemis = scaleIntervals[(deg + 4) % scaleIntervals.length];
+  if (keyIndex === -1 || !Array.isArray(scaleIntervals) || !scaleIntervals.length) {
+    console.warn('buildTriadFromDegree: bad key/scale', keyRoot, scaleName);
+    return ['C', 'E', 'G']; // ultra-safe fallback
+  }
 
-  const root  = keysArr[(keyIndex + rootSemis)  % 12];
-  const third = keysArr[(keyIndex + thirdSemis) % 12];
-  const fifth = keysArr[(keyIndex + fifthSemis) % 12];
+  const len = scaleIntervals.length;
+  const deg = ((degree % len) + len) % len;
 
-  return [root, third, fifth]; // notes WITHOUT octaves
+  const rootSemis    = scaleIntervals[deg];
+  const thirdSemis   = scaleIntervals[(deg + 2) % len];
+  const fifthSemis   = scaleIntervals[(deg + 4) % len];
+  const seventhSemis = scaleIntervals[(deg + 6) % len]; // diatonic 7th in that scale
+
+  const root    = keysArr[(keyIndex + rootSemis)    % 12];
+  const third   = keysArr[(keyIndex + thirdSemis)   % 12];
+  const fifth   = keysArr[(keyIndex + fifthSemis)   % 12];
+  const seventh = keysArr[(keyIndex + seventhSemis) % 12];
+
+  // return 7th as 4th element – old code using [root, third, fifth] still works
+  return [root, third, fifth, seventh];
 }
+
 
 // Normalize any existing state.progression into state.progressionNotes = [ ['C','E','G'], ... ]
 function ensureHarmonyGuardrails() {
