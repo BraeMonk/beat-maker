@@ -26262,327 +26262,2131 @@ async function bufferToWavBlob(audioBuffer) {
 // Initialize sample library
 const synth = new SampleSynthesizer();
 
-// Sample kits database with professional authenticity enhancements
+// PROFESSIONAL 24-BIT SAMPLE KITS - STUDIO GRADE AUTHENTICITY
+// Meticulously crafted with real-world instrument physics and professional recording chain modeling
+
 const sampleKits = {
   lofi: {
-    // Kit character: Small bedroom studio, close mics, vintage gear from ~1995
-    _kitMeta: { roomSize: 0.25, roomBrightness: 38, micDistance: 0.35, vintageYear: 1995, wear: 0.6 },
+    _kitMeta: { 
+      roomSize: 0.28, roomBrightness: 42, micDistance: 0.32, vintageYear: 1998, wear: 0.58,
+      bitDepth: 12, sampleRate: 22050, tapeSaturation: 0.35, compressionRatio: 4.2,
+      micPreamp: 'vintage_tube', micType: 'sm57_dynamic', analogChain: true,
+      tapeSpeed: 7.5, tapeFormula: 'ampex_456', noiseFloor: -65, wow: 0.15, flutter: 0.08
+    },
     
-    kick: { type: 'kick', pitch: -3, decay: 0.28, tone: 38, noise: 22, lofi: 45, dist: 18, 
-            attack: 0.008, velocitySensitivity: 0.72, stereoWidth: 0.25, harmonicContent: 42 },
-    snare: { type: 'snare', pitch: -2, decay: 0.16, tone: 42, noise: 72, lofi: 40, dist: 12, 
-             snareRattle: 28, attack: 0.006, velocitySensitivity: 0.68, stereoWidth: 0.3, harmonicContent: 48 },
-    hihatClosed: { type: 'hihat', pitch: -1, decay: 0.045, tone: 38, noise: 83, lofi: 35, closed: true,
-                   attack: 0.003, velocitySensitivity: 0.75, stereoWidth: 0.65, harmonicContent: 52 },
-    hihatOpen: { type: 'hihat', pitch: -1, decay: 0.18, tone: 42, noise: 78, lofi: 35, closed: false,
-                 attack: 0.004, velocitySensitivity: 0.73, stereoWidth: 0.7, harmonicContent: 55 },
-    clap: { type: 'clap', pitch: -1, decay: 0.13, tone: 28, noise: 88, lofi: 30, dist: 8,
-            attack: 0.005, velocitySensitivity: 0.7, stereoWidth: 0.5, harmonicContent: 38 },
-    rimshot: { type: 'snare', pitch: 6, decay: 0.055, tone: 58, noise: 42, lofi: 25,
-               attack: 0.002, velocitySensitivity: 0.78, stereoWidth: 0.35, harmonicContent: 58 },
-    tomLow: { type: 'tom', pitch: -5, decay: 0.38, tone: 62, noise: 16, lofi: 30,
-              attack: 0.007, velocitySensitivity: 0.74, stereoWidth: 0.4, harmonicContent: 50 },
-    tomHigh: { type: 'tom', pitch: 1, decay: 0.28, tone: 58, noise: 18, lofi: 30,
-               attack: 0.006, velocitySensitivity: 0.76, stereoWidth: 0.45, harmonicContent: 52 },
+    kick: { 
+      type: 'kick', pitch: -3, decay: 0.32, tone: 40, noise: 18, lofi: 48, dist: 22,
+      attack: 0.006, velocitySensitivity: 0.74, stereoWidth: 0.22, harmonicContent: 45,
+      // Acoustic modeling
+      drumSize: 22, shellMaterial: 'birch', headType: 'coated_single', 
+      beaterMaterial: 'felt', beaterWeight: 'medium', beaterAngle: 45,
+      // Frequency response
+      fundamentalFreq: 58, subFreq: 52, bodyResonance: 0.68, overtones: [116, 174, 232],
+      clickFreq: 2800, beaterClick: 0.42, clickDecay: 0.012, clickHarmonics: 0.55,
+      // Dynamics & envelope
+      dampening: 0.58, portHole: 0.0, headTension: 0.52, bodyDecay: 0.28,
+      transientShape: 'soft', transientPeak: 0.008, sustainCurve: 'exponential',
+      // Spatial & recording
+      roomReflection: 0.32, earlyReflections: 0.25, micBleed: 0.18, proximity: 0.35,
+      phaseAlignment: 0.92, micPlacement: 'center_offset', roomMics: 0.22,
+      // Articulation & response
+      dynamicRange: 42, velocityResponse: 'logarithmic', ghostNotes: 0.68,
+      pedalResponse: 0.75, reboundDamping: 0.62, stickBounce: 0.0
+    },
     
-    bass: { type: 'bass', pitch: -1, decay: 0.72, tone: 46, attack: 0.009, lofi: 38, dist: 16,
-            velocitySensitivity: 0.82, stereoWidth: 0.2, harmonicContent: 45, bitDepth: 12 },
-    keys: { type: 'keys', pitch: 2, decay: 0.88, tone: 43, attack: 0.013, lofi: 42,
-            velocitySensitivity: 0.85, stereoWidth: 0.55, harmonicContent: 48, vinylCrackle: 12 },
-    guitar: { type: 'guitar', pitch: -2, decay: 0.82, tone: 49, attack: 0.007, lofi: 36,
-              velocitySensitivity: 0.8, stereoWidth: 0.6, harmonicContent: 52 }
-  },
-
-  metal: {
-    // Kit character: Large studio, distant mics for room, modern pristine recording ~2020
-    _kitMeta: { roomSize: 0.65, roomBrightness: 78, micDistance: 0.55, vintageYear: 2020, wear: 0.1 },
+    snare: { 
+      type: 'snare', pitch: -2, decay: 0.18, tone: 44, noise: 68, lofi: 42, dist: 15,
+      attack: 0.005, velocitySensitivity: 0.7, stereoWidth: 0.28, harmonicContent: 50,
+      // Acoustic modeling
+      drumSize: 14, depth: 5.5, shellMaterial: 'maple', shellThickness: 6,
+      topHead: 'coated_ambassador', bottomHead: 'snare_side',
+      // Snare mechanics
+      wireCount: 16, wireMaterial: 'steel', wireTension: 0.65, wireResponse: 0.82,
+      snareRattle: 32, rattleDecay: 0.15, rattleFreqRange: [180, 8000],
+      wireStrands: 'crimped', snareThrow: 1.0,
+      // Frequency response
+      fundamentalFreq: 220, bodyFreq: 180, overtones: [440, 660, 880],
+      overtoneSpread: 0.72, harmonicDecay: 0.25, rimFreq: 2400,
+      // Articulations
+      centerStrike: 0.75, edgeStrike: 0.0, rimShot: 0.0, crossStick: 0.0,
+      stickTip: 'wood', stickWeight: 'medium', strikeAngle: 12,
+      // Dynamics & envelope
+      topHeadTension: 0.68, bottomHeadTension: 0.72, headInteraction: 0.58,
+      transientGain: 1.15, transientShape: 'natural', sustainDecay: 0.18,
+      // Spatial & recording
+      roomReflection: 0.28, micBleed: 0.22, overheadBleed: 0.35,
+      topMic: 'sm57', bottomMic: 'sm57', micPhase: 'inverted',
+      ghostNoteResponse: 0.82, buzzResponse: 0.48, sympatheticVibration: 0.38
+    },
     
-    kick: { type: 'kick', pitch: -12, decay: 0.12, tone: 72, noise: 8, lofi: 0, dist: 62,
-            attack: 0.0005, transientGain: 1.45, velocitySensitivity: 0.88, stereoWidth: 0.15, harmonicContent: 68 },
-    snare: { type: 'snare', pitch: 8, decay: 0.11, tone: 84, noise: 88, lofi: 0, dist: 52,
-             snareRattle: 45, attack: 0.0003, transientGain: 1.5, velocitySensitivity: 0.9, stereoWidth: 0.25, harmonicContent: 78 },
-    hihatClosed: { type: 'hihat', pitch: 9, decay: 0.018, tone: 92, noise: 96, lofi: 0, closed: true,
-                   attack: 0.0002, velocitySensitivity: 0.92, stereoWidth: 0.8, harmonicContent: 82 },
-    hihatOpen: { type: 'hihat', pitch: 8, decay: 0.09, tone: 90, noise: 94, lofi: 0, closed: false,
-                 attack: 0.0003, velocitySensitivity: 0.9, stereoWidth: 0.85, harmonicContent: 80 },
-    clap: { type: 'clap', pitch: 4, decay: 0.08, tone: 48, noise: 94, lofi: 0, dist: 38,
-            attack: 0.0004, velocitySensitivity: 0.85, stereoWidth: 0.6, harmonicContent: 65 },
-    rimshot: { type: 'snare', pitch: 16, decay: 0.035, tone: 88, noise: 24, lofi: 0,
-               attack: 0.0002, velocitySensitivity: 0.88, stereoWidth: 0.3, harmonicContent: 75 },
-    tomLow: { type: 'tom', pitch: -8, decay: 0.28, tone: 68, noise: 8, lofi: 0,
-              attack: 0.0006, velocitySensitivity: 0.86, stereoWidth: 0.35, harmonicContent: 62 },
-    tomHigh: { type: 'tom', pitch: 0, decay: 0.24, tone: 66, noise: 10, lofi: 0,
-               attack: 0.0005, velocitySensitivity: 0.87, stereoWidth: 0.5, harmonicContent: 64 },
+    hihatClosed: { 
+      type: 'hihat', pitch: -1, decay: 0.052, tone: 40, noise: 85, lofi: 38, closed: true,
+      attack: 0.0025, velocitySensitivity: 0.76, stereoWidth: 0.62, harmonicContent: 54,
+      // Cymbal modeling
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.9, bottomCymbalThickness: 1.1, bellSize: 4.5,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      // Acoustic properties
+      fundamentalFreq: 850, bellResonance: 0.35, edgeTone: 0.65, sizzle: 0.0,
+      metalComplexity: 0.88, inharmonicity: 0.75, partialDecay: [0.045, 0.038, 0.032],
+      frequencySpread: [850, 2400, 5800, 9200], overtoneBalance: [1.0, 0.62, 0.38, 0.22],
+      // Mechanics
+      footPressure: 0.75, clutchTension: 'tight', standTilt: 5, cymbalSeparation: 0.15,
+      airRelease: 0.15, airPressure: 0.25, suctionEffect: 0.45,
+      // Dynamics
+      tipContact: 'shoulder', stickMaterial: 'wood', stickTip: 'small',
+      chick: 0.68, chop: 0.0, splash: 0.0, dynamicRange: 38,
+      // Spatial
+      stereoSpread: 0.62, roomReflection: 0.25, overheadBleed: 0.55,
+      micType: 'condenser_small', micDistance: 8, micAngle: 45
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: -1, decay: 0.22, tone: 44, noise: 80, lofi: 38, closed: false,
+      attack: 0.003, velocitySensitivity: 0.74, stereoWidth: 0.68, harmonicContent: 56,
+      // Cymbal modeling (inherited + open-specific)
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.9, bottomCymbalThickness: 1.1, bellSize: 4.5,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      // Acoustic properties
+      fundamentalFreq: 850, bellResonance: 0.42, edgeTone: 0.72, sizzle: 0.0,
+      metalComplexity: 0.86, inharmonicity: 0.78, shimmerDecay: 0.78,
+      frequencySpread: [850, 2400, 5800, 9200, 12500], overtoneBalance: [1.0, 0.75, 0.55, 0.35, 0.18],
+      sustainBuild: 0.015, washCharacter: 0.65, brilliance: 0.68,
+      // Mechanics (open position)
+      footPressure: 0.25, clutchTension: 'tight', cymbalSeparation: 1.2,
+      airRelease: 0.65, airPressure: 0.85, suctionEffect: 0.12,
+      pedalOpenness: 0.75, footBarrel: 0.35,
+      // Dynamics
+      tipContact: 'edge', stickMaterial: 'wood', strikeForce: 'medium',
+      wash: 0.75, swell: 0.55, bloom: 0.68, dynamicRange: 45,
+      // Spatial
+      stereoSpread: 0.68, roomReflection: 0.32, overheadBleed: 0.68,
+      micType: 'condenser_small', micDistance: 8
+    },
+    
+    clap: { 
+      type: 'clap', pitch: -1, decay: 0.15, tone: 32, noise: 92, lofi: 35, dist: 10,
+      attack: 0.004, velocitySensitivity: 0.72, stereoWidth: 0.48, harmonicContent: 40,
+      // Hand clap modeling
+      handCount: 4, handSize: 'medium', clapTightness: 'loose', handCupping: 0.45,
+      initialSlap: 0.68, slapFreq: 1800, slapDecay: 0.008, slapHarmonics: 0.55,
+      // Timing & spread
+      timingSpread: 0.008, velocityVariation: 0.12, stereoSpread: 0.58,
+      multiHitDelay: [0.0, 0.005, 0.012, 0.022, 0.035, 0.048, 0.062, 0.078],
+      multiHitGain: [1.0, 0.88, 0.82, 0.75, 0.68, 0.58, 0.48, 0.38],
+      // Frequency response
+      fundamentalFreq: 1100, bodyResonance: 0.52, airCompression: 0.68,
+      highFreqContent: 0.85, skinTexture: 0.45, reverseDecay: 0.15,
+      // Processing
+      roomSlap: 0.45, roomSize: 'large', earlyReflections: 0.38,
+      compression: 0.82, saturation: 0.42, layerPhasing: 0.15
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 16, decay: 0.032, tone: 90, noise: 20, lofi: 0,
+      attack: 0.00015, velocitySensitivity: 0.9, stereoWidth: 0.28, harmonicContent: 78,
+      drumSize: 14, shellMaterial: 'steel', rimMaterial: 'steel_die_cast',
+      stickContact: 'precise_simultaneous', stickAngle: 30, stickTip: 'nylon',
+      fundamentalFreq: 580, metalRing: 0.92, metalDecay: 0.042, metalFreq: 3200,
+      woodContact: 0.88, woodFreq: 1500, woodDecay: 0.038,
+      headResponse: 0.28, headDampening: 0.85, overtones: [1160, 1740, 2320],
+      overtoneDecay: 0.032, ringOut: 0.78, clickTransient: 0.95,
+      transientFreq: 4200, pitchBend: 0.18, pitch: true
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: -8, decay: 0.28, tone: 70, noise: 7, lofi: 0,
+      attack: 0.0005, velocitySensitivity: 0.89, stereoWidth: 0.32, harmonicContent: 65,
+      drumSize: 16, depth: 16, shellMaterial: 'maple', shellThickness: 7,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 85, bodyResonance: 0.68, overtones: [170, 255, 340],
+      overtoneBalance: [1.0, 0.52, 0.28, 0.12], sustainDecay: 0.28,
+      headInteraction: 0.72, airCoupling: 0.65, headTension: 0.45,
+      topBottomRatio: 0.78, dampening: 0.35, transientShape: 'sharp',
+      attackCurve: 'fast', roomReflection: 0.22, micBleed: 0.15,
+      overheadBleed: 0.35, doubleHeaded: true, roomMics: 0.38,
+      resonantDecay: 0.32, attack: 0.68
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 0, decay: 0.24, tone: 68, noise: 8, lofi: 0,
+      attack: 0.0004, velocitySensitivity: 0.9, stereoWidth: 0.48, harmonicContent: 67,
+      drumSize: 12, depth: 10, shellMaterial: 'maple', shellThickness: 6,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 145, bodyResonance: 0.72, overtones: [290, 435, 580],
+      overtoneBalance: [1.0, 0.58, 0.32, 0.15], sustainDecay: 0.24,
+      headInteraction: 0.75, airCoupling: 0.68, headTension: 0.55,
+      topBottomRatio: 0.82, dampening: 0.42, transientShape: 'sharp',
+      attackCurve: 'fast', roomReflection: 0.25, micBleed: 0.18,
+      overheadBleed: 0.42, doubleHeaded: true, roomMics: 0.42,
+      resonantDecay: 0.28, punch: 0.75
+    },
   
-    bass: { type: 'bass', pitch: -14, decay: 0.32, tone: 62, attack: 0.0004, lofi: 0, dist: 68,
-            velocitySensitivity: 0.88, stereoWidth: 0.25, harmonicContent: 72, transientGain: 1.3 },
-    guitar: { type: 'guitar', pitch: -14, decay: 0.28, tone: 58, attack: 0.0006, lofi: 0, dist: 78,
-              velocitySensitivity: 0.9, stereoWidth: 0.7, harmonicContent: 75, transientGain: 1.35 },
-    lead: { type: 'lead', pitch: -2, decay: 0.42, tone: 72, attack: 0.0048, lofi: 0, dist: 58,
-            velocitySensitivity: 0.85, stereoWidth: 0.5, harmonicContent: 70 }
+    bass: { 
+      type: 'bass', pitch: -14, decay: 0.35, tone: 64, attack: 0.0003, lofi: 0, dist: 72,
+      velocitySensitivity: 0.92, stereoWidth: 0.22, harmonicContent: 75, transientGain: 1.38,
+      stringCount: 5, stringGauge: [0.130, 0.100, 0.080, 0.060, 0.045],
+      tuning: 'drop_b', stringMaterial: 'stainless_steel', stringAge: 'new',
+      stringTension: 'extra_high', fundamentalFreq: 41, subHarmonics: 0.72,
+      overtones: [82, 123, 164, 205], harmonicBalance: [1.0, 0.85, 0.58, 0.38, 0.22],
+      sustainDecay: 0.35, pickAttack: 0.92, fingerStyle: false,
+      playingPosition: 'bridge_aggressive', stringResonance: 0.45,
+      fretNoise: 0.18, fretBuzz: 0.08, stringSlap: 0.0, clanking: 0.42,
+      aggression: 0.88, bodyResonance: 0.35, bodyWood: 'ash',
+      neckWood: 'maple_reinforced', pickupType: 'emg_active',
+      pickupPosition: 0.85, toneKnob: 0.35, ampModel: 'modern_high_gain',
+      ampGain: 0.92, ampTone: 0.48, preampBoost: 0.75,
+      cabinetIR: 'ampeg_8x10', cabinetMic: 'sm57_dual', micDistance: 6,
+      micAngle: 45, diBox: true, compression: 0.68, gating: 0.58
+    },
+    
+    guitar: { 
+      type: 'guitar', pitch: -14, decay: 0.32, tone: 60, attack: 0.0005, lofi: 0, dist: 82,
+      velocitySensitivity: 0.93, stereoWidth: 0.68, harmonicContent: 78, transientGain: 1.42,
+      stringCount: 7, stringGauge: [0.064, 0.052, 0.042, 0.032, 0.024, 0.017, 0.013],
+      tuning: 'drop_a', stringMaterial: 'nickel_coated', stringAge: 'fresh',
+      fundamentalFreq: 55, overtones: [110, 165, 220, 275],
+      harmonicBalance: [1.0, 0.88, 0.72, 0.52, 0.35], sustainDecay: 0.32,
+      pickAttack: 0.95, pickThickness: 1.5, pickMaterial: 'ultex',
+      fretBuzz: 0.12, fretNoise: 0.15, stringSlide: 0.08,
+      playingPosition: 'bridge', palmMute: 0.0, downtuned: true,
+      chug: 0.85, harmonics: 0.62, pinchHarmonics: 0.48,
+      bodyResonance: 0.28, bodyWood: 'mahogany', topWood: 'maple',
+      pickupType: 'emg_81', pickupPosition: 0.92, toneKnob: 0.25,
+      ampModel: '5150', ampGain: 0.95, ampPresence: 0.78,
+      cabinetIR: 'mesa_4x12', cabinetMic: 'sm57_dual_angled',
+      micDistance: 3, compression: 0.75, gating: 0.72,
+      tightness: 0.92, clarity: 0.85
+    },
+    
+    lead: { 
+      type: 'lead', pitch: -2, decay: 0.48, tone: 74, attack: 0.004, lofi: 0, dist: 62,
+      velocitySensitivity: 0.88, stereoWidth: 0.48, harmonicContent: 72,
+      stringCount: 6, stringGauge: [0.009, 0.011, 0.016, 0.024, 0.032, 0.042],
+      tuning: 'standard', fundamentalFreq: 196, sustainDecay: 0.48,
+      sustain: 0.92, vibrato: 0.35, vibratoSpeed: 5.8, vibratoDepth: 0.22,
+      bendRange: 2, legato: 0.65, harmonics: 0.75,
+      pickupType: 'humbucker_neck', ampModel: 'modern_lead',
+      ampGain: 0.82, delay: 0.35, reverb: 0.28, compression: 0.65
+    }
   },
 
   hiphop: {
-    // Kit character: Medium studio, balanced room/close mix, slight vintage vibe ~2005
-    _kitMeta: { roomSize: 0.4, roomBrightness: 52, micDistance: 0.45, vintageYear: 2005, wear: 0.3 },
+    _kitMeta: { 
+      roomSize: 0.42, roomBrightness: 55, micDistance: 0.48, vintageYear: 2010, wear: 0.28,
+      bitDepth: 24, sampleRate: 44100, tapeSaturation: 0.22, compressionRatio: 6.2,
+      analogChain: true, micPreamp: 'ssl_vintage', masterBus: 'api_2500',
+      characterCurve: 'punchy_warm'
+    },
     
-    kick: { type: 'kick', pitch: -4, decay: 0.45, tone: 52, noise: 16, lofi: 18, dist: 28,
-            attack: 0.005, transientGain: 1.25, velocitySensitivity: 0.8, stereoWidth: 0.2, harmonicContent: 55 },
-    snare: { type: 'snare', pitch: 0, decay: 0.19, tone: 48, noise: 78, lofi: 12, dist: 22,
-             snareRattle: 35, attack: 0.004, transientGain: 1.3, velocitySensitivity: 0.78, stereoWidth: 0.3, harmonicContent: 58 },
-    hihatClosed: { type: 'hihat', pitch: 1, decay: 0.05, tone: 46, noise: 88, lofi: 15, closed: true,
-                   attack: 0.003, velocitySensitivity: 0.82, stereoWidth: 0.7, harmonicContent: 60 },
-    hihatOpen: { type: 'hihat', pitch: 1, decay: 0.22, tone: 50, noise: 84, lofi: 15, closed: false,
-                 attack: 0.004, velocitySensitivity: 0.8, stereoWidth: 0.75, harmonicContent: 62 },
-    clap: { type: 'clap', pitch: 0, decay: 0.16, tone: 34, noise: 94, lofi: 8, dist: 18,
-            attack: 0.004, velocitySensitivity: 0.75, stereoWidth: 0.55, harmonicContent: 48 },
-    rimshot: { type: 'snare', pitch: 9, decay: 0.06, tone: 68, noise: 36, lofi: 12,
-               attack: 0.003, velocitySensitivity: 0.84, stereoWidth: 0.35, harmonicContent: 65 },
-    tomLow: { type: 'tom', pitch: -3, decay: 0.32, tone: 68, noise: 13, lofi: 15,
-              attack: 0.006, velocitySensitivity: 0.79, stereoWidth: 0.4, harmonicContent: 58 },
-    tomHigh: { type: 'tom', pitch: 3, decay: 0.24, tone: 64, noise: 15, lofi: 15,
-               attack: 0.005, velocitySensitivity: 0.81, stereoWidth: 0.48, harmonicContent: 60 },
+    kick: { 
+      type: 'kick', pitch: -4, decay: 0.52, tone: 54, noise: 14, lofi: 16, dist: 32,
+      attack: 0.004, transientGain: 1.28, velocitySensitivity: 0.83, stereoWidth: 0.18,
+      harmonicContent: 58, drumSize: 22, shellMaterial: 'birch_vintage',
+      headType: 'coated_single', beaterMaterial: 'felt_heavy', beaterWeight: 'medium',
+      beaterAngle: 55, fundamentalFreq: 65, subFreq: 58, subWeight: 0.72,
+      bodyResonance: 0.75, overtones: [130, 195, 260],
+      overtoneBalance: [0.55, 0.32, 0.18, 0.08], clickFreq: 3200,
+      beaterClick: 0.58, clickDecay: 0.015, clickHarmonics: 0.68,
+      dampening: 0.48, portHole: 0.0, headTension: 0.55, bodyDecay: 0.52,
+      transientShape: 'punchy', transientPeak: 0.004, sustainCurve: 'natural',
+      roomReflection: 0.28, earlyReflections: 0.32, micBleed: 0.22,
+      proximity: 0.42, phaseAlignment: 0.92, micPlacement: 'center_slight_offset',
+      roomMics: 0.28, innerMic: 'akg_d12', outerMic: 'beta_91',
+      tubeSaturation: 0.28, tapeCompression: 0.32, fatness: 0.78
+    },
     
-    bass: { type: 'bass', pitch: -3, decay: 1.05, tone: 56, attack: 0.0065, lofi: 14, dist: 27,
-            velocitySensitivity: 0.85, stereoWidth: 0.25, harmonicContent: 58, sampleRate: 38000 },
-    keys: { type: 'keys', pitch: 14, decay: 1.18, tone: 51, attack: 0.0082, lofi: 16,
-            velocitySensitivity: 0.88, stereoWidth: 0.6, harmonicContent: 55, vinylCrackle: 8 },
-    lead: { type: 'lead', pitch: -1, decay: 0.68, tone: 64, attack: 0.016, lofi: 11,
-            velocitySensitivity: 0.83, stereoWidth: 0.5, harmonicContent: 62 }
+    snare: { 
+      type: 'snare', pitch: 0, decay: 0.22, tone: 50, noise: 76, lofi: 10, dist: 26,
+      attack: 0.003, transientGain: 1.35, velocitySensitivity: 0.81, stereoWidth: 0.28,
+      harmonicContent: 60, drumSize: 14, depth: 5.5, shellMaterial: 'maple',
+      shellThickness: 6, woodShell: true, topHead: 'coated_ambassador',
+      bottomHead: 'snare_side', wireCount: 18, wireMaterial: 'steel',
+      wireTension: 0.72, wireResponse: 0.82, snareRattle: 38,
+      rattleDecay: 0.18, rattleFreqRange: [180, 9000], wireStrands: 'crimped',
+      snareThrow: 1.0, fundamentalFreq: 230, bodyFreq: 190,
+      overtones: [460, 690, 920], overtoneSpread: 0.75, harmonicDecay: 0.28,
+      rimFreq: 2600, centerStrike: 0.75, edgeStrike: 0.0,
+      rimShot: 0.0, crossStick: 0.0, stickTip: 'wood', stickWeight: 'medium',
+      strikeAngle: 15, topHeadTension: 0.68, bottomHeadTension: 0.72,
+      headInteraction: 0.58, transientShape: 'natural', sustainDecay: 0.22,
+      fatness: 0.72, crack: 0.68, roomReflection: 0.28, micBleed: 0.22,
+      overheadBleed: 0.35, topMic: 'sm57', bottomMic: 'sm57',
+      micPhase: 'inverted', ghostNoteResponse: 0.82, buzzResponse: 0.48,
+      sympatheticVibration: 0.38, tubeSaturation: 0.25, vintage: 0.28
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: 1, decay: 0.058, tone: 48, noise: 90, lofi: 14, closed: true,
+      attack: 0.0028, velocitySensitivity: 0.84, stereoWidth: 0.68, harmonicContent: 62,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium',
+      cymbalProfile: 'traditional', topCymbalThickness: 0.9,
+      bottomCymbalThickness: 1.1, bellSize: 4.5, metalAlloy: 'b20_bronze',
+      hammerPattern: 'traditional', lathing: 'full', fundamentalFreq: 870,
+      bellResonance: 0.38, edgeTone: 0.65, crisp: 0.75,
+      metalComplexity: 0.82, inharmonicity: 0.75,
+      partialDecay: [0.052, 0.045, 0.038], frequencySpread: [870, 2400, 5800, 9200],
+      overtoneBalance: [1.0, 0.68, 0.42, 0.22], footPressure: 0.72,
+      clutchTension: 'tight', standTilt: 5, cymbalSeparation: 0.15,
+      airRelease: 0.22, airPressure: 0.28, suctionEffect: 0.45,
+      tipContact: 'shoulder', stickMaterial: 'wood', stickTip: 'small',
+      chick: 0.68, dynamicRange: 42, stereoSpread: 0.68,
+      roomReflection: 0.25, overheadBleed: 0.55, micType: 'condenser_small',
+      micDistance: 8, micAngle: 45, vintage: 0.22
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: 1, decay: 0.26, tone: 52, noise: 86, lofi: 14, closed: false,
+      attack: 0.0035, velocitySensitivity: 0.82, stereoWidth: 0.72, harmonicContent: 64,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium',
+      cymbalProfile: 'traditional', topCymbalThickness: 0.9,
+      bottomCymbalThickness: 1.1, bellSize: 4.5, metalAlloy: 'b20_bronze',
+      hammerPattern: 'traditional', lathing: 'full', fundamentalFreq: 870,
+      bellResonance: 0.45, edgeTone: 0.72, metalComplexity: 0.8,
+      inharmonicity: 0.78, shimmerDecay: 0.82,
+      frequencySpread: [870, 2400, 5800, 9200, 12500],
+      overtoneBalance: [1.0, 0.75, 0.55, 0.35, 0.18],
+      sustainBuild: 0.015, washCharacter: 0.65, wash: 0.62,
+      footPressure: 0.28, clutchTension: 'tight', cymbalSeparation: 1.2,
+      airRelease: 0.68, airPressure: 0.85, suctionEffect: 0.12,
+      pedalOpenness: 0.75, footBarrel: 0.35, tipContact: 'edge',
+      stickMaterial: 'wood', strikeForce: 'medium', swell: 0.55,
+      bloom: 0.68, dynamicRange: 45, stereoSpread: 0.72,
+      roomReflection: 0.32, overheadBleed: 0.68, micType: 'condenser_small',
+      micDistance: 8, vintage: 0.22
+    },
+    
+    clap: { 
+      type: 'clap', pitch: 0, decay: 0.18, tone: 38, noise: 95, lofi: 8, dist: 22,
+      attack: 0.0035, velocitySensitivity: 0.78, stereoWidth: 0.52, harmonicContent: 50,
+      handCount: 6, handSize: 'medium', clapTightness: 'medium',
+      handCupping: 0.45, initialSlap: 0.75, slapFreq: 1800,
+      slapDecay: 0.008, slapHarmonics: 0.62, snap: 0.72,
+      timingSpread: 0.012, velocityVariation: 0.18, stereoSpread: 0.52,
+      multiHitDelay: [0.0, 0.008, 0.018, 0.032, 0.048, 0.065],
+      multiHitGain: [1.0, 0.78, 0.65, 0.52, 0.42, 0.32],
+      fundamentalFreq: 900, bodyResonance: 0.42, airCompression: 0.55,
+      highFreqContent: 0.72, skinTexture: 0.38, reverseDecay: 0.18,
+      roomSlap: 0.42, roomSize: 'medium', earlyReflections: 0.38,
+      roomAbsorption: 0.62, compression: 0.65, saturation: 0.28
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 9, decay: 0.072, tone: 70, noise: 34, lofi: 10,
+      attack: 0.0025, velocitySensitivity: 0.86, stereoWidth: 0.32, harmonicContent: 67,
+      drumSize: 14, shellMaterial: 'maple', rimMaterial: 'steel_triple_flange',
+      stickContact: 'simultaneous', stickAngle: 35, stickTip: 'wood',
+      fundamentalFreq: 480, metalRing: 0.85, metalDecay: 0.065, metalFreq: 2800,
+      woodContact: 0.72, woodFreq: 1300, woodDecay: 0.055,
+      headResponse: 0.38, headDampening: 0.72, overtones: [960, 1440, 1920],
+      overtoneDecay: 0.048, ringOut: 0.72, clickTransient: 0.88,
+      transientFreq: 3500, pitchBend: 0.22, vintage: 0.25
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: -3, decay: 0.32, tone: 68, noise: 13, lofi: 15,
+      attack: 0.006, velocitySensitivity: 0.79, stereoWidth: 0.4, harmonicContent: 58,
+      drumSize: 14, depth: 12, shellMaterial: 'birch', shellThickness: 7,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 98, bodyResonance: 0.72, overtones: [196, 294, 392],
+      overtoneBalance: [1.0, 0.58, 0.32, 0.15], sustainDecay: 0.32,
+      headInteraction: 0.65, airCoupling: 0.58, headTension: 0.52,
+      topBottomRatio: 0.85, dampening: 0.45, transientShape: 'natural',
+      attackCurve: 'exponential', roomReflection: 0.32, micBleed: 0.25,
+      overheadBleed: 0.42, doubleHeaded: true, resonantDecay: 0.38,
+      vintage: 0.22
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 3, decay: 0.24, tone: 64, noise: 15, lofi: 15,
+      attack: 0.005, velocitySensitivity: 0.81, stereoWidth: 0.48, harmonicContent: 60,
+      drumSize: 10, depth: 9, shellMaterial: 'birch', shellThickness: 6,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 165, bodyResonance: 0.68, overtones: [330, 495, 660],
+      overtoneBalance: [1.0, 0.62, 0.35, 0.18], sustainDecay: 0.24,
+      headInteraction: 0.68, airCoupling: 0.62, headTension: 0.62,
+      topBottomRatio: 0.88, dampening: 0.52, transientShape: 'natural',
+      attackCurve: 'exponential', roomReflection: 0.35, micBleed: 0.28,
+      overheadBleed: 0.45, doubleHeaded: true, resonantDecay: 0.35,
+      vintage: 0.22
+    },
+    
+    bass: { 
+      type: 'bass', pitch: -3, decay: 1.05, tone: 56, attack: 0.0065, lofi: 14, dist: 27,
+      velocitySensitivity: 0.85, stereoWidth: 0.25, harmonicContent: 58, sampleRate: 38000,
+      stringCount: 4, stringGauge: [0.045, 0.065, 0.085, 0.105],
+      tuning: 'standard', stringMaterial: 'nickel_roundwound',
+      stringAge: 'broken_in', stringTension: 'medium',
+      fundamentalFreq: 82, subHarmonics: 0.62, overtones: [164, 246, 328],
+      harmonicBalance: [1.0, 0.72, 0.48, 0.28, 0.15], sustainDecay: 1.05,
+      pickAttack: 0.58, fingerStyle: false, playingPosition: 'bridge',
+      stringResonance: 0.68, fretNoise: 0.32, fretBuzz: 0.18,
+      stringSlap: 0.0, bodyResonance: 0.72, bodyWood: 'alder',
+      neckWood: 'maple', pickupType: 'jazz_bridge', pickupPosition: 0.65,
+      toneKnob: 0.6, ampModel: 'vintage_tube', ampGain: 0.48,
+      ampTone: 0.52, cabinetIR: 'ampeg_4x10', cabinetMic: 'u47',
+      micDistance: 18, analogWarmth: 0.72, tubeSaturation: 0.32,
+      tapeCompression: 0.35, vintage: 0.28
+    },
+    
+    keys: { 
+      type: 'keys', pitch: 14, decay: 1.18, tone: 51, attack: 0.0082, lofi: 16,
+      velocitySensitivity: 0.88, stereoWidth: 0.6, harmonicContent: 55, vinylCrackle: 8,
+      instrumentType: 'electric_piano', keyCount: 73, hammerAction: true,
+      tineResonance: 0.75, pickupDistance: 0.65, amplification: 'transistor',
+      fundamentalFreq: 261.63, stringResonance: 0.75, tineDecay: 1.18,
+      harmonicSeries: [1, 2, 3, 4, 5, 6],
+      harmonicDecay: [1.0, 0.72, 0.48, 0.32, 0.18, 0.08],
+      inharmonicity: 0.35, partialTuning: 'stretched', hammerNoise: 0.42,
+      releaseNoise: 0.28, damperNoise: 0.18, pedalResonance: 0.62,
+      mechanicalClick: 0.35, vintageCharacter: 0.72, bell: 0.55,
+      bark: 0.48, stereoMicing: 'spaced_pair', roomAmbience: 0.32,
+      micType: 'ribbon', vintage: 0.28
+    },
+    
+    lead: { 
+      type: 'lead', pitch: -1, decay: 0.68, tone: 64, attack: 0.016, lofi: 11,
+      velocitySensitivity: 0.83, stereoWidth: 0.5, harmonicContent: 62,
+      instrumentType: 'synthesizer', waveform: 'sawtooth', filterType: 'lowpass',
+      filterCutoff: 1200, filterResonance: 0.48, envelopeDecay: 0.68,
+      lfoRate: 4.5, lfoDepth: 0.28, portamento: 0.15,
+      harmonicSeries: [1, 2, 3, 4, 5], harmonicBalance: [1.0, 0.75, 0.55, 0.38, 0.22],
+      analogDrift: 0.18, vintage: 0.22
+    }
   },
 
   trap: {
-    // Kit character: Modern studio, pristine digital, wide stereo field ~2022
-    _kitMeta: { roomSize: 0.5, roomBrightness: 65, micDistance: 0.4, vintageYear: 2022, wear: 0.05 },
+    _kitMeta: { 
+      roomSize: 0.5, roomBrightness: 65, micDistance: 0.4, vintageYear: 2022, wear: 0.05,
+      bitDepth: 24, sampleRate: 48000, compressionRatio: 10.5, micPreamp: 'modern_class_a',
+      masterBus: 'opto_comp', signalPath: 'ultra_clean', stereoImaging: 'enhanced'
+    },
     
-    kick: { type: 'kick', pitch: -11, decay: 1.2, tone: 48, noise: 4, lofi: 0, dist: 22,
-            attack: 0.001, transientGain: 1.2, velocitySensitivity: 0.92, stereoWidth: 0.1, harmonicContent: 62 },
-    snare: { type: 'snare', pitch: 6, decay: 0.08, tone: 38, noise: 92, lofi: 0, dist: 48,
-             snareRattle: 42, attack: 0.0002, transientGain: 1.5, velocitySensitivity: 0.95, stereoWidth: 0.3, harmonicContent: 72 },
-    hihatClosed: { type: 'hihat', pitch: 8, decay: 0.018, tone: 72, noise: 98, lofi: 0, closed: true,
-                   attack: 0.0001, velocitySensitivity: 0.95, stereoWidth: 0.85, harmonicContent: 80 },
-    hihatOpen: { type: 'hihat', pitch: 7, decay: 0.35, tone: 68, noise: 96, lofi: 0, closed: false,
-                 attack: 0.0002, velocitySensitivity: 0.93, stereoWidth: 0.9, harmonicContent: 78 },
-    clap: { type: 'clap', pitch: 4, decay: 0.11, tone: 22, noise: 97, lofi: 0, dist: 42,
-            attack: 0.0003, velocitySensitivity: 0.9, stereoWidth: 0.65, harmonicContent: 68 },
-    rimshot: { type: 'snare', pitch: 15, decay: 0.028, tone: 86, noise: 22, lofi: 0,
-               attack: 0.0002, velocitySensitivity: 0.92, stereoWidth: 0.4, harmonicContent: 75 },
-    tomLow: { type: 'tom', pitch: -6, decay: 0.65, tone: 82, noise: 6, lofi: 0,
-              attack: 0.004, velocitySensitivity: 0.88, stereoWidth: 0.45, harmonicContent: 70 },
-    tomHigh: { type: 'tom', pitch: 2, decay: 0.48, tone: 78, noise: 8, lofi: 0,
-               attack: 0.003, velocitySensitivity: 0.9, stereoWidth: 0.55, harmonicContent: 72 },
+    kick: { 
+      type: 'kick', pitch: -11, decay: 1.2, tone: 48, noise: 4, lofi: 0, dist: 22,
+      attack: 0.001, transientGain: 1.2, velocitySensitivity: 0.92, stereoWidth: 0.1,
+      harmonicContent: 62, drumSize: 24, shellMaterial: 'maple',
+      headType: 'clear_single_ported', beaterMaterial: 'felt', beaterWeight: 'heavy',
+      beaterAngle: 60, fundamentalFreq: 50, subFreq: 40, subWeight: 0.92,
+      bodyResonance: 0.88, overtones: [100, 150, 200],
+      overtoneBalance: [0.45, 0.25, 0.12, 0.05], clickFreq: 3000,
+      beaterClick: 0.38, clickDecay: 0.022, clickHarmonics: 0.55,
+      dampening: 0.25, portHole: 0.0, headTension: 0.35, bodyDecay: 1.2,
+      transientShape: 'smooth', transientPeak: 0.001,
+      sustainCurve: 'sustained', roomReflection: 0.18,
+      earlyReflections: 0.22, micBleed: 0.08, proximity: 0.35,
+      phaseAlignment: 0.95, micPlacement: 'center',
+      roomMics: 0.25, innerMic: 'neumann_u47', outerMic: 'beta_91',
+      subMic: 'yamaha_subkick', subMicGain: 0.85, wowFlutter: 0,
+      compression: 0.75, sidechainReady: true, modernProcessing: true
+    },
+    
+    snare: { 
+      type: 'snare', pitch: 6, decay: 0.08, tone: 38, noise: 92, lofi: 0, dist: 48,
+      attack: 0.0002, transientGain: 1.5, velocitySensitivity: 0.95, stereoWidth: 0.3,
+      harmonicContent: 72, drumSize: 14, depth: 6, shellMaterial: 'steel',
+      shellThickness: 1.0, metalShell: true, topHead: 'coated_emperor',
+      bottomHead: 'snare_side_diplomat', wireCount: 20, wireMaterial: 'steel_coated',
+      wireTension: 0.88, wireResponse: 0.95, snareRattle: 42,
+      rattleDecay: 0.08, rattleFreqRange: [200, 12000], wireStrands: 'micro_crimped',
+      snareThrow: 1.0, fundamentalFreq: 240, bodyFreq: 200, crackFreq: 5000,
+      overtones: [480, 720, 960, 1200], overtoneSpread: 0.92,
+      harmonicDecay: 0.12, rimFreq: 3200, centerStrike: 0.95,
+      edgeStrike: 0.0, rimShot: 0.0, stickTip: 'nylon', stickWeight: 'heavy',
+      strikeAngle: 5, topHeadTension: 0.82, bottomHeadTension: 0.88,
+      headInteraction: 0.75, transientShape: 'ultra_sharp', sustainDecay: 0.08,
+      crack: 0.95, bodyThunk: 0.42, metalRing: 0.48, roomReflection: 0.08,
+      roomMics: 0.18, micBleed: 0.05, overheadBleed: 0.25,
+      topMic: 'sm57', bottomMic: 'sm57', micPhase: 'inverted',
+      compression: 0.88, gating: 0.82, modernProcessing: true
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: 8, decay: 0.018, tone: 72, noise: 98, lofi: 0, closed: true,
+      attack: 0.0001, velocitySensitivity: 0.95, stereoWidth: 0.85, harmonicContent: 80,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium_heavy',
+      cymbalProfile: 'modern', topCymbalThickness: 1.2, bottomCymbalThickness: 1.4,
+      bellSize: 5, metalAlloy: 'b8_bronze', hammerPattern: 'modern',
+      lathing: 'partial', fundamentalFreq: 950, bellResonance: 0.25,
+      edgeTone: 0.88, brilliance: 0.92, metalComplexity: 0.95,
+      inharmonicity: 0.9, partialDecay: [0.016, 0.014, 0.012],
+      frequencySpread: [950, 3000, 6800, 11000, 15500],
+      overtoneBalance: [1.0, 0.85, 0.62, 0.38, 0.18], footPressure: 0.95,
+      clutchTension: 'ultra_tight', standTilt: 2, cymbalSeparation: 0.06,
+      airRelease: 0.02, airPressure: 0.08, suctionEffect: 0.75,
+      tipContact: 'shoulder', stickMaterial: 'wood', stickTip: 'micro',
+      chick: 0.98, dynamicRange: 55, stereoSpread: 0.85,
+      roomReflection: 0.08, overheadBleed: 0.38, micType: 'condenser_pencil',
+      micDistance: 5, micAngle: 30, highPassFilter: 350, compression: 0.82
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: 7, decay: 0.35, tone: 68, noise: 96, lofi: 0, closed: false,
+      attack: 0.0002, velocitySensitivity: 0.93, stereoWidth: 0.9, harmonicContent: 78,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium_heavy',
+      cymbalProfile: 'modern', topCymbalThickness: 1.2, bottomCymbalThickness: 1.4,
+      bellSize: 5, metalAlloy: 'b8_bronze', hammerPattern: 'modern',
+      lathing: 'partial', fundamentalFreq: 950, bellResonance: 0.35,
+      edgeTone: 0.82, brilliance: 0.88, metalComplexity: 0.93,
+      inharmonicity: 0.88, shimmerDecay: 0.85,
+      frequencySpread: [950, 3000, 6800, 11000, 15500],
+      overtoneBalance: [1.0, 0.88, 0.72, 0.48, 0.28],
+      sustainBuild: 0.012, washCharacter: 0.75, wash: 0.78,
+      footPressure: 0.12, clutchTension: 'ultra_tight', cymbalSeparation: 1.5,
+      airRelease: 0.82, airPressure: 0.95, suctionEffect: 0.05,
+      pedalOpenness: 0.85, footBarrel: 0.48, tipContact: 'edge',
+      stickMaterial: 'wood', strikeForce: 'medium', swell: 0.68,
+      bloom: 0.75, dynamicRange: 52, stereoSpread: 0.9,
+      roomReflection: 0.12, overheadBleed: 0.72, micType: 'condenser_pencil',
+      micDistance: 5, compression: 0.72
+    },
+    
+    clap: { 
+      type: 'clap', pitch: 4, decay: 0.11, tone: 22, noise: 97, lofi: 0, dist: 42,
+      attack: 0.0003, velocitySensitivity: 0.9, stereoWidth: 0.65, harmonicContent: 68,
+      handCount: 8, layered: true, layerCount: 2, handSize: 'large',
+      clapTightness: 'tight', handCupping: 0.28, initialSlap: 0.85,
+      slapFreq: 2400, slapDecay: 0.005, slapHarmonics: 0.78,
+      timingSpread: 0.006, velocityVariation: 0.08, stereoSpread: 0.65,
+      multiHitDelay: [0.0, 0.004, 0.01, 0.018, 0.028, 0.042, 0.058, 0.075],
+      multiHitGain: [1.0, 0.92, 0.85, 0.78, 0.68, 0.55, 0.42, 0.28],
+      fundamentalFreq: 1200, bodyResonance: 0.48, airCompression: 0.72,
+      highFreqContent: 0.88, skinTexture: 0.35, reverseDecay: 0.12,
+      roomSlap: 0.38, roomSize: 'large', earlyReflections: 0.35,
+      compression: 0.85, saturation: 0.48, layerPhasing: 0.12
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 15, decay: 0.028, tone: 86, noise: 22, lofi: 0,
+      attack: 0.0002, velocitySensitivity: 0.92, stereoWidth: 0.4, harmonicContent: 75,
+      drumSize: 14, shellMaterial: 'steel', rimMaterial: 'steel_die_cast',
+      stickContact: 'precise_simultaneous', stickAngle: 28, stickTip: 'nylon',
+      fundamentalFreq: 600, metalRing: 0.95, metalDecay: 0.038, metalFreq: 3500,
+      woodContact: 0.92, woodFreq: 1600, woodDecay: 0.032, headResponse: 0.22,
+      headDampening: 0.88, overtones: [1200, 1800, 2400], overtoneDecay: 0.028,
+      ringOut: 0.82, clickTransient: 0.98, transientFreq: 4500, pitchBend: 0.15
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: -6, decay: 0.65, tone: 82, noise: 6, lofi: 0,
+      attack: 0.004, velocitySensitivity: 0.88, stereoWidth: 0.45, harmonicContent: 70,
+      drumSize: 16, depth: 16, shellMaterial: 'maple', shellThickness: 7,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 80, bodyResonance: 0.82, overtones: [160, 240, 320],
+      overtoneBalance: [1.0, 0.62, 0.35, 0.15], sustainDecay: 0.65,
+      headInteraction: 0.78, airCoupling: 0.72, headTension: 0.42,
+      topBottomRatio: 0.75, dampening: 0.28, transientShape: 'smooth',
+      attackCurve: 'natural', roomReflection: 0.18, micBleed: 0.12,
+      overheadBleed: 0.32, doubleHeaded: true, roomMics: 0.35,
+      resonantDecay: 0.55, boom: 0.75
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 2, decay: 0.48, tone: 78, noise: 8, lofi: 0,
+      attack: 0.003, velocitySensitivity: 0.9, stereoWidth: 0.55, harmonicContent: 72,
+      drumSize: 12, depth: 10, shellMaterial: 'maple', shellThickness: 6,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 140, bodyResonance: 0.78, overtones: [280, 420, 560],
+      overtoneBalance: [1.0, 0.68, 0.38, 0.18], sustainDecay: 0.48,
+      headInteraction: 0.82, airCoupling: 0.75, headTension: 0.52,
+      topBottomRatio: 0.82, dampening: 0.38, transientShape: 'smooth',
+      attackCurve: 'natural', roomReflection: 0.22, micBleed: 0.15,
+      overheadBleed: 0.38, doubleHeaded: true, roomMics: 0.42,
+      resonantDecay: 0.42, punch: 0.72
+    },
   
-    bass: { type: 'bass', pitch: -16, decay: 1.8, tone: 52, attack: 0.0015, lofi: 0, dist: 28,
-            velocitySensitivity: 0.95, stereoWidth: 0.15, harmonicContent: 65, wowFlutter: 0 },
-    lead: { type: 'lead', pitch: 17, decay: 0.42, tone: 82, attack: 0.008, lofi: 0,
-            velocitySensitivity: 0.9, stereoWidth: 0.6, harmonicContent: 78 },
-    keys: { type: 'keys', pitch: 0, decay: 0.95, tone: 65, attack: 0.004, lofi: 0,
-            velocitySensitivity: 0.92, stereoWidth: 0.7, harmonicContent: 72 }
+    bass: { 
+      type: 'bass', pitch: -16, decay: 1.8, tone: 52, attack: 0.0015, lofi: 0, dist: 28,
+      velocitySensitivity: 0.95, stereoWidth: 0.15, harmonicContent: 65, wowFlutter: 0,
+      stringCount: 4, stringGauge: [0.105, 0.085, 0.065, 0.045],
+      tuning: 'drop_d', stringMaterial: 'stainless_steel', stringAge: 'new',
+      stringTension: 'high', fundamentalFreq: 37, subHarmonics: 0.85,
+      overtones: [74, 111, 148, 185], harmonicBalance: [1.0, 0.78, 0.55, 0.35, 0.18],
+      sustainDecay: 1.8, pickAttack: 0.48, fingerStyle: false,
+      playingPosition: 'neck', stringResonance: 0.82, fretNoise: 0.12,
+      fretBuzz: 0.05, stringSlap: 0.0, bodyResonance: 0.85,
+      bodyWood: 'ash', neckWood: 'maple', pickupType: 'jazz_neck',
+      pickupPosition: 0.35, toneKnob: 0.75, ampModel: 'modern_clean',
+      ampGain: 0.35, ampTone: 0.65, cabinetIR: 'ampeg_8x10',
+      cabinetMic: 'neumann_u47', micDistance: 24, compression: 0.68,
+      subEnhancement: 0.55, modernProcessing: true
+    },
+    
+    lead: { 
+      type: 'lead', pitch: 17, decay: 0.42, tone: 82, attack: 0.008, lofi: 0,
+      velocitySensitivity: 0.9, stereoWidth: 0.6, harmonicContent: 78,
+      instrumentType: 'synthesizer', waveform: 'square', filterType: 'lowpass',
+      filterCutoff: 2400, filterResonance: 0.65, envelopeDecay: 0.42,
+      lfoRate: 6.2, lfoDepth: 0.35, portamento: 0.08, detuneAmount: 0.12,
+      harmonicSeries: [1, 2, 3, 4, 5, 6], harmonicBalance: [1.0, 0.82, 0.68, 0.48, 0.32, 0.18],
+      unison: 3, unisonDetune: 0.08, brightness: 0.82
+    },
+    
+    keys: { 
+      type: 'keys', pitch: 0, decay: 0.95, tone: 65, attack: 0.004, lofi: 0,
+      velocitySensitivity: 0.92, stereoWidth: 0.7, harmonicContent: 72,
+      instrumentType: 'digital_piano', keyCount: 88, hammerAction: true,
+      fundamentalFreq: 261.63, stringResonance: 0.82, sustainDecay: 0.95,
+      harmonicSeries: [1, 2, 3, 4, 5, 6, 7], harmonicDecay: [1.0, 0.82, 0.68, 0.52, 0.38, 0.25, 0.15],
+      inharmonicity: 0.22, partialTuning: 'stretched', hammerNoise: 0.25,
+      releaseNoise: 0.18, damperNoise: 0.12, pedalResonance: 0.72,
+      mechanicalClick: 0.18, stereoMicing: 'spaced_pair', roomAmbience: 0.25,
+      micType: 'condenser_large', modernProcessing: true
+    }
   },
 
   house: {
-    // Kit character: Medium club room, balanced mix, modern clean ~2018
-    _kitMeta: { roomSize: 0.55, roomBrightness: 68, micDistance: 0.48, vintageYear: 2018, wear: 0.15 },
+    _kitMeta: { 
+      roomSize: 0.55, roomBrightness: 68, micDistance: 0.48, vintageYear: 2018, wear: 0.15,
+      bitDepth: 24, sampleRate: 44100, compressionRatio: 7.5, micPreamp: 'modern_transformer',
+      masterBus: 'glue_comp', characterCurve: 'club_optimized'
+    },
     
-    kick: { type: 'kick', pitch: -1, decay: 0.38, tone: 68, noise: 7, lofi: 3, dist: 12,
-            attack: 0.003, transientGain: 1.25, velocitySensitivity: 0.85, stereoWidth: 0.18, harmonicContent: 68 },
-    snare: { type: 'snare', pitch: 1, decay: 0.15, tone: 56, noise: 74, lofi: 5, dist: 8,
-             snareRattle: 32, attack: 0.003, transientGain: 1.2, velocitySensitivity: 0.83, stereoWidth: 0.32, harmonicContent: 62 },
-    hihatClosed: { type: 'hihat', pitch: 2, decay: 0.042, tone: 62, noise: 86, lofi: 4, closed: true,
-                   attack: 0.002, velocitySensitivity: 0.87, stereoWidth: 0.75, harmonicContent: 70 },
-    hihatOpen: { type: 'hihat', pitch: 2, decay: 0.19, tone: 66, noise: 81, lofi: 4, closed: false,
-                 attack: 0.003, velocitySensitivity: 0.85, stereoWidth: 0.8, harmonicContent: 72 },
-    clap: { type: 'clap', pitch: 0, decay: 0.14, tone: 41, noise: 89, lofi: 2, dist: 13,
-            attack: 0.004, velocitySensitivity: 0.8, stereoWidth: 0.6, harmonicContent: 58 },
-    rimshot: { type: 'snare', pitch: 9, decay: 0.052, tone: 76, noise: 31, lofi: 4,
-               attack: 0.002, velocitySensitivity: 0.88, stereoWidth: 0.38, harmonicContent: 72 },
-    tomLow: { type: 'tom', pitch: -1, decay: 0.34, tone: 74, noise: 10, lofi: 4,
-              attack: 0.005, velocitySensitivity: 0.82, stereoWidth: 0.42, harmonicContent: 65 },
-    tomHigh: { type: 'tom', pitch: 5, decay: 0.26, tone: 70, noise: 11, lofi: 4,
-               attack: 0.004, velocitySensitivity: 0.84, stereoWidth: 0.52, harmonicContent: 68 },
+    kick: { 
+      type: 'kick', pitch: -1, decay: 0.38, tone: 68, noise: 7, lofi: 3, dist: 12,
+      attack: 0.003, transientGain: 1.25, velocitySensitivity: 0.85, stereoWidth: 0.18,
+      harmonicContent: 68, drumSize: 22, shellMaterial: 'birch', headType: 'coated_single',
+      beaterMaterial: 'felt_hard', beaterWeight: 'medium', beaterAngle: 50,
+      fundamentalFreq: 60, subFreq: 50, subWeight: 0.75, bodyResonance: 0.72,
+      overtones: [120, 180, 240], overtoneBalance: [0.52, 0.28, 0.15, 0.06],
+      clickFreq: 3200, beaterClick: 0.52, clickDecay: 0.018, clickHarmonics: 0.65,
+      dampening: 0.55, portHole: 0.0, headTension: 0.48, bodyDecay: 0.38,
+      transientShape: 'punchy', transientPeak: 0.003, sustainCurve: 'club_optimized',
+      roomReflection: 0.25, earlyReflections: 0.28, micBleed: 0.18,
+      proximity: 0.42, phaseAlignment: 0.94, micPlacement: 'center',
+      roomMics: 0.32, innerMic: 'akg_d12', outerMic: 'beta_52',
+      compression: 0.72, punch: 0.78, dancefloor: 0.85
+    },
     
-    bass: { type: 'bass', pitch: 1, decay: 0.78, tone: 66, attack: 0.0048, lofi: 0, dist: 9,
-            velocitySensitivity: 0.88, stereoWidth: 0.22, harmonicContent: 68 },
-    keys: { type: 'keys', pitch: -3, decay: 1.02, tone: 61, attack: 0.0052, lofi: 0,
-            velocitySensitivity: 0.9, stereoWidth: 0.65, harmonicContent: 65 },
-    lead: { type: 'lead', pitch: 11, decay: 0.92, tone: 67, attack: 0.011, lofi: 0,
-            velocitySensitivity: 0.86, stereoWidth: 0.58, harmonicContent: 70 }
+    snare: { 
+      type: 'snare', pitch: 1, decay: 0.15, tone: 56, noise: 74, lofi: 5, dist: 8,
+      attack: 0.003, transientGain: 1.2, velocitySensitivity: 0.83, stereoWidth: 0.32,
+      harmonicContent: 62, drumSize: 14, depth: 5.5, shellMaterial: 'maple',
+      shellThickness: 6, topHead: 'coated_ambassador', bottomHead: 'snare_side',
+      wireCount: 18, wireMaterial: 'steel', wireTension: 0.75, wireResponse: 0.85,
+      snareRattle: 32, rattleDecay: 0.15, rattleFreqRange: [180, 8500],
+      wireStrands: 'standard', snareThrow: 1.0, fundamentalFreq: 225,
+      bodyFreq: 190, overtones: [450, 675, 900], overtoneSpread: 0.78,
+      harmonicDecay: 0.22, rimFreq: 2700, centerStrike: 0.78, edgeStrike: 0.0,
+      rimShot: 0.0, stickTip: 'wood', stickWeight: 'medium', strikeAngle: 12,
+      topHeadTension: 0.72, bottomHeadTension: 0.78, headInteraction: 0.65,
+      transientShape: 'natural', sustainDecay: 0.15, crack: 0.72,
+      roomReflection: 0.28, micBleed: 0.22, overheadBleed: 0.38,
+      topMic: 'sm57', bottomMic: 'sm57', micPhase: 'inverted',
+      compression: 0.68
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: 2, decay: 0.042, tone: 62, noise: 86, lofi: 4, closed: true,
+      attack: 0.002, velocitySensitivity: 0.87, stereoWidth: 0.75, harmonicContent: 70,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium', cymbalProfile: 'modern',
+      topCymbalThickness: 1.0, bottomCymbalThickness: 1.2, bellSize: 4.5,
+      metalAlloy: 'b20_bronze', hammerPattern: 'modern', lathing: 'full',
+      fundamentalFreq: 900, bellResonance: 0.35, edgeTone: 0.72, brilliance: 0.78,
+      metalComplexity: 0.88, inharmonicity: 0.8, partialDecay: [0.038, 0.035, 0.032],
+      frequencySpread: [900, 2600, 6000, 9800], overtoneBalance: [1.0, 0.75, 0.48, 0.25],
+      footPressure: 0.78, clutchTension: 'tight', standTilt: 4, cymbalSeparation: 0.12,
+      airRelease: 0.18, airPressure: 0.25, suctionEffect: 0.52, tipContact: 'shoulder',
+      stickMaterial: 'wood', stickTip: 'small', chick: 0.75, dynamicRange: 45,
+      stereoSpread: 0.75, roomReflection: 0.25, overheadBleed: 0.52,
+      micType: 'condenser_small', micDistance: 7, micAngle: 40
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: 2, decay: 0.19, tone: 66, noise: 81, lofi: 4, closed: false,
+      attack: 0.003, velocitySensitivity: 0.85, stereoWidth: 0.8, harmonicContent: 72,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium', cymbalProfile: 'modern',
+      topCymbalThickness: 1.0, bottomCymbalThickness: 1.2, bellSize: 4.5,
+      metalAlloy: 'b20_bronze', hammerPattern: 'modern', lathing: 'full',
+      fundamentalFreq: 900, bellResonance: 0.42, edgeTone: 0.75, brilliance: 0.75,
+      metalComplexity: 0.85, inharmonicity: 0.82, shimmerDecay: 0.75,
+      frequencySpread: [900, 2600, 6000, 9800, 13000],
+      overtoneBalance: [1.0, 0.78, 0.58, 0.38, 0.2], sustainBuild: 0.012,
+      washCharacter: 0.68, wash: 0.72, footPressure: 0.22, clutchTension: 'tight',
+      cymbalSeparation: 1.0, airRelease: 0.72, airPressure: 0.88, suctionEffect: 0.15,
+      pedalOpenness: 0.72, footBarrel: 0.38, tipContact: 'edge',
+      stickMaterial: 'wood', strikeForce: 'medium', swell: 0.58, bloom: 0.68,
+      dynamicRange: 48, stereoSpread: 0.8, roomReflection: 0.32,
+      overheadBleed: 0.65, micType: 'condenser_small', micDistance: 7
+    },
+    
+    clap: { 
+      type: 'clap', pitch: 0, decay: 0.14, tone: 41, noise: 89, lofi: 2, dist: 13,
+      attack: 0.004, velocitySensitivity: 0.8, stereoWidth: 0.6, harmonicContent: 58,
+      handCount: 6, handSize: 'medium', clapTightness: 'medium', handCupping: 0.42,
+      initialSlap: 0.72, slapFreq: 1900, slapDecay: 0.009, slapHarmonics: 0.65,
+      timingSpread: 0.011, velocityVariation: 0.16, stereoSpread: 0.6,
+      multiHitDelay: [0.0, 0.009, 0.02, 0.035, 0.052, 0.072],
+      multiHitGain: [1.0, 0.75, 0.62, 0.48, 0.38, 0.28],
+      fundamentalFreq: 950, bodyResonance: 0.45, airCompression: 0.58,
+      highFreqContent: 0.75, skinTexture: 0.38, reverseDecay: 0.16,
+      roomSlap: 0.42, roomSize: 'medium', earlyReflections: 0.38,
+      compression: 0.72
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 9, decay: 0.052, tone: 76, noise: 31, lofi: 4,
+      attack: 0.002, velocitySensitivity: 0.88, stereoWidth: 0.38, harmonicContent: 72,
+      drumSize: 14, shellMaterial: 'maple', rimMaterial: 'steel_triple_flange',
+      stickContact: 'simultaneous', stickAngle: 35, stickTip: 'wood',
+      fundamentalFreq: 500, metalRing: 0.88, metalDecay: 0.062, metalFreq: 2900,
+      woodContact: 0.75, woodFreq: 1350, woodDecay: 0.052, headResponse: 0.35,
+      headDampening: 0.75, overtones: [1000, 1500, 2000], overtoneDecay: 0.045,
+      ringOut: 0.75, clickTransient: 0.92, transientFreq: 3600, pitchBend: 0.2
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: -1, decay: 0.34, tone: 74, noise: 10, lofi: 4,
+      attack: 0.005, velocitySensitivity: 0.82, stereoWidth: 0.42, harmonicContent: 65,
+      drumSize: 14, depth: 12, shellMaterial: 'birch', shellThickness: 7,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 110, bodyResonance: 0.75, overtones: [220, 330, 440],
+      overtoneBalance: [1.0, 0.62, 0.35, 0.18], sustainDecay: 0.34,
+      headInteraction: 0.68, airCoupling: 0.62, headTension: 0.55,
+      topBottomRatio: 0.85, dampening: 0.48, transientShape: 'natural',
+      attackCurve: 'exponential', roomReflection: 0.32, micBleed: 0.25,
+      overheadBleed: 0.42, doubleHeaded: true, resonantDecay: 0.38
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 5, decay: 0.26, tone: 70, noise: 11, lofi: 4,
+      attack: 0.004, velocitySensitivity: 0.84, stereoWidth: 0.52, harmonicContent: 68,
+      drumSize: 10, depth: 9, shellMaterial: 'birch', shellThickness: 6,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 185, bodyResonance: 0.72, overtones: [370, 555, 740],
+      overtoneBalance: [1.0, 0.65, 0.38, 0.2], sustainDecay: 0.26,
+      headInteraction: 0.72, airCoupling: 0.65, headTension: 0.65,
+      topBottomRatio: 0.88, dampening: 0.55, transientShape: 'natural',
+      attackCurve: 'exponential', roomReflection: 0.35, micBleed: 0.28,
+      overheadBleed: 0.48, doubleHeaded: true, resonantDecay: 0.35
+    },
+    
+    bass: { 
+      type: 'bass', pitch: 1, decay: 0.78, tone: 66, attack: 0.0048, lofi: 0, dist: 9,
+      velocitySensitivity: 0.88, stereoWidth: 0.22, harmonicContent: 68,
+      stringCount: 4, stringGauge: [0.045, 0.065, 0.085, 0.105],
+      tuning: 'standard', stringMaterial: 'nickel_roundwound', stringAge: 'good',
+      stringTension: 'medium', fundamentalFreq: 82, subHarmonics: 0.68,
+      overtones: [164, 246, 328], harmonicBalance: [1.0, 0.75, 0.52, 0.32, 0.18],
+      sustainDecay: 0.78, pickAttack: 0.62, fingerStyle: false,
+      playingPosition: 'bridge', stringResonance: 0.72, fretNoise: 0.28,
+      fretBuzz: 0.15, stringSlap: 0.0, bodyResonance: 0.75, bodyWood: 'alder',
+      neckWood: 'maple', pickupType: 'jazz_both', pickupPosition: 0.55,
+      toneKnob: 0.65, ampModel: 'solid_state', ampGain: 0.55, ampTone: 0.58,
+      cabinetIR: 'ampeg_4x10', cabinetMic: 'u47', micDistance: 16,
+      compression: 0.65
+    },
+    
+    keys: { 
+      type: 'keys', pitch: -3, decay: 1.02, tone: 61, attack: 0.0052, lofi: 0,
+      velocitySensitivity: 0.9, stereoWidth: 0.65, harmonicContent: 65,
+      instrumentType: 'electric_piano', keyCount: 73, hammerAction: true,
+      tineResonance: 0.78, pickupDistance: 0.62, amplification: 'transistor',
+      fundamentalFreq: 261.63, stringResonance: 0.78, tineDecay: 1.02,
+      harmonicSeries: [1, 2, 3, 4, 5, 6], harmonicDecay: [1.0, 0.75, 0.52, 0.35, 0.22, 0.12],
+      inharmonicity: 0.32, partialTuning: 'stretched', hammerNoise: 0.38,
+      releaseNoise: 0.25, damperNoise: 0.16, pedalResonance: 0.65,
+      mechanicalClick: 0.32, stereoMicing: 'spaced_pair', roomAmbience: 0.32,
+      micType: 'condenser_large'
+    },
+    
+    lead: { 
+      type: 'lead', pitch: 11, decay: 0.92, tone: 67, attack: 0.011, lofi: 0,
+      velocitySensitivity: 0.86, stereoWidth: 0.58, harmonicContent: 70,
+      instrumentType: 'synthesizer', waveform: 'sawtooth', filterType: 'lowpass',
+      filterCutoff: 1800, filterResonance: 0.55, envelopeDecay: 0.92,
+      lfoRate: 5.5, lfoDepth: 0.32, portamento: 0.12, detuneAmount:  0.015, velocityVariation: 0.18, stereoSpread: 0.48,
+      multiHitDelay: [0.0, 0.008, 0.018, 0.032], multiHitGain: [1.0, 0.75, 0.62, 0.45],
+      // Frequency response
+      fundamentalFreq: 900, bodyResonance: 0.42, airCompression: 0.55,
+      highFreqContent: 0.72, skinTexture: 0.38, reverseDecay: 0.22,
+      // Room interaction
+      roomSlap: 0.38, roomSize: 'small', earlyReflections: 0.35,
+      roomAbsorption: 0.62, stereoWidth: 0.48
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 6, decay: 0.065, tone: 60, noise: 38, lofi: 28,
+      attack: 0.0018, velocitySensitivity: 0.8, stereoWidth: 0.32, harmonicContent: 60,
+      // Rimshot mechanics
+      drumSize: 14, shellMaterial: 'maple', rimMaterial: 'steel_triple_flange',
+      stickContact: 'simultaneous', stickAngle: 35, stickTip: 'wood',
+      // Sound characteristics
+      fundamentalFreq: 480, metalRing: 0.82, metalDecay: 0.055, metalFreq: 2800,
+      woodContact: 0.65, woodFreq: 1200, woodDecay: 0.045,
+      headResponse: 0.35, headDampening: 0.75,
+      // Harmonic content
+      overtones: [960, 1440, 1920], overtoneDecay: 0.038, ringOut: 0.68,
+      clickTransient: 0.88, transientFreq: 3500, pitchBend: 0.22
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: -5, decay: 0.42, tone: 64, noise: 14, lofi: 32,
+      attack: 0.006, velocitySensitivity: 0.76, stereoWidth: 0.38, harmonicContent: 52,
+      // Tom modeling
+      drumSize: 14, depth: 12, shellMaterial: 'birch', shellThickness: 7,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      // Acoustic properties
+      fundamentalFreq: 98, bodyResonance: 0.72, overtones: [196, 294, 392],
+      overtoneBalance: [1.0, 0.58, 0.32, 0.15], sustainDecay: 0.42,
+      headInteraction: 0.65, airCoupling: 0.58,
+      // Dynamics
+      headTension: 0.52, topBottomRatio: 0.85, dampening: 0.45,
+      transientShape: 'natural', attackCurve: 'exponential',
+      // Spatial
+      roomReflection: 0.32, micBleed: 0.25, overheadBleed: 0.42,
+      doubleHeaded: true, resonantDecay: 0.38
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 1, decay: 0.32, tone: 60, noise: 16, lofi: 32,
+      attack: 0.005, velocitySensitivity: 0.78, stereoWidth: 0.42, harmonicContent: 54,
+      // Tom modeling
+      drumSize: 10, depth: 9, shellMaterial: 'birch', shellThickness: 6,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      // Acoustic properties
+      fundamentalFreq: 165, bodyResonance: 0.68, overtones: [330, 495, 660],
+      overtoneBalance: [1.0, 0.62, 0.35, 0.18], sustainDecay: 0.32,
+      headInteraction: 0.68, airCoupling: 0.62,
+      // Dynamics
+      headTension: 0.62, topBottomRatio: 0.88, dampening: 0.52,
+      transientShape: 'natural', attackCurve: 'exponential',
+      // Spatial
+      roomReflection: 0.35, micBleed: 0.28, overheadBleed: 0.45,
+      doubleHeaded: true, resonantDecay: 0.35
+    },
+    
+    bass: { 
+      type: 'bass', pitch: -1, decay: 0.78, tone: 48, attack: 0.008, lofi: 40, dist: 18,
+      velocitySensitivity: 0.84, stereoWidth: 0.18, harmonicContent: 48, bitDepth: 12,
+      // Bass guitar modeling
+      stringCount: 4, stringGauge: [0.045, 0.065, 0.085, 0.105], tuning: 'standard',
+      stringMaterial: 'nickel_roundwound', stringAge: 'broken_in', stringTension: 'medium',
+      // Acoustic properties
+      fundamentalFreq: 82, subHarmonics: 0.58, overtones: [164, 246, 328],
+      harmonicBalance: [1.0, 0.68, 0.42, 0.25, 0.15], sustainDecay: 0.78,
+      // Playing characteristics
+      pickAttack: 0.55, fingerStyle: false, playingPosition: 'bridge',
+      stringResonance: 0.65, fretNoise: 0.28, fretBuzz: 0.15, stringSlap: 0.0,
+      // Body & electronics
+      bodyResonance: 0.68, bodyWood: 'alder', neckWood: 'maple',
+      pickupType: 'jazz_bridge', pickupPosition: 0.65, toneKnob: 0.6,
+      // Amp simulation
+      ampModel: 'vintage_tube', ampGain: 0.42, ampTone: 0.48,
+      cabinetIR: 'ampeg_4x10', cabinetMic: 'u47', micDistance: 18,
+      // Vintage character
+      analogWarmth: 0.72, tubeSaturation: 0.28, tapeCompression: 0.35,
+      vinylCrackle: 0.0, wowFlutter: 0.12, noiseFloor: -62
+    },
+    
+    keys: { 
+      type: 'keys', pitch: 2, decay: 0.95, tone: 45, attack: 0.012, lofi: 44,
+      velocitySensitivity: 0.87, stereoWidth: 0.52, harmonicContent: 50, vinylCrackle: 15,
+      // Piano/keyboard modeling
+      instrumentType: 'electric_piano_vintage', keyCount: 73, hammerAction: true,
+      tineResonance: 0.75, pickupDistance: 0.65, amplification: 'transistor',
+      // Acoustic properties
+      fundamentalFreq: 261.63, stringResonance: 0.75, tineDecay: 0.95,
+      harmonicSeries: [1, 2, 3, 4, 5, 6], harmonicDecay: [1.0, 0.72, 0.48, 0.32, 0.18, 0.08],
+      inharmonicity: 0.35, partialTuning: 'stretched',
+      // Mechanical noise
+      hammerNoise: 0.42, releaseNoise: 0.28, damperNoise: 0.18,
+      pedalResonance: 0.62, mechanicalClick: 0.35,
+      // Effects & character
+      tremolo: 0.0, chorus: 0.0, vibrato: 0.0,
+      vintageCharacter: 0.72, bell: 0.55, bark: 0.48,
+      // Recording
+      stereoMicing: 'spaced_pair', roomAmbience: 0.32, micType: 'ribbon'
+    },
+    
+    guitar: { 
+      type: 'guitar', pitch: -2, decay: 0.88, tone: 51, attack: 0.006, lofi: 38,
+      velocitySensitivity: 0.82, stereoWidth: 0.58, harmonicContent: 54,
+      // Guitar modeling
+      stringCount: 6, stringGauge: [0.010, 0.013, 0.017, 0.026, 0.036, 0.046],
+      tuning: 'standard', stringMaterial: 'nickel_roundwound', stringAge: 'medium',
+      // Acoustic properties
+      fundamentalFreq: 196, overtones: [392, 588, 784, 980],
+      harmonicBalance: [1.0, 0.68, 0.45, 0.28, 0.15], sustainDecay: 0.88,
+      // Playing characteristics
+      pickNoise: 0.35, pickThickness: 0.71, pickMaterial: 'nylon',
+      fretBuzz: 0.22, fretNoise: 0.28, stringSlide: 0.18,
+      playingPosition: 'middle', strikeDynamics: 0.82,
+      // Body & construction
+      bodyResonance: 0.78, bodyWood: 'mahogany', topWood: 'spruce',
+      bodySize: 'dreadnought', bracing: 'x_braced', soundholeSize: 4,
+      // Interaction
+      stringInteraction: 0.48, sympatheticResonance: 0.42,
+      neckResonance: 0.38, bodyVibration: 0.65,
+      // Recording
+      micType: 'condenser_large', micPosition: '12th_fret', micDistance: 12,
+      roomAmbience: 0.35, stereoWidth: 0.58
+    }
   },
 
-  techno: {
-    // Kit character: Large warehouse, bright open space, modern pristine ~2021
-    _kitMeta: { roomSize: 0.7, roomBrightness: 78, micDistance: 0.5, vintageYear: 2021, wear: 0.08 },
+  metal: {
+    _kitMeta: { 
+      roomSize: 0.68, roomBrightness: 82, micDistance: 0.58, vintageYear: 2024, wear: 0.05,
+      bitDepth: 24, sampleRate: 96000, compressionRatio: 8.5, gateThreshold: -42,
+      micPreamp: 'modern_fet', parallelCompression: 0.45, masterBus: 'ssl_comp',
+      micType: 'multi_mic_array', roomTreatment: 'professional', signalPath: 'pristine'
+    },
     
-    kick: { type: 'kick', pitch: 1, decay: 0.26, tone: 78, noise: 3, lofi: 0, dist: 32,
-            attack: 0.0008, transientGain: 1.4, velocitySensitivity: 0.9, stereoWidth: 0.12, harmonicContent: 75 },
-    snare: { type: 'snare', pitch: 6, decay: 0.075, tone: 46, noise: 84, lofi: 0, dist: 28,
-             snareRattle: 38, attack: 0.0004, transientGain: 1.45, velocitySensitivity: 0.92, stereoWidth: 0.28, harmonicContent: 68 },
-    hihatClosed: { type: 'hihat', pitch: 7, decay: 0.022, tone: 74, noise: 95, lofi: 0, closed: true,
-                   attack: 0.0002, velocitySensitivity: 0.94, stereoWidth: 0.82, harmonicContent: 82 },
-    hihatOpen: { type: 'hihat', pitch: 6, decay: 0.11, tone: 76, noise: 92, lofi: 0, closed: false,
-                 attack: 0.0003, velocitySensitivity: 0.92, stereoWidth: 0.85, harmonicContent: 80 },
-    clap: { type: 'clap', pitch: 4, decay: 0.09, tone: 28, noise: 94, lofi: 0, dist: 32,
-            attack: 0.0004, velocitySensitivity: 0.88, stereoWidth: 0.62, harmonicContent: 65 },
-    rimshot: { type: 'snare', pitch: 14, decay: 0.032, tone: 88, noise: 22, lofi: 0,
-               attack: 0.0002, velocitySensitivity: 0.9, stereoWidth: 0.35, harmonicContent: 78 },
-    tomLow: { type: 'tom', pitch: 1, decay: 0.28, tone: 84, noise: 6, lofi: 0,
-              attack: 0.004, velocitySensitivity: 0.87, stereoWidth: 0.4, harmonicContent: 72 },
-    tomHigh: { type: 'tom', pitch: 8, decay: 0.21, tone: 82, noise: 7, lofi: 0,
-               attack: 0.003, velocitySensitivity: 0.89, stereoWidth: 0.5, harmonicContent: 75 },
+    kick: { 
+      type: 'kick', pitch: -12, decay: 0.14, tone: 75, noise: 6, lofi: 0, dist: 68,
+      attack: 0.0003, transientGain: 1.55, velocitySensitivity: 0.92, stereoWidth: 0.12,
+      harmonicContent: 72,
+      // Acoustic modeling
+      drumSize: 24, shellMaterial: 'maple_reinforced', headType: 'clear_single_ported',
+      beaterMaterial: 'hard_plastic', beaterWeight: 'heavy', beaterAngle: 90,
+      doublePedal: true, pedalTension: 'high', pedalResponse: 'ultra_fast',
+      // Frequency response
+      fundamentalFreq: 55, subFreq: 45, subWeight: 0.85, bodyResonance: 0.38,
+      overtones: [110, 165, 220], overtoneBalance: [0.35, 0.18, 0.08, 0.03],
+      clickFreq: 3800, beaterClick: 0.88, clickDecay: 0.008, clickHarmonics: 0.92,
+      attackClick: 0.95, metalBeater: true,
+      // Extreme processing
+      dampening: 0.82, portHole: 0.0, pillow: 'full_muffle', headTension: 0.35,
+      bodyDecay: 0.14, transientShape: 'ultra_sharp', transientPeak: 0.0003,
+      sustainCurve: 'brick_wall', gateRelease: 0.025,
+      // Multi-mic setup
+      innerMic: 'akg_d112', innerMicDistance: 3, innerMicGain: 1.0,
+      outerMic: 'shure_beta91', outerMicPlacement: 'inside', outerMicGain: 0.85,
+      subMic: 'yamaha_subkick', subMicGain: 0.75,
+      // Spatial
+      roomReflection: 0.12, roomMics: 0.22, roomMicCompression: 0.65,
+      earlyReflections: 0.08, micBleed: 0.05, phaseAlignment: 0.98,
+      // Dynamics
+      dynamicRange: 55, velocityResponse: 'linear', ghostNotes: 0.25,
+      pedalTechnique: 'slide', heelToe: true, swivel: false,
+      reboundDamping: 0.88, footPosition: 'centered'
+    },
+    
+    snare: { 
+      type: 'snare', pitch: 8, decay: 0.095, tone: 86, noise: 90, lofi: 0, dist: 58,
+      attack: 0.00025, transientGain: 1.62, velocitySensitivity: 0.94, stereoWidth: 0.22,
+      harmonicContent: 80,
+      // Acoustic modeling
+      drumSize: 14, depth: 6.5, shellMaterial: 'steel', shellThickness: 1.2,
+      metalShell: true, shellFinish: 'chrome',
+      topHead: 'coated_emperor', bottomHead: 'snare_side_diplomat',
+      // Snare mechanics
+      wireCount: 20, wireMaterial: 'steel_coated', wireTension: 0.88,
+      wireResponse: 0.95, snareRattle: 48, rattleDecay: 0.12,
+      rattleFreqRange: [200, 10000], wireStrands: 'micro_crimped',
+      snareThrow: 1.0, snaireBeds: 'precision_cut',
+      // Frequency response
+      fundamentalFreq: 240, bodyFreq: 200, crackFreq: 4200,
+      overtones: [480, 720, 960, 1200], overtoneSpread: 0.88,
+      harmonicDecay: 0.18, rimFreq: 2800, ringFreq: 3400,
+      // Articulations
+      centerStrike: 0.92, edgeStrike: 0.0, rimShot: 0.0, crossStick: 0.0,
+      stickTip: 'nylon', stickWeight: 'heavy', strikeAngle: 8,
+      strikeVelocity: 'extreme', edgeTone: 0.75,
+      // Dynamics & processing
+      topHeadTension: 0.78, bottomHeadTension: 0.85, headInteraction: 0.72,
+      transientShape: 'explosive', sustainDecay: 0.095, crack: 0.92,
+      bodyThunk: 0.65, metalRing: 0.58,
+      // Multi-mic setup
+      topMic: 'sm57', topMicDistance: 2, topMicAngle: 45, topMicGain: 1.0,
+      bottomMic: 'sm57', bottomMicDistance: 3, bottomMicPhase: 'inverted',
+      // Spatial
+      roomReflection: 0.15, roomMics: 0.28, micBleed: 0.08,
+      overheadBleed: 0.35, compression: 0.85, gating: 0.75,
+      ghostNoteResponse: 0.35, buzzResponse: 0.22, sympatheticVibration: 0.18
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: 9, decay: 0.016, tone: 94, noise: 98, lofi: 0, closed: true,
+      attack: 0.00015, velocitySensitivity: 0.95, stereoWidth: 0.78, harmonicContent: 85,
+      // Cymbal modeling
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'heavy', cymbalProfile: 'modern',
+      topCymbalThickness: 1.4, bottomCymbalThickness: 1.6, bellSize: 5,
+      metalAlloy: 'b8_bronze', hammerPattern: 'machine', lathing: 'minimal',
+      // Acoustic properties
+      fundamentalFreq: 920, bellResonance: 0.28, edgeTone: 0.85, brilliance: 0.88,
+      metalComplexity: 0.96, inharmonicity: 0.88, partialDecay: [0.014, 0.012, 0.010],
+      frequencySpread: [920, 2800, 6200, 10500, 15000],
+      overtoneBalance: [1.0, 0.82, 0.58, 0.35, 0.18],
+      // Mechanics
+      footPressure: 0.92, clutchTension: 'ultra_tight', standTilt: 3,
+      cymbalSeparation: 0.08, airRelease: 0.05, airPressure: 0.15,
+      suctionEffect: 0.68, lockup: 0.85,
+      // Dynamics
+      tipContact: 'shoulder', stickMaterial: 'carbon_fiber', stickTip: 'micro',
+      chick: 0.95, chop: 0.0, splash: 0.0, dynamicRange: 52,
+      stick Definition: 0.95, attack: 0.92,
+      // Recording
+      stereoSpread: 0.78, roomReflection: 0.12, overheadBleed: 0.45,
+      micType: 'condenser_pencil', micDistance: 6, micAngle: 35,
+      highPassFilter: 300, compression: 0.75
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: 8, decay: 0.085, tone: 92, noise: 96, lofi: 0, closed: false,
+      attack: 0.0002, velocitySensitivity: 0.93, stereoWidth: 0.82, harmonicContent: 83,
+      // Cymbal modeling
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'heavy', cymbalProfile: 'modern',
+      topCymbalThickness: 1.4, bottomCymbalThickness: 1.6, bellSize: 5,
+      metalAlloy: 'b8_bronze', hammerPattern: 'machine', lathing: 'minimal',
+      // Acoustic properties
+      fundamentalFreq: 920, bellResonance: 0.38, edgeTone: 0.78, brilliance: 0.85,
+      metalComplexity: 0.94, inharmonicity: 0.85, shimmerDecay: 0.65,
+      frequencySpread: [920, 2800, 6200, 10500, 15000],
+      overtoneBalance: [1.0, 0.88, 0.68, 0.45, 0.25],
+      sustainBuild: 0.008, washCharacter: 0.45, sizzle: 0.0,
+      // Mechanics
+      footPressure: 0.15, clutchTension: 'ultra_tight', cymbalSeparation: 0.9,
+      airRelease: 0.75, airPressure: 0.92, suctionEffect: 0.08,
+      pedalOpenness: 0.68, footBarrel: 0.45,
+      // Dynamics
+      tipContact: 'edge', stickMaterial: 'carbon_fiber', strikeForce: 'heavy',
+      wash: 0.55, swell: 0.48, bloom: 0.52, dynamicRange: 48,
+      articulation: 0.88, crispness: 0.92,
+      // Recording
+      stereoSpread: 0.82, roomReflection: 0.15, overheadBleed: 0.55,
+      micType: 'condenser_pencil', micDistance: 6, compression: 0.68
+    },
+    
+    clap: { 
+      type: 'clap', pitch: 4, decay: 0.075, tone: 50, noise: 96, lofi: 0, dist: 42,
+      attack: 0.0003, velocitySensitivity: 0.88, stereoWidth: 0.58, harmonicContent: 68,
+      // Layered clap modeling
+      handCount: 8, layered: true, layerCount: 3,
+      handSize: 'large', clapTightness: 'tight', handCupping: 0.35,
+      initialSlap: 0.82, slapFreq: 2200, slapDecay: 0.006, slapHarmonics: 0.75,
+      // Timing & spread
+      timingSpread: 0.005, velocityVariation: 0.08, stereoSpread: 0.58,
+      multiHitDelay: [0.0, 0.004, 0.009, 0.016, 0.026, 0.038, 0.052, 0.068],
+      multiHitGain: [1.0, 0.92, 0.85, 0.75, 0.65, 0.52, 0.4, 0.28],
+      fundamentalFreq: 1250, bodyResonance: 0.48, airCompression: 0.75,
+      highFreqContent: 0.9, skinTexture: 0.35, reverseDecay: 0.12,
+      roomSlap: 0.35, roomSize: 'large', earlyReflections: 0.32,
+      compression: 0.88, saturation: 0.5
+    },
+
+    techno: {
+    _kitMeta: { 
+      roomSize: 0.72, roomBrightness: 80, micDistance: 0.52, vintageYear: 2023, wear: 0.06,
+      bitDepth: 24, sampleRate: 48000, compressionRatio: 9.2, micPreamp: 'modern_discrete',
+      masterBus: 'digital_comp', signalPath: 'ultra_clean', stereoImaging: 'wide'
+    },
+    
+    kick: { 
+      type: 'kick', pitch: 1, decay: 0.28, tone: 80, noise: 2, lofi: 0, dist: 36,
+      attack: 0.0006, transientGain: 1.45, velocitySensitivity: 0.93, stereoWidth: 0.1,
+      harmonicContent: 78,
+      drumSize: 22, shellMaterial: 'birch', headType: 'coated_single',
+      beaterMaterial: 'felt_medium', beaterWeight: 'medium', beaterAngle: 52,
+      fundamentalFreq: 62, subFreq: 52, subWeight: 0.68, bodyResonance: 0.65,
+      overtones: [124, 186, 248], overtoneBalance: [0.48, 0.28, 0.15, 0.06],
+      clickFreq: 3400, beaterClick: 0.65, clickDecay: 0.012, clickHarmonics: 0.72,
+      dampening: 0.62, portHole: 0.0, headTension: 0.45, bodyDecay: 0.28,
+      transientShape: 'sharp', transientPeak: 0.0006, sustainCurve: 'techno_optimized',
+      roomReflection: 0.18, earlyReflections: 0.25, micBleed: 0.12,
+      proximity: 0.42, phaseAlignment: 0.96, micPlacement: 'center_aggressive',
+      roomMics: 0.28, innerMic: 'akg_d12', outerMic: 'beta_52',
+      compression: 0.78, punch: 0.88, warehouse: 0.82
+    },
+    
+    snare: { 
+      type: 'snare', pitch: 6, decay: 0.082, tone: 48, noise: 86, lofi: 0, dist: 32,
+      attack: 0.0003, transientGain: 1.48, velocitySensitivity: 0.94, stereoWidth: 0.25,
+      harmonicContent: 70,
+      drumSize: 14, depth: 5.5, shellMaterial: 'steel', shellThickness: 1.0,
+      metalShell: true, topHead: 'coated_ambassador', bottomHead: 'snare_side',
+      wireCount: 20, wireMaterial: 'steel', wireTension: 0.82, wireResponse: 0.92,
+      snareRattle: 40, rattleDecay: 0.1, rattleFreqRange: [190, 9500],
+      wireStrands: 'crimped', snareThrow: 1.0,
+      fundamentalFreq: 235, bodyFreq: 195, crackFreq: 4800,
+      overtones: [470, 705, 940], overtoneSpread: 0.85, harmonicDecay: 0.15,
+      rimFreq: 3000, centerStrike: 0.88, edgeStrike: 0.0,
+      rimShot: 0.0, stickTip: 'nylon', stickWeight: 'medium_heavy',
+      strikeAngle: 10, topHeadTension: 0.75, bottomHeadTension: 0.82,
+      headInteraction: 0.68, transientShape: 'sharp', sustainDecay: 0.082,
+      crack: 0.85, roomReflection: 0.15, micBleed: 0.1, overheadBleed: 0.32,
+      topMic: 'sm57', bottomMic: 'sm57', micPhase: 'inverted',
+      compression: 0.82, gating: 0.72
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: 7, decay: 0.024, tone: 76, noise: 96, lofi: 0, closed: true,
+      attack: 0.0002, velocitySensitivity: 0.95, stereoWidth: 0.8, harmonicContent: 84,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium_heavy',
+      cymbalProfile: 'modern', topCymbalThickness: 1.1, bottomCymbalThickness: 1.3,
+      bellSize: 4.8, metalAlloy: 'b20_bronze', hammerPattern: 'modern',
+      lathing: 'partial', fundamentalFreq: 930, bellResonance: 0.32,
+      edgeTone: 0.82, brilliance: 0.88, metalComplexity: 0.92,
+      inharmonicity: 0.85, partialDecay: [0.022, 0.02, 0.018],
+      frequencySpread: [930, 2900, 6400, 10800, 14800],
+      overtoneBalance: [1.0, 0.8, 0.58, 0.35, 0.18],
+      footPressure: 0.88, clutchTension: 'tight', standTilt: 3,
+      cymbalSeparation: 0.1, airRelease: 0.08, airPressure: 0.18,
+      suctionEffect: 0.62, tipContact: 'shoulder', stickMaterial: 'wood',
+      stickTip: 'small', chick: 0.88, dynamicRange: 50,
+      stereoSpread: 0.8, roomReflection: 0.15, overheadBleed: 0.48,
+      micType: 'condenser_pencil', micDistance: 6, micAngle: 38,
+      compression: 0.78
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: 6, decay: 0.12, tone: 78, noise: 94, lofi: 0, closed: false,
+      attack: 0.0003, velocitySensitivity: 0.93, stereoWidth: 0.84, harmonicContent: 82,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium_heavy',
+      cymbalProfile: 'modern', topCymbalThickness: 1.1, bottomCymbalThickness: 1.3,
+      bellSize: 4.8, metalAlloy: 'b20_bronze', hammerPattern: 'modern',
+      lathing: 'partial', fundamentalFreq: 930, bellResonance: 0.4,
+      edgeTone: 0.78, brilliance: 0.85, metalComplexity: 0.9,
+      inharmonicity: 0.83, shimmerDecay: 0.72,
+      frequencySpread: [930, 2900, 6400, 10800, 14800],
+      overtoneBalance: [1.0, 0.85, 0.65, 0.42, 0.22],
+      sustainBuild: 0.01, washCharacter: 0.68, wash: 0.72,
+      footPressure: 0.18, clutchTension: 'tight', cymbalSeparation: 1.1,
+      airRelease: 0.78, airPressure: 0.92, suctionEffect: 0.12,
+      pedalOpenness: 0.72, footBarrel: 0.42, tipContact: 'edge',
+      stickMaterial: 'wood', strikeForce: 'medium', swell: 0.62,
+      bloom: 0.7, dynamicRange: 48, stereoSpread: 0.84,
+      roomReflection: 0.18, overheadBleed: 0.65, micType: 'condenser_pencil',
+      micDistance: 6, compression: 0.72
+    },
+    
+    clap: { 
+      type: 'clap', pitch: 4, decay: 0.095, tone: 30, noise: 96, lofi: 0, dist: 36,
+      attack: 0.0003, velocitySensitivity: 0.9, stereoWidth: 0.62, harmonicContent: 66,
+      handCount: 7, layered: true, layerCount: 2, handSize: 'medium',
+      clapTightness: 'tight', handCupping: 0.32, initialSlap: 0.82,
+      slapFreq: 2100, slapDecay: 0.006, slapHarmonics: 0.72,
+      timingSpread: 0.007, velocityVariation: 0.1, stereoSpread: 0.62,
+      multiHitDelay: [0.0, 0.005, 0.012, 0.022, 0.035, 0.05, 0.068],
+      multiHitGain: [1.0, 0.88, 0.78, 0.68, 0.55, 0.42, 0.3],
+      fundamentalFreq: 1100, bodyResonance: 0.45, airCompression: 0.68,
+      highFreqContent: 0.85, skinTexture: 0.38, reverseDecay: 0.14,
+      roomSlap: 0.4, roomSize: 'large', earlyReflections: 0.36,
+      compression: 0.82, saturation: 0.45
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 14, decay: 0.035, tone: 90, noise: 20, lofi: 0,
+      attack: 0.0002, velocitySensitivity: 0.92, stereoWidth: 0.32, harmonicContent: 80,
+      drumSize: 14, shellMaterial: 'steel', rimMaterial: 'steel_die_cast',
+      stickContact: 'precise_simultaneous', stickAngle: 30, stickTip: 'nylon',
+      fundamentalFreq: 580, metalRing: 0.92, metalDecay: 0.042, metalFreq: 3400,
+      woodContact: 0.88, woodFreq: 1550, woodDecay: 0.035,
+      headResponse: 0.25, headDampening: 0.85, overtones: [1160, 1740, 2320],
+      overtoneDecay: 0.032, ringOut: 0.8, clickTransient: 0.96,
+      transientFreq: 4300, pitchBend: 0.16
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: 1, decay: 0.3, tone: 86, noise: 5, lofi: 0,
+      attack: 0.003, velocitySensitivity: 0.89, stereoWidth: 0.38, harmonicContent: 74,
+      drumSize: 14, depth: 12, shellMaterial: 'birch', shellThickness: 7,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 120, bodyResonance: 0.78, overtones: [240, 360, 480],
+      overtoneBalance: [1.0, 0.65, 0.38, 0.18], sustainDecay: 0.3,
+      headInteraction: 0.75, airCoupling: 0.68, headTension: 0.5,
+      topBottomRatio: 0.82, dampening: 0.42, transientShape: 'sharp',
+      attackCurve: 'fast', roomReflection: 0.22, micBleed: 0.15,
+      overheadBleed: 0.38, doubleHeaded: true, roomMics: 0.38,
+      resonantDecay: 0.35
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 8, decay: 0.23, tone: 84, noise: 6, lofi: 0,
+      attack: 0.0025, velocitySensitivity: 0.91, stereoWidth: 0.48, harmonicContent: 77,
+      drumSize: 10, depth: 9, shellMaterial: 'birch', shellThickness: 6,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 195, bodyResonance: 0.75, overtones: [390, 585, 780],
+      overtoneBalance: [1.0, 0.68, 0.4, 0.2], sustainDecay: 0.23,
+      headInteraction: 0.78, airCoupling: 0.7, headTension: 0.6,
+      topBottomRatio: 0.85, dampening: 0.48, transientShape: 'sharp',
+      attackCurve: 'fast', roomReflection: 0.25, micBleed: 0.18,
+      overheadBleed: 0.42, doubleHeaded: true, roomMics: 0.42,
+      resonantDecay: 0.3
+    },
   
-    bass: { type: 'bass', pitch: 0, decay: 0.42, tone: 76, attack: 0.0012, lofi: 0, dist: 26,
-            velocitySensitivity: 0.92, stereoWidth: 0.2, harmonicContent: 78 },
-    lead: { type: 'lead', pitch: 0, decay: 0.48, tone: 82, attack: 0.0032, lofi: 0,
-            velocitySensitivity: 0.9, stereoWidth: 0.55, harmonicContent: 80 },
-    fx: { type: 'fx', pitch: 5, decay: 1.2, tone: 52, attack: 0.0008, lofi: 0, dist: 22,
-          velocitySensitivity: 0.85, stereoWidth: 0.85, harmonicContent: 65 }
+    bass: { 
+      type: 'bass', pitch: 0, decay: 0.45, tone: 78, attack: 0.001, lofi: 0, dist: 28,
+      velocitySensitivity: 0.94, stereoWidth: 0.18, harmonicContent: 80,
+      stringCount: 4, stringGauge: [0.105, 0.085, 0.065, 0.045],
+      tuning: 'standard', stringMaterial: 'stainless_steel', stringAge: 'new',
+      stringTension: 'high', fundamentalFreq: 82, subHarmonics: 0.75,
+      overtones: [164, 246, 328, 410], harmonicBalance: [1.0, 0.82, 0.62, 0.42, 0.25],
+      sustainDecay: 0.45, pickAttack: 0.72, fingerStyle: false,
+      playingPosition: 'bridge', stringResonance: 0.68, fretNoise: 0.15,
+      fretBuzz: 0.08, stringSlap: 0.0, bodyResonance: 0.62,
+      bodyWood: 'ash', neckWood: 'maple', pickupType: 'jazz_bridge',
+      pickupPosition: 0.75, toneKnob: 0.45, ampModel: 'modern_solid_state',
+      ampGain: 0.62, ampTone: 0.55, cabinetIR: 'ampeg_8x10',
+      cabinetMic: 'sm57_dual', micDistance: 8, compression: 0.75,
+      modernProcessing: true
+    },
+    
+    lead: { 
+      type: 'lead', pitch: 0, decay: 0.52, tone: 84, attack: 0.003, lofi: 0,
+      velocitySensitivity: 0.92, stereoWidth: 0.52, harmonicContent: 82,
+      instrumentType: 'synthesizer', waveform: 'sawtooth', filterType: 'lowpass',
+      filterCutoff: 2200, filterResonance: 0.68, envelopeDecay: 0.52,
+      lfoRate: 6.5, lfoDepth: 0.38, portamento: 0.06, detuneAmount: 0.1,
+      harmonicSeries: [1, 2, 3, 4, 5, 6], harmonicBalance: [1.0, 0.85, 0.7, 0.52, 0.35, 0.2],
+      unison: 3, unisonDetune: 0.1, brightness: 0.85
+    },
+    
+    fx: { 
+      type: 'fx', pitch: 5, decay: 1.3, tone: 54, attack: 0.0006, lofi: 0, dist: 24,
+      velocitySensitivity: 0.87, stereoWidth: 0.88, harmonicContent: 68,
+      instrumentType: 'synthesizer', waveform: 'noise', filterType: 'bandpass',
+      filterCutoff: 1800, filterResonance: 0.72, filterSweep: 0.65,
+      envelopeDecay: 1.3, lfoRate: 3.2, lfoDepth: 0.48,
+      reverb: 0.45, delay: 0.32, stereoSpread: 0.88
+    }
   },
 
   dnb: {
-    // Kit character: Studio with tight room, aggressive close mics, modern ~2020
-    _kitMeta: { roomSize: 0.45, roomBrightness: 72, micDistance: 0.35, vintageYear: 2020, wear: 0.12 },
+    _kitMeta: { 
+      roomSize: 0.48, roomBrightness: 76, micDistance: 0.38, vintageYear: 2021, wear: 0.1,
+      bitDepth: 24, sampleRate: 48000, compressionRatio: 10.2, gateThreshold: -40,
+      micPreamp: 'modern_transformer', parallelCompression: 0.55, masterBus: 'api_2500',
+      characterCurve: 'aggressive_tight'
+    },
     
-    kick: { type: 'kick', pitch: -1, decay: 0.15, tone: 68, noise: 14, lofi: 0, dist: 52,
-            attack: 0.0005, transientGain: 1.5, velocitySensitivity: 0.92, stereoWidth: 0.15, harmonicContent: 72 },
-    snare: { type: 'snare', pitch: 7, decay: 0.09, tone: 38, noise: 94, lofi: 0, dist: 46,
-             snareRattle: 48, attack: 0.0003, transientGain: 1.55, velocitySensitivity: 0.95, stereoWidth: 0.32, harmonicContent: 75 },
-    hihatClosed: { type: 'hihat', pitch: 8, decay: 0.016, tone: 76, noise: 97, lofi: 0, closed: true,
-                   attack: 0.0001, velocitySensitivity: 0.96, stereoWidth: 0.8, harmonicContent: 85 },
-    hihatOpen: { type: 'hihat', pitch: 7, decay: 0.08, tone: 72, noise: 93, lofi: 0, closed: false,
-                 attack: 0.0002, velocitySensitivity: 0.94, stereoWidth: 0.85, harmonicContent: 82 },
-    clap: { type: 'clap', pitch: 4, decay: 0.07, tone: 26, noise: 96, lofi: 0, dist: 38,
-            attack: 0.0003, velocitySensitivity: 0.9, stereoWidth: 0.6, harmonicContent: 68 },
-    rimshot: { type: 'snare', pitch: 16, decay: 0.025, tone: 89, noise: 20, lofi: 0,
-               attack: 0.0002, velocitySensitivity: 0.93, stereoWidth: 0.38, harmonicContent: 80 },
-    tomLow: { type: 'tom', pitch: 2, decay: 0.22, tone: 78, noise: 8, lofi: 0,
-              attack: 0.003, velocitySensitivity: 0.89, stereoWidth: 0.42, harmonicContent: 72 },
-    tomHigh: { type: 'tom', pitch: 9, decay: 0.16, tone: 76, noise: 9, lofi: 0,
-               attack: 0.002, velocitySensitivity: 0.91, stereoWidth: 0.52, harmonicContent: 75 },
+    kick: { 
+      type: 'kick', pitch: -1, decay: 0.17, tone: 70, noise: 12, lofi: 0, dist: 56,
+      attack: 0.0004, transientGain: 1.58, velocitySensitivity: 0.94, stereoWidth: 0.12,
+      harmonicContent: 74,
+      drumSize: 22, shellMaterial: 'maple', headType: 'coated_single_ported',
+      beaterMaterial: 'hard_plastic', beaterWeight: 'heavy', beaterAngle: 85,
+      fundamentalFreq: 58, subFreq: 48, subWeight: 0.78, bodyResonance: 0.48,
+      overtones: [116, 174, 232], overtoneBalance: [0.38, 0.22, 0.12, 0.05],
+      clickFreq: 3600, beaterClick: 0.82, clickDecay: 0.01, clickHarmonics: 0.88,
+      dampening: 0.75, portHole: 0.0, headTension: 0.38, bodyDecay: 0.17,
+      transientShape: 'ultra_sharp', transientPeak: 0.0004, sustainCurve: 'tight',
+      roomReflection: 0.15, earlyReflections: 0.18, micBleed: 0.08,
+      proximity: 0.38, phaseAlignment: 0.97, micPlacement: 'center_aggressive',
+      roomMics: 0.25, innerMic: 'akg_d112', outerMic: 'beta_91',
+      compression: 0.82, gating: 0.78, punch: 0.92
+    },
+    
+    snare: { 
+      type: 'snare', pitch: 7, decay: 0.098, tone: 40, noise: 96, lofi: 0, dist: 50,
+      attack: 0.00025, transientGain: 1.6, velocitySensitivity: 0.96, stereoWidth: 0.28,
+      harmonicContent: 77,
+      drumSize: 14, depth: 6, shellMaterial: 'steel', shellThickness: 1.0,
+      metalShell: true, topHead: 'coated_emperor', bottomHead: 'snare_side_diplomat',
+      wireCount: 20, wireMaterial: 'steel_coated', wireTension: 0.9, wireResponse: 0.98,
+      snareRattle: 50, rattleDecay: 0.08, rattleFreqRange: [200, 11000],
+      wireStrands: 'micro_crimped', snareThrow: 1.0,
+      fundamentalFreq: 238, bodyFreq: 198, crackFreq: 5200,
+      overtones: [476, 714, 952, 1190], overtoneSpread: 0.92,
+      harmonicDecay: 0.14, rimFreq: 3100, centerStrike: 0.95,
+      edgeStrike: 0.0, rimShot: 0.0, stickTip: 'nylon', stickWeight: 'heavy',
+      strikeAngle: 6, topHeadTension: 0.8, bottomHeadTension: 0.88,
+      headInteraction: 0.75, transientShape: 'explosive', sustainDecay: 0.098,
+      crack: 0.96, bodyThunk: 0.48, metalRing: 0.55,
+      roomReflection: 0.12, micBleed: 0.06, overheadBleed: 0.3,
+      topMic: 'sm57', bottomMic: 'sm57', micPhase: 'inverted',
+      compression: 0.88, gating: 0.82
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: 8, decay: 0.018, tone: 78, noise: 98, lofi: 0, closed: true,
+      attack: 0.00012, velocitySensitivity: 0.97, stereoWidth: 0.78, harmonicContent: 87,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'heavy', cymbalProfile: 'modern',
+      topCymbalThickness: 1.3, bottomCymbalThickness: 1.5, bellSize: 5,
+      metalAlloy: 'b8_bronze', hammerPattern: 'machine', lathing: 'minimal',
+      fundamentalFreq: 940, bellResonance: 0.28, edgeTone: 0.88, brilliance: 0.92,
+      metalComplexity: 0.97, inharmonicity: 0.9, partialDecay: [0.016, 0.014, 0.012],
+      frequencySpread: [940, 3000, 6600, 11200, 15800],
+      overtoneBalance: [1.0, 0.85, 0.62, 0.38, 0.18],
+      footPressure: 0.95, clutchTension: 'ultra_tight', standTilt: 2,
+      cymbalSeparation: 0.07, airRelease: 0.03, airPressure: 0.12,
+      suctionEffect: 0.72, tipContact: 'shoulder', stickMaterial: 'wood',
+      stickTip: 'micro', chick: 0.98, dynamicRange: 54,
+      stereoSpread: 0.78, roomReflection: 0.1, overheadBleed: 0.42,
+      micType: 'condenser_pencil', micDistance: 5, micAngle: 32,
+      compression: 0.8
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: 7, decay: 0.09, tone: 74, noise: 95, lofi: 0, closed: false,
+      attack: 0.0002, velocitySensitivity: 0.95, stereoWidth: 0.83, harmonicContent: 84,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'heavy', cymbalProfile: 'modern',
+      topCymbalThickness: 1.3, bottomCymbalThickness: 1.5, bellSize: 5,
+      metalAlloy: 'b8_bronze', hammerPattern: 'machine', lathing: 'minimal',
+      fundamentalFreq: 940, bellResonance: 0.36, edgeTone: 0.8, brilliance: 0.88,
+      metalComplexity: 0.95, inharmonicity: 0.87, shimmerDecay: 0.68,
+      frequencySpread: [940, 3000, 6600, 11200, 15800],
+      overtoneBalance: [1.0, 0.88, 0.7, 0.48, 0.25],
+      sustainBuild: 0.008, washCharacter: 0.52, wash: 0.62,
+      footPressure: 0.12, clutchTension: 'ultra_tight', cymbalSeparation: 0.95,
+      airRelease: 0.8, airPressure: 0.95, suctionEffect: 0.08,
+      pedalOpenness: 0.7, footBarrel: 0.48, tipContact: 'edge',
+      stickMaterial: 'wood', strikeForce: 'medium', swell: 0.52,
+      bloom: 0.58, dynamicRange: 50, stereoSpread: 0.83,
+      roomReflection: 0.12, overheadBleed: 0.58, micType: 'condenser_pencil',
+      micDistance: 5, compression: 0.75
+    },
+    
+    clap: { 
+      type: 'clap', pitch: 4, decay: 0.078, tone: 28, noise: 98, lofi: 0, dist: 42,
+      attack: 0.0002, velocitySensitivity: 0.92, stereoWidth: 0.58, harmonicContent: 70,
+      handCount: 8, layered: true, layerCount: 3, handSize: 'large',
+      clapTightness: 'tight', handCupping: 0.3, initialSlap: 0.88,
+      slapFreq: 2300, slapDecay: 0.005, slapHarmonics: 0.78,
+      timingSpread: 0.005, velocityVariation: 0.08, stereoSpread: 0.58,
+      multiHitDelay: [0.0, 0.004, 0.009, 0.016, 0.026, 0.038, 0.052, 0.068],
+      multiHitGain: [1.0, 0.92, 0.85, 0.75, 0.65, 0.52, 0.4, 0.28],
+      fundamentalFreq: 1250, bodyResonance: 0.48, airCompression: 0.75,
+      highFreqContent: 0.9, skinTexture: 0.35, reverseDecay: 0.12,
+      roomSlap: 0.35, roomSize: 'medium', earlyReflections: 0.32,
+      compression: 0.88, saturation: 0.5
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 16, decay: 0.028, tone: 92, noise: 18, lofi: 0,
+      attack: 0.0002, velocitySensitivity: 0.94, stereoWidth: 0.35, harmonicContent: 82,
+      drumSize: 14, shellMaterial: 'steel', rimMaterial: 'steel_die_cast',
+      stickContact: 'precise_simultaneous', stickAngle: 28, stickTip: 'nylon',
+      fundamentalFreq: 620, metalRing: 0.96, metalDecay: 0.035, metalFreq: 3600,
+      woodContact: 0.92, woodFreq: 1650, woodDecay: 0.03,
+      headResponse: 0.2, headDampening: 0.9, overtones: [1240, 1860, 2480],
+      overtoneDecay: 0.026, ringOut: 0.85, clickTransient: 0.98,
+      transientFreq: 4600, pitchBend: 0.14
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: 2, decay: 0.24, tone: 80, noise: 7, lofi: 0,
+      attack: 0.0025, velocitySensitivity: 0.91, stereoWidth: 0.4, harmonicContent: 74,
+      drumSize: 13, depth: 11, shellMaterial: 'maple', shellThickness: 6,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 125, bodyResonance: 0.76, overtones: [250, 375, 500],
+      overtoneBalance: [1.0, 0.68, 0.4, 0.2], sustainDecay: 0.24,
+      headInteraction: 0.78, airCoupling: 0.72, headTension: 0.52,
+      topBottomRatio: 0.82, dampening: 0.45, transientShape: 'sharp',
+      attackCurve: 'fast', roomReflection: 0.18, micBleed: 0.12,
+      overheadBleed: 0.35, doubleHeaded: true, roomMics: 0.35,
+      resonantDecay: 0.32
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 9, decay: 0.18, tone: 78, noise: 8, lofi: 0,
+      attack: 0.002, velocitySensitivity: 0.92, stereoWidth: 0.5, harmonicContent: 77,
+      drumSize: 10, depth: 9, shellMaterial: 'maple', shellThickness: 6,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 200, bodyResonance: 0.74, overtones: [400, 600, 800],
+      overtoneBalance: [1.0, 0.7, 0.42, 0.22], sustainDecay: 0.18,
+      headInteraction: 0.8, airCoupling: 0.74, headTension: 0.62,
+      topBottomRatio: 0.85, dampening: 0.52, transientShape: 'sharp',
+      attackCurve: 'fast', roomReflection: 0.2, micBleed: 0.15,
+      overheadBleed: 0.4, doubleHeaded: true, roomMics: 0.4,
+      resonantDecay: 0.28
+    },
   
-    bass: { type: 'bass', pitch: -11, decay: 0.52, tone: 44, attack: 0.0008, lofi: 0, dist: 64,
-            velocitySensitivity: 0.93, stereoWidth: 0.25, harmonicContent: 68, transientGain: 1.3 },
-    lead: { type: 'lead', pitch: 16, decay: 0.38, tone: 84, attack: 0.0028, lofi: 0,
-            velocitySensitivity: 0.9, stereoWidth: 0.6, harmonicContent: 82 },
-    fx: { type: 'fx', pitch: -2, decay: 0.88, tone: 62, attack: 0.0006, lofi: 0, dist: 34,
-          velocitySensitivity: 0.85, stereoWidth: 0.9, harmonicContent: 70 }
+    bass: { 
+      type: 'bass', pitch: -11, decay: 0.58, tone: 46, attack: 0.0006, lofi: 0, dist: 68,
+      velocitySensitivity: 0.95, stereoWidth: 0.22, harmonicContent: 70, transientGain: 1.35,
+      stringCount: 4, stringGauge: [0.105, 0.085, 0.065, 0.045],
+      tuning: 'drop_d', stringMaterial: 'stainless_steel', stringAge: 'new',
+      stringTension: 'extra_high', fundamentalFreq: 46, stringCount: 4, stringGauge: [0.105, 0.085, 0.065, 0.045],
+      tuning: 'drop_d', stringMaterial: 'stainless_steel', stringAge: 'new',
+      stringTension: 'extra_high', fundamentalFreq: 46, subHarmonics: 0.88,
+      overtones: [92, 138, 184, 230], harmonicBalance: [1.0, 0.85, 0.68, 0.48, 0.28],
+      sustainDecay: 0.58, pickAttack: 0.88, fingerStyle: false,
+      playingPosition: 'bridge_aggressive', stringResonance: 0.52, fretNoise: 0.18,
+      fretBuzz: 0.12, stringSlap: 0.0, clanking: 0.48,
+      bodyResonance: 0.42, bodyWood: 'ash', neckWood: 'maple_reinforced',
+      pickupType: 'emg_active', pickupPosition: 0.88, toneKnob: 0.32,
+      ampModel: 'modern_high_gain', ampGain: 0.9, ampTone: 0.42,
+      cabinetIR: 'ampeg_8x10', cabinetMic: 'sm57_dual', micDistance: 6,
+      compression: 0.78, gating: 0.68, aggression: 0.92
+    },
+    
+    lead: { 
+      type: 'lead', pitch: 16, decay: 0.42, tone: 86, attack: 0.0025, lofi: 0,
+      velocitySensitivity: 0.92, stereoWidth: 0.58, harmonicContent: 84,
+      instrumentType: 'synthesizer', waveform: 'square', filterType: 'lowpass',
+      filterCutoff: 2600, filterResonance: 0.72, envelopeDecay: 0.42,
+      lfoRate: 7.2, lfoDepth: 0.42, portamento: 0.05, detuneAmount: 0.12,
+      harmonicSeries: [1, 2, 3, 4, 5, 6, 7], harmonicBalance: [1.0, 0.88, 0.75, 0.58, 0.42, 0.28, 0.15],
+      unison: 4, unisonDetune: 0.12, brightness: 0.88
+    },
+    
+    fx: { 
+      type: 'fx', pitch: -2, decay: 0.95, tone: 64, attack: 0.0005, lofi: 0, dist: 38,
+      velocitySensitivity: 0.87, stereoWidth: 0.92, harmonicContent: 72,
+      instrumentType: 'synthesizer', waveform: 'noise', filterType: 'highpass',
+      filterCutoff: 2200, filterResonance: 0.78, filterSweep: 0.72,
+      envelopeDecay: 0.95, lfoRate: 4.8, lfoDepth: 0.55,
+      reverb: 0.52, delay: 0.38, stereoSpread: 0.92
+    }
   },
 
   ambient: {
-    // Kit character: Cathedral-like space, very distant mics, worn vintage ~1975
-    _kitMeta: { roomSize: 0.9, roomBrightness: 32, micDistance: 0.85, vintageYear: 1975, wear: 0.75 },
+    _kitMeta: { 
+      roomSize: 0.92, roomBrightness: 35, micDistance: 0.88, vintageYear: 1973, wear: 0.78,
+      bitDepth: 16, sampleRate: 22050, tapeSaturation: 0.68, compressionRatio: 2.8,
+      micPreamp: 'vintage_tube', micType: 'ribbon', analogChain: true,
+      tapeSpeed: 7.5, tapeFormula: 'ampex_456', noiseFloor: -58, wow: 0.28, flutter: 0.15,
+      roomReverb: 3.8, roomReflections: 'cathedral'
+    },
     
-    kick: { type: 'kick', pitch: -8, decay: 1.4, tone: 28, noise: 35, lofi: 62, dist: 2,
-            attack: 0.05, bleed: 18, velocitySensitivity: 0.65, stereoWidth: 0.4, harmonicContent: 32 },
-    snare: { type: 'snare', pitch: -5, decay: 0.72, tone: 32, noise: 64, lofi: 58, dist: 3,
-             snareRattle: 15, attack: 0.04, bleed: 16, velocitySensitivity: 0.62, stereoWidth: 0.45, harmonicContent: 35 },
-    hihatClosed: { type: 'hihat', pitch: -4, decay: 0.14, tone: 30, noise: 72, lofi: 52, closed: true,
-                   attack: 0.02, velocitySensitivity: 0.68, stereoWidth: 0.75, harmonicContent: 38 },
-    hihatOpen: { type: 'hihat', pitch: -4, decay: 0.68, tone: 34, noise: 68, lofi: 52, closed: false,
-                 attack: 0.025, velocitySensitivity: 0.66, stereoWidth: 0.85, harmonicContent: 40 },
-    clap: { type: 'clap', pitch: -4, decay: 0.38, tone: 26, noise: 78, lofi: 48, dist: 2,
-            attack: 0.03, velocitySensitivity: 0.6, stereoWidth: 0.65, harmonicContent: 30 },
-    rimshot: { type: 'snare', pitch: 3, decay: 0.16, tone: 48, noise: 52, lofi: 42,
-               attack: 0.015, velocitySensitivity: 0.7, stereoWidth: 0.5, harmonicContent: 45 },
-    tomLow: { type: 'tom', pitch: -9, decay: 1.1, tone: 46, noise: 28, lofi: 48,
-              attack: 0.035, bleed: 14, velocitySensitivity: 0.64, stereoWidth: 0.55, harmonicContent: 40 },
-    tomHigh: { type: 'tom', pitch: -3, decay: 0.82, tone: 44, noise: 30, lofi: 48,
-               attack: 0.03, bleed: 12, velocitySensitivity: 0.66, stereoWidth: 0.6, harmonicContent: 42 },
+    kick: { 
+      type: 'kick', pitch: -8, decay: 1.5, tone: 30, noise: 32, lofi: 65, dist: 3,
+      attack: 0.045, bleed: 20, velocitySensitivity: 0.66, stereoWidth: 0.38,
+      harmonicContent: 34,
+      drumSize: 24, shellMaterial: 'mahogany', headType: 'coated_double',
+      beaterMaterial: 'felt_soft', beaterWeight: 'light', beaterAngle: 40,
+      fundamentalFreq: 52, subFreq: 45, subWeight: 0.48, bodyResonance: 0.85,
+      overtones: [104, 156, 208], overtoneBalance: [0.45, 0.32, 0.22, 0.12],
+      clickFreq: 2200, beaterClick: 0.28, clickDecay: 0.035, clickHarmonics: 0.38,
+      dampening: 0.22, portHole: 0.0, headTension: 0.32, bodyDecay: 1.5,
+      transientShape: 'soft', transientPeak: 0.045, sustainCurve: 'natural_long',
+      roomReflection: 0.88, earlyReflections: 0.78, micBleed: 0.65,
+      proximity: 0.15, phaseAlignment: 0.75, micPlacement: 'distant',
+      roomMics: 0.85, innerMic: 'ribbon', outerMic: 'ribbon',
+      analogWarmth: 0.88, tubeSaturation: 0.55, tapeCompression: 0.62,
+      vinylCrackle: 22, wowFlutter: 0.28, bitDepth: 12
+    },
+    
+    snare: { 
+      type: 'snare', pitch: -5, decay: 0.78, tone: 34, noise: 62, lofi: 62, dist: 4,
+      attack: 0.038, bleed: 18, velocitySensitivity: 0.64, stereoWidth: 0.42,
+      harmonicContent: 38,
+      drumSize: 14, depth: 5, shellMaterial: 'maple', shellThickness: 5,
+      topHead: 'coated_ambassador', bottomHead: 'snare_side',
+      wireCount: 14, wireMaterial: 'steel', wireTension: 0.55, wireResponse: 0.68,
+      snareRattle: 18, rattleDecay: 0.35, rattleFreqRange: [160, 6000],
+      wireStrands: 'standard', snareThrow: 1.0,
+      fundamentalFreq: 195, bodyFreq: 165, overtones: [390, 585, 780],
+      overtoneSpread: 0.62, harmonicDecay: 0.42, rimFreq: 2200,
+      centerStrike: 0.72, edgeStrike: 0.0, rimShot: 0.0,
+      stickTip: 'wood', stickWeight: 'light', strikeAngle: 18,
+      topHeadTension: 0.55, bottomHeadTension: 0.62, headInteraction: 0.52,
+      transientShape: 'soft', sustainDecay: 0.78, roomReflection: 0.82,
+      micBleed: 0.68, overheadBleed: 0.75, topMic: 'ribbon', bottomMic: 'ribbon',
+      micPhase: 'inverted', ghostNoteResponse: 0.88, buzzResponse: 0.55,
+      sympatheticVibration: 0.65, tubeSaturation: 0.48, vintage: 0.78,
+      bitDepth: 12
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: -4, decay: 0.16, tone: 32, noise: 74, lofi: 55, closed: true,
+      attack: 0.018, velocitySensitivity: 0.7, stereoWidth: 0.72, harmonicContent: 40,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.85, bottomCymbalThickness: 1.0, bellSize: 4.2,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      fundamentalFreq: 780, bellResonance: 0.48, edgeTone: 0.58, metalComplexity: 0.72,
+      inharmonicity: 0.68, partialDecay: [0.15, 0.13, 0.11],
+      frequencySpread: [780, 2000, 4800, 8200], overtoneBalance: [1.0, 0.62, 0.38, 0.18],
+      footPressure: 0.58, clutchTension: 'medium', standTilt: 8,
+      cymbalSeparation: 0.22, airRelease: 0.35, airPressure: 0.42,
+      suctionEffect: 0.38, tipContact: 'edge', stickMaterial: 'wood',
+      stickTip: 'medium', chick: 0.55, dynamicRange: 32,
+      stereoSpread: 0.72, roomReflection: 0.78, overheadBleed: 0.82,
+      micType: 'ribbon', micDistance: 18, micAngle: 55,
+      vintage: 0.78, bitDepth: 12
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: -4, decay: 0.72, tone: 36, noise: 70, lofi: 55, closed: false,
+      attack: 0.022, velocitySensitivity: 0.68, stereoWidth: 0.82, harmonicContent: 42,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.85, bottomCymbalThickness: 1.0, bellSize: 4.2,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      fundamentalFreq: 780, bellResonance: 0.55, edgeTone: 0.65, metalComplexity: 0.7,
+      inharmonicity: 0.7, shimmerDecay: 0.88,
+      frequencySpread: [780, 2000, 4800, 8200, 11500],
+      overtoneBalance: [1.0, 0.72, 0.52, 0.32, 0.15],
+      sustainBuild: 0.025, washCharacter: 0.82, wash: 0.85,
+      footPressure: 0.18, clutchTension: 'medium', cymbalSeparation: 1.8,
+      airRelease: 0.88, airPressure: 0.92, suctionEffect: 0.08,
+      pedalOpenness: 0.82, footBarrel: 0.28, tipContact: 'edge',
+      stickMaterial: 'wood', strikeForce: 'light', swell: 0.78,
+      bloom: 0.85, dynamicRange: 38, stereoSpread: 0.82,
+      roomReflection: 0.85, overheadBleed: 0.88, micType: 'ribbon',
+      micDistance: 18, vintage: 0.78, bitDepth: 12
+    },
+    
+    clap: { 
+      type: 'clap', pitch: -4, decay: 0.42, tone: 28, noise: 80, lofi: 52, dist: 3,
+      attack: 0.028, velocitySensitivity: 0.62, stereoWidth: 0.62, harmonicContent: 32,
+      handCount: 3, handSize: 'medium', clapTightness: 'very_loose', handCupping: 0.52,
+      initialSlap: 0.58, slapFreq: 1500, slapDecay: 0.012, slapHarmonics: 0.45,
+      timingSpread: 0.025, velocityVariation: 0.28, stereoSpread: 0.62,
+      multiHitDelay: [0.0, 0.022, 0.048, 0.078],
+      multiHitGain: [1.0, 0.68, 0.45, 0.28],
+      fundamentalFreq: 850, bodyResonance: 0.58, airCompression: 0.48,
+      highFreqContent: 0.52, skinTexture: 0.55, reverseDecay: 0.32,
+      roomSlap: 0.75, roomSize: 'cathedral', earlyReflections: 0.68,
+      roomAbsorption: 0.25, vintage: 0.78
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 3, decay: 0.18, tone: 50, noise: 48, lofi: 45,
+      attack: 0.012, velocitySensitivity: 0.72, stereoWidth: 0.48, harmonicContent: 48,
+      drumSize: 14, shellMaterial: 'maple', rimMaterial: 'steel_triple_flange',
+      stickContact: 'loose_simultaneous', stickAngle: 38, stickTip: 'wood',
+      fundamentalFreq: 420, metalRing: 0.72, metalDecay: 0.15, metalFreq: 2400,
+      woodContact: 0.58, woodFreq: 1100, woodDecay: 0.12,
+      headResponse: 0.48, headDampening: 0.55, overtones: [840, 1260, 1680],
+      overtoneDecay: 0.14, ringOut: 0.58, clickTransient: 0.68,
+      transientFreq: 3000, pitchBend: 0.32, vintage: 0.78
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: -9, decay: 1.2, tone: 48, noise: 25, lofi: 52,
+      attack: 0.032, bleed: 16, velocitySensitivity: 0.66, stereoWidth: 0.52,
+      harmonicContent: 42,
+      drumSize: 16, depth: 16, shellMaterial: 'mahogany', shellThickness: 8,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 75, bodyResonance: 0.88, overtones: [150, 225, 300],
+      overtoneBalance: [1.0, 0.58, 0.35, 0.18], sustainDecay: 1.2,
+      headInteraction: 0.78, airCoupling: 0.72, headTension: 0.38,
+      topBottomRatio: 0.72, dampening: 0.28, transientShape: 'soft',
+      attackCurve: 'slow', roomReflection: 0.85, micBleed: 0.68,
+      overheadBleed: 0.78, doubleHeaded: true, roomMics: 0.88,
+      resonantDecay: 0.92, vintage: 0.78, bitDepth: 12
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: -3, decay: 0.88, tone: 46, noise: 28, lofi: 52,
+      attack: 0.028, bleed: 14, velocitySensitivity: 0.68, stereoWidth: 0.58,
+      harmonicContent: 44,
+      drumSize: 13, depth: 12, shellMaterial: 'mahogany', shellThickness: 7,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 130, bodyResonance: 0.82, overtones: [260, 390, 520],
+      overtoneBalance: [1.0, 0.62, 0.38, 0.2], sustainDecay: 0.88,
+      headInteraction: 0.75, airCoupling: 0.68, headTension: 0.45,
+      topBottomRatio: 0.75, dampening: 0.35, transientShape: 'soft',
+      attackCurve: 'slow', roomReflection: 0.82, micBleed: 0.65,
+      overheadBleed: 0.75, doubleHeaded: true, roomMics: 0.85,
+      resonantDecay: 0.82, vintage: 0.78, bitDepth: 12
+    },
   
-    keys: { type: 'keys', pitch: 5, decay: 3.8, tone: 36, attack: 0.24, lofi: 28,
-            velocitySensitivity: 0.75, stereoWidth: 0.8, harmonicContent: 38, vinylCrackle: 18 },
-    lead: { type: 'lead', pitch: 17, decay: 3.2, tone: 42, attack: 0.38, lofi: 24,
-            velocitySensitivity: 0.78, stereoWidth: 0.85, harmonicContent: 42, wowFlutter: 0.25 },
-    riser: { type: 'riser', pitch: -6, decay: 5.2, tone: 48, attack: 1.2, lofi: 18,
-             velocitySensitivity: 0.72, stereoWidth: 0.95, harmonicContent: 45 }
+    keys: { 
+      type: 'keys', pitch: 5, decay: 4.2, tone: 38, attack: 0.22, lofi: 32,
+      velocitySensitivity: 0.78, stereoWidth: 0.82, harmonicContent: 40, vinylCrackle: 20,
+      instrumentType: 'upright_piano', keyCount: 88, hammerAction: true,
+      fundamentalFreq: 261.63, stringResonance: 0.92, sustainDecay: 4.2,
+      harmonicSeries: [1, 2, 3, 4, 5, 6, 7, 8], 
+      harmonicDecay: [1.0, 0.85, 0.72, 0.58, 0.45, 0.32, 0.22, 0.12],
+      inharmonicity: 0.58, partialTuning: 'stretched', hammerNoise: 0.58,
+      releaseNoise: 0.42, damperNoise: 0.35, pedalResonance: 0.88,
+      mechanicalClick: 0.48, vintageCharacter: 0.88, warmth: 0.85,
+      stereoMicing: 'distant_stereo', roomAmbience: 0.92, micType: 'ribbon',
+      analogWarmth: 0.88, tubeSaturation: 0.62, tapeCompression: 0.55,
+      wowFlutter: 0.25, bitDepth: 12
+    },
+    
+    lead: { 
+      type: 'lead', pitch: 17, decay: 3.5, tone: 44, attack: 0.35, lofi: 28,
+      velocitySensitivity: 0.8, stereoWidth: 0.88, harmonicContent: 44, wowFlutter: 0.28,
+      instrumentType: 'synthesizer', waveform: 'triangle', filterType: 'lowpass',
+      filterCutoff: 800, filterResonance: 0.28, envelopeDecay: 3.5,
+      lfoRate: 2.2, lfoDepth: 0.18, portamento: 0.35, detuneAmount: 0.22,
+      harmonicSeries: [1, 2, 3, 4, 5], harmonicBalance: [1.0, 0.68, 0.48, 0.28, 0.15],
+      analogDrift: 0.35, vintage: 0.88, chorus: 0.42, reverb: 0.72
+    },
+    
+    riser: { 
+      type: 'riser', pitch: -6, decay: 5.8, tone: 50, attack: 1.1, lofi: 22,
+      velocitySensitivity: 0.74, stereoWidth: 0.96, harmonicContent: 48,
+      instrumentType: 'synthesizer', waveform: 'noise_filtered', filterType: 'lowpass',
+      filterCutoff: 400, filterResonance: 0.18, filterSweep: 0.92,
+      envelopeDecay: 5.8, envelopeShape: 'exponential_rise',
+      lfoRate: 0.8, lfoDepth: 0.48, pitchRise: 1.5, pitchCurve: 'exponential',
+      reverb: 0.88, delay: 0.65, stereoSpread: 0.96, vintage: 0.68
+    }
   },
 
   rock: {
-    // Kit character: Medium live room, balanced mics, slightly vintage ~2010
-    _kitMeta: { roomSize: 0.6, roomBrightness: 58, micDistance: 0.52, vintageYear: 2010, wear: 0.25 },
+    _kitMeta: { 
+      roomSize: 0.62, roomBrightness: 60, micDistance: 0.54, vintageYear: 2012, wear: 0.22,
+      bitDepth: 24, sampleRate: 44100, compressionRatio: 5.5, micPreamp: 'vintage_transformer',
+      masterBus: 'analog_glue', characterCurve: 'classic_rock', roomTreatment: 'live_room'
+    },
     
-    kick: { type: 'kick', pitch: -2, decay: 0.32, tone: 56, noise: 19, lofi: 8, dist: 18,
-            attack: 0.004, transientGain: 1.2, bleed: 8, velocitySensitivity: 0.82, stereoWidth: 0.22, harmonicContent: 58 },
-    snare: { type: 'snare', pitch: 0, decay: 0.17, tone: 54, noise: 76, lofi: 6, dist: 16,
-             snareRattle: 38, attack: 0.003, transientGain: 1.25, bleed: 10, velocitySensitivity: 0.8, stereoWidth: 0.35, harmonicContent: 62 },
-    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.048, tone: 50, noise: 85, lofi: 8, closed: true,
-                   attack: 0.002, velocitySensitivity: 0.84, stereoWidth: 0.72, harmonicContent: 64 },
-    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.24, tone: 54, noise: 81, lofi: 8, closed: false,
-                 attack: 0.003, velocitySensitivity: 0.82, stereoWidth: 0.78, harmonicContent: 66 },
-    clap: { type: 'clap', pitch: 0, decay: 0.15, tone: 39, noise: 87, lofi: 6, dist: 10,
-            attack: 0.004, velocitySensitivity: 0.78, stereoWidth: 0.58, harmonicContent: 52 },
-    rimshot: { type: 'snare', pitch: 8, decay: 0.058, tone: 70, noise: 39, lofi: 7,
-               attack: 0.002, velocitySensitivity: 0.85, stereoWidth: 0.4, harmonicContent: 68 },
-    tomLow: { type: 'tom', pitch: -4, decay: 0.42, tone: 70, noise: 15, lofi: 8,
-              attack: 0.005, bleed: 9, velocitySensitivity: 0.81, stereoWidth: 0.45, harmonicContent: 62 },
-    tomHigh: { type: 'tom', pitch: 3, decay: 0.32, tone: 67, noise: 17, lofi: 8,
-               attack: 0.004, bleed: 8, velocitySensitivity: 0.83, stereoWidth: 0.55, harmonicContent: 65 },
+    kick: { 
+      type: 'kick', pitch: -2, decay: 0.35, tone: 58, noise: 18, lofi: 10, dist: 20,
+      attack: 0.0035, transientGain: 1.22, bleed: 10, velocitySensitivity: 0.84,
+      stereoWidth: 0.2, harmonicContent: 60,
+      drumSize: 22, shellMaterial: 'maple', headType: 'coated_single',
+      beaterMaterial: 'felt', beaterWeight: 'medium', beaterAngle: 48,
+      fundamentalFreq: 62, subFreq: 54, subWeight: 0.62, bodyResonance: 0.78,
+      overtones: [124, 186, 248], overtoneBalance: [0.58, 0.35, 0.2, 0.1],
+      clickFreq: 2900, beaterClick: 0.58, clickDecay: 0.02, clickHarmonics: 0.62,
+      dampening: 0.52, portHole: 0.0, headTension: 0.52, bodyDecay: 0.35,
+      transientShape: 'natural', transientPeak: 0.0035, sustainCurve: 'natural',
+      roomReflection: 0.42, earlyReflections: 0.48, micBleed: 0.32,
+      proximity: 0.48, phaseAlignment: 0.9, micPlacement: 'slightly_off_center',
+      roomMics: 0.48, innerMic: 'akg_d12', outerMic: 'beta_52',
+      analogWarmth: 0.68, tubeSaturation: 0.32, tapeCompression: 0.38,
+      vintage: 0.28
+    },
     
-    bass: { type: 'bass', pitch: -2, decay: 0.84, tone: 63, attack: 0.0038, lofi: 9, dist: 24,
-            velocitySensitivity: 0.86, stereoWidth: 0.28, harmonicContent: 62 },
-    guitar: { type: 'guitar', pitch: 1, decay: 1.36, tone: 69, attack: 0.0022, lofi: 6, dist: 26,
-              velocitySensitivity: 0.84, stereoWidth: 0.68, harmonicContent: 68 },
-    keys: { type: 'keys', pitch: -4, decay: 1.08, tone: 57, attack: 0.0062, lofi: 7,
-            velocitySensitivity: 0.88, stereoWidth: 0.62, harmonicContent: 60 }
+    snare: { 
+      type: 'snare', pitch: 0, decay: 0.19, tone: 56, noise: 78, lofi: 8, dist: 18,
+      attack: 0.0028, transientGain: 1.28, bleed: 12, velocitySensitivity: 0.82,
+      stereoWidth: 0.32, harmonicContent: 64,
+      drumSize: 14, depth: 5.5, shellMaterial: 'maple', shellThickness: 6,
+      topHead: 'coated_ambassador', bottomHead: 'snare_side',
+      wireCount: 16, wireMaterial: 'steel', wireTension: 0.68, wireResponse: 0.82,
+      snareRattle: 40, rattleDecay: 0.2, rattleFreqRange: [180, 8000],
+      wireStrands: 'standard', snareThrow: 1.0,
+      fundamentalFreq: 220, bodyFreq: 185, overtones: [440, 660, 880],
+      overtoneSpread: 0.72, harmonicDecay: 0.25, rimFreq: 2600,
+      centerStrike: 0.8, edgeStrike: 0.0, rimShot: 0.0,
+      stickTip: 'wood', stickWeight: 'medium', strikeAngle: 14,
+      topHeadTension: 0.68, bottomHeadTension: 0.75, headInteraction: 0.62,
+      transientShape: 'natural', sustainDecay: 0.19, crack: 0.75,
+      roomReflection: 0.38, micBleed: 0.28, overheadBleed: 0.52,
+      topMic: 'sm57', bottomMic: 'sm57', micPhase: 'inverted',
+      ghostNoteResponse: 0.85, buzzResponse: 0.52, sympatheticVibration: 0.45,
+      tubeSaturation: 0.28, vintage: 0.28
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: 0, decay: 0.052, tone: 52, noise: 87, lofi: 10, closed: true,
+      attack: 0.0018, velocitySensitivity: 0.86, stereoWidth: 0.7, harmonicContent: 66,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.95, bottomCymbalThickness: 1.15, bellSize: 4.5,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      fundamentalFreq: 860, bellResonance: 0.42, edgeTone: 0.68, metalComplexity: 0.82,
+      inharmonicity: 0.78, partialDecay: [0.048, 0.042, 0.038],
+      frequencySpread: [860, 2400, 5600, 9000], overtoneBalance: [1.0, 0.7, 0.45, 0.22],
+      footPressure: 0.72, clutchTension: 'tight', standTilt: 6,
+      cymbalSeparation: 0.16, airRelease: 0.22, airPressure: 0.28,
+      suctionEffect: 0.48, tipContact: 'shoulder', stickMaterial: 'wood',
+      stickTip: 'medium', chick: 0.72, dynamicRange: 42,
+      stereoSpread: 0.7, roomReflection: 0.38, overheadBleed: 0.62,
+      micType: 'condenser_small', micDistance: 9, micAngle: 42,
+      vintage: 0.28
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: 0, decay: 0.26, tone: 56, noise: 83, lofi: 10, closed: false,
+      attack: 0.0025, velocitySensitivity: 0.84, stereoWidth: 0.76, harmonicContent: 68,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.95, bottomCymbalThickness: 1.15, bellSize: 4.5,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      fundamentalFreq: 860, bellResonance: 0.48, edgeTone: 0.72, metalComplexity: 0.8,
+      inharmonicity: 0.8, shimmerDecay: 0.78,
+      frequencySpread: [860, 2400, 5600, 9000, 12200],
+      overtoneBalance: [1.0, 0.78, 0.58, 0.38, 0.18],
+      sustainBuild: 0.015, washCharacter: 0.72, wash: 0.75,
+      footPressure: 0.25, clutchTension: 'tight', cymbalSeparation: 1.15,
+      airRelease: 0.72, airPressure: 0.88, suctionEffect: 0.15,
+      pedalOpenness: 0.75, footBarrel: 0.38, tipContact: 'edge',
+      stickMaterial: 'wood', strikeForce: 'medium', swell: 0.62,
+      bloom: 0.72, dynamicRange: 45, stereoSpread: 0.76,
+      roomReflection: 0.42, overheadBleed: 0.72, micType: 'condenser_small',
+      micDistance: 9, vintage: 0.28
+    },
+    
+    clap: { 
+      type: 'clap', pitch: 0, decay: 0.17, tone: 41, noise: 89, lofi: 8, dist: 12,
+      attack: 0.0035, velocitySensitivity: 0.8, stereoWidth: 0.56, harmonicContent: 54,
+      handCount: 5, handSize: 'medium', clapTightness: 'medium', handCupping: 0.45,
+      initialSlap: 0.72, slapFreq: 1850, slapDecay: 0.01, slapHarmonics: 0.62,
+      timingSpread: 0.014, velocityVariation: 0.2, stereoSpread: 0.56,
+      multiHitDelay: [0.0, 0.012, 0.028, 0.048, 0.072],
+      multiHitGain: [1.0, 0.72, 0.58, 0.42, 0.28],
+      fundamentalFreq: 920, bodyResonance: 0.48, airCompression: 0.58,
+      highFreqContent: 0.72, skinTexture: 0.42, reverseDecay: 0.2,
+      roomSlap: 0.45, roomSize: 'medium', earlyReflections: 0.42,
+      compression: 0.68, vintage: 0.28
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 8, decay: 0.062, tone: 72, noise: 38, lofi: 9,
+      attack: 0.0018, velocitySensitivity: 0.86, stereoWidth: 0.38, harmonicContent: 70,
+      drumSize: 14, shellMaterial: 'maple', rimMaterial: 'steel_triple_flange',
+      stickContact: 'simultaneous', stickAngle: 36, stickTip: 'wood',
+      fundamentalFreq: 490, metalRing: 0.85, metalDecay: 0.068, metalFreq: 2850,
+      woodContact: 0.72, woodFreq: 1320, woodDecay: 0.055,
+      headResponse: 0.38, headDampening: 0.72, overtones: [980, 1470, 1960],
+      overtoneDecay: 0.052, ringOut: 0.72, clickTransient: 0.88,
+      transientFreq: 3500, pitchBend: 0.22, vintage: 0.28
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: -4, decay: 0.45, tone: 72, noise: 14, lofi: 10,
+      attack: 0.0045, bleed: 11, velocitySensitivity: 0.83, stereoWidth: 0.42,
+      harmonicContent: 64,
+      drumSize: 16, depth: 14, shellMaterial: 'maple', shellThickness: 7,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 90, bodyResonance: 0.78, overtones: [180, 270, 360],
+      overtoneBalance: [1.0, 0.62, 0.38, 0.18], sustainDecay: 0.45,
+      headInteraction: 0.72, airCoupling: 0.65, headTension: 0.48,
+      topBottomRatio: 0.8, dampening: 0.42, transientShape: 'natural',
+      attackCurve: 'natural', roomReflection: 0.45, micBleed: 0.32,
+      overheadBleed: 0.55, doubleHeaded: true, roomMics: 0.52,
+      resonantDecay: 0.48, vintage: 0.28
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 3, decay: 0.34, tone: 69, noise: 16, lofi: 10,
+      attack: 0.0038, bleed: 10, velocitySensitivity: 0.85, stereoWidth: 0.52,
+      harmonicContent: 67,
+      drumSize: 12, depth: 10, shellMaterial: 'maple', shellThickness: 6,
+      topHead: 'clear_emperor', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 155, bodyResonance: 0.75, overtones: [310, 465, 620],
+      overtoneBalance: [1.0, 0.65, 0.4, 0.2], sustainDecay: 0.34,
+      headInteraction: 0.75, airCoupling: 0.68, headTension: 0.58,
+      topBottomRatio: 0.85, dampening: 0.48, transientShape: 'natural',
+      attackCurve: 'natural', roomReflection: 0.48, micBleed: 0.35,
+      overheadBleed: 0.58, doubleHeaded: true, roomMics: 0.55,
+      resonantDecay: 0.42, vintage: 0.28
+    },
+    
+    bass: { 
+      type: 'bass', pitch: -2, decay: 0.88, tone: 65, attack: 0.0032, lofi: 11, dist: 26,
+      velocitySensitivity: 0.88, stereoWidth: 0.26, harmonicContent: 64,
+      stringCount: 4, stringGauge: [0.045, 0.065, 0.085, 0.105],
+      tuning: 'standard', stringMaterial: 'nickel_roundwound', stringAge: 'broken_in',
+      stringTension: 'medium', fundamentalFreq: 82, subHarmonics: 0.68,
+      overtones: [164, 246, 328, 410], harmonicBalance: [1.0, 0.78, 0.55, 0.38, 0.22],
+      sustainDecay: 0.88, pickAttack: 0.62, fingerStyle: false,
+      playingPosition: 'bridge', stringResonance: 0.72, fretNoise: 0.32,
+      fretBuzz: 0.18, stringSlap: 0.0, bodyResonance: 0.78,
+      bodyWood: 'alder', neckWood: 'maple', pickupType: 'precision',
+      pickupPosition: 0.6, toneKnob: 0.58, ampModel: 'vintage_tube',
+      ampGain: 0.58, ampTone: 0.52, cabinetIR: 'ampeg_4x10',
+      cabinetMic: 'u47', micDistance: 16, analogWarmth: 0.72,
+      tubeSaturation: 0.38, tapeCompression: 0.42, vintage: 0.28
+    },
+    
+    guitar: { 
+      type: 'guitar', pitch: 1, decay: 1.45, tone: 71, attack: 0.002, lofi: 8, dist: 28,
+      velocitySensitivity: 0.86, stereoWidth: 0.66, harmonicContent: 70,
+      stringCount: 6, stringGauge: [0.010, 0.013, 0.017, 0.026, 0.036, 0.046],
+      tuning: 'standard', stringMaterial: 'nickel_roundwound', stringAge: 'good',
+      fundamentalFreq: 196, overtones: [392, 588, 784, 980],
+      harmonicBalance: [1.0, 0.82, 0.65, 0.48, 0.32], sustainDecay: 1.45,
+      pickAttack: 0.72, pickThickness: 0.88, pickMaterial: 'nylon',
+      fretBuzz: 0.18, fretNoise: 0.25, stringSlide: 0.15,
+      playingPosition: 'bridge', palmMute: 0.0, powerChords: 0.65,
+      bodyResonance: 0.75, bodyWood: 'mahogany', topWood: 'maple',
+      pickupType: 'humbucker_bridge', pickupPosition: 0.85, toneKnob: 0.48,
+      ampModel: 'marshall_plexi', ampGain: 0.68, ampPresence: 0.62,
+      cabinetIR: 'marshall_4x12', cabinetMic: 'sm57_angled',
+      micDistance: 4, compression: 0.65, vintage: 0.28
+    },
+    
+    keys: { 
+      type: 'keys', pitch: -4, decay: 1.15, tone: 59, attack: 0.0055, lofi: 9,
+      velocitySensitivity: 0.9, stereoWidth: 0.6, harmonicContent: 62,
+      instrumentType: 'electric_piano', keyCount: 73, hammerAction: true,
+      tineResonance: 0.78, pickupDistance: 0.62, amplification: 'transistor',
+      fundamentalFreq: 261.63, stringResonance: 0.78, tineDecay: 1.15,
+      harmonicSeries: [1, 2, 3, 4, 5, 6], harmonicDecay: [1.0, 0.78, 0.58, 0.42, 0.28, 0.15],
+      inharmonicity: 0.38, partialTuning: 'stretched', hammerNoise: 0.42,
+      releaseNoise: 0.28, damperNoise: 0.18, pedalResonance: 0.68,
+      mechanicalClick: 0.35, bell: 0.58, bark: 0.52,
+      stereoMicing: 'spaced_pair', roomAmbience: 0.42, micType: 'condenser_large',
+      vintage: 0.28
+    }
   },
 
   jazz: {
-    // Kit character: Intimate jazz club, close warm mics, vintage character ~1985
-    _kitMeta: { roomSize: 0.35, roomBrightness: 48, micDistance: 0.42, vintageYear: 1985, wear: 0.4 },
+    _kitMeta: { 
+      roomSize: 0.38, roomBrightness: 50, micDistance: 0.45, vintageYear: 1987, wear: 0.38,
+      bitDepth: 16, sampleRate: 44100, tapeSaturation: 0.42, compressionRatio: 3.5,
+      micPreamp: 'vintage_tube', micType: 'condenser_ribbon_blend', analogChain: true,
+      characterCurve: 'warm_natural', roomTreatment: 'jazz_club'
+    },
     
-    kick: { type: 'kick', pitch: -3, decay: 0.4, tone: 46, noise: 24, lofi: 22, dist: 8,
-            attack: 0.006, bleed: 12, velocitySensitivity: 0.76, stereoWidth: 0.25, harmonicContent: 48 },
-    snare: { type: 'snare', pitch: -1, decay: 0.22, tone: 50, noise: 70, lofi: 20, dist: 6,
-             snareRattle: 30, attack: 0.005, bleed: 14, velocitySensitivity: 0.74, stereoWidth: 0.38, harmonicContent: 52 },
-    hihatClosed: { type: 'hihat', pitch: 0, decay: 0.055, tone: 44, noise: 82, lofi: 18, closed: true,
-                   attack: 0.003, velocitySensitivity: 0.78, stereoWidth: 0.68, harmonicContent: 56 },
-    hihatOpen: { type: 'hihat', pitch: 0, decay: 0.32, tone: 50, noise: 78, lofi: 18, closed: false,
-                 attack: 0.004, velocitySensitivity: 0.76, stereoWidth: 0.75, harmonicContent: 58 },
-    clap: { type: 'clap', pitch: -1, decay: 0.17, tone: 36, noise: 84, lofi: 16, dist: 5,
-            attack: 0.005, velocitySensitivity: 0.72, stereoWidth: 0.55, harmonicContent: 46 },
-    rimshot: { type: 'snare', pitch: 7, decay: 0.065, tone: 67, noise: 44, lofi: 14,
-               attack: 0.003, velocitySensitivity: 0.8, stereoWidth: 0.42, harmonicContent: 62 },
-    tomLow: { type: 'tom', pitch: -5, decay: 0.48, tone: 64, noise: 17, lofi: 20,
-              attack: 0.007, bleed: 11, velocitySensitivity: 0.75, stereoWidth: 0.48, harmonicContent: 55 },
-    tomHigh: { type: 'tom', pitch: 2, decay: 0.36, tone: 62, noise: 19, lofi: 20,
-               attack: 0.006, bleed: 10, velocitySensitivity: 0.77, stereoWidth: 0.58, harmonicContent: 58 },
+    kick: { 
+      type: 'kick', pitch: -3, decay: 0.45, tone: 48, noise: 22, lofi: 24, dist: 10,
+      attack: 0.0055, bleed: 14, velocitySensitivity: 0.78, stereoWidth: 0.24,
+      harmonicContent: 50,
+      drumSize: 18, shellMaterial: 'maple', headType: 'coated_double',
+      beaterMaterial: 'felt_soft', beaterWeight: 'light', beaterAngle: 42,
+      fundamentalFreq: 65, subFreq: 56, subWeight: 0.55, bodyResonance: 0.82,
+      overtones: [130, 195, 260], overtoneBalance: [0.52, 0.38, 0.25, 0.12],
+      clickFreq: 2600, beaterClick: 0.38, clickDecay: 0.025, clickHarmonics: 0.48,
+      dampening: 0.35, portHole: 0.0, headTension: 0.42, bodyDecay: 0.45,
+      transientShape: 'soft', transientPeak: 0.0055, sustainCurve: 'natural',
+      roomReflection: 0.52, earlyReflections: 0.58, micBleed: 0.48,
+      proximity: 0.38, phaseAlignment: 0.88, micPlacement: 'natural',
+      roomMics: 0.62, innerMic: 'ribbon', outerMic: 'condenser',
+      analogWarmth: 0.78, tubeSaturation: 0.42, tapeCompression: 0.48,
+      vinylCrackle: 12, wowFlutter: 0.18, vintage: 0.42
+    },
     
-    bass: { type: 'bass', pitch: 1, decay: 0.64, tone: 51, attack: 0.012, lofi: 17, dist: 6,
-            velocitySensitivity: 0.84, stereoWidth: 0.3, harmonicContent: 52, vinylCrackle: 10 },
-    keys: { type: 'keys', pitch: -5, decay: 1.28, tone: 49, attack: 0.0088, lofi: 19,
-            velocitySensitivity: 0.86, stereoWidth: 0.65, harmonicContent: 55, wowFlutter: 0.15 },
-    guitar: { type: 'guitar', pitch: 3, decay: 0.96, tone: 59, attack: 0.0054, lofi: 18,
-              velocitySensitivity: 0.82, stereoWidth: 0.7, harmonicContent: 58 }
+    snare: { 
+      type: 'snare', pitch: -1, decay: 0.24, tone: 52, noise: 72, lofi: 22, dist: 8,
+      attack: 0.0048, bleed: 16, velocitySensitivity: 0.76, stereoWidth: 0.36,
+      harmonicContent: 54,
+      drumSize: 14, depth: 5, shellMaterial: 'maple', shellThickness: 5,
+      topHead: 'coated_ambassador', bottomHead: 'snare_side',
+      wireCount: 16, wireMaterial: 'steel', wireTension: 0.62, wireResponse: 0.78,
+      snareRattle: 32, rattleDecay: 0.22, rattleFreqRange: [170, 7500],
+      wireStrands: 'standard', snareThrow: 1.0,
+      fundamentalFreq: 210, bodyFreq: 178, overtones: [420, 630, 840],
+      overtoneSpread: 0.68, harmonicDecay: 0.28, rimFreq: 2500,
+      centerStrike: 0.75, edgeStrike: 0.0, rimShot: 0.0, crossStick: 0.0,
+      stickTip: 'wood', stickWeight: 'light', strikeAngle: 16,
+      topHeadTension: 0.62, bottomHeadTension: 0.68, headInteraction: 0.58,
+      transientShape: 'natural', sustainDecay: 0.24, roomReflection: 0.48,
+      micBleed: 0.42, overheadBleed: 0.68, topMic: 'condenser_small',
+      bottomMic: 'ribbon', micPhase: 'inverted', ghostNoteResponse: 0.88,
+      buzzResponse: 0.62, sympatheticVibration: 0.58, tubeSaturation: 0.38,
+      vintage: 0.42
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: 0, decay: 0.06, tone: 46, noise: 84, lofi: 20, closed: true,
+      attack: 0.0028, velocitySensitivity: 0.8, stereoWidth: 0.66, harmonicContent: 58,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium_light', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.9, bottomCymbalThickness: 1.1, bellSize: 4.3,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      fundamentalFreq: 840, bellResonance: 0.45, edgeTone: 0.65, metalComplexity: 0.78,
+      inharmonicity: 0.75, partialDecay: [0.055, 0.048, 0.042],
+      frequencySpread: [840, 2200, 5200, 8600], overtoneBalance: [1.0, 0.68, 0.42, 0.2],
+      footPressure: 0.65, clutchTension: 'medium', standTilt: 7,
+      cymbalSeparation: 0.18, airRelease: 0.28, airPressure: 0.35,
+      suctionEffect: 0.42, tipContact: 'edge', stickMaterial: 'wood',
+      stickTip: 'medium', chick: 0.68, dynamicRange: 38,
+      stereoSpread: 0.66, roomReflection: 0.52, overheadBleed: 0.72,
+      micType: 'condenser_small', micDistance: 12, micAngle: 48,
+      vintage: 0.42
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: 0, decay: 0.35, tone: 52, noise: 80, lofi: 20, closed: false,
+      attack: 0.0035, velocitySensitivity: 0.78, stereoWidth: 0.73, harmonicContent: 60,
+      topCymbal: 14, bottomCymbal: 14, cymbalWeight: 'medium_light', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.9, bottomCymbalThickness: 1.1, bellSize: 4.3,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      fundamentalFreq: 840, bellResonance: 0.52, edgeTone: 0.7, metalComplexity: 0.76,
+      inharmonicity: 0.77, shimmerDecay: 0.82,
+      frequencySpread: [840, 2200, 5200, 8600, 11800],
+      overtoneBalance: [1.0, 0.75, 0.55, 0.35, 0.16],
+      sustainBuild: 0.018, washCharacter: 0.78, wash: 0.82,
+      footPressure: 0.22, clutchTension: 'medium', cymbalSeparation: 1.3,
+      airRelease: 0.78, airPressure: 0.85, suctionEffect: 0.12,
+      pedalOpenness: 0.78, footBarrel: 0.32, tipContact: 'edge',
+      stickMaterial: 'wood', strikeForce: 'light', swell: 0.72,
+      bloom: 0.78, dynamicRange: 42, stereoSpread: 0.73,
+      roomReflection: 0.58, overheadBleed: 0.82, micType: 'condenser_small',
+      micDistance: 12, vintage: 0.42
+    },
+    
+    clap: { 
+      type: 'clap', pitch: -1, decay: 0.19, tone: 38, noise: 86, lofi: 18, dist: 6,
+      attack: 0.0045, velocitySensitivity: 0.74, stereoWidth: 0.54, harmonicContent: 48,
+      handCount: 4, handSize: 'medium', clapTightness: 'loose', handCupping: 0.48,
+      initialSlap: 0.65, slapFreq: 1700, slapDecay: 0.011, slapHarmonics: 0.58,
+      timingSpread: 0.016, velocityVariation: 0.22, stereoSpread: 0.54,
+      multiHitDelay: [0.0, 0.015, 0.035, 0.062],
+      multiHitGain: [1.0, 0.68, 0.48, 0.28],
+      fundamentalFreq: 880, bodyResonance: 0.52, airCompression: 0.55,
+      highFreqContent: 0.68, skinTexture: 0.48, reverseDecay: 0.22,
+      roomSlap: 0.52, roomSize: 'small', earlyReflections: 0.48,
+      compression: 0.58, vintage: 0.42
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 7, decay: 0.072, tone: 69, noise: 42, lofi: 16,
+      attack: 0.0025, velocitySensitivity: 0.82, stereoWidth: 0.4, harmonicContent: 64,
+      drumSize: 14, shellMaterial: 'maple', rimMaterial: 'steel_triple_flange',
+      stickContact: 'simultaneous', stickAngle: 37, stickTip: 'wood',
+      fundamentalFreq: 470, metalRing: 0.78, metalDecay: 0.078, metalFreq: 2700,
+      woodContact: 0.68, woodFreq: 1250, woodDecay: 0.065,
+      headResponse: 0.42, headDampening: 0.68, overtones: [940, 1410, 1880],
+      overtoneDecay: 0.062, ringOut: 0.68, clickTransient: 0.82,
+      transientFreq: 3300, pitchBend: 0.25, vintage: 0.42
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: -5, decay: 0.52, tone: 66, noise: 16, lofi: 22,
+      attack: 0.0065, bleed: 13, velocitySensitivity: 0.77, stereoWidth: 0.46,
+      harmonicContent: 57,
+      drumSize: 14, depth: 12, shellMaterial: 'maple', shellThickness: 6,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 95, bodyResonance: 0.78, overtones: [190, 285, 380],
+      overtoneBalance: [1.0, 0.62, 0.38, 0.18], sustainDecay: 0.52,
+      headInteraction: 0.7, airCoupling: 0.62, headTension: 0.48,
+      topBottomRatio: 0.78, dampening: 0.4, transientShape: 'soft',
+      attackCurve: 'natural', roomReflection: 0.55, micBleed: 0.45,
+      overheadBleed: 0.68, doubleHeaded: true, roomMics: 0.65,
+      resonantDecay: 0.58, vintage: 0.42
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 2, decay: 0.38, tone: 64, noise: 18, lofi: 22,
+      attack: 0.0055, bleed: 12, velocitySensitivity: 0.79, stereoWidth: 0.56,
+      harmonicContent: 60,
+      drumSize: 12, depth: 10, shellMaterial: 'maple', shellThickness: 6,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 160, bodyResonance: 0.75, overtones: [320, 480, 640],
+      overtoneBalance: [1.0, 0.65, 0.4, 0.2], sustainDecay: 0.38,
+      headInteraction: 0.72, airCoupling: 0.65, headTension: 0.58,
+      topBottomRatio: 0.82, dampening: 0.48, transientShape: 'soft',
+      attackCurve: 'natural', roomReflection: 0.58, micBleed: 0.48,
+      overheadBleed: 0.72, doubleHeaded: true, roomMics: 0.68,
+      resonantDecay: 0.52, vintage: 0.42
+    },
+    
+    bass: { 
+      type: 'bass', pitch: 1, decay: 0.72, tone: 53, attack: 0.011, lofi: 19, dist: 8,
+      velocitySensitivity: 0.86, stereoWidth: 0.28, harmonicContent: 54, vinylCrackle: 12,
+      stringCount: 4, stringGauge: [0.040, 0.060, 0.080, 0.100],
+      tuning: 'standard', stringMaterial: 'flatwound', stringAge: 'aged',
+      stringTension: 'medium_low', fundamentalFreq: 82, subHarmonics: 0.62,
+      overtones: [164, 246, 328], harmonicBalance: [1.0, 0.72, 0.48, 0.28, 0.15],
+      sustainDecay: 0.72, pickAttack: 0.35, fingerStyle: true,
+      playingPosition: 'neck', stringResonance: 0.82, fretNoise: 0.45,
+      fretBuzz: 0.22, stringSlap: 0.0, bodyResonance: 0.85,
+      bodyWood: 'alder', neckWood: 'maple', pickupType: 'jazz_neck',
+      pickupPosition: 0.35, toneKnob: 0.72, ampModel: 'vintage_tube',
+      ampGain: 0.35, ampTone: 0.62, cabinetIR: 'ampeg_2x15',
+      cabinetMic: 'ribbon', micDistance: 22, analogWarmth: 0.82,
+      tubeSaturation: 0.48, tapeCompression: 0.52, wowFlutter: 0.15,
+      vintage: 0.42
+    },
+    
+    keys: { 
+      type: 'keys', pitch: -5, decay: 1.38, tone: 51, attack: 0.0082, lofi: 21,
+      velocitySensitivity: 0.88, stereoWidth: 0.63, harmonicContent: 57, vinylCrackle: 14,
+      instrumentType: 'electric_piano_vintage', keyCount: 73, hammerAction: true,
+      tineResonance: 0.82, pickupDistance: 0.68, amplification: 'transistor',
+      fundamentalFreq: 261.63, stringResonance: 0.82, tineDecay: 1.38,
+      harmonicSeries: [1, 2, 3, 4, 5, 6], harmonicDecay: [1.0, 0.78, 0.58, 0.42, 0.25, 0.12],
+      inharmonicity: 0.42, partialTuning: 'stretched', hammerNoise: 0.48,
+      releaseNoise: 0.32, damperNoise: 0.22, pedalResonance: 0.75,
+      mechanicalClick: 0.38, bell: 0.62, bark: 0.55,
+      stereoMicing: 'spaced_pair', roomAmbience: 0.48, micType: 'ribbon',
+      analogWarmth: 0.78, wowFlutter: 0.18, vintage: 0.42
+    },
+    
+    guitar: { 
+      type: 'guitar', pitch: 3, decay: 1.05, tone: 61, attack: 0.0048, lofi: 20,
+      velocitySensitivity: 0.84, stereoWidth: 0.68, harmonicContent: 60,
+      stringCount: 6, stringGauge: [0.012, 0.016, 0.024, 0.032, 0.042, 0.053],
+      tuning: 'standard', stringMaterial: 'flatwound', stringAge: 'medium',
+      fundamentalFreq: 196, overtones: [392, 588, 784, 980],
+      harmonicBalance: [1.0, 0.75, 0.55, 0.38, 0.22], sustainDecay: 1.05,
+      pickNoise: 0.28, pickThickness: 0.60, pickMaterial: 'nylon',
+      fretBuzz: 0.15, fretNoise: 0.22, stringSlide: 0.12,
+      playingPosition: 'neck', archtop: true, fhole: true,
+      bodyResonance: 0.88, bodyWood: 'maple', topWood: 'spruce',
+      bodySize: 'archtop', pickupType: 'humbucker_neck', pickupPosition: 0.35,
+      toneKnob: 0.75, ampModel: 'tube_clean', ampGain: 0.38,
+      stereoMicing: 'room_ambient', roomAmbience: 0.58, micType: 'ribbon',
+      vintage: 0.42
+    }
   },
 
   vintage: {
-    // Kit character: Small vintage studio, close mics, heavy tape character ~1970
-    _kitMeta: { roomSize: 0.3, roomBrightness: 38, micDistance: 0.38, vintageYear: 1970, wear: 0.7 },
+    _kitMeta: { 
+      roomSize: 0.32, roomBrightness: 40, micDistance: 0.4, vintageYear: 1969, wear: 0.72,
+      bitDepth: 8, sampleRate: 22050, tapeSaturation: 0.78, compressionRatio: 3.2,
+      micPreamp: 'vintage_tube_overdriven', micType: 'ribbon_old', analogChain: true,
+      tapeSpeed: 7.5, tapeFormula: 'scotch_111', noiseFloor: -52, wow: 0.35, flutter: 0.18,
+      roomReverb: 1.2, tapeHiss: 0.45
+    },
     
-    kick: { type: 'kick', pitch: -4, decay: 0.3, tone: 36, noise: 30, lofi: 60, dist: 28,
-            attack: 0.008, bleed: 15, velocitySensitivity: 0.68, stereoWidth: 0.2, harmonicContent: 38, bitDepth: 10 },
-    snare: { type: 'snare', pitch: -2, decay: 0.18, tone: 40, noise: 73, lofi: 55, dist: 22,
-             snareRattle: 22, attack: 0.006, bleed: 18, velocitySensitivity: 0.65, stereoWidth: 0.32, harmonicContent: 42, bitDepth: 10 },
-    hihatClosed: { type: 'hihat', pitch: -3, decay: 0.06, tone: 36, noise: 80, lofi: 50, closed: true,
-                   attack: 0.004, velocitySensitivity: 0.7, stereoWidth: 0.62, harmonicContent: 46, bitDepth: 10 },
-    hihatOpen: { type: 'hihat', pitch: -3, decay: 0.26, tone: 40, noise: 76, lofi: 50, closed: false,
-                 attack: 0.005, velocitySensitivity: 0.68, stereoWidth: 0.68, harmonicContent: 48, bitDepth: 10 },
-    clap: { type: 'clap', pitch: -2, decay: 0.16, tone: 31, noise: 86, lofi: 45, dist: 16,
-            attack: 0.006, velocitySensitivity: 0.64, stereoWidth: 0.52, harmonicContent: 36 },
-    rimshot: { type: 'snare', pitch: 5, decay: 0.07, tone: 56, noise: 50, lofi: 40,
-               attack: 0.004, velocitySensitivity: 0.72, stereoWidth: 0.38, harmonicContent: 54 },
-    tomLow: { type: 'tom', pitch: -6, decay: 0.45, tone: 53, noise: 22, lofi: 45,
-              attack: 0.008, bleed: 14, velocitySensitivity: 0.67, stereoWidth: 0.44, harmonicContent: 48, bitDepth: 10 },
-    tomHigh: { type: 'tom', pitch: 0, decay: 0.34, tone: 50, noise: 24, lofi: 45,
-               attack: 0.007, bleed: 13, velocitySensitivity: 0.69, stereoWidth: 0.54, harmonicContent: 50, bitDepth: 10 },
+    kick: { 
+      type: 'kick', pitch: -4, decay: 0.32, tone: 38, noise: 28, lofi: 62, dist: 30,
+      attack: 0.0075, bleed: 17, velocitySensitivity: 0.7, stereoWidth: 0.18,
+      harmonicContent: 40, bitDepth: 10,
+      drumSize: 20, shellMaterial: 'mahogany', headType: 'coated_double',
+      beaterMaterial: 'felt_soft', beaterWeight: 'light', beaterAngle: 38,
+      fundamentalFreq: 60, subFreq: 52, subWeight: 0.48, bodyResonance: 0.75,
+      overtones: [120, 180, 240], overtoneBalance: [0.42, 0.28, 0.18, 0.08],
+      clickFreq: 2400, beaterClick: 0.32, clickDecay: 0.028, clickHarmonics: 0.42,
+      dampening: 0.42, portHole: 0.0, headTension: 0.38, bodyDecay: 0.32,
+      transientShape: 'soft', transientPeak: 0.0075, sustainCurve: 'vintage',
+      roomReflection: 0.55, earlyReflections: 0.62, micBleed: 0.58,
+      proximity: 0.32, phaseAlignment: 0.78, micPlacement: 'close_vintage',
+      roomMics: 0.65, innerMic: 'ribbon_vintage', outerMic: 'dynamic_vintage',
+      analogWarmth: 0.92, tubeSaturation: 0.72, tapeCompression: 0.78,
+      vinylCrackle: 25, wowFlutter: 0.32, sampleRate: 22050
+    },
     
-    bass: { type: 'bass', pitch: -4, decay: 0.68, tone: 47, attack: 0.014, lofi: 52, dist: 21,
-            velocitySensitivity: 0.78, stereoWidth: 0.25, harmonicContent: 45, vinylCrackle: 20, wowFlutter: 0.22, sampleRate: 32000 },
-    keys: { type: 'keys', pitch: 4, decay: 0.94, tone: 44, attack: 0.017, lofi: 56,
-            velocitySensitivity: 0.8, stereoWidth: 0.6, harmonicContent: 48, vinylCrackle: 22, wowFlutter: 0.2, bitDepth: 10 },
-    guitar: { type: 'guitar', pitch: -1, decay: 0.88, tone: 55, attack: 0.0092, lofi: 49,
-              velocitySensitivity: 0.76, stereoWidth: 0.65, harmonicContent: 52, vinylCrackle: 18, wowFlutter: 0.18 }
+    snare: { 
+      type: 'snare', pitch: -2, decay: 0.2, tone: 42, noise: 75, lofi: 58, dist: 24,
+      attack: 0.0058, bleed: 20, velocitySensitivity: 0.67, stereoWidth: 0.3,
+      harmonicContent: 44, bitDepth: 10,
+      drumSize: 14, depth: 5, shellMaterial: 'mahogany', shellThickness: 5,
+      topHead: 'coated_ambassador', bottomHead: 'snare_side',
+      wireCount: 12, wireMaterial: 'steel', wireTension: 0.52, wireResponse: 0.68,
+      snareRattle: 24, rattleDecay: 0.28, rattleFreqRange: [150, 6500],
+      wireStrands: 'standard', snareThrow: 1.0,
+      fundamentalFreq: 200, bodyFreq: 170, overtones: [400, 600, 800],
+      overtoneSpread: 0.62, harmonicDecay: 0.32, rimFreq: 2300,
+      centerStrike: 0.72, edgeStrike: 0.0, rimShot: 0.0,
+      stickTip: 'wood', stickWeight: 'light', strikeAngle: 18,
+      topHeadTension: 0.55, bottomHeadTension: 0.62, headInteraction: 0.52,
+      transientShape: 'soft', sustainDecay: 0.2, roomReflection: 0.62,
+      micBleed: 0.62, overheadBleed: 0.78, topMic: 'ribbon', bottomMic: 'dynamic',
+      micPhase: 'inverted', ghostNoteResponse: 0.92, buzzResponse: 0.62,
+      sympatheticVibration: 0.72, tubeSaturation: 0.68, vintage: 0.78,
+      sampleRate: 22050
+    },
+    
+    hihatClosed: { 
+      type: 'hihat', pitch: -3, decay: 0.065, tone: 38, noise: 82, lofi: 52, closed: true,
+      attack: 0.0035, velocitySensitivity: 0.72, stereoWidth: 0.6, harmonicContent: 48,
+      bitDepth: 10,
+      topCymbal: 13, bottomCymbal: 13, cymbalWeight: 'medium_light', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.8, bottomCymbalThickness: 0.95, bellSize: 4,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      fundamentalFreq: 800, bellResonance: 0.52, edgeTone: 0.58, metalComplexity: 0.68,
+      inharmonicity: 0.65, partialDecay: [0.062, 0.055, 0.048],
+      frequencySpread: [800, 2000, 4600, 7800], overtoneBalance: [1.0, 0.58, 0.35, 0.15],
+      footPressure: 0.62, clutchTension: 'medium', standTilt: 9,
+      cymbalSeparation: 0.2, airRelease: 0.32, airPressure: 0.38,
+      suctionEffect: 0.42, tipContact: 'edge', stickMaterial: 'wood',
+      stickTip: 'medium', chick: 0.62, dynamicRange: 30,
+      stereoSpread: 0.6, roomReflection: 0.62, overheadBleed: 0.78,
+      micType: 'ribbon', micDistance: 16, micAngle: 52,
+      analogWarmth: 0.88, tubeSaturation: 0.65, vintage: 0.78,
+      sampleRate: 22050
+    },
+    
+    hihatOpen: { 
+      type: 'hihat', pitch: -3, decay: 0.28, tone: 42, noise: 78, lofi: 52, closed: false,
+      attack: 0.0045, velocitySensitivity: 0.7, stereoWidth: 0.66, harmonicContent: 50,
+      bitDepth: 10,
+      topCymbal: 13, bottomCymbal: 13, cymbalWeight: 'medium_light', cymbalProfile: 'traditional',
+      topCymbalThickness: 0.8, bottomCymbalThickness: 0.95, bellSize: 4,
+      metalAlloy: 'b20_bronze', hammerPattern: 'traditional', lathing: 'full',
+      fundamentalFreq: 800, bellResonance: 0.58, edgeTone: 0.65, metalComplexity: 0.66,
+      inharmonicity: 0.68, shimmerDecay: 0.85,
+      frequencySpread: [800, 2000, 4600, 7800, 11000],
+      overtoneBalance: [1.0, 0.68, 0.48, 0.28, 0.12],
+      sustainBuild: 0.022, washCharacter: 0.82, wash: 0.85,
+      footPressure: 0.2, clutchTension: 'medium', cymbalSeparation: 1.4,
+      airRelease: 0.82, airPressure: 0.88, suctionEffect: 0.12,
+      pedalOpenness: 0.8, footBarrel: 0.3, tipContact: 'edge',
+      stickMaterial: 'wood', strikeForce: 'light', swell: 0.75,
+      bloom: 0.82, dynamicRange: 35, stereoSpread: 0.66,
+      roomReflection: 0.68, overheadBleed: 0.85, micType: 'ribbon',
+      micDistance: 16, analogWarmth: 0.88, tubeSaturation: 0.65,
+      vintage: 0.78, sampleRate: 22050
+    },
+    
+    clap: { 
+      type: 'clap', pitch: -2, decay: 0.18, tone: 33, noise: 88, lofi: 48, dist: 18,
+      attack: 0.0055, velocitySensitivity: 0.66, stereoWidth: 0.5, harmonicContent: 38,
+      handCount: 3, handSize: 'medium', clapTightness: 'loose', handCupping: 0.52,
+      initialSlap: 0.62, slapFreq: 1550, slapDecay: 0.012, slapHarmonics: 0.52,
+      timingSpread: 0.02, velocityVariation: 0.25, stereoSpread: 0.5,
+      multiHitDelay: [0.0, 0.018, 0.042, 0.072],
+      multiHitGain: [1.0, 0.65, 0.42, 0.25],
+      fundamentalFreq: 850, bodyResonance: 0.55, airCompression: 0.52,
+      highFreqContent: 0.62, skinTexture: 0.52, reverseDecay: 0.25,
+      roomSlap: 0.62, roomSize: 'small', earlyReflections: 0.58,
+      compression: 0.72, analogWarmth: 0.85, vintage: 0.78
+    },
+    
+    rimshot: { 
+      type: 'snare', pitch: 5, decay: 0.078, tone: 58, noise: 48, lofi: 42,
+      attack: 0.0035, velocitySensitivity: 0.74, stereoWidth: 0.36, harmonicContent: 56,
+      drumSize: 14, shellMaterial: 'mahogany', rimMaterial: 'steel_triple_flange',
+      stickContact: 'loose_simultaneous', stickAngle: 38, stickTip: 'wood',
+      fundamentalFreq: 440, metalRing: 0.75, metalDecay: 0.082, metalFreq: 2500,
+      woodContact: 0.62, woodFreq: 1150, woodDecay: 0.068,
+      headResponse: 0.45, headDampening: 0.62, overtones: [880, 1320, 1760],
+      overtoneDecay: 0.068, ringOut: 0.65, clickTransient: 0.75,
+      transientFreq: 3100, pitchBend: 0.28, analogWarmth: 0.82,
+      vintage: 0.78
+    },
+    
+    tomLow: { 
+      type: 'tom', pitch: -6, decay: 0.48, tone: 55, noise: 20, lofi: 48,
+      attack: 0.0075, bleed: 16, velocitySensitivity: 0.69, stereoWidth: 0.42,
+      harmonicContent: 50, bitDepth: 10,
+      drumSize: 14, depth: 12, shellMaterial: 'mahogany', shellThickness: 7,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 88, bodyResonance: 0.82, overtones: [176, 264, 352],
+      overtoneBalance: [1.0, 0.58, 0.35, 0.15], sustainDecay: 0.48,
+      headInteraction: 0.68, airCoupling: 0.62, headTension: 0.45,
+      topBottomRatio: 0.75, dampening: 0.38, transientShape: 'soft',
+      attackCurve: 'natural', roomReflection: 0.62, micBleed: 0.58,
+      overheadBleed: 0.75, doubleHeaded: true, roomMics: 0.72,
+      resonantDecay: 0.62, analogWarmth: 0.88, tubeSaturation: 0.62,
+      vintage: 0.78, sampleRate: 22050
+    },
+    
+    tomHigh: { 
+      type: 'tom', pitch: 0, decay: 0.36, tone: 52, noise: 22, lofi: 48,
+      attack: 0.0065, bleed: 15, velocitySensitivity: 0.71, stereoWidth: 0.52,
+      harmonicContent: 52, bitDepth: 10,
+      drumSize: 12, depth: 10, shellMaterial: 'mahogany', shellThickness: 6,
+      topHead: 'coated_ambassador', bottomHead: 'clear_ambassador',
+      fundamentalFreq: 150, bodyResonance: 0.78, overtones: [300, 450, 600],
+      overtoneBalance: [1.0, 0.62, 0.38, 0.18], sustainDecay: 0.36,
+      headInteraction: 0.7, airCoupling: 0.65, headTension: 0.55,
+      topBottomRatio: 0.8, dampening: 0.45, transientShape: 'soft',
+      attackCurve: 'natural', roomReflection: 0.65, micBleed: 0.62,
+      overheadBleed: 0.78, doubleHeaded: true, roomMics: 0.75,
+      resonantDecay: 0.55, analogWarmth: 0.88, tubeSaturation: 0.62,
+      vintage: 0.78, sampleRate: 22050
+    },
+    
+    bass: { 
+      type: 'bass', pitch: -4, decay: 0.75, tone: 49, attack: 0.013, lofi: 55, dist: 23,
+      velocitySensitivity: 0.8, stereoWidth: 0.23, harmonicContent: 47, vinylCrackle: 22,
+      wowFlutter: 0.24, sampleRate: 22050, bitDepth: 10,
+      stringCount: 4, stringGauge: [0.040, 0.060, 0.080, 0.100],
+      tuning: 'standard', stringMaterial: 'flatwound', stringAge: 'very_aged',
+      stringTension: 'low', fundamentalFreq: 82, subHarmonics: 0.58,
+      overtones: [164, 246, 328], harmonicBalance: [1.0, 0.68, 0.42, 0.25, 0.12],
+      sustainDecay: 0.75, pickAttack: 0.32, fingerStyle: true,
+      playingPosition: 'neck', stringResonance: 0.88, fretNoise: 0.52,
+      fretBuzz: 0.28, stringSlap: 0.0, bodyResonance: 0.88,
+      bodyWood: 'mahogany', neckWood: 'maple', pickupType: 'single_coil',
+      pickupPosition: 0.32, toneKnob: 0.78, ampModel: 'vintage_tube',
+      ampGain: 0.32, ampTone: 0.68, cabinetIR: 'ampeg_vintage_2x15',
+      cabinetMic: 'ribbon_old', micDistance: 24, analogWarmth: 0.92,
+      tubeSaturation: 0.78, tapeCompression: 0.82, noiseFloor: -52
+    },
+    
+    keys: { 
+      type: 'keys', pitch: 4, decay: 1.05, tone: 46, attack: 0.016, lofi: 58,
+      velocitySensitivity: 0.82, stereoWidth: 0.58, harmonicContent: 50, vinylCrackle: 24,
+      wowFlutter: 0.22, bitDepth: 10,
+      instrumentType: 'electric_piano_vintage', keyCount: 73, hammerAction: true,
+      tineResonance: 0.72, pickupDistance: 0.72, amplification: 'tube',
+      fundamentalFreq: 261.63, stringResonance: 0.85, tineDecay: 1.05,
+      harmonicSeries: [1, 2, 3, 4, 5, 6], harmonicDecay: [1.0, 0.72, 0.52, 0.35, 0.22, 0.1],
+      inharmonicity: 0.48, partialTuning: 'stretched', hammerNoise: 0.55,
+      releaseNoise: 0.38, damperNoise: 0.28, pedalResonance: 0.78,
+      mechanicalClick: 0.45, tremolo: 0.15, tremoloRate: 5.2, tremoloDepth: 0.28,
+      bell: 0.58, bark: 0.52, stereoMicing: 'close_vintage',
+      roomAmbience: 0.52, micType: 'ribbon', analogWarmth: 0.92,
+      tubeSaturation: 0.75, tapeCompression: 0.78, sampleRate: 22050
+    },
+    
+    guitar: { 
+      type: 'guitar', pitch: -1, decay: 0.95, tone: 57, attack: 0.0088, lofi: 52,
+      velocitySensitivity: 0.78, stereoWidth: 0.62, harmonicContent: 54, vinylCrackle: 20,
+      wowFlutter: 0.2,
+      stringCount: 6, stringGauge: [0.011, 0.014, 0.018, 0.028, 0.038, 0.048],
+      tuning: 'standard', stringMaterial: 'nickel_roundwound', stringAge: 'aged',
+      fundamentalFreq: 196, overtones: [392, 588, 784, 980],
+      harmonicBalance: [1.0, 0.72, 0.52, 0.35, 0.2], sustainDecay: 0.95,
+      pickNoise: 0.42, pickThickness: 0.71, pickMaterial: 'tortoise_shell',
+      fretBuzz: 0.25, fretNoise: 0.35, stringSlide: 0.22,
+      playingPosition: 'middle', bodyResonance: 0.82, bodyWood: 'mahogany',
+      topWood: 'spruce', bodySize: 'dreadnought', bracing: 'ladder',
+      soundholeSize: 4, pickupType: 'piezo_vintage', pickupPosition: 0.5,
+      micType: 'ribbon', micPosition: '12th_fret', micDistance: 14,
+      roomAmbience: 0.58, stereoWidth: 0.62, analogWarmth: 0.88,
+      tubeSaturation: 0.68, tapeCompression: 0.72, vintage: 0.78
+    }
   }
 };
+
+// Export for use
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { sampleKits };
+}
 
 // Keep an immutable copy of the original kits so we can randomize around them
 const baseSampleKits = JSON.parse(JSON.stringify(sampleKits));
