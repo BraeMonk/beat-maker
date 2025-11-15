@@ -11277,18 +11277,24 @@ function getSoloFillPattern(mood, section, profile) {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-// Helper: Get scale notes
-function getScaleNotes(key, scale) {
-  const scales = {
-    'major': [0, 2, 4, 5, 7, 9, 11],
-    'minor': [0, 2, 3, 5, 7, 8, 10],
-    'dorian': [0, 2, 3, 5, 7, 9, 10],
-    'mixolydian': [0, 2, 4, 5, 7, 9, 10]
-  };
-  const intervals = scales[scale] || scales['major'];
-  const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  const rootIdx = notes.indexOf(key);
-  return intervals.map(interval => notes[(rootIdx + interval) % 12]);
+function getScaleNotes(key, scaleName) {
+  // Use the global scales object you defined earlier
+  const intervals = scales[scaleName];
+
+  if (!Array.isArray(intervals)) {
+    console.warn(`⚠️ Unknown scale "${scaleName}", using first scale in list.`);
+    const first = Object.keys(scales)[0];
+    state.scale = first;
+    return getScaleNotes(key, first);
+  }
+
+  const rootIdx = keysArr.indexOf(key);
+  if (rootIdx === -1) {
+    console.warn(`⚠️ Unknown key "${key}", defaulting to C.`);
+    return getScaleNotes('C', scaleName);
+  }
+
+  return intervals.map(i => keysArr[(rootIdx + i) % 12]);
 }
   
 // Coherent transition design for risers + impacts
@@ -29544,7 +29550,51 @@ function populateHarmonySelectors() {
   const octaveSelect = document.getElementById('octaveSelect');
 
   const keys = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-  const scales = ['major','minor','dorian','mixolydian','lydian','phrygian','pentatonic'];
+  const scales = {
+    // ————— Diatonic Modes —————
+    ionian:       [0,2,4,5,7,9,11],   // same as major
+    dorian:       [0,2,3,5,7,9,10],
+    phrygian:     [0,1,3,5,7,8,10],
+    lydian:       [0,2,4,6,7,9,11],
+    mixolydian:   [0,2,4,5,7,9,10],
+    aeolian:      [0,2,3,5,7,8,10],   // same as natural minor
+    locrian:      [0,1,3,5,6,8,10],
+  
+    // ————— Pentatonics —————
+    pentatonic:        [0,2,4,7,9],   // major pent
+    minorPentatonic:   [0,3,5,7,10],
+    egyptian:          [0,2,5,7,10],  // super smooth, lofi/ambient gold
+  
+    // ————— Blues —————
+    blues:          [0,3,5,6,7,10],   // hexatonic blues
+    majorBlues:     [0,2,3,4,7,9],    // happier blues
+  
+    // ————— Harmonic Families —————
+    harmonicMinor:  [0,2,3,5,7,8,11],
+    melodicMinor:   [0,2,3,5,7,9,11],
+  
+    // ————— Exotic but usable —————
+    hungarianMinor:     [0,2,3,6,7,8,11],  // INSANE for dark jazz/fusion/metal
+    phrygianDominant:   [0,1,4,5,7,8,10],  // Middle Eastern / metal
+    arabian:            [0,2,4,5,6,8,10],  // perfect cinematic tension
+  
+    // ————— Whole/Half Systems —————
+    wholeTone:     [0,2,4,6,8,10],   // dream sequences, vaporwave
+    diminished:    [0,2,3,5,6,8,9,11], // symmetrical diminished scale (octatonic)
+  
+    // ————— Modal / Lofi / Ambient Favourites —————
+    inSen:         [0,1,5,7,10],     // Japanese — BEAUTIFUL for ambient
+    hirajoshi:     [0,2,3,7,8],      // Japanese — perfect for lofi/jazz
+    kumoi:         [0,2,3,7,9],      // soft and melodic
+  
+    // ————— EDM / Trap Friendly —————
+    altered:       [0,1,3,4,6,8,10], // jazz "super-locrian", wild tension
+    doubleHarmonic:[0,1,4,5,7,8,11], // Egyptian/Arabic flavor
+  
+    // ————— Synthetic / Modern —————
+    chromatic:     [0,1,2,3,4,5,6,7,8,9,10,11], // full set
+    wholeHalf:     [0,2,3,5,6,8,9,11], // alt diminished
+  };
   const octaves = [2,3,4,5];
 
   keySelect.innerHTML = keys.map(k => `<option value="${k}">${k}</option>`).join('');
