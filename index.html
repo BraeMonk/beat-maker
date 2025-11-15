@@ -9834,6 +9834,146 @@ let songBuilderState = {
   mood: (state && state.mood) || 'default'
 };
 
+// ============================================================================
+// GLOBAL MOOD PROFILE (shared: drums / bass / chords / FX / transitions)
+// ============================================================================
+
+function getCurrentMood(section) {
+  // section-level override if you ever add it
+  if (section && section.mood) return section.mood;
+
+  if (typeof songBuilderState !== 'undefined' && songBuilderState.mood) {
+    return songBuilderState.mood;
+  }
+  return (state && state.mood) || 'default';
+}
+
+function getGlobalMoodProfile(mood, section) {
+  const energy = section?.energy ?? 0.5;
+
+  // Keep aliases in sync with your melody engine
+  const moodAlias = {
+    chill      : 'mellow',
+    relaxed    : 'mellow',
+    happy      : 'uplift',
+    uplifting  : 'uplift',
+    hype       : 'uplift',
+    moody      : 'dark',
+    angry      : 'tense',
+    aggressive : 'tense'
+  };
+
+  const m = moodAlias[mood] || mood || 'default';
+
+  const base = {
+    energy,              // carry section energy
+
+    // Drums
+    drumDensityMul   : 1.0,
+    drumGhostMul     : 1.0,
+    drumFillMul      : 1.0,
+    hatOpenMul       : 1.0,
+
+    // Bass
+    bassMovementMul  : 1.0,
+    bassRegisterOff  : 0,
+
+    // Harmony / chords
+    chordTensionMul  : 1.0,
+    chordSpreadMul   : 1.0,
+
+    // FX / transitions
+    fxRiserStrength   : 1.0,
+    fxImpactStrength  : 1.0,
+    fxReverseStrength : 1.0
+  };
+
+  const byMood = {
+    default: {},
+
+    dark: {
+      drumDensityMul   : 0.9,
+      drumGhostMul     : 0.9,
+      drumFillMul      : 0.9,
+      bassMovementMul  : 0.9,
+      bassRegisterOff  : -1,
+      chordTensionMul  : 1.2,
+      chordSpreadMul   : 0.9,
+      fxRiserStrength  : 0.9,
+      fxImpactStrength : 1.1,
+      fxReverseStrength: 1.0
+    },
+
+    sad: {
+      drumDensityMul    : 0.6,
+      drumGhostMul      : 0.7,
+      drumFillMul       : 0.6,
+      bassMovementMul   : 0.7,
+      bassRegisterOff   : -1,
+      chordTensionMul   : 1.0,
+      chordSpreadMul    : 1.1,
+      fxRiserStrength   : 0.7,
+      fxImpactStrength  : 0.8,
+      fxReverseStrength : 1.2
+    },
+
+    tense: {
+      drumDensityMul   : 1.3,
+      drumGhostMul     : 1.4,
+      drumFillMul      : 1.4,
+      hatOpenMul       : 1.2,
+      bassMovementMul  : 1.3,
+      chordTensionMul  : 1.4,
+      chordSpreadMul   : 1.1,
+      fxRiserStrength  : 1.5,
+      fxImpactStrength : 1.4,
+      fxReverseStrength: 1.1
+    },
+
+    mellow: {
+      drumDensityMul   : 0.85,
+      drumGhostMul     : 0.8,
+      drumFillMul      : 0.8,
+      hatOpenMul       : 0.8,
+      bassMovementMul  : 0.9,
+      chordTensionMul  : 0.9,
+      chordSpreadMul   : 1.05,
+      fxRiserStrength  : 0.9,
+      fxImpactStrength : 0.9,
+      fxReverseStrength: 1.0
+    },
+
+    dreamy: {
+      drumDensityMul    : 0.8,
+      drumGhostMul      : 0.9,
+      drumFillMul       : 0.8,
+      hatOpenMul        : 1.0,
+      bassMovementMul   : 0.8,
+      bassRegisterOff   : +1,
+      chordTensionMul   : 1.1,
+      chordSpreadMul    : 1.2,
+      fxRiserStrength   : 1.3,
+      fxImpactStrength  : 0.95,
+      fxReverseStrength : 1.3
+    },
+
+    uplift: {
+      drumDensityMul   : 1.15,
+      drumGhostMul     : 1.1,
+      drumFillMul      : 1.1,
+      hatOpenMul       : 1.2,
+      bassMovementMul  : 1.2,
+      chordTensionMul  : 1.2,
+      chordSpreadMul   : 1.2,
+      fxRiserStrength  : 1.3,
+      fxImpactStrength : 1.3,
+      fxReverseStrength: 1.0
+    }
+  };
+
+  return { ...base, ...(byMood[m] || {}) };
+}
+
 // ===== RISER AUTOMATION SCHEDULER HELPERS =====
 songBuilderState._riserAutoIds = songBuilderState._riserAutoIds || [];
 
@@ -10396,10 +10536,21 @@ function generateSectionDrums(section, startBar, endBar) {
   if (!section.drums) return;
   
   const drumPattern = section.drumPattern || 'four-floor';
-  const density = section.density || 0.7;
-  const energy = section.energy || 0.7;
-  const fillEvery = songBuilderState.fillEvery || 0;
-  
+  const density     = section.density || 0.7;
+  const energy      = section.energy  || 0.7;
+  const fillEvery   = songBuilderState.fillEvery || 0;
+
+  const mood        = getCurrentMood(section);
+  const moodProfile = getGlobalMoodProfile(mood, section);
+
+  // Mood-scaled knobs
+  const mainDensity = density * (moodProfile.drumDensityMul || 1);
+  const fillMul     = (moodProfile.drumFillMul || 1);
+  const ghostMul    = (moodProfile.drumGhostMul || 1);
+  const hatOpenMul  = (moodProfile.hatOpenMul || 1);
+
+  const hatVel = (base => Math.max(0.2, Math.min(1.0, base * hatOpenMul)));
+
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
     
@@ -10408,13 +10559,16 @@ function generateSectionDrums(section, startBar, endBar) {
         // Kick on every beat
         [0, 4, 8, 12].forEach(s => sbSetStep('kick', offset + s, { velocity: 0.9 }));
         // Snare on 2 & 4
-        sbSetStep('snare', offset + 4, { velocity: 0.9 });
+        sbSetStep('snare', offset + 4,  { velocity: 0.9 });
         sbSetStep('snare', offset + 12, { velocity: 0.95 });
-        // Hi-hats on 8ths
+        // Hi-hats on 8ths (mood-scaled density)
         if (patterns.hihat) {
           for (let i = 0; i < 16; i += 2) {
-            if (Math.random() < density) {
-              sbSetStep('hihat', offset + i, { velocity: 0.5 + energy * 0.3 });
+            const prob = mainDensity * (i % 4 === 2 ? ghostMul : 1);
+            if (Math.random() < prob) {
+              sbSetStep('hihat', offset + i, {
+                velocity: hatVel(0.5 + energy * 0.3)
+              });
             }
           }
         }
@@ -10422,36 +10576,46 @@ function generateSectionDrums(section, startBar, endBar) {
         
       case 'breakbeat':
         // Syncopated breakbeat feel
-        sbSetStep('kick', offset + 0, { velocity: 0.95 });
-        sbSetStep('kick', offset + 6, { velocity: 0.7 });
-        sbSetStep('kick', offset + 10, { velocity: 0.75 });
-        sbSetStep('snare', offset + 4, { velocity: 0.9 });
+        sbSetStep('kick',  offset + 0,  { velocity: 0.95 });
+        sbSetStep('kick',  offset + 6,  { velocity: 0.7  });
+        sbSetStep('kick',  offset + 10, { velocity: 0.75 });
+        sbSetStep('snare', offset + 4,  { velocity: 0.9  });
         sbSetStep('snare', offset + 12, { velocity: 0.95 });
-        if (patterns.hihat && density > 0.5) {
+
+        if (patterns.hihat && mainDensity > 0.35) {
           for (let i = 0; i < 16; i++) {
-            if (Math.random() < 0.6 * density) {
-              sbSetStep('hihat', offset + i, { velocity: 0.4 + Math.random() * 0.3 });
+            const baseProb = (i % 2 === 0 ? 0.4 : 0.6);
+            const prob     = baseProb * mainDensity * ghostMul;
+            if (Math.random() < prob) {
+              sbSetStep('hihat', offset + i, {
+                velocity: hatVel(0.4 + Math.random() * 0.3)
+              });
             }
           }
         }
         break;
         
       case 'trap':
-        // Trap hi-hat rolls
-        sbSetStep('kick', offset + 0, { velocity: 0.95 });
-        sbSetStep('kick', offset + 8, { velocity: 0.85 });
+        // Trap kicks
+        sbSetStep('kick', offset + 0,  { velocity: 0.95 });
+        sbSetStep('kick', offset + 8,  { velocity: 0.85 });
         if (energy > 0.7) sbSetStep('kick', offset + 14, { velocity: 0.75 });
-        sbSetStep('snare', offset + 4, { velocity: 0.9 });
+
+        // Snare on backbeats
+        sbSetStep('snare', offset + 4,  { velocity: 0.9  });
         sbSetStep('snare', offset + 12, { velocity: 0.95 });
-        // Rapid hi-hat patterns
+
+        // Rapid hi-hat patterns (mood-scaled)
         if (patterns.hihat) {
           const rollStart = Math.random() < 0.5 ? 6 : 14;
           for (let i = 0; i < 16; i++) {
             const isRoll = i >= rollStart && i < rollStart + 2;
-            const prob = isRoll ? 0.9 : (i % 2 === 1 ? 0.7 : 0.3);
-            if (Math.random() < prob * density) {
+            let baseProb = isRoll ? 0.9 : (i % 2 === 1 ? 0.7 : 0.3);
+            baseProb *= mainDensity;
+            if (isRoll) baseProb *= ghostMul;
+            if (Math.random() < baseProb) {
               sbSetStep('hihat', offset + i, { 
-                velocity: 0.4 + (isRoll ? 0.4 : 0.2) * energy,
+                velocity: hatVel(0.4 + (isRoll ? 0.4 : 0.2) * energy),
                 probability: isRoll ? 95 : 75
               });
             }
@@ -10462,24 +10626,27 @@ function generateSectionDrums(section, startBar, endBar) {
       case 'half-time':
         // Half-time feel (slower kick/snare)
         if (bar % 2 === 0) {
-          sbSetStep('kick', offset + 0, { velocity: 0.95 });
-          sbSetStep('snare', offset + 8, { velocity: 0.9 });
+          sbSetStep('kick',  offset + 0, { velocity: 0.95 });
+          sbSetStep('snare', offset + 8, { velocity: 0.9  });
         }
         if (patterns.hihat) {
           for (let i = 0; i < 16; i += 2) {
-            if (Math.random() < 0.7 * density) {
-              sbSetStep('hihat', offset + i, { velocity: 0.5 });
+            const prob = 0.7 * mainDensity;
+            if (Math.random() < prob) {
+              sbSetStep('hihat', offset + i, { velocity: hatVel(0.5) });
             }
           }
         }
         break;
     }
     
-    // Add fills
+    // Mood-aware fills
     if (fillEvery && ((bar + 1) % fillEvery === 0) && energy > 0.5) {
-      const fillLength = Math.floor(4 * density);
+      const baseFillLen = Math.floor(4 * density);
+      const fillLength  = Math.max(1, Math.round(baseFillLen * fillMul));
       for (let i = STEPS_PER_BAR - fillLength; i < STEPS_PER_BAR; i++) {
-        if (Math.random() < 0.7) {
+        const baseProb = 0.7 * fillMul;
+        if (Math.random() < baseProb) {
           const inst = Math.random() < 0.5 ? 'snare' : 'kick';
           sbSetStep(inst, offset + i, {
             velocity: 0.6 + 0.3 * Math.random(),
@@ -10491,17 +10658,26 @@ function generateSectionDrums(section, startBar, endBar) {
   }
 }
 
-// --- BASS GENERATOR WITH VARIATION ---
 function generateSectionBass(section, startBar, endBar) {
   if (!section.bass) return;
   if (!patterns.bass) return;
 
-  const bassOct     = (state.octave || 3) - 2;
-  const bassPattern = section.bassPattern || 'root-fifth';
-  const energy      = section.energy ?? 0.6;
-  const density     = section.density ?? 0.7;
+  const mood        = getCurrentMood(section);
+  const moodProfile = getGlobalMoodProfile(mood, section);
 
-  const id = (section.id || '').toLowerCase();
+  const baseOct   = (state.octave || 3) - 2;
+  const bassOct   = baseOct + (moodProfile.bassRegisterOff || 0);
+  const bassPattern = section.bassPattern || 'root-fifth';
+
+  const rawEnergy   = section.energy  ?? 0.6;
+  const rawDensity  = section.density ?? 0.7;
+
+  // Mood-scaled movement: tense/uplift = more movement, sad/dark = simpler
+  const moveMul     = moodProfile.bassMovementMul || 1;
+  const energy      = rawEnergy;
+  const effDensity  = Math.max(0.2, Math.min(1.0, rawDensity * moveMul));
+
+  const id       = (section.id || '').toLowerCase();
   const isIntro  = id.includes('intro');
   const isOutro  = id.includes('outro') || id.includes('end');
   const isBreak  = id.includes('break') || id.includes('dub');
@@ -10509,10 +10685,10 @@ function generateSectionBass(section, startBar, endBar) {
   const isChorus = id.includes('chorus') || id.includes('hook') || isDrop;
   const isVerse  = id.includes('verse');
 
-  // ❌ removed global cache
-  // ✔ build fresh motifSet for this generation
   const motifSet = buildBassMotifSet(bassPattern, {
-    isIntro, isOutro, isBreak, isChorus, isVerse, energy, density
+    isIntro, isOutro, isBreak, isChorus, isVerse,
+    energy,
+    density: effDensity
   });
 
   for (let bar = startBar; bar < endBar; bar++) {
@@ -10541,14 +10717,14 @@ function generateSectionBass(section, startBar, endBar) {
     motif.forEach(ev => {
       let notePc;
       switch (ev.degree) {
-        case 'third': notePc = third || root; break;
-        case 'fifth': notePc = fifth || root; break;
+        case 'third':   notePc = third || root; break;
+        case 'fifth':   notePc = fifth || root; break;
         case 'seventh': notePc = pcs[3] || fifth || root; break;
-        default:      notePc = root; break;
+        default:        notePc = root; break;
       }
 
       const velocityVar = (Math.random() - 0.5) * 0.1;
-      const baseVel = ev.velocity ?? (0.7 + energy * 0.2);
+      const baseVel     = ev.velocity ?? (0.7 + energy * 0.2);
 
       sbSetStep('bass', offset + ev.step, {
         note: withOct(notePc, bassOct + (ev.octShift || 0)),
@@ -10771,32 +10947,46 @@ function generateSectionChords(section, startBar, endBar) {
   if (!section.chords) return;
   if (!patterns.keys) return;
   
-  const keysOct = state.octave || 3;
+  const mood        = getCurrentMood(section);
+  const moodProfile = getGlobalMoodProfile(mood, section);
+
+  // Slight octave bias: dreamy/uplift = a bit higher, dark/sad = a bit lower
+  const baseKeysOct = state.octave || 3;
+  let keysOct       = baseKeysOct;
+  if (moodProfile.chordSpreadMul > 1.15) keysOct += 1;
+  if (moodProfile.chordSpreadMul < 0.9)  keysOct -= 1;
+
   const chordPattern = section.chordPattern || 'sustained';
-  const energy = section.energy || 0.5;
-  const density = section.density || 0.7;
-  
+  const energy       = section.energy  || 0.5;
+  const density      = section.density || 0.7;
+
+  const tensionMul   = moodProfile.chordTensionMul || 1;
+  const chordDensity = Math.max(0.2, Math.min(1.0, density * (moodProfile.chordSpreadMul || 1)));
+
+  const velPad   = (base) => Math.max(0.2, Math.min(1.0, base * tensionMul));
+  const velStab  = (base) => Math.max(0.3, Math.min(1.0, base * tensionMul));
+
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
-    const chord = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
+    const chord  = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
     const [root, third, fifth] = chord.map(n => n.replace(/\d/, ''));
     
     switch(chordPattern) {
       case 'sustained':
-        // Long pad chords
+        // Long pad chords – energy & mood scale the velocities
         sbSetStep('keys', offset + 0, { 
-          note: withOct(root, keysOct), 
-          velocity: 0.5 + 0.2 * energy, 
+          note: withOct(root,  keysOct), 
+          velocity: velPad(0.5 + 0.2 * energy), 
           duration: '1n' 
         });
         sbSetStep('keys', offset + 0, { 
           note: withOct(third, keysOct), 
-          velocity: 0.45 + 0.2 * energy, 
+          velocity: velPad(0.45 + 0.2 * energy), 
           duration: '1n' 
         });
         sbSetStep('keys', offset + 0, { 
           note: withOct(fifth, keysOct), 
-          velocity: 0.45 + 0.2 * energy, 
+          velocity: velPad(0.45 + 0.2 * energy), 
           duration: '1n' 
         });
         break;
@@ -10804,11 +10994,11 @@ function generateSectionChords(section, startBar, endBar) {
       case 'staccato':
         // Short, punchy chords
         [0, 4, 8, 12].forEach(step => {
-          if (Math.random() < density) {
-            [root, third, fifth].forEach((note, i) => {
+          if (Math.random() < chordDensity) {
+            [root, third, fifth].forEach(note => {
               sbSetStep('keys', offset + step, {
                 note: withOct(note, keysOct),
-                velocity: 0.7 + 0.2 * energy,
+                velocity: velStab(0.7 + 0.2 * energy),
                 duration: '16n'
               });
             });
@@ -10821,11 +11011,13 @@ function generateSectionChords(section, startBar, endBar) {
         const arpNotes = [root, third, fifth, third];
         arpNotes.forEach((note, i) => {
           const step = i * 4;
-          sbSetStep('keys', offset + step, {
-            note: withOct(note, keysOct),
-            velocity: 0.6 + 0.15 * energy,
-            duration: '8n'
-          });
+          if (Math.random() < chordDensity || i === 0) {
+            sbSetStep('keys', offset + step, {
+              note: withOct(note, keysOct),
+              velocity: velPad(0.6 + 0.15 * energy),
+              duration: '8n'
+            });
+          }
         });
         break;
         
@@ -10833,11 +11025,12 @@ function generateSectionChords(section, startBar, endBar) {
         // Rhythmic stabs on specific beats
         const stabSteps = [0, 6, 8, 14];
         stabSteps.forEach(step => {
-          if (Math.random() < 0.8 * density) {
+          const prob = 0.8 * chordDensity;
+          if (Math.random() < prob) {
             [root, third, fifth].forEach(note => {
               sbSetStep('keys', offset + step, {
                 note: withOct(note, keysOct),
-                velocity: 0.65 + 0.25 * energy,
+                velocity: velStab(0.65 + 0.25 * energy),
                 duration: '8n'
               });
             });
@@ -11490,32 +11683,30 @@ function getScaleNotes(key, scaleName) {
 function applyTransitionEffects(section, nextSection, endBar) {
   if (!nextSection) return;
 
-  // Where does this section end in steps?
-  const lastBar = endBar - 1;
+  const lastBar       = endBar - 1;
   const lastBarOffset = lastBar * STEPS_PER_BAR;
 
-  // How big is the energy jump?
   const energyJump = (nextSection.energy || 0.5) - (section.energy || 0.5);
 
-  // Helper: place a long atmospheric event (riser/sweep/etc.)
+  const mood        = getCurrentMood(section);
+  const moodProfile = getGlobalMoodProfile(mood, section);
+
   const placeAtmos = (inst, startBar, barsLen, velocity = 0.7) => {
     const startOffset = startBar * STEPS_PER_BAR;
-    // Use a single long step; atmospheric lane respects long durations
     sbSetStep(inst, startOffset, {
       velocity,
       probability: 100,
-      // one measure = '1m' in Tone time; chain barsLen measures
       duration: `${Math.max(1, barsLen)}m`
     });
   };
 
-  // Helper: small pre-drop drum froth so it feels like a build
   const frothDrums = () => {
     // Open hats crescendo (last 4 steps of the last bar)
     for (let step = STEPS_PER_BAR - 4; step < STEPS_PER_BAR; step++) {
       if (patterns.hihat) {
-        sbSetStep('hihat', lastBarOffset + step, {
-          velocity: 0.4 + ((step - (STEPS_PER_BAR - 4)) * 0.15),
+        const idx = lastBarOffset + step;
+        sbSetStep('hihat', idx, {
+          velocity: 0.4 + ((step - (STEPS_PER_BAR - 4)) * 0.15) * (moodProfile.drumFillMul || 1),
           probability: 100
         });
       }
@@ -11523,8 +11714,9 @@ function applyTransitionEffects(section, nextSection, endBar) {
     // Snare 16ths roll on the back half of the last bar
     for (let step = Math.floor(STEPS_PER_BAR / 2); step < STEPS_PER_BAR; step++) {
       if (step % 2 === 0 && patterns.snare) {
-        sbSetStep('snare', lastBarOffset + step, {
-          velocity: 0.55 + ((step - Math.floor(STEPS_PER_BAR / 2)) * 0.04),
+        const idx = lastBarOffset + step;
+        sbSetStep('snare', idx, {
+          velocity: (0.55 + ((step - Math.floor(STEPS_PER_BAR / 2)) * 0.04)) * (moodProfile.drumFillMul || 1),
           probability: 95,
           duration: '16n'
         });
@@ -11532,42 +11724,46 @@ function applyTransitionEffects(section, nextSection, endBar) {
     }
   };
 
-  // BIG LIFT into next section → add riser + impact
+  // BIG LIFT
   if (energyJump > 0.3) {
-    // Decide riser length: 2 bars if we have room, else 1 bar
-    const riserBars = (section.bars >= 2) ? 2 : 1;
+    const isSoftMood = (mood === 'sad' || mood === 'mellow');
+    const riserBars  = (section.bars >= 2) ? 2 : 1;
     const riserStartBar = lastBar - (riserBars - 1);
 
-    // Place a *musical* riser on the atmospheric lane
-    // ('riser' track exists & is leveled in your MIX_PRESET)
-    placeAtmos('riser', riserStartBar, riserBars, 0.7);
+    if (isSoftMood) {
+      // gentler riser, no crazy froth
+      placeAtmos('riser', riserStartBar, riserBars, 0.5 * (moodProfile.fxRiserStrength || 1));
+    } else {
+      placeAtmos('riser', riserStartBar, riserBars, 0.7 * (moodProfile.fxRiserStrength || 1));
+      frothDrums();
+    }
 
-    // Drum froth to sell the build (your previous logic, but cleaner)
-    frothDrums();
-
-    // Downbeat impact at the first step of the *next* section
-    const nextStartBar = endBar; // next section begins where this one ends
+    const nextStartBar = endBar;
     if (patterns.fx) {
       sbSetStep('fx', nextStartBar * STEPS_PER_BAR, {
-        velocity: 0.9,
+        velocity: 0.9 * (moodProfile.fxImpactStrength || 1),
         probability: 100,
-        duration: '2n'  // short cinematic thump + tail
+        duration: '2n'
       });
     }
   }
 
-  // STEP-DOWN into a breakdown → thin last bar gently
+  // STEP-DOWN / breakdown
   else if (energyJump < -0.3) {
-    // Reduce some kicks on back half of last bar
+    const softer = (mood === 'sad' || mood === 'dreamy');
+
     for (let step = Math.floor(STEPS_PER_BAR / 2); step < STEPS_PER_BAR; step++) {
       if (patterns.kick && step % 4 === 0) {
         const k = patterns.kick[lastBarOffset + step];
-        if (k) k.velocity = Math.max(0.2, (k.velocity || 0.8) * 0.5);
+        if (k) {
+          const atten = softer ? 0.35 : 0.5;
+          k.velocity = Math.max(0.2, (k.velocity || 0.8) * atten);
+        }
       }
     }
-    // Optional: airy sweep down on riser lane for a “whoosh out”
-    // (shorter, so it doesn’t smear the quiet entry)
-    placeAtmos('riser', lastBar, 1, 0.45);
+
+    const sweepVel = 0.45 * (moodProfile.fxReverseStrength || 1);
+    placeAtmos('riser', lastBar, 1, sweepVel);
   }
 }
 
@@ -11600,7 +11796,7 @@ function setSongBuilderBusy(isBusy, label = '') {
 let songBuilderBusyStartedAt = 0;
 
 function endSongBuilderBusy() {
-  const MIN_BUSY_MS = 1500; // change to 250–300ms if you want more visible time
+  const MIN_BUSY_MS = 300; // change to 250–300ms if you want more visible time
   const elapsed = performance.now() - songBuilderBusyStartedAt;
 
   if (elapsed >= MIN_BUSY_MS) {
