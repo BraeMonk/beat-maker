@@ -1,5 +1,5 @@
 // ===== PWA Service Worker — SPA-friendly with activation-safe navigations =====
-const CACHE_NAME = 'lofi-gen-v10'; // bump on change
+const CACHE_NAME = 'lofi-gen-v11'; // bump on change
 const BASE_PATH  = './'; // e.g. '/8-beat/' on GitHub Pages
 const APP_SHELL  = `${BASE_PATH}index.html`;
 
