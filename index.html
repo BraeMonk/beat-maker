@@ -10852,6 +10852,20 @@ function getMoodMelodyProfile(mood, section) {
   const energy  = section?.energy ?? 0.5;
   const baseVel = 0.7 + (energy - 0.5) * 0.4;
 
+  // Small alias map so extra mood labels don't explode things
+  const moodAlias = {
+    chill      : 'mellow',
+    relaxed    : 'mellow',
+    happy      : 'uplift',
+    uplifting  : 'uplift',
+    hype       : 'uplift',
+    moody      : 'dark',
+    angry      : 'tense',
+    aggressive : 'tense'
+  };
+
+  const normalizedMood = moodAlias[mood] || mood || 'default';
+
   const profiles = {
     // Balanced, genre-neutral
     default: {
@@ -11001,10 +11015,50 @@ function getMoodMelodyProfile(mood, section) {
       longNoteValue     : '2n',
       shortNoteChance   : 0.1,
       shortNoteValue    : '8n'
+    },
+
+    // NEW: bright, hopeful, forward, “major-feeling” uplift
+    uplift: {
+      densityFactor     : 1.1,
+      offbeatWeight     : 1.1,
+      restChance        : 0.18,
+      resetMotifChance  : 0.18,
+      registerOffset    : +1,
+      preferChordWeight : 1.8,
+      brightToneWeight  : 2.2,
+      darkToneWeight    : 0.4,
+      biasUpwards       : 0.75,
+      biasDownwards     : 0.25,
+      smallStepBias     : 0.85,
+      bigLeapBias       : 0.15,
+      minVel            : 0.55,
+      maxVel            : 0.9,
+      minProb           : 80,
+      maxProb           : 100,
+      longNoteChance    : 0.35,
+      mediumNoteValue   : '8n',
+      longNoteValue     : '4n',
+      shortNoteChance   : 0.2,
+      shortNoteValue    : '16n'
     }
   };
 
-  return profiles[mood] || profiles.default;
+  const baseProfile = profiles[normalizedMood] || profiles.default;
+
+  // ✨ Gentle energy-aware post-processing so
+  // low-energy vs high-energy sections of the *same* mood feel different
+  const energyDensityScale = 0.8 + energy * 0.4;   // 0.8 – 1.2
+  const velSpread          = 0.10 + energy * 0.15; // 0.10 – 0.25
+
+  const minVel = Math.max(0.3, baseVel - velSpread * 0.7);
+  const maxVel = Math.min(1.0, baseVel + velSpread);
+
+  const profile = { ...baseProfile };
+  profile.densityFactor = baseProfile.densityFactor * energyDensityScale;
+  profile.minVel        = minVel;
+  profile.maxVel        = maxVel;
+
+  return profile;
 }
 
 function pickMoodPitchClassIndex(scalePcs, chordPcs, profile) {
@@ -13410,6 +13464,34 @@ function comparePresets() {
 // INTEGRATION HELPERS
 // ============================================================================
 
+// 🔥 Randomized mix hype messages (no more mix scores!)
+const MIX_HYPE = [
+  "You Rock! 🤘",
+  "Mix Locked In! 🔒🔥",
+  "Sounding Killer 🎧",
+  "Vibes Secured ✨",
+  "Your ears? Legendary 👑",
+  "Certified Fresh 🥬🔥",
+  "High-Key Slaps 😤🎶",
+  "Studio Mode: ENGAGED ⚡",
+  "Clean Mix, Dirty Attitude 😈🎛️",
+  "Producer Level: Unlocked 🗝️",
+  "Zero Mid, All Hit 💥",
+  "Faders Blessed 🙏🎚️",
+  "Big Brain Mix Moves 🧠✨",
+  "This Would Fool a Pro 👀",
+  "Headphone Check: PASSED ✅",
+];
+
+function showMixHypeToast() {
+  if (typeof showToast !== 'function') {
+    console.warn('⚠️ showToast not available for mix hype');
+    return;
+  }
+  const msg = MIX_HYPE[Math.floor(Math.random() * MIX_HYPE.length)];
+  showToast(msg, 'success');
+}
+  
 // Call this to apply AI mixing with current settings
 function autoMixNow() {
   if (state.aiMixing && state.aiMixing.enabled) {
@@ -13871,6 +13953,10 @@ function setupAIMixingFeatures() {
 // APPLY AI MIXING BUTTON (Main processing)
 // ============================================================================
 
+// ============================================================================
+// APPLY AI MIXING BUTTON (Main processing)
+// ============================================================================
+
 function setupAIMixingApplyButton() {
   const applyBtn = document.getElementById('applyAIMixBtn');
   
@@ -13900,8 +13986,8 @@ function setupAIMixingApplyButton() {
       // Update mixer display
       renderMixer();
       
-      // Get detailed analysis report
-      const report = getMixAnalysisReport();
+      // Get detailed analysis report (console-only for power users)
+      const report = getMixAnalysisReport?.();
       
       if (report) {
         // Beautiful console output
@@ -13920,31 +14006,13 @@ function setupAIMixingApplyButton() {
           report.recommendations.forEach(rec => console.log(`   ${rec}`));
           console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         }
-        
-        // Calculate mix health score
-        const healthScore = getMixHealthScore();
-        let healthEmoji = '✅';
-        let healthLabel = 'Excellent';
-        let healthColor = '#00ff00';
-        
-        if (healthScore < 60) {
-          healthEmoji = '⚠️';
-          healthLabel = 'Needs Work';
-          healthColor = '#ff4444';
-        } else if (healthScore < 80) {
-          healthEmoji = '👍';
-          healthLabel = 'Good';
-          healthColor = '#ffaa00';
-        }
-        
-        console.log(`${healthEmoji} MIX HEALTH SCORE: ${healthScore}/100 (${healthLabel})`);
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
-        // User feedback
-        showToast(`${healthEmoji} Mix complete! Health: ${healthScore}/100`, 'success');
-      } else {
-        showToast('✅ AI Mixing applied', 'success');
+
+        // 🔬 Power users can still inspect everything in the console.
+        console.log('🧪 Detailed mix report available above (console-only, no UI score).');
       }
+      
+      // 🎉 User-facing feedback: ONLY hype, no scores
+      showMixHypeToast();
       
     } catch (error) {
       console.error('❌ AI Mixing Error:', error);
