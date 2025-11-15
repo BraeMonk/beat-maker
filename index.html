@@ -10245,7 +10245,6 @@ function applySongTemplate(id) {
   renderSongBuilderSections();
 }
 
-// === UI rendering for the table ===
 function renderSongBuilderSections() {
   const tbody = document.getElementById('songSectionsTable');
   const totalLabel = document.getElementById('songTotalBarsLabel');
@@ -10255,6 +10254,8 @@ function renderSongBuilderSections() {
   songBuilderState.sections.forEach((section, index) => {
     const tr = document.createElement('tr');
     tr.dataset.index = index;
+
+    const sectionMood = section.mood || '';
     
     tr.innerHTML = `
       <td style="padding:6px 4px;">
@@ -10308,7 +10309,7 @@ function renderSongBuilderSections() {
           <option value="pedal" ${section.bassPattern === 'pedal' ? 'selected' : ''}>Pedal</option>
         </select>
       </td>
-      <td style="padding:6px 4px;">
+      <td style="padding:6px 4px%;">
         <select data-field="chordPattern" class="input" style="width:100%; padding:2px 4px; font-size:10px;">
           <option value="sustained" ${(section.chordPattern || 'sustained') === 'sustained' ? 'selected' : ''}>Sustained</option>
           <option value="staccato" ${section.chordPattern === 'staccato' ? 'selected' : ''}>Staccato</option>
@@ -10330,6 +10331,17 @@ function renderSongBuilderSections() {
           <label><input type="checkbox" data-field="bass"   ${section.bass   ? 'checked' : ''}> Bass</label>
           <label><input type="checkbox" data-field="chords" ${section.chords ? 'checked' : ''}> Chords</label>
           <label><input type="checkbox" data-field="lead"   ${section.lead   ? 'checked' : ''}> Lead</label>
+        </div>
+        <div style="margin-top:4px;">
+          <select data-field="mood" class="input" style="width:100%; padding:2px 4px; font-size:10px;">
+            <option value="">Mood: inherit</option>
+            <option value="mellow" ${sectionMood === 'mellow' ? 'selected' : ''}>Mellow</option>
+            <option value="dreamy" ${sectionMood === 'dreamy' ? 'selected' : ''}>Dreamy</option>
+            <option value="dark"   ${sectionMood === 'dark'   ? 'selected' : ''}>Dark</option>
+            <option value="sad"    ${sectionMood === 'sad'    ? 'selected' : ''}>Sad</option>
+            <option value="tense"  ${sectionMood === 'tense'  ? 'selected' : ''}>Tense</option>
+            <option value="uplift" ${sectionMood === 'uplift' ? 'selected' : ''}>Uplift</option>
+          </select>
         </div>
       </td>
     `;
@@ -10364,6 +10376,9 @@ function renderSongBuilderSections() {
         section[field] = e.target.value;
       } else if (['drums','bass','chords','lead'].includes(field)) {
         section[field] = e.target.checked;
+      } else if (field === 'mood') {
+        const v = e.target.value || null;   // null = inherit
+        section.mood = v;
       }
       
       if (totalLabel) {
