@@ -12438,17 +12438,41 @@ function generateFullSongFromStructure_COHERENT() {
   songBuilderState.isActive = true;
   setSongBuilderBusy(true, 'Building coherent song…');
 
-  const wasPlaying = Tone.Transport.state === 'started';
-  if (wasPlaying) Tone.Transport.pause();
-  Tone.Transport.cancel(0);
+  // 🛑 HARD STOP ANY CURRENT PLAYBACK SO SONGS NEVER OVERLAP
+  try {
+    if (typeof stop === 'function') {
+      // Your global stop handler (should already stop Transport + UI)
+      stop();
+    } else if (typeof Tone !== 'undefined' && Tone.Transport) {
+      Tone.Transport.stop();
+    }
+
+    if (typeof Tone !== 'undefined' && Tone.Transport) {
+      Tone.Transport.position = 0;
+      Tone.Transport.cancel(0); // clear any scheduled events from the old song
+    }
+  } catch (e) {
+    console.warn('Song builder stop/cancel failed:', e);
+  }
+
+  // Make sure state reflects fully stopped transport
+  state.isPlaying     = false;
+  state.currentStep   = 0;
+  state.cursorSeconds = 0;
+
+  // Kill any old main loop driving playback/steps
   if (window.mainLoop) {
-    try { window.mainLoop.stop(); window.mainLoop.dispose(); } catch {}
+    try {
+      window.mainLoop.stop();
+      window.mainLoop.dispose();
+    } catch {}
     window.mainLoop = null;
   }
 
+  // Reset per-song caches
   window.sbBassMotifs = {};   // reset bass motifs per song
-  sbMotifCache = [];
-  sbRhythmCache = { kick: [], snare: [], hihat: [] };
+  sbMotifCache        = [];
+  sbRhythmCache       = { kick: [], snare: [], hihat: [] };
 
   // --- Prepare sections (with your existing randomness) ---
   const runSections = randomizeSongBuilderSectionsForRun();
@@ -12475,22 +12499,31 @@ function generateFullSongFromStructure_COHERENT() {
   let currentBar = 0;
 
   for (let i = 0; i < runSections.length; i++) {
-    const section = runSections[i];
+    const section  = runSections[i];
     const startBar = currentBar;
     const endBar   = currentBar + (section.bars || 0);
 
     // --- Maintain rhythmic coherence across verses/choruses
     if (section.id.includes('verse') && sbRhythmCache.kick.length) {
-      sbRhythmCache.kick.forEach(step => sbSetStep('kick', startBar*STEPS_PER_BAR + step, {velocity:0.9}));
-      sbRhythmCache.snare.forEach(step => sbSetStep('snare', startBar*STEPS_PER_BAR + step, {velocity:0.9}));
-      sbRhythmCache.hihat.forEach(step => sbSetStep('hihat', startBar*STEPS_PER_BAR + step, {velocity:0.6}));
+      sbRhythmCache.kick.forEach(step =>
+        sbSetStep('kick', startBar * STEPS_PER_BAR + step, { velocity: 0.9 })
+      );
+      sbRhythmCache.snare.forEach(step =>
+        sbSetStep('snare', startBar * STEPS_PER_BAR + step, { velocity: 0.9 })
+      );
+      sbRhythmCache.hihat.forEach(step =>
+        sbSetStep('hihat', startBar * STEPS_PER_BAR + step, { velocity: 0.6 })
+      );
     } else {
       generateSectionDrums(section, startBar, endBar);
-      if (section.id.includes('verse') && sbRhythmCache.kick.length===0) {
-        for (let s=0; s<STEPS_PER_BAR; s++){
-          if (patterns.kick[s+startBar*STEPS_PER_BAR]?.active) sbRhythmCache.kick.push(s);
-          if (patterns.snare[s+startBar*STEPS_PER_BAR]?.active) sbRhythmCache.snare.push(s);
-          if (patterns.hihat[s+startBar*STEPS_PER_BAR]?.active) sbRhythmCache.hihat.push(s);
+      if (section.id.includes('verse') && sbRhythmCache.kick.length === 0) {
+        for (let s = 0; s < STEPS_PER_BAR; s++) {
+          if (patterns.kick[s + startBar * STEPS_PER_BAR]?.active)
+            sbRhythmCache.kick.push(s);
+          if (patterns.snare[s + startBar * STEPS_PER_BAR]?.active)
+            sbRhythmCache.snare.push(s);
+          if (patterns.hihat[s + startBar * STEPS_PER_BAR]?.active)
+            sbRhythmCache.hihat.push(s);
         }
       }
     }
@@ -12511,16 +12544,21 @@ function generateFullSongFromStructure_COHERENT() {
       );
     } else {
       generateSectionMelody(section, startBar, endBar);
-      if (section.id.includes('verse') && sbMotifCache.length===0) {
+      if (section.id.includes('verse') && sbMotifCache.length === 0) {
         const offset = startBar * STEPS_PER_BAR;
-        for (let s=0; s<STEPS_PER_BAR; s++){
-          const step = patterns.lead[offset+s];
-          if (step?.active) sbMotifCache.push({step:s, note:step.note, velocity:step.velocity});
+        for (let s = 0; s < STEPS_PER_BAR; s++) {
+          const step = patterns.lead[offset + s];
+          if (step?.active)
+            sbMotifCache.push({
+              step: s,
+              note: step.note,
+              velocity: step.velocity
+            });
         }
       }
     }
 
-    applyTransitionEffects(section, runSections[i+1], endBar);
+    applyTransitionEffects(section, runSections[i + 1], endBar);
     currentBar = endBar;
   }
 
@@ -12530,7 +12568,8 @@ function generateFullSongFromStructure_COHERENT() {
       sequencerInitialized = false;
       initAudioLight();
       renderSequencer();
-      if (wasPlaying) Tone.Transport.start('+0.05');
+
+      // 🔊 Do NOT auto-restart playback here — user can hit Play on the fresh song.
       showToast('🎶 Coherent song built', 'success');
     } finally {
       songBuilderState.isActive = false;
