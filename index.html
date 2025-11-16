@@ -10786,67 +10786,148 @@ function generateSectionBass(section, startBar, endBar) {
   const isChorus = id.includes('chorus') || id.includes('hook') || isDrop;
   const isVerse = id.includes('verse');
 
-  const motifSet = buildBassMotifSet(bassPattern, {
-    isIntro, isOutro, isBreak, isChorus, isVerse,
-    energy,
-    density: effDensity
-  });
+  // 🎸 DETECT BASS SOLO SECTIONS
+  const isBassSolo = 
+    section.bassSolo === true ||
+    /bass.*solo/i.test(section.id || '') ||
+    /bass.*solo/i.test(section.label || '') ||
+    (id.includes('breakdown') && energy > 0.6) ||
+    (id.includes('bridge') && Math.random() < 0.4);  // 40% chance bridge becomes bass feature
 
   const totalBars = endBar - startBar;
+
+  // Clone the mood profile for bass-specific tweaks
+  const bassProfile = { ...moodProfile };
+  
+  if (isBassSolo) {
+    // Make bass more melodic & expressive
+    bassProfile.bassMovementMul = (bassProfile.bassMovementMul || 1) * 1.5;
+    bassProfile.bassRegisterOff = (bassProfile.bassRegisterOff || 0) + 0.5; // slightly higher
+  }
 
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
     const chord = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
     const pcs = chord.map(n => n.replace(/\d/, ''));
     const [root, third, fifth] = pcs;
+    const seventh = pcs[3] || fifth;
 
     const barInSection = bar - startBar;
-    
-    // 🎲 Evolving bass energy
     const barEnergy = evolvingParam(energy, barInSection, totalBars);
-    
-    // 🎲 Occasional motif variation
-    const useAltMotif = surprise(0.2);
-    
-    let motif;
-    if (barInSection % 4 === 3 && motifSet.fill) {
-      motif = motifSet.fill;
-    } else if (useAltMotif && motifSet.variant2) {
-      motif = motifSet.variant2;
-    } else if (barInSection % 2 === 1 && motifSet.variant1) {
-      motif = motifSet.variant1;
+
+    if (isBassSolo) {
+      // ========== BASS SOLO MODE ==========
+      
+      const groovePattern = getBassGroovePattern(mood, section, bassProfile);
+      const fillPattern = getBassFillPattern(mood, section, bassProfile);
+
+      // Track last pitch for melodic contour
+      let lastPcIndex = (bar === startBar) ? null : 0;
+
+      for (let step = 0; step < STEPS_PER_BAR; step++) {
+        const idx = offset + step;
+        const cell = patterns.bass[idx];
+        if (!cell) continue;
+
+        // Reset
+        cell.active = false;
+        cell.velocity = 0.8;
+        cell.probability = 100;
+        cell.duration = '8n';
+        cell.note = instruments.bass?.note || `E${bassOct}`;
+
+        const isGrooveHit = groovePattern.includes(step);
+        const isFillHit = !isGrooveHit && fillPattern.includes(step);
+
+        if (!isGrooveHit && !isFillHit) continue;
+
+        // Fills obey density
+        if (isFillHit) {
+          const fillDensity = effDensity * bassProfile.bassMovementMul;
+          if (Math.random() > fillDensity) continue;
+        }
+
+        // Pick melodic note (not just root)
+        const chordTones = [root, third, fifth, seventh];
+        let notePc;
+
+        if (isGrooveHit) {
+          // Groove hits favor root/fifth but allow melodic movement
+          const choices = [root, root, fifth, third]; // weight toward root
+          notePc = choices[Math.floor(Math.random() * choices.length)];
+        } else {
+          // Fill hits explore the chord more
+          notePc = chordTones[Math.floor(Math.random() * chordTones.length)];
+        }
+
+        // Occasional octave jumps for drama
+        let octShift = 0;
+        if (surprise(0.2) && isGrooveHit) {
+          octShift = Math.random() < 0.5 ? -1 : 1;
+        }
+
+        cell.active = true;
+        cell.note = withOct(notePc, bassOct + octShift);
+        cell.velocity = humanVel(0.75 + barEnergy * 0.15, 0.12);
+        cell.probability = isGrooveHit ? 95 : (85 + Math.floor(Math.random() * 10));
+
+        // Duration varies
+        if (isGrooveHit) {
+          cell.duration = Math.random() < 0.3 ? '4n' : '8n';
+        } else {
+          cell.duration = Math.random() < 0.6 ? '16n' : '8n';
+        }
+      }
+
     } else {
-      motif = motifSet.main;
-    }
-
-    if (isBreak && barInSection % 8 === 7) {
-      continue;
-    }
-
-    motif.forEach(ev => {
-      let notePc;
-      switch (ev.degree) {
-        case 'third': notePc = third || root; break;
-        case 'fifth': notePc = fifth || root; break;
-        case 'seventh': notePc = pcs[3] || fifth || root; break;
-        default: notePc = root; break;
-      }
-
-      // 🎲 Add passing tones occasionally
-      const addPassingTone = surprise(0.15) && ev.step % 4 !== 0;
-      if (addPassingTone) {
-        notePc = Math.random() < 0.5 ? third : fifth;
-      }
-
-      const baseVel = ev.velocity ?? (0.7 + barEnergy * 0.2);
-
-      sbSetStep('bass', offset + ev.step, {
-        note: withOct(notePc, bassOct + (ev.octShift || 0)),
-        velocity: humanVel(baseVel, 0.12),
-        duration: ev.duration || '8n',
-        probability: (ev.probability ?? 100) - Math.floor(Math.random() * 5)
+      // ========== NORMAL MOTIF-BASED BASS ==========
+      
+      const useAltMotif = surprise(0.2);
+      const motifSet = buildBassMotifSet(bassPattern, {
+        isIntro, isOutro, isBreak, isChorus, isVerse,
+        energy,
+        density: effDensity
       });
-    });
+
+      let motif;
+      if (barInSection % 4 === 3 && motifSet.fill) {
+        motif = motifSet.fill;
+      } else if (useAltMotif && motifSet.variant2) {
+        motif = motifSet.variant2;
+      } else if (barInSection % 2 === 1 && motifSet.variant1) {
+        motif = motifSet.variant1;
+      } else {
+        motif = motifSet.main;
+      }
+
+      if (isBreak && barInSection % 8 === 7) {
+        continue;
+      }
+
+      motif.forEach(ev => {
+        let notePc;
+        switch (ev.degree) {
+          case 'third': notePc = third || root; break;
+          case 'fifth': notePc = fifth || root; break;
+          case 'seventh': notePc = pcs[3] || fifth || root; break;
+          default: notePc = root; break;
+        }
+
+        const addPassingTone = surprise(0.15) && ev.step % 4 !== 0;
+        if (addPassingTone) {
+          notePc = Math.random() < 0.5 ? third : fifth;
+        }
+
+        const baseVel = ev.velocity ?? (0.7 + barEnergy * 0.2);
+
+        sbSetStep('bass', offset + ev.step, {
+          note: withOct(notePc, bassOct + (ev.octShift || 0)),
+          velocity: humanVel(baseVel, 0.12),
+          duration: ev.duration || '8n',
+          probability: (ev.probability ?? 100) - Math.floor(Math.random() * 5)
+        });
+      });
+    }
   }
 }
 
@@ -11798,6 +11879,128 @@ function getSoloFillPattern(mood, section, profile) {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
+function getBassGroovePattern(mood, section, profile) {
+  // Bass "solos" are really just extended grooves with more melodic movement
+  
+  const base = [
+    [0, 8],              // minimal, spaced
+    [0, 4, 8, 12],       // steady quarter notes
+    [0, 6, 8, 14],       // syncopated
+    [0, 4, 6, 10, 12]    // busier
+  ];
+
+  const darkSad = [
+    [0, 8],              // sparse, heavy
+    [0, 4, 8],           // slow walk
+    [0, 6, 12]           // brooding
+  ];
+
+  const tensePatterns = [
+    [0, 2, 4, 6, 8, 10, 12, 14],     // 8th note runs
+    [0, 3, 6, 9, 12],                // triplet feel
+    [0, 2, 5, 8, 10, 13]             // syncopated bursts
+  ];
+
+  const funkPatterns = [
+    [0, 2, 6, 8, 10, 14],            // funky syncopation
+    [0, 4, 6, 8, 12, 14],            // groove pocket
+    [0, 2, 4, 8, 10, 12]             // 16th note funk
+  ];
+
+  const jazzPatterns = [
+    [0, 3, 6, 9, 12],                // walking quarters
+    [0, 2, 4, 6, 8, 10, 12, 14],     // walking 8ths
+    [0, 4, 7, 10, 12]                // jazzy intervals
+  ];
+
+  let pool = base;
+
+  switch (mood) {
+    case 'dark':
+    case 'sad':
+      pool = darkSad;
+      break;
+    case 'tense':
+      pool = tensePatterns;
+      break;
+    case 'mellow':
+    case 'uplift':
+      pool = funkPatterns;
+      break;
+    case 'dreamy':
+      pool = jazzPatterns;
+      break;
+    default:
+      pool = base;
+      break;
+  }
+
+  const energy = section?.energy ?? 0.5;
+  let candidates = pool;
+  
+  if (energy < 0.6 && pool.length > 1) {
+    candidates = pool.slice(0, Math.max(1, Math.floor(pool.length * 0.6)));
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function getBassFillPattern(mood, section, profile) {
+  const baseFills = [
+    [1, 3, 5, 7, 9, 11, 13, 15],     // all 16ths
+    [3, 7, 11, 15],                   // end-of-beat
+    [1, 5, 9, 13]                     // light fills
+  ];
+
+  const darkSadFills = [
+    [7, 15],                          // minimal
+    [5, 9, 13],                       // sparse
+    []                                // sometimes none
+  ];
+
+  const tenseFills = [
+    [1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15],  // constant 16ths
+    [1, 3, 5, 7, 9, 11, 13, 15],               // all offbeats
+    [2, 4, 6, 8, 10, 12, 14]                   // rapid fire
+  ];
+
+  const funkFills = [
+    [2, 6, 10, 14],                   // funky pops
+    [3, 5, 11, 13],                   // syncopated
+    [1, 7, 9, 15]                     // ghost notes
+  ];
+
+  let pool = baseFills;
+
+  switch (mood) {
+    case 'dark':
+    case 'sad':
+      pool = darkSadFills;
+      break;
+    case 'tense':
+      pool = tenseFills;
+      break;
+    case 'mellow':
+    case 'uplift':
+      pool = funkFills;
+      break;
+    default:
+      pool = baseFills;
+      break;
+  }
+
+  const energy = section?.energy ?? 0.5;
+  let candidates = pool;
+
+  if (energy < 0.6 && pool.length > 1) {
+    candidates = pool.slice(1);
+  } else if (energy > 0.85 && pool.length > 1) {
+    candidates = pool;
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+  
 function getScaleNotes(key, scaleName) {
   // Use the global scales object you defined earlier
   const intervals = scales[scaleName];
