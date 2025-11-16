@@ -12422,6 +12422,23 @@ function setupEventListeners() {
       closeSidebar();
     }
   });
+
+  // Event delegation for track control buttons (REC, ARM, MUTE, SOLO, etc.)
+  const trackList = document.getElementById('dawTrackList');
+  if (trackList) {
+    trackList.addEventListener('click', (e) => {
+      const btn = e.target.closest('.track-mini-btn');
+      if (!btn) return;
+      
+      const trackId = parseInt(btn.dataset.trackId);
+      const action = btn.dataset.action;
+      const track = multitrack.tracks.find(t => t.id === trackId);
+      
+      if (track && action) {
+        handleTrackAction(track, action);
+      }
+    });
+  }
 }
   
 // -------------------- Sample Browser (no custom uploads) --------------------
@@ -21382,14 +21399,6 @@ function renderMultitrack() {
     }
     
     arrangementGrid.appendChild(laneDiv);
-    
-    // Attach control listeners
-    headerDiv.querySelectorAll('.track-mini-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const action = btn.dataset.action;
-        handleTrackAction(track, action);
-      });
-    });
     
     // Volume slider
     const volumeSlider = headerDiv.querySelector('.track-volume-slider');
