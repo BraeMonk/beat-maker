@@ -10547,6 +10547,44 @@ function randomizeSongBuilderSectionsForRun() {
 }
 
 
+function addHumanTiming() {
+  return (Math.random() - 0.5) * 0.02;
+}
+
+function humanVel(base, variance = 0.1) {
+  return Math.max(0.2, Math.min(1.0, base + (Math.random() - 0.5) * variance));
+}
+
+function surprise(chance = 0.15) {
+  return Math.random() < chance;
+}
+
+function evolvingParam(base, bar, totalBars) {
+  const progress = bar / Math.max(1, totalBars);
+  const wave = Math.sin(progress * Math.PI * 2) * 0.15;
+  return Math.max(0, Math.min(1, base + wave + (Math.random() - 0.5) * 0.1));
+}
+
+function getOrganicMelodyContour(barInSection, totalBars, mood) {
+  const progress = barInSection / Math.max(1, totalBars);
+  
+  const contours = {
+    default: (p) => Math.sin(p * Math.PI),
+    dark: (p) => 1 - p * 0.7,
+    sad: (p) => 1 - p * 0.8,
+    tense: (p) => Math.abs(Math.sin(p * Math.PI * 4)),
+    mellow: (p) => Math.sin(p * Math.PI * 0.5),
+    dreamy: (p) => Math.sin(p * Math.PI * 2),
+    uplift: (p) => p * 0.6
+  };
+  
+  const contourFn = contours[mood] || contours.default;
+  return contourFn(progress);
+}
+
+
+// ============ REPLACE generateSectionDrums ENTIRELY ============
+
 function generateSectionDrums(section, startBar, endBar) {
   if (!section.drums) return;
   
@@ -10558,31 +10596,62 @@ function generateSectionDrums(section, startBar, endBar) {
   const mood        = getCurrentMood(section);
   const moodProfile = getGlobalMoodProfile(mood, section);
 
-  // Mood-scaled knobs
   const mainDensity = density * (moodProfile.drumDensityMul || 1);
   const fillMul     = (moodProfile.drumFillMul || 1);
   const ghostMul    = (moodProfile.drumGhostMul || 1);
   const hatOpenMul  = (moodProfile.hatOpenMul || 1);
 
-  const hatVel = (base => Math.max(0.2, Math.min(1.0, base * hatOpenMul)));
+  const totalBars = endBar - startBar;
 
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
+    const barInSection = bar - startBar;
+    
+    // 🎲 Evolving groove per bar
+    const barEnergy = evolvingParam(energy, barInSection, totalBars);
+    const barDensity = evolvingParam(mainDensity, barInSection, totalBars);
+    
+    // 🎲 Occasional breaks
+    const skipKick = surprise(0.08);
+    const addGhost = surprise(barDensity * 0.3);
+    const extraHat = surprise(barEnergy * 0.25);
     
     switch(drumPattern) {
       case 'four-floor':
-        // Kick on every beat
-        [0, 4, 8, 12].forEach(s => sbSetStep('kick', offset + s, { velocity: 0.9 }));
-        // Snare on 2 & 4
-        sbSetStep('snare', offset + 4,  { velocity: 0.9 });
-        sbSetStep('snare', offset + 12, { velocity: 0.95 });
-        // Hi-hats on 8ths (mood-scaled density)
+        // Kicks with humanization
+        [0, 4, 8, 12].forEach((s, i) => {
+          if (i === 0 && skipKick) return;
+          sbSetStep('kick', offset + s, { 
+            velocity: humanVel(0.85 + barEnergy * 0.1, 0.08),
+            probability: 92 + Math.floor(Math.random() * 8)
+          });
+        });
+        
+        // Snares with flams
+        if (addGhost) {
+          sbSetStep('snare', offset + 3, { velocity: humanVel(0.25, 0.05), probability: 65 });
+        }
+        sbSetStep('snare', offset + 4, { 
+          velocity: humanVel(0.88, 0.1),
+          probability: 98
+        });
+        sbSetStep('snare', offset + 12, { 
+          velocity: humanVel(0.92, 0.08),
+          probability: 100
+        });
+        
+        // Hats with variation
         if (patterns.hihat) {
           for (let i = 0; i < 16; i += 2) {
-            const prob = mainDensity * (i % 4 === 2 ? ghostMul : 1);
+            const isOffbeat = i % 4 === 2;
+            const prob = barDensity * (isOffbeat ? ghostMul * 0.9 : 1.0);
+            
             if (Math.random() < prob) {
+              const isOpen = extraHat && (i === 6 || i === 14);
               sbSetStep('hihat', offset + i, {
-                velocity: hatVel(0.5 + energy * 0.3)
+                velocity: humanVel(isOpen ? 0.7 : (0.5 + barEnergy * 0.2), 0.15),
+                duration: isOpen ? '8n' : '16n',
+                probability: isOpen ? 85 : 90
               });
             }
           }
@@ -10590,20 +10659,30 @@ function generateSectionDrums(section, startBar, endBar) {
         break;
         
       case 'breakbeat':
-        // Syncopated breakbeat feel
-        sbSetStep('kick',  offset + 0,  { velocity: 0.95 });
-        sbSetStep('kick',  offset + 6,  { velocity: 0.7  });
-        sbSetStep('kick',  offset + 10, { velocity: 0.75 });
-        sbSetStep('snare', offset + 4,  { velocity: 0.9  });
-        sbSetStep('snare', offset + 12, { velocity: 0.95 });
+        const swingOffset = barDensity > 0.6 ? 1 : 0;
+        
+        sbSetStep('kick', offset + 0, { velocity: humanVel(0.95, 0.08) });
+        sbSetStep('kick', offset + (6 + swingOffset), { velocity: humanVel(0.72, 0.1) });
+        if (!skipKick) {
+          sbSetStep('kick', offset + 10, { velocity: humanVel(0.75, 0.1) });
+        }
+        
+        if (addGhost) {
+          sbSetStep('snare', offset + 3, { velocity: humanVel(0.3, 0.05), probability: 70 });
+        }
+        sbSetStep('snare', offset + 4, { velocity: humanVel(0.9, 0.08) });
+        sbSetStep('snare', offset + 12, { velocity: humanVel(0.95, 0.05) });
 
-        if (patterns.hihat && mainDensity > 0.35) {
+        if (patterns.hihat && barDensity > 0.35) {
           for (let i = 0; i < 16; i++) {
-            const baseProb = (i % 2 === 0 ? 0.4 : 0.6);
-            const prob     = baseProb * mainDensity * ghostMul;
+            const isSwing = i % 2 === 1;
+            const baseProb = isSwing ? 0.65 : 0.35;
+            const prob = baseProb * barDensity * ghostMul;
+            
             if (Math.random() < prob) {
               sbSetStep('hihat', offset + i, {
-                velocity: hatVel(0.4 + Math.random() * 0.3)
+                velocity: humanVel(0.4 + barEnergy * 0.25, 0.2),
+                probability: 85 + Math.floor(Math.random() * 15)
               });
             }
           }
@@ -10611,27 +10690,29 @@ function generateSectionDrums(section, startBar, endBar) {
         break;
         
       case 'trap':
-        // Trap kicks
-        sbSetStep('kick', offset + 0,  { velocity: 0.95 });
-        sbSetStep('kick', offset + 8,  { velocity: 0.85 });
-        if (energy > 0.7) sbSetStep('kick', offset + 14, { velocity: 0.75 });
+        sbSetStep('kick', offset + 0, { velocity: humanVel(0.95, 0.05) });
+        sbSetStep('kick', offset + 8, { velocity: humanVel(0.85, 0.08) });
+        if (barEnergy > 0.7 || surprise(0.3)) {
+          sbSetStep('kick', offset + 14, { velocity: humanVel(0.75, 0.1) });
+        }
 
-        // Snare on backbeats
-        sbSetStep('snare', offset + 4,  { velocity: 0.9  });
-        sbSetStep('snare', offset + 12, { velocity: 0.95 });
+        sbSetStep('snare', offset + 4, { velocity: humanVel(0.9, 0.08) });
+        sbSetStep('snare', offset + 12, { velocity: humanVel(0.95, 0.05) });
 
-        // Rapid hi-hat patterns (mood-scaled)
         if (patterns.hihat) {
-          const rollStart = Math.random() < 0.5 ? 6 : 14;
+          const rollStart = surprise(0.5) ? 6 : 14;
           for (let i = 0; i < 16; i++) {
             const isRoll = i >= rollStart && i < rollStart + 2;
-            let baseProb = isRoll ? 0.9 : (i % 2 === 1 ? 0.7 : 0.3);
-            baseProb *= mainDensity;
-            if (isRoll) baseProb *= ghostMul;
+            const isMain = i % 2 === 1;
+            
+            let baseProb = isRoll ? 0.95 : (isMain ? 0.7 : 0.25);
+            baseProb *= barDensity;
+            
             if (Math.random() < baseProb) {
               sbSetStep('hihat', offset + i, { 
-                velocity: hatVel(0.4 + (isRoll ? 0.4 : 0.2) * energy),
-                probability: isRoll ? 95 : 75
+                velocity: humanVel(isRoll ? 0.65 : 0.45, 0.15),
+                probability: isRoll ? 95 : 80,
+                duration: isRoll ? '32n' : '16n'
               });
             }
           }
@@ -10639,66 +10720,71 @@ function generateSectionDrums(section, startBar, endBar) {
         break;
         
       case 'half-time':
-        // Half-time feel (slower kick/snare)
-        if (bar % 2 === 0) {
-          sbSetStep('kick',  offset + 0, { velocity: 0.95 });
-          sbSetStep('snare', offset + 8, { velocity: 0.9  });
+        if (barInSection % 2 === 0) {
+          sbSetStep('kick', offset + 0, { velocity: humanVel(0.95, 0.05) });
+          sbSetStep('snare', offset + 8, { velocity: humanVel(0.9, 0.08) });
         }
+        
         if (patterns.hihat) {
           for (let i = 0; i < 16; i += 2) {
-            const prob = 0.7 * mainDensity;
-            if (Math.random() < prob) {
-              sbSetStep('hihat', offset + i, { velocity: hatVel(0.5) });
+            if (Math.random() < barDensity * 0.7) {
+              sbSetStep('hihat', offset + i, { 
+                velocity: humanVel(0.5, 0.12) 
+              });
             }
           }
         }
         break;
     }
     
-    // Mood-aware fills
-    if (fillEvery && ((bar + 1) % fillEvery === 0) && energy > 0.5) {
-      const baseFillLen = Math.floor(4 * density);
-      const fillLength  = Math.max(1, Math.round(baseFillLen * fillMul));
+    // 🎲 SMART FILLS
+    if (fillEvery && ((barInSection + 1) % fillEvery === 0) && barEnergy > 0.5) {
+      const fillStyle = Math.random();
+      const fillLength = Math.floor(3 + barEnergy * 5);
+      
       for (let i = STEPS_PER_BAR - fillLength; i < STEPS_PER_BAR; i++) {
-        const baseProb = 0.7 * fillMul;
-        if (Math.random() < baseProb) {
-          const inst = Math.random() < 0.5 ? 'snare' : 'kick';
+        if (Math.random() < 0.75 * fillMul) {
+          let inst;
+          if (fillStyle < 0.4) inst = 'snare';
+          else if (fillStyle < 0.7) inst = 'kick';
+          else inst = Math.random() < 0.5 ? 'snare' : 'kick';
+          
           sbSetStep(inst, offset + i, {
-            velocity: 0.6 + 0.3 * Math.random(),
-            probability: 75 + Math.floor(20 * Math.random())
+            velocity: humanVel(0.55 + (i / STEPS_PER_BAR) * 0.3, 0.15),
+            probability: 70 + Math.floor(Math.random() * 25),
+            duration: '16n'
           });
         }
       }
     }
   }
 }
-
+  
 function generateSectionBass(section, startBar, endBar) {
   if (!section.bass) return;
   if (!patterns.bass) return;
 
-  const mood        = getCurrentMood(section);
+  const mood = getCurrentMood(section);
   const moodProfile = getGlobalMoodProfile(mood, section);
 
-  const baseOct   = (state.octave || 3) - 2;
-  const bassOct   = baseOct + (moodProfile.bassRegisterOff || 0);
+  const baseOct = (state.octave || 3) - 2;
+  const bassOct = baseOct + (moodProfile.bassRegisterOff || 0);
   const bassPattern = section.bassPattern || 'root-fifth';
 
-  const rawEnergy   = section.energy  ?? 0.6;
-  const rawDensity  = section.density ?? 0.7;
+  const rawEnergy = section.energy ?? 0.6;
+  const rawDensity = section.density ?? 0.7;
 
-  // Mood-scaled movement: tense/uplift = more movement, sad/dark = simpler
-  const moveMul     = moodProfile.bassMovementMul || 1;
-  const energy      = rawEnergy;
-  const effDensity  = Math.max(0.2, Math.min(1.0, rawDensity * moveMul));
+  const moveMul = moodProfile.bassMovementMul || 1;
+  const energy = rawEnergy;
+  const effDensity = Math.max(0.2, Math.min(1.0, rawDensity * moveMul));
 
-  const id       = (section.id || '').toLowerCase();
-  const isIntro  = id.includes('intro');
-  const isOutro  = id.includes('outro') || id.includes('end');
-  const isBreak  = id.includes('break') || id.includes('dub');
-  const isDrop   = id.includes('drop');
+  const id = (section.id || '').toLowerCase();
+  const isIntro = id.includes('intro');
+  const isOutro = id.includes('outro') || id.includes('end');
+  const isBreak = id.includes('break') || id.includes('dub');
+  const isDrop = id.includes('drop');
   const isChorus = id.includes('chorus') || id.includes('hook') || isDrop;
-  const isVerse  = id.includes('verse');
+  const isVerse = id.includes('verse');
 
   const motifSet = buildBassMotifSet(bassPattern, {
     isIntro, isOutro, isBreak, isChorus, isVerse,
@@ -10706,18 +10792,26 @@ function generateSectionBass(section, startBar, endBar) {
     density: effDensity
   });
 
+  const totalBars = endBar - startBar;
+
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
-    const chord  = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
-    const pcs    = chord.map(n => n.replace(/\d/, ''));
+    const chord = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
+    const pcs = chord.map(n => n.replace(/\d/, ''));
     const [root, third, fifth] = pcs;
 
     const barInSection = bar - startBar;
+    
+    // 🎲 Evolving bass energy
+    const barEnergy = evolvingParam(energy, barInSection, totalBars);
+    
+    // 🎲 Occasional motif variation
+    const useAltMotif = surprise(0.2);
+    
     let motif;
-
     if (barInSection % 4 === 3 && motifSet.fill) {
       motif = motifSet.fill;
-    } else if (barInSection % 8 === 0 && motifSet.variant2) {
+    } else if (useAltMotif && motifSet.variant2) {
       motif = motifSet.variant2;
     } else if (barInSection % 2 === 1 && motifSet.variant1) {
       motif = motifSet.variant1;
@@ -10732,20 +10826,25 @@ function generateSectionBass(section, startBar, endBar) {
     motif.forEach(ev => {
       let notePc;
       switch (ev.degree) {
-        case 'third':   notePc = third || root; break;
-        case 'fifth':   notePc = fifth || root; break;
+        case 'third': notePc = third || root; break;
+        case 'fifth': notePc = fifth || root; break;
         case 'seventh': notePc = pcs[3] || fifth || root; break;
-        default:        notePc = root; break;
+        default: notePc = root; break;
       }
 
-      const velocityVar = (Math.random() - 0.5) * 0.1;
-      const baseVel     = ev.velocity ?? (0.7 + energy * 0.2);
+      // 🎲 Add passing tones occasionally
+      const addPassingTone = surprise(0.15) && ev.step % 4 !== 0;
+      if (addPassingTone) {
+        notePc = Math.random() < 0.5 ? third : fifth;
+      }
+
+      const baseVel = ev.velocity ?? (0.7 + barEnergy * 0.2);
 
       sbSetStep('bass', offset + ev.step, {
         note: withOct(notePc, bassOct + (ev.octShift || 0)),
-        velocity: Math.max(0.4, Math.min(1.0, baseVel + velocityVar)),
+        velocity: humanVel(baseVel, 0.12),
         duration: ev.duration || '8n',
-        probability: ev.probability ?? 100
+        probability: (ev.probability ?? 100) - Math.floor(Math.random() * 5)
       });
     });
   }
@@ -10962,59 +11061,74 @@ function generateSectionChords(section, startBar, endBar) {
   if (!section.chords) return;
   if (!patterns.keys) return;
   
-  const mood        = getCurrentMood(section);
+  const mood = getCurrentMood(section);
   const moodProfile = getGlobalMoodProfile(mood, section);
 
-  // Slight octave bias: dreamy/uplift = a bit higher, dark/sad = a bit lower
   const baseKeysOct = state.octave || 3;
-  let keysOct       = baseKeysOct;
+  let keysOct = baseKeysOct;
   if (moodProfile.chordSpreadMul > 1.15) keysOct += 1;
-  if (moodProfile.chordSpreadMul < 0.9)  keysOct -= 1;
+  if (moodProfile.chordSpreadMul < 0.9) keysOct -= 1;
 
   const chordPattern = section.chordPattern || 'sustained';
-  const energy       = section.energy  || 0.5;
-  const density      = section.density || 0.7;
+  const energy = section.energy || 0.5;
+  const density = section.density || 0.7;
 
-  const tensionMul   = moodProfile.chordTensionMul || 1;
+  const tensionMul = moodProfile.chordTensionMul || 1;
   const chordDensity = Math.max(0.2, Math.min(1.0, density * (moodProfile.chordSpreadMul || 1)));
 
-  const velPad   = (base) => Math.max(0.2, Math.min(1.0, base * tensionMul));
-  const velStab  = (base) => Math.max(0.3, Math.min(1.0, base * tensionMul));
+  const totalBars = endBar - startBar;
 
   for (let bar = startBar; bar < endBar; bar++) {
     const offset = bar * STEPS_PER_BAR;
-    const chord  = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
+    const chord = sbGetChordForBar(bar) || buildTriadFromDegree(0, sbGlobalHarmony.key, sbGlobalHarmony.scale);
     const [root, third, fifth] = chord.map(n => n.replace(/\d/, ''));
+    
+    const barInSection = bar - startBar;
+    const barEnergy = evolvingParam(energy, barInSection, totalBars);
+    
+    // 🎲 Occasional chord extensions
+    const addExtension = surprise(0.25);
+    const seventh = chord[3] ? chord[3].replace(/\d/, '') : fifth;
     
     switch(chordPattern) {
       case 'sustained':
-        // Long pad chords – energy & mood scale the velocities
+        const velBase = 0.5 + 0.2 * barEnergy;
+        
         sbSetStep('keys', offset + 0, { 
-          note: withOct(root,  keysOct), 
-          velocity: velPad(0.5 + 0.2 * energy), 
+          note: withOct(root, keysOct), 
+          velocity: humanVel(velBase * tensionMul, 0.08), 
           duration: '1n' 
         });
         sbSetStep('keys', offset + 0, { 
           note: withOct(third, keysOct), 
-          velocity: velPad(0.45 + 0.2 * energy), 
+          velocity: humanVel((velBase - 0.05) * tensionMul, 0.08), 
           duration: '1n' 
         });
         sbSetStep('keys', offset + 0, { 
           note: withOct(fifth, keysOct), 
-          velocity: velPad(0.45 + 0.2 * energy), 
+          velocity: humanVel((velBase - 0.05) * tensionMul, 0.08), 
           duration: '1n' 
         });
+        
+        if (addExtension) {
+          sbSetStep('keys', offset + 0, {
+            note: withOct(seventh, keysOct + 1),
+            velocity: humanVel(0.35 * tensionMul, 0.1),
+            duration: '1n'
+          });
+        }
         break;
         
       case 'staccato':
-        // Short, punchy chords
-        [0, 4, 8, 12].forEach(step => {
-          if (Math.random() < chordDensity) {
+        const stabSteps = [0, 4, 8, 12];
+        stabSteps.forEach(step => {
+          if (Math.random() < chordDensity * 0.95) {
             [root, third, fifth].forEach(note => {
               sbSetStep('keys', offset + step, {
                 note: withOct(note, keysOct),
-                velocity: velStab(0.7 + 0.2 * energy),
-                duration: '16n'
+                velocity: humanVel(0.7 + 0.2 * barEnergy, 0.15) * tensionMul,
+                duration: '16n',
+                probability: 88 + Math.floor(Math.random() * 12)
               });
             });
           }
@@ -11022,31 +11136,40 @@ function generateSectionChords(section, startBar, endBar) {
         break;
         
       case 'arpeggiated':
-        // Arpeggiated chords
-        const arpNotes = [root, third, fifth, third];
-        arpNotes.forEach((note, i) => {
-          const step = i * 4;
+        const arpNotes = addExtension 
+          ? [root, third, fifth, seventh]
+          : [root, third, fifth, third];
+          
+        const arpPattern = surprise(0.3) 
+          ? [0, 3, 6, 9]
+          : [0, 4, 8, 12];
+          
+        arpPattern.forEach((step, i) => {
           if (Math.random() < chordDensity || i === 0) {
             sbSetStep('keys', offset + step, {
-              note: withOct(note, keysOct),
-              velocity: velPad(0.6 + 0.15 * energy),
-              duration: '8n'
+              note: withOct(arpNotes[i % arpNotes.length], keysOct),
+              velocity: humanVel(0.6 + 0.15 * barEnergy, 0.12) * tensionMul,
+              duration: '8n',
+              probability: 90 + Math.floor(Math.random() * 10)
             });
           }
         });
         break;
         
       case 'rhythmic':
-        // Rhythmic stabs on specific beats
-        const stabSteps = [0, 6, 8, 14];
-        stabSteps.forEach(step => {
-          const prob = 0.8 * chordDensity;
+        const rhythmSteps = surprise(0.4) 
+          ? [0, 6, 8, 14]
+          : [0, 4, 10, 14];
+          
+        rhythmSteps.forEach(step => {
+          const prob = 0.85 * chordDensity;
           if (Math.random() < prob) {
             [root, third, fifth].forEach(note => {
               sbSetStep('keys', offset + step, {
                 note: withOct(note, keysOct),
-                velocity: velStab(0.65 + 0.25 * energy),
-                duration: '8n'
+                velocity: humanVel(0.65 + 0.25 * barEnergy, 0.15) * tensionMul,
+                duration: '8n',
+                probability: 85 + Math.floor(Math.random() * 15)
               });
             });
           }
@@ -11363,6 +11486,7 @@ function generateSectionMelody(section, startBar, endBar) {
 
   // Clone profile so we can tweak it for solos without mutating the shared object
   const profile = { ...baseProfile };
+  const totalBars = endBar - startBar;
 
   if (isSoloSection) {
     // Rhythm-tightened, more expressive for solos
