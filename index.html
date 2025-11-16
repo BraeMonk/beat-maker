@@ -10786,13 +10786,20 @@ function generateSectionBass(section, startBar, endBar) {
   const isChorus = id.includes('chorus') || id.includes('hook') || isDrop;
   const isVerse = id.includes('verse');
 
+  // 🎸 DETECT LEAD SOLO (same logic as generateSectionMelody)
+  const isSoloSection =
+    section.solo === true ||
+    /solo/i.test(section.id || '') ||
+    /solo/i.test(section.label || '') ||
+    (section.lead && energy >= 0.9);
+
   // 🎸 DETECT BASS SOLO SECTIONS
   const isBassSolo = 
     section.bassSolo === true ||
     /bass.*solo/i.test(section.id || '') ||
     /bass.*solo/i.test(section.label || '') ||
     (id.includes('breakdown') && energy > 0.6) ||
-    (id.includes('bridge') && Math.random() < 0.4);  // 40% chance bridge becomes bass feature
+    (id.includes('bridge') && Math.random() < 0.4);
 
   const totalBars = endBar - startBar;
 
@@ -10802,7 +10809,14 @@ function generateSectionBass(section, startBar, endBar) {
   if (isBassSolo) {
     // Make bass more melodic & expressive
     bassProfile.bassMovementMul = (bassProfile.bassMovementMul || 1) * 1.5;
-    bassProfile.bassRegisterOff = (bassProfile.bassRegisterOff || 0) + 0.5; // slightly higher
+    bassProfile.bassRegisterOff = (bassProfile.bassRegisterOff || 0) + 0.5;
+    
+    // 🎯 BUT if lead is also soloing, bass plays supportive role
+    if (isSoloSection) {
+      console.log('🎸 Lead + Bass both active - bass playing supportive groove');
+      bassProfile.bassMovementMul = (bassProfile.bassMovementMul || 1) * 0.6; // less busy
+      bassProfile.bassRegisterOff = (bassProfile.bassRegisterOff || 0) - 1;    // stay low
+    }
   }
 
   for (let bar = startBar; bar < endBar; bar++) {
@@ -10820,9 +10834,6 @@ function generateSectionBass(section, startBar, endBar) {
       
       const groovePattern = getBassGroovePattern(mood, section, bassProfile);
       const fillPattern = getBassFillPattern(mood, section, bassProfile);
-
-      // Track last pitch for melodic contour
-      let lastPcIndex = (bar === startBar) ? null : 0;
 
       for (let step = 0; step < STEPS_PER_BAR; step++) {
         const idx = offset + step;
@@ -10852,17 +10863,26 @@ function generateSectionBass(section, startBar, endBar) {
         let notePc;
 
         if (isGrooveHit) {
-          // Groove hits favor root/fifth but allow melodic movement
-          const choices = [root, root, fifth, third]; // weight toward root
-          notePc = choices[Math.floor(Math.random() * choices.length)];
+          // When lead is soloing, bass sticks more to root/fifth
+          if (isSoloSection) {
+            const choices = [root, root, root, fifth]; // heavily favor root
+            notePc = choices[Math.floor(Math.random() * choices.length)];
+          } else {
+            const choices = [root, root, fifth, third];
+            notePc = choices[Math.floor(Math.random() * choices.length)];
+          }
         } else {
-          // Fill hits explore the chord more
-          notePc = chordTones[Math.floor(Math.random() * chordTones.length)];
+          // Fill hits - less adventurous when lead is soloing
+          if (isSoloSection) {
+            notePc = Math.random() < 0.7 ? root : fifth; // simple fills
+          } else {
+            notePc = chordTones[Math.floor(Math.random() * chordTones.length)];
+          }
         }
 
-        // Occasional octave jumps for drama
+        // Occasional octave jumps for drama (but not when lead is soloing)
         let octShift = 0;
-        if (surprise(0.2) && isGrooveHit) {
+        if (!isSoloSection && surprise(0.2) && isGrooveHit) {
           octShift = Math.random() < 0.5 ? -1 : 1;
         }
 
