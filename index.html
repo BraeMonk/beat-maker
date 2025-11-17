@@ -24390,16 +24390,20 @@ async function togglePlay() {
     return;
   }
 
+  const playBtn = document.getElementById('playBtn');
+
   if (state.isPlaying) {
     // 🟡 Pause
     Tone.Transport.pause();
     state.pausedAt = Tone.Transport.seconds;
     state.isPlaying = false;
-    document.getElementById('playBtn').innerHTML = '▶️ Play';
+
+    if (playBtn) playBtn.innerHTML = '▶️ Play';
+
     stopTimer();
     stopVisualizer();
     stopPlayheadAnimation();
-    stopHarmonyCycle();              // ⏹️ stop chord cycling
+    stopHarmonyCycle(); // ⏹️ stop chord cycling
     return;
   }
 
@@ -24417,39 +24421,20 @@ async function togglePlay() {
   Tone.Transport.seconds = resumeTime;
   Tone.Transport.start();
 
-  startHarmonyCycle();               // 🎼 begin chord progression cycling
+  startHarmonyCycle(); // 🎼 begin chord progression cycling
 
   state.isPlaying = true;
   state.startTime = performance.now() - (resumeTime * 1000);
-  document.getElementById('playBtn').innerHTML = '⏸️ Pause';
+
+  if (playBtn) playBtn.innerHTML = '⏸️ Pause';
+
   startTimer();
   startPlayheadAnimation();
-  document.getElementById('vizOverlay').style.display = 'none';
+
+  const vizOverlay = document.getElementById('vizOverlay');
+  if (vizOverlay) vizOverlay.style.display = 'none';
+
   updateVisualizer();
-}
-
-function stop() {
-  // 🔴 Full stop
-  Tone.Transport.stop();
-  state.isPlaying = false;
-  state.pausedAt = 0;
-  state.currentStep = 0;
-  document.getElementById('playBtn').innerHTML = '▶️ Play';
-  document.getElementById('timeDisplay').textContent = '00:00';
-  document.getElementById('progressFill').style.width = '0%';
-  document.querySelectorAll('.step').forEach(el => el.classList.remove('playing'));
-  stopTimer();
-  stopVisualizer();
-  stopPlayheadAnimation();
-
-  const playhead = document.getElementById('dawPlayhead');
-  if (playhead) playhead.style.left = '0px';
-
-  stopHarmonyCycle();                // ⏹️ ensure progression stops
-
-  stopMultitrackPreview();
-  const previewBtn = document.getElementById('previewMultitrackBtn');
-  if (previewBtn) previewBtn.textContent = '▶️ Preview Mix';
 }
 
 // -------------------- Timer System --------------------
@@ -24459,16 +24444,25 @@ function startTimer() {
   cancelAnimationFrame(progressRAF);
   
   const totalSeconds = state.duration * 60;
+
+  // Cache DOM elements and guard them
+  const timeDisplay  = document.getElementById('timeDisplay');
+  const progressFill = document.getElementById('progressFill');
+
   const updateProgress = throttle(() => {
     const seconds = Tone.Transport.seconds;
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     
-    document.getElementById('timeDisplay').textContent = 
-      String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    if (timeDisplay) {
+      timeDisplay.textContent =
+        String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
     
-    document.getElementById('progressFill').style.width = 
-      Math.min(100, (seconds / totalSeconds) * 100) + '%';
+    if (progressFill) {
+      progressFill.style.width =
+        Math.min(100, (seconds / totalSeconds) * 100) + '%';
+    }
   }, CONFIG.PROGRESS_UPDATE_MS);
   
   const tick = () => {
@@ -24575,7 +24569,9 @@ function getSerializableInstruments() {
 }
 
 async function saveProject() {
-  const projectName = document.getElementById('projectName').value || 'Untitled';
+  const projectNameInput = document.getElementById('projectName');
+  const projectName = projectNameInput ? projectNameInput.value.trim() : '';
+  const finalName = projectName || `UntitledProject_${Date.now()}`;
   
   showToast('💾 Saving project (with all audio)...', 'info');
   
@@ -24628,7 +24624,6 @@ async function saveProject() {
       takes: []
     };
     
-    // Convert each take's audio blob to base64
     for (const take of track.takes) {
       try {
         const base64Audio = await blobToBase64(take.blob);
@@ -24654,8 +24649,8 @@ async function saveProject() {
   }
   
   const project = {
-    version: '2.1', // Increment for complete state save
-    name: projectName,
+    version: '2.1',
+    name: finalName,
     state: {
       bpm: state.bpm,
       swing: state.swing,
@@ -24696,12 +24691,12 @@ async function saveProject() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${projectName.replace(/\s+/g, '_')}_${Date.now()}.8beat.json`;
+  link.download = `${finalName.replace(/\s+/g, '_')}_${Date.now()}.8beat.json`;
   link.click();
   
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   
-  console.log(`💾 Full project saved: ${projectName} (${sizeMB}MB)`);
+  console.log(`💾 Full project saved: ${finalName} (${sizeMB}MB)`);
   showToast(`✅ Complete project saved! (${sizeMB}MB with ${multitrackData.tracks.length} tracks)`, 'success');
 }
 
@@ -24897,8 +24892,11 @@ function loadProject() {
         renderHarmony();
         renderMultitrack();
         
-        document.getElementById('projectName').value = project.name || 'Untitled';
-        
+        const nameInput = document.getElementById('projectName');
+        if (nameInput) {
+          nameInput.value = project.name || 'Untitled';
+        }
+
         const totalTakes = multitrack.tracks.reduce((sum, t) => sum + t.takes.length, 0);
         console.log('✅ Complete project loaded successfully');
         showToast(`✅ Project loaded: ${totalTakes} recording(s), ${multitrack.tracks.length} tracks!`, 'success');
@@ -24941,21 +24939,42 @@ function syncTempoControlsFromState() {
 
 function updateAllDisplays() {
   state.bpm = Math.min(CONFIG.MAX_BPM, state.bpm);
-  
-  document.getElementById('bpmSlider').value = state.bpm;
-  document.getElementById('bpmValue').textContent = state.bpm;
-  document.getElementById('swingSlider').value = state.swing;
-  document.getElementById('swingValue').textContent = state.swing + '%';
-  document.getElementById('durSlider').value = state.duration;
-  document.getElementById('durValue').textContent = state.duration + ' min';
-  document.getElementById('durationDisplay').textContent = 
-    '/ ' + String(state.duration).padStart(2, '0') + ':00';
-  document.getElementById('complexSlider').value = state.complexity;
-  document.getElementById('complexValue').textContent = 
-    ['Simple', 'Medium', 'Complex'][state.complexity - 1];
-  document.getElementById('humanSlider').value = state.humanize;
-  document.getElementById('humanValue').textContent = state.humanize + 'ms';
-  
+
+  const bpmSlider       = document.getElementById('bpmSlider');
+  const bpmValue        = document.getElementById('bpmValue');
+  const swingSlider     = document.getElementById('swingSlider');
+  const swingValue      = document.getElementById('swingValue');
+  const durSlider       = document.getElementById('durSlider');
+  const durValue        = document.getElementById('durValue');
+  const durationDisplay = document.getElementById('durationDisplay');
+  const complexSlider   = document.getElementById('complexSlider');
+  const complexValue    = document.getElementById('complexValue');
+  const humanSlider     = document.getElementById('humanSlider');
+  const humanValue      = document.getElementById('humanValue');
+
+  if (bpmSlider)  bpmSlider.value = state.bpm;
+  if (bpmValue)   bpmValue.textContent = state.bpm;
+
+  if (swingSlider) swingSlider.value = state.swing;
+  if (swingValue)  swingValue.textContent = state.swing + '%';
+
+  if (durSlider) durSlider.value = state.duration;
+  if (durValue)  durValue.textContent = state.duration + ' min';
+
+  if (durationDisplay) {
+    durationDisplay.textContent =
+      '/ ' + String(state.duration).padStart(2, '0') + ':00';
+  }
+
+  if (complexSlider) complexSlider.value = state.complexity;
+  if (complexValue) {
+    complexValue.textContent =
+      ['Simple', 'Medium', 'Complex'][state.complexity - 1];
+  }
+
+  if (humanSlider) humanSlider.value = state.humanize;
+  if (humanValue)  humanValue.textContent = state.humanize + 'ms';
+
   Tone.Transport.bpm.value = state.bpm;
   Tone.Transport.swing = state.swing / 100;
   Tone.Transport.swingSubdivision = '8n';
