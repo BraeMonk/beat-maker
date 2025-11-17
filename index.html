@@ -30664,8 +30664,22 @@ function hideSplash() {
     if (realSwing && simpSwing) simpSwing.value = realSwing.value;
 
     // Play/Stop
-    once(simpPlay, 'click', () => realPlay?.click(), 'simpPlay');
-    once(simpStop, 'click', () => realStop?.click(), 'simpStop');
+    if (simpPlay && realPlay) {
+      once(simpPlay, 'click', () => {
+        realPlay.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true })
+        );
+      }, 'simpPlay');
+    }
+
+    if (simpStop && realStop) {
+      once(simpStop, 'click', () => {
+        realStop.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true })
+        );
+      }, 'simpStop');
+    }
+
     
     // BPM number
     once(simpBpm, 'input', () => {
