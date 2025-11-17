@@ -24437,6 +24437,47 @@ async function togglePlay() {
   updateVisualizer();
 }
 
+function stop() {
+  // 🔴 Full stop for the pattern transport
+  Tone.Transport.stop();
+  state.isPlaying = false;
+  state.pausedAt = 0;
+  state.currentStep = 0;
+
+  const playBtn = document.getElementById('playBtn');
+  if (playBtn) playBtn.innerHTML = '▶️ Play';
+
+  const timeDisplay = document.getElementById('timeDisplay');
+  if (timeDisplay) timeDisplay.textContent = '00:00';
+
+  const progressFill = document.getElementById('progressFill');
+  if (progressFill) progressFill.style.width = '0%';
+
+  // Clear step highlight
+  document.querySelectorAll('.step').forEach(el =>
+    el.classList.remove('playing')
+  );
+
+  // Stop timer + visualizer + playhead animation
+  stopTimer?.();
+  stopVisualizer?.();
+  stopPlayheadAnimation?.();
+
+  // Reset DAW playhead position if present
+  const playhead = document.getElementById('dawPlayhead');
+  if (playhead) playhead.style.left = '0px';
+
+  // Stop harmony cycling
+  stopHarmonyCycle?.();
+
+  // Stop multitrack preview + reset label if present
+  if (typeof stopMultitrackPreview === 'function') {
+    stopMultitrackPreview();
+  }
+  const previewBtn = document.getElementById('previewMultitrackBtn');
+  if (previewBtn) previewBtn.textContent = '▶️ Preview Mix';
+}
+
 // -------------------- Timer System --------------------
 let progressRAF = 0;
 
@@ -30663,23 +30704,23 @@ function hideSplash() {
     if (realBpm && simpBpmSlider) simpBpmSlider.value = realBpm.value;
     if (realSwing && simpSwing) simpSwing.value = realSwing.value;
 
-    // Play/Stop
-    if (simpPlay && realPlay) {
+    // Play
+    if (simpPlay) {
       once(simpPlay, 'click', () => {
-        realPlay.dispatchEvent(
-          new MouseEvent('click', { bubbles: true, cancelable: true })
-        );
+        if (typeof togglePlay === 'function') {
+          togglePlay();
+        }
       }, 'simpPlay');
     }
-
-    if (simpStop && realStop) {
+    
+    // Stop
+    if (simpStop) {
       once(simpStop, 'click', () => {
-        realStop.dispatchEvent(
-          new MouseEvent('click', { bubbles: true, cancelable: true })
-        );
+        if (typeof stop === 'function') {
+          stop();
+        }
       }, 'simpStop');
     }
-
     
     // BPM number
     once(simpBpm, 'input', () => {
